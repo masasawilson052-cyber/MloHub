@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "scheme": "mlohub",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#fbfaf4"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mlohub.app"

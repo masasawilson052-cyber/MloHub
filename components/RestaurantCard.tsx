@@ -37,7 +37,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         {coverImage && (
           <Image
             source={{ uri: coverImage }}
-            style={[StyleSheet.absoluteFillObject, { opacity: 0.55 }]}
+            style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
             resizeMode="cover"
           />
         )}

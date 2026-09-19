@@ -16,6 +16,11 @@
   ],
   "exclude": [
     "node_modules",
-    "supabase/functions"
+    "supabase/**",
+    "supabase",
+    "tests/**",
+    "tests",
+    "scripts/**",
+    "scripts"
   ]
 }

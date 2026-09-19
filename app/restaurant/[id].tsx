@@ -252,7 +252,7 @@ export default function RestaurantDetailScreen() {
           {coverImage && (
             <Image
               source={{ uri: coverImage }}
-              style={[StyleSheet.absoluteFillObject, { opacity: 0.65 }]}
+              style={[StyleSheet.absoluteFill, { opacity: 0.65 }]}
               resizeMode="cover"
             />
           )}

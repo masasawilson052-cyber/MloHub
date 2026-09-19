@@ -67,7 +67,8 @@ export class ClickPesaGateway implements PaymentGateway {
 
     try {
       // Fallback for Node.js environments
-      const nodeCrypto = await import('crypto');
+      const cryptoMod = 'crypto';
+      const nodeCrypto: any = await import(cryptoMod as any);
       return nodeCrypto.createHmac('sha256', key).update(message).digest('hex');
     } catch {
       // Fallback pseudo-hash for offline tests if crypto module is unavailable

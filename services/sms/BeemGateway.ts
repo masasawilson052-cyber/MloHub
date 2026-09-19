@@ -1,6 +1,8 @@
 import { SmsGateway, SmsSendResult, SmsGatewayHealth } from './SmsGateway';
 import { normalizeTanzanianPhone } from '../../utils/phoneNormalization';
 
+declare const Buffer: any;
+
 function encodeBase64(str: string): string {
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(str).toString('base64');

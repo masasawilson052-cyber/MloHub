@@ -60,7 +60,7 @@ export const DishImage: React.FC<DishImageProps> = ({
           <Image
             source={{ uri }}
             style={[
-              StyleSheet.absoluteFillObject,
+              StyleSheet.absoluteFill,
               styles.image,
               { borderRadius },
               imageStyle,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   loaderContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(244, 246, 244, 0.6)',
