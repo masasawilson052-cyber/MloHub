@@ -6,6 +6,7 @@ export interface Translations {
   // Tabs
   tabHome: string;
   tabExplore: string;
+  tabOrders: string;
   tabCustom: string;
   tabBookings: string;
   tabAccount: string;
@@ -212,6 +213,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     // Tabs
     tabHome: 'Home',
     tabExplore: 'Explore',
+    tabOrders: 'Orders',
     tabCustom: 'Custom',
     tabBookings: 'Bookings',
     tabAccount: 'Account',
@@ -416,6 +418,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     // Tabs
     tabHome: 'Nyumbani',
     tabExplore: 'Gundua',
+    tabOrders: 'Oda',
     tabCustom: 'Mlo Maalum',
     tabBookings: 'Nafasi',
     tabAccount: 'Akaunti',

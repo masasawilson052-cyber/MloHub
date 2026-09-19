@@ -36,6 +36,7 @@ export const Colors = {
 
   // Food Action Accent: Restrained Coral / Paprika
   coralAccent: '#C8482A',
+  foodAction: '#C8482A',
   coralLight: '#FDF0ED',
   coralDark: '#A8371C',
   accent: '#C8482A',             // Mapped to food action accent

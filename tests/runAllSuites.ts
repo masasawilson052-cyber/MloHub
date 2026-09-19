@@ -41,6 +41,8 @@ import { runFinancialAuthorityTestSuite } from './financialAuthority.test';
 import { runReviewsTrustTestSuite } from './reviewsTrust.test';
 import { runNotificationsCommunicationTestSuite } from './notificationsCommunication.test';
 import { runRestaurantOperationsTestSuite } from './restaurantOperations.test';
+import { runDesignSystemV2Tests } from './designSystemV2.test';
+import { runPack5aCustomerTestSuite } from './pack5aCustomerExperience.test';
 
 
 let passed = 0;
@@ -712,6 +714,16 @@ async function runMasterTestSuite() {
   const restaurantOpsResults = await runRestaurantOperationsTestSuite();
   passed += restaurantOpsResults.passed;
   failed += restaurantOpsResults.failed;
+
+  // Pack 5A: Design System V2 & Customer Experience Tokens / Components
+  const designSystemV2Results = runDesignSystemV2Tests();
+  passed += designSystemV2Results.passed;
+  failed += designSystemV2Results.failed;
+
+  // Pack 5A: Customer Experience, Navigation Tab Lock & Zero Synthetic Rules
+  const pack5aCustomerResults = runPack5aCustomerTestSuite();
+  passed += pack5aCustomerResults.passed;
+  failed += pack5aCustomerResults.failed;
 
   // Final Results
   console.log('\n================================================================');

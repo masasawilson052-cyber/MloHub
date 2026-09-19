@@ -111,7 +111,7 @@ export default function AuthLandingScreen() {
             </View>
             <View style={styles.valueTextCol}>
               <Text style={styles.valueTitle}>
-                {language === 'sw' ? 'Uhakika wa Bei na Malipo' : 'Verified Pricing & Escrow'}
+                {language === 'sw' ? 'Uhakika wa Bei na Malipo' : 'Verified Pricing & Secure Checkout'}
               </Text>
               <Text style={styles.valueDesc}>
                 {language === 'sw'

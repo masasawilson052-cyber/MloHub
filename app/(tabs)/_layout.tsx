@@ -12,36 +12,37 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.subtle,
+        tabBarActiveTintColor: Colors.brandInk || Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted || Colors.subtle,
         tabBarStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.surface || Colors.white,
           borderTopColor: Colors.borderLight,
-          height: Platform.select({ ios: 88, default: 65 }),
+          height: Platform.select({ ios: 88, default: 68 }),
           paddingBottom: Platform.select({ ios: 28, default: 10 }),
           paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
+          letterSpacing: 0.2,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: t('tabHome'),
+          title: t('tabExplore'),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="orders"
         options={{
-          title: t('tabExplore'),
+          title: t('tabOrders'),
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'compass' : 'compass-outline'} size={22} color={color} />
+            <Ionicons name={focused ? 'receipt' : 'receipt-outline'} size={22} color={color} />
           ),
         }}
       />
@@ -70,6 +71,12 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
