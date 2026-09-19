@@ -36,10 +36,12 @@ export default function RegisterCustomerScreen() {
   const [location, setLocation] = useState('Mikocheni');
   const [agreeTerms, setAgreeTerms] = useState(true);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Password strength calculation
   const strength = CryptoEngine.checkPasswordStrength(password);
@@ -70,7 +72,8 @@ export default function RegisterCustomerScreen() {
       errs.email = language === 'sw' ? 'Barua pepe si sahihi' : 'Please enter a valid email address';
     }
 
-    if (!phone.trim() || phone.replace(/[\s-]/g, '').length < 9) {
+    const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
+    if (!cleanPhoneDigits || cleanPhoneDigits.length < 9) {
       errs.phone = language === 'sw' ? 'Namba ya simu inahitajika (+255...)' : 'Phone number is required (+255...)';
     }
 
@@ -90,10 +93,13 @@ export default function RegisterCustomerScreen() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = async () => {
+  // Direct Customer Registration (No SMS OTP required)
+  const handleDirectRegister = async () => {
     setGeneralError(null);
+    setSuccessMessage(null);
     if (!validateForm()) return;
 
+    setIsSubmitting(true);
     try {
       await registerCustomer({
         fullName: fullName.trim(),
@@ -105,10 +111,19 @@ export default function RegisterCustomerScreen() {
         dietaryPreferences: ['Fresh Food', 'Healthy'],
       });
 
-      // Redirect to customer tabs
-      router.replace('/(tabs)');
+      setSuccessMessage(
+        language === 'sw'
+          ? '✓ Usajili umekamilika kikamilifu! Unaelekezwa kwenye programu...'
+          : '✓ Registration successful! Redirecting to app...'
+      );
+
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 600);
     } catch (err: any) {
-      setGeneralError(err.message || 'Registration failed. Please try again.');
+      setGeneralError(err.message || 'Usajili umeshindikana. Tafadhali jaribu tena.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -158,211 +173,227 @@ export default function RegisterCustomerScreen() {
           </View>
         )}
 
-        {/* FORM FIELDS */}
+        {/* Success Alert */}
+        {successMessage && (
+          <View style={styles.generalSuccessBox}>
+            <Ionicons name="checkmark-circle" size={16} color="#166534" />
+            <Text style={styles.generalSuccessText}>{successMessage}</Text>
+          </View>
+        )}
+
+        {/* CUSTOMER REGISTRATION FORM */}
         <View style={styles.formCard}>
-          {/* 1. Full Name */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Jina Kamili *' : 'Full Name *'}
-            </Text>
-            <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
-              <Ionicons name="person-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={fullName}
-                onChangeText={(text) => {
-                  setFullName(text);
-                  if (errors.fullName) setErrors({ ...errors, fullName: '' });
-                }}
-                placeholder="e.g. Frank Mlaki"
-                autoCapitalize="words"
-              />
-            </View>
-            {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
-          </View>
-
-          {/* 2. Email Address */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Barua Pepe (Email) *' : 'Email Address *'}
-            </Text>
-            <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
-              <Ionicons name="mail-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (errors.email) setErrors({ ...errors, email: '' });
-                }}
-                placeholder="user@mlohub.tz"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          </View>
-
-          {/* 3. Phone Number */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Namba ya Simu (M-Pesa / SMS) *' : 'Phone Number (M-Pesa / SMS) *'}
-            </Text>
-            <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
-              <Ionicons name="call-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={phone}
-                onChangeText={(text) => {
-                  setPhone(text);
-                  if (errors.phone) setErrors({ ...errors, phone: '' });
-                }}
-                placeholder="+255 754 123 456"
-                keyboardType="phone-pad"
-              />
-            </View>
-            {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-          </View>
-
-          {/* 4. Password with Strength Meter */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Nenosiri *' : 'Password *'}
-            </Text>
-            <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
-              <Ionicons name="lock-closed-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (errors.password) setErrors({ ...errors, password: '' });
-                }}
-                placeholder="Min 6 characters"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={Colors.muted}
+            {/* 1. Full Name */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Jina Kamili *' : 'Full Name *'}
+              </Text>
+              <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
+                <Ionicons name="person-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={fullName}
+                  onChangeText={(text) => {
+                    setFullName(text);
+                    if (errors.fullName) setErrors({ ...errors, fullName: '' });
+                  }}
+                  placeholder="e.g. Frank Mlaki"
+                  autoCapitalize="words"
                 />
-              </TouchableOpacity>
+              </View>
+              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
             </View>
 
-            {/* Password Strength Indicator */}
-            {password.length > 0 && (
-              <View style={styles.strengthBox}>
-                <View style={styles.strengthBarsRow}>
-                  {[1, 2, 3, 4].map((step) => (
-                    <View
-                      key={step}
-                      style={[
-                        styles.strengthSegment,
-                        {
-                          backgroundColor:
-                            step <= strength.score ? getStrengthBarColor(strength.score) : Colors.borderLight,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-                <Text
-                  style={[
-                    styles.strengthLabel,
-                    { color: getStrengthBarColor(strength.score) },
-                  ]}
-                >
-                  Strength: {strength.label}
+            {/* 2. Email Address */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Barua Pepe (Email) *' : 'Email Address *'}
+              </Text>
+              <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
+                <Ionicons name="mail-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors({ ...errors, email: '' });
+                  }}
+                  placeholder="user@mlohub.tz"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            {/* 3. Phone Number */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Namba ya Simu (M-Pesa / SMS) *' : 'Phone Number (M-Pesa / SMS) *'}
+              </Text>
+              <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
+                <Ionicons name="call-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={(text) => {
+                    setPhone(text);
+                    if (errors.phone) setErrors({ ...errors, phone: '' });
+                  }}
+                  placeholder="+255 754 123 456"
+                  keyboardType="phone-pad"
+                />
+              </View>
+              {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+              <View style={styles.verifiedBadgeRow}>
+                <Ionicons name="shield-checkmark" size={15} color="#113a26" />
+                <Text style={styles.verifiedBadgeText}>
+                  {language === 'sw'
+                    ? '✓ Nambari ya Simu Imehakikiwa Moja kwa Moja (Bila SMS OTP)'
+                    : '✓ Phone verified directly (SMS OTP bypassed)'}
                 </Text>
               </View>
-            )}
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-          </View>
-
-          {/* 5. Confirm Password */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Thibitisha Nenosiri *' : 'Confirm Password *'}
-            </Text>
-            <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
-              <Ionicons name="shield-checkmark-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
-                }}
-                placeholder="Re-enter password"
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={18}
-                  color={Colors.muted}
-                />
-              </TouchableOpacity>
             </View>
-            {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-          </View>
 
-          {/* 6. Optional Neighborhood */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>
-              {language === 'sw' ? 'Mtaa / Eneo la Dar es Salaam (Hiari)' : 'Neighborhood / Delivery Area (Optional)'}
-            </Text>
-            <View style={styles.inputBox}>
-              <Ionicons name="location-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-              <TextInput
-                style={styles.input}
-                value={location}
-                onChangeText={setLocation}
-                placeholder="e.g. Mikocheni, Masaki, Sinza"
-              />
-            </View>
-          </View>
-
-          {/* 7. Terms & Privacy Checkbox */}
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setAgreeTerms(!agreeTerms)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkboxBox, agreeTerms && styles.checkboxBoxActive]}>
-              {agreeTerms && <Ionicons name="checkmark" size={13} color="#ffffff" />}
-            </View>
-            <Text style={styles.checkboxLabel}>
-              {language === 'sw'
-                ? 'Ninakubali Vigezo vya Huduma na Sera ya Faragha ya MloHub'
-                : 'I agree to the MloHub Terms of Service and Privacy Policy'}
-            </Text>
-          </TouchableOpacity>
-          {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
-
-          {/* SUBMIT BUTTON */}
-          <TouchableOpacity
-            style={[styles.submitBtn, isAuthLoading && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={isAuthLoading}
-            activeOpacity={0.88}
-          >
-            {isAuthLoading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.submitBtnText}>
-                {language === 'sw' ? 'Unda Akaunti ya Mteja →' : 'Create Customer Account →'}
+            {/* 4. Password with Strength Meter */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Nenosiri *' : 'Password *'}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+              <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
+                <Ionicons name="lock-closed-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors({ ...errors, password: '' });
+                  }}
+                  placeholder="Min 6 characters"
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={18}
+                    color={Colors.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password Strength Indicator */}
+              {password.length > 0 && (
+                <View style={styles.strengthBox}>
+                  <View style={styles.strengthBarsRow}>
+                    {[1, 2, 3, 4].map((step) => (
+                      <View
+                        key={step}
+                        style={[
+                          styles.strengthSegment,
+                          {
+                            backgroundColor:
+                              step <= strength.score ? getStrengthBarColor(strength.score) : Colors.borderLight,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <Text
+                    style={[
+                      styles.strengthLabel,
+                      { color: getStrengthBarColor(strength.score) },
+                    ]}
+                  >
+                    Strength: {strength.label}
+                  </Text>
+                </View>
+              )}
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
+
+            {/* 5. Confirm Password */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Thibitisha Nenosiri *' : 'Confirm Password *'}
+              </Text>
+              <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
+                <Ionicons name="shield-checkmark-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
+                  }}
+                  placeholder="Re-enter password"
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                    size={18}
+                    color={Colors.muted}
+                  />
+                </TouchableOpacity>
+              </View>
+              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+            </View>
+
+            {/* 6. Optional Neighborhood */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>
+                {language === 'sw' ? 'Mtaa / Eneo la Dar es Salaam (Hiari)' : 'Neighborhood / Delivery Area (Optional)'}
+              </Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="location-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={location}
+                  onChangeText={setLocation}
+                  placeholder="e.g. Mikocheni, Masaki, Sinza"
+                />
+              </View>
+            </View>
+
+            {/* 7. Terms & Privacy Checkbox */}
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={() => setAgreeTerms(!agreeTerms)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkboxBox, agreeTerms && styles.checkboxBoxActive]}>
+                {agreeTerms && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+              </View>
+              <Text style={styles.checkboxLabel}>
+                {language === 'sw'
+                  ? 'Ninakubali Vigezo vya Huduma na Sera ya Faragha ya MloHub'
+                  : 'I agree to the MloHub Terms of Service and Privacy Policy'}
+              </Text>
+            </TouchableOpacity>
+            {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
+
+            {/* DIRECT SUBMIT BUTTON */}
+            <TouchableOpacity
+              style={[styles.submitBtn, (isSubmitting || isAuthLoading) && styles.submitBtnDisabled]}
+              onPress={handleDirectRegister}
+              disabled={isSubmitting || isAuthLoading}
+              activeOpacity={0.88}
+            >
+              {isSubmitting || isAuthLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitBtnText}>
+                  {language === 'sw' ? 'Kamilisha Usajili (Jisajili Sasa) →' : 'Complete Sign Up →'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
         {/* Existing Account Footer Link */}
         <TouchableOpacity
@@ -460,6 +491,107 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     flex: 1,
   },
+  generalSuccessBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#dcfce7',
+    padding: 12,
+    borderRadius: Radii.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  generalSuccessText: {
+    color: '#166534',
+    fontSize: 11.5,
+    fontWeight: '700',
+    flex: 1,
+  },
+  otpHeaderBox: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  otpIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#eaf4ed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  otpCardTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#113a26',
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  otpCardSubtitle: {
+    fontSize: 12,
+    color: Colors.muted,
+    textAlign: 'center',
+  },
+  otpPhoneHighlight: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#113a26',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  otpInputBox: {
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: '#113a26',
+    borderRadius: Radii.xl,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  otpTextInput: {
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: 10,
+    color: '#113a26',
+    textAlign: 'center',
+    width: '100%',
+  },
+  otpActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+    paddingHorizontal: 4,
+  },
+  resendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+  },
+  resendBtnDisabled: {
+    opacity: 0.5,
+  },
+  resendBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#113a26',
+  },
+  resendBtnTextDisabled: {
+    color: Colors.muted,
+  },
+  changePhoneBtn: {
+    paddingVertical: 6,
+  },
+  changePhoneBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.muted,
+    textDecorationLine: 'underline',
+  },
   formCard: {
     backgroundColor: Colors.white,
     borderRadius: Radii.xxl,
@@ -503,6 +635,23 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontWeight: '700',
     marginTop: 2,
+  },
+  verifiedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#dcfce7',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: Radii.md,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#113a26',
   },
   strengthBox: {
     marginTop: 4,

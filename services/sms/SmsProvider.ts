@@ -1,14 +1,16 @@
 /**
- * MloHub SMS Provider Interface & Tanzanian Telecom Gateway Adapters
- * Supports: NextSMS, Beem Africa, Twilio, and Sandbox/Development Provider
+ * MloHub SMS Provider Interface & Gateway Adapters (Hardened Stage 8)
+ * Backward-compatible facade delegating directly to SmsFactory, NextSmsGateway,
+ * and BeemGateway. All EXPO_PUBLIC_ secret leaks have been permanently eliminated.
  */
 
-export interface SmsSendResult {
-  success: boolean;
-  messageId?: string;
-  provider: string;
-  error?: string;
-}
+import { SmsGateway, SmsSendResult as BaseSmsSendResult } from './SmsGateway';
+import { SmsFactory } from './SmsFactory';
+import { NextSmsGateway } from './NextSmsGateway';
+import { BeemGateway } from './BeemGateway';
+import { SandboxSmsGateway } from './SandboxSmsGateway';
+
+export type SmsSendResult = BaseSmsSendResult;
 
 export interface SmsProvider {
   name: string;
@@ -18,33 +20,21 @@ export interface SmsProvider {
 
 /**
  * 1. Sandbox / Development Provider
- * Securely logs transmission on backend server without exposing OTP to client
  */
 export class SandboxSmsProvider implements SmsProvider {
-  name = 'SANDBOX_SMS_PROVIDER';
+  public readonly name = 'SANDBOX_SMS_PROVIDER';
+  private gateway: SandboxSmsGateway;
+
+  constructor() {
+    this.gateway = SmsFactory.getSandbox();
+  }
 
   async sendOtp(phone: string, otp: string, purpose: string = 'Activation'): Promise<SmsSendResult> {
-    const formattedPhone = phone.replace(/[^0-9+]/g, '');
-    const timestamp = new Date().toISOString();
-    // Log server-side securely (in production, captured in secure server logs)
-    if (process.env.NODE_ENV !== 'production' || process.env.EXPO_PUBLIC_APP_ENV === 'sandbox') {
-      console.log(`[SECURE SMS SERVER LOG] [${timestamp}] [${purpose}] Destination: ${formattedPhone} | Code: [DELIVERED VIA CARRIER]`);
-    }
-    return {
-      success: true,
-      messageId: `msg_sandbox_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
-      provider: 'SANDBOX',
-    };
+    return this.gateway.sendOtp(phone, otp, purpose, 'sw');
   }
 
   async sendNotification(phone: string, message: string): Promise<SmsSendResult> {
-    const formattedPhone = phone.replace(/[^0-9+]/g, '');
-    console.log(`[SMS NOTIFICATION] Destination: ${formattedPhone} | Message: ${message}`);
-    return {
-      success: true,
-      messageId: `notif_sandbox_${Date.now()}`,
-      provider: 'SANDBOX',
-    };
+    return this.gateway.sendNotification(phone, message);
   }
 }
 
@@ -52,77 +42,53 @@ export class SandboxSmsProvider implements SmsProvider {
  * 2. NextSMS Tanzania Gateway Adapter
  */
 export class NextSmsProvider implements SmsProvider {
-  name = 'NEXTSMS_TANZANIA';
-  private username = process.env.NEXTSMS_USERNAME || '';
-  private password = process.env.NEXTSMS_PASSWORD || '';
-  private senderId = process.env.NEXTSMS_SENDER_ID || 'MLOHUB';
+  public readonly name = 'NEXTSMS_TANZANIA';
+  private gateway: NextSmsGateway;
+
+  constructor(username?: string, password?: string, senderId?: string) {
+    this.gateway = new NextSmsGateway(username, password, senderId);
+  }
 
   async sendOtp(phone: string, otp: string, purpose: string = 'Verification'): Promise<SmsSendResult> {
-    if (!this.username || !this.password) {
-      console.warn('[NextSMS] Credentials not configured in .env. Falling back to sandbox logging.');
-      return new SandboxSmsProvider().sendOtp(phone, otp, purpose);
-    }
-
-    try {
-      const cleanPhone = phone.replace(/[^0-9]/g, '');
-      const text = `Habari! Nambari yako ya siri ya MloHub (${purpose}) ni ${otp}. Inatumika kwa dakika 5 tu. Usitoe kwa mtu yeyote.`;
-
-      const response = await fetch('https://messaging-service.co.tz/api/sms/v1/text/single', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          from: this.senderId,
-          to: cleanPhone,
-          text,
-        }),
-      });
-
-      const data: any = await response.json();
-      if (response.ok && data?.messages?.[0]?.status?.groupId === 1) {
-        return {
-          success: true,
-          messageId: data.messages[0].messageId,
-          provider: 'NEXTSMS',
-        };
-      }
-
-      return {
-        success: false,
-        provider: 'NEXTSMS',
-        error: data?.messages?.[0]?.status?.description || 'SMS delivery failed',
-      };
-    } catch (e: any) {
-      return {
-        success: false,
-        provider: 'NEXTSMS',
-        error: e?.message || 'Network error connecting to NextSMS',
-      };
-    }
+    return this.gateway.sendOtp(phone, otp, purpose, 'sw');
   }
 
   async sendNotification(phone: string, message: string): Promise<SmsSendResult> {
-    if (!this.username || !this.password) {
-      return new SandboxSmsProvider().sendNotification(phone, message);
-    }
-    // Similar implementation
-    return { success: true, provider: 'NEXTSMS' };
+    return this.gateway.sendNotification(phone, message);
+  }
+}
+
+/**
+ * 3. Beem Africa SMS Gateway Adapter (Tanzania & East Africa)
+ */
+export class BeemSmsProvider implements SmsProvider {
+  public readonly name = 'BEEM_AFRICA';
+  private gateway: BeemGateway;
+
+  constructor(apiKey?: string, secretKey?: string, senderId?: string) {
+    this.gateway = new BeemGateway(apiKey, secretKey, senderId);
+  }
+
+  async sendOtp(phone: string, otp: string, purpose: string = 'Uthibitisho'): Promise<SmsSendResult> {
+    return this.gateway.sendOtp(phone, otp, purpose, 'sw');
+  }
+
+  async sendNotification(phone: string, message: string): Promise<SmsSendResult> {
+    return this.gateway.sendNotification(phone, message);
   }
 }
 
 /**
  * Active SMS Gateway Factory
+ * Strictly inspects backend variables. No EXPO_PUBLIC_ credentials ever read.
  */
 export const getSmsProvider = (): SmsProvider => {
-  const providerType = (process.env.SMS_PROVIDER || 'sandbox').toLowerCase();
-  switch (providerType) {
-    case 'nextsms':
-      return new NextSmsProvider();
-    case 'sandbox':
-    default:
-      return new SandboxSmsProvider();
+  const gateway = SmsFactory.getGateway();
+  if (gateway.name === 'BEEM_AFRICA') {
+    return new BeemSmsProvider();
   }
+  if (gateway.name === 'NEXTSMS') {
+    return new NextSmsProvider();
+  }
+  return new SandboxSmsProvider();
 };

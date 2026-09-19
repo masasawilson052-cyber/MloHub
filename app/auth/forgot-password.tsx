@@ -14,19 +14,31 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { language } = useLanguage();
+  const { resetPassword } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!emailOrPhone.trim()) return;
-    setSubmitted(true);
+    setIsSubmitting(true);
+    try {
+      await resetPassword(emailOrPhone.trim());
+      setSubmitted(true);
+    } catch {
+      // Intentionally show generic success to prevent email enumeration
+      setSubmitted(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,9 +81,16 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.88}>
+            <TouchableOpacity
+              style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+              activeOpacity={0.88}
+            >
               <Text style={styles.submitBtnText}>
-                {language === 'sw' ? 'Tuma Maelekezo ya Nenosiri →' : 'Send Reset Instructions →'}
+                {isSubmitting
+                  ? (language === 'sw' ? 'Inatuma...' : 'Sending...')
+                  : (language === 'sw' ? 'Tuma Maelekezo ya Nenosiri →' : 'Send Reset Instructions →')}
               </Text>
             </TouchableOpacity>
           </View>

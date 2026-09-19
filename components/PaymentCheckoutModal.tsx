@@ -9,16 +9,17 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { useMloHubDB } from '../context/DbContext';
 import {
-  PaymentGatewayService,
+  PaymentApi,
   PaymentInitiationResult,
-  ClickPesaWebhookPayload,
-} from '../services/PaymentGatewayService';
+} from '../services/api/PaymentApi';
 import {
   PaymentMethodCode,
   PaymentType,
@@ -60,19 +61,21 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
+  const { restaurants } = useMloHubDB();
+  const currentRestaurant = restaurants.find((r) => r.id === restaurantId);
 
   // Payment Options State
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode>('MPESA');
   const [depositOption, setDepositOption] = useState<'deposit_50' | 'full_100'>('deposit_50');
-  const [payerPhone, setPayerPhone] = useState(user?.phone || '+255 754 123 456');
+  const [payerPhone, setPayerPhone] = useState(user?.phone || '');
 
   // Checkout Processing States
   const [isProcessing, setIsProcessing] = useState(false);
   const [initiationResult, setInitiationResult] = useState<PaymentInitiationResult | null>(null);
   const [showUssdPrompt, setShowUssdPrompt] = useState(false);
-  const [pinInput, setPinInput] = useState('••••');
-  const [isWebhookSimulating, setIsWebhookSimulating] = useState(false);
+  const [countdownSeconds, setCountdownSeconds] = useState(120);
   const [paymentSuccessData, setPaymentSuccessData] = useState<PaymentTransactionEntity | null>(null);
+  const [gatewayError, setGatewayError] = useState<string | null>(null);
 
   // Auto-fill phone when user changes
   useEffect(() => {
@@ -80,6 +83,70 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       setPayerPhone(user.phone);
     }
   }, [user?.phone]);
+
+  // Real-time status polling & AppState listener during USSD prompt
+  useEffect(() => {
+    let timer: any = null;
+    let pollInterval: any = null;
+
+    if (showUssdPrompt && initiationResult?.paymentId) {
+      setCountdownSeconds(120);
+      setGatewayError(null);
+
+      timer = setInterval(() => {
+        setCountdownSeconds((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Status polling every 3.5s
+      pollInterval = setInterval(async () => {
+        if (!initiationResult?.paymentId) return;
+        try {
+          const payment = await PaymentApi.getPaymentStatus(initiationResult.paymentId);
+          if (payment?.status === 'PAID') {
+            clearInterval(pollInterval);
+            clearInterval(timer);
+            setShowUssdPrompt(false);
+            setPaymentSuccessData(payment);
+            onPaymentSuccess(payment);
+          } else if (payment?.status === 'FAILED') {
+            clearInterval(pollInterval);
+            clearInterval(timer);
+            setGatewayError(payment.failureReason || 'Malipo yamekataliwa.');
+          }
+        } catch {
+          // Polling retry
+        }
+      }, 3500);
+
+      // Instant status check on app resume (when returning from telecom popup)
+      const sub = AppState.addEventListener('change', async (nextState) => {
+        if (nextState === 'active' && initiationResult?.paymentId) {
+          try {
+            const payment = await PaymentApi.getPaymentStatus(initiationResult.paymentId);
+            if (payment?.status === 'PAID') {
+              clearInterval(pollInterval);
+              clearInterval(timer);
+              setShowUssdPrompt(false);
+              setPaymentSuccessData(payment);
+              onPaymentSuccess(payment);
+            }
+          } catch {}
+        }
+      });
+
+      return () => {
+        if (timer) clearInterval(timer);
+        if (pollInterval) clearInterval(pollInterval);
+        sub.remove();
+      };
+    }
+  }, [showUssdPrompt, initiationResult?.paymentId]);
 
   if (!visible) return null;
 
@@ -118,94 +185,64 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       : []),
   ];
 
-  // 1. Handle Initiate ClickPesa Payment
+  // 1. Handle Initiate Payment
   const handleInitiatePayment = async () => {
     try {
+      if (!user?.id) {
+        setGatewayError(
+          language === 'sw'
+            ? 'Tafadhali ingia kwenye akaunti kabla ya kulipa.'
+            : 'Please sign in before making a payment.'
+        );
+        return;
+      }
+
+      if (selectedMethod !== 'CARD' && !payerPhone.trim()) {
+        setGatewayError(
+          language === 'sw'
+            ? 'Tafadhali weka nambari ya simu ya malipo.'
+            : 'Please enter your mobile money phone number.'
+        );
+        return;
+      }
+
+      if (selectedMethod === 'CASH_ON_DELIVERY') {
+        setGatewayError(
+          language === 'sw'
+            ? 'Malipo taslimu yatashughulikiwa kama oda ya Cash on Delivery, si malipo ya mtandaoni.'
+            : 'Cash on Delivery must be handled as an order option, not as an online payment.'
+        );
+        return;
+      }
+
       setIsProcessing(true);
-      const res = await PaymentGatewayService.initiatePayment({
-        userId: user?.id || 'usr-frank',
+      setGatewayError(null);
+
+      const res = await PaymentApi.createPayment({
         orderId,
         reservationId,
-        restaurantId,
-        restaurantName,
-        amountTzs: subtotal,
-        deliveryFee: currentDelivery,
-        serviceFee: currentServiceFee,
-        discount: 0,
-        provider: 'CLICKPESA',
         methodCode: selectedMethod,
         paymentType,
         payerPhone,
+        idempotencyKey: `${user.id}:${orderId || reservationId}:${selectedMethod}`,
       });
 
       setInitiationResult(res);
-      setIsProcessing(false);
 
-      if (selectedMethod === 'CASH_ON_DELIVERY') {
-        // Direct cash order confirmation
-        const cashPayment: PaymentTransactionEntity = {
-          id: res.paymentId,
-          userId: user?.id || 'usr-frank',
-          orderId,
-          restaurantId,
-          restaurantName,
-          provider: 'CASH',
-          providerReference: res.providerReference,
-          amountTzs: payableAmount,
-          currency: 'TZS',
-          paymentMethod: 'Cash on Delivery',
-          methodCode: 'CASH_ON_DELIVERY',
-          status: 'PAID',
-          paymentType: 'ORDER_FULL',
-          payerPhone,
-          createdAt: new Date().toISOString(),
-        };
-        setPaymentSuccessData(cashPayment);
-        onPaymentSuccess(cashPayment);
-      } else {
-        // Show USSD Push prompt simulation overlay
-        setShowUssdPrompt(true);
+      if (!res.success) {
+        setGatewayError(
+          res.error || 'Unable to initiate payment.'
+        );
+        return;
       }
-    } catch (e) {
+
+      setShowUssdPrompt(true);
+    } catch (error: any) {
+      setGatewayError(
+        error?.message || 'Payment initiation failed.'
+      );
+    } finally {
       setIsProcessing(false);
-      console.error('Payment initiation error', e);
-    }
-  };
-
-  // 2. Simulate User entering PIN on phone -> ClickPesa webhook confirmed
-  const handleAuthorizeUssdPayment = async () => {
-    if (!initiationResult) return;
-    try {
-      setIsWebhookSimulating(true);
-
-      // Construct ClickPesa verified webhook payload
-      const webhookPayload: ClickPesaWebhookPayload = {
-        eventId: `cp_evt_${Date.now()}`,
-        eventType: 'payment.success',
-        providerReference: initiationResult.providerReference,
-        paymentId: initiationResult.paymentId,
-        orderId,
-        reservationId,
-        amount: initiationResult.paidAmountTzs,
-        currency: 'TZS',
-        method: selectedMethod,
-        payerPhone,
-        channel: 'USSD_PUSH',
-        timestamp: new Date().toISOString(),
-      };
-
-      const webhookResponse = await PaymentGatewayService.processWebhook(webhookPayload, 'mlohub_cp_sec_993847291048_prod');
-
-      setIsWebhookSimulating(false);
-      setShowUssdPrompt(false);
-
-      if (webhookResponse.success && webhookResponse.payment) {
-        setPaymentSuccessData(webhookResponse.payment);
-        onPaymentSuccess(webhookResponse.payment);
-      }
-    } catch (e) {
-      setIsWebhookSimulating(false);
-      console.error('Webhook error', e);
     }
   };
 
@@ -213,6 +250,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
     setShowUssdPrompt(false);
     setInitiationResult(null);
     setPaymentSuccessData(null);
+    setGatewayError(null);
     onClose();
   };
 
@@ -343,6 +381,32 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 </View>
               )}
 
+              {/* RESTAURANT LIPA NAMBA NOTICE */}
+              {((currentRestaurant?.lipaNumbers && currentRestaurant.lipaNumbers.length > 0) || currentRestaurant?.lipaNumber) && (
+                <View style={{ marginBottom: 12, padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="storefront" size={16} color="#15803d" />
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#166534' }}>
+                      🏪 Lipa Namba za Mgahawa Huu:
+                    </Text>
+                  </View>
+                  {currentRestaurant?.lipaNumbers && currentRestaurant.lipaNumbers.length > 0 ? (
+                    currentRestaurant.lipaNumbers.map((l, idx) => (
+                      <Text key={idx} style={{ fontSize: 11.5, color: '#15803d', fontWeight: '700' }}>
+                        • {l.provider}: <Text style={{ fontWeight: '900', color: '#0f172a' }}>{l.number}</Text>
+                      </Text>
+                    ))
+                  ) : (
+                    <Text style={{ fontSize: 11.5, color: '#15803d', fontWeight: '700' }}>
+                      • {currentRestaurant?.lipaProvider || 'Till'}: <Text style={{ fontWeight: '900', color: '#0f172a' }}>{currentRestaurant?.lipaNumber}</Text>
+                    </Text>
+                  )}
+                  <Text style={{ fontSize: 10, color: '#166534', marginTop: 2 }}>
+                    Unaweza kulipia pia moja kwa moja kupitia Lipa Namba yoyote hapo juu.
+                  </Text>
+                </View>
+              )}
+
               {/* 3. PAYMENT METHOD SELECTOR (TANZANIA MOBILE MONEY & CARD) */}
               <View style={styles.methodsSection}>
                 <Text style={styles.sectionHeading}>
@@ -392,7 +456,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                       style={styles.phoneInput}
                       value={payerPhone.replace('+255', '').trim()}
                       onChangeText={(val) => setPayerPhone(`+255 ${val.trim()}`)}
-                      placeholder="754 123 456"
+                      placeholder="7XXXXXXXX"
                       keyboardType="phone-pad"
                     />
                   </View>
@@ -419,7 +483,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                     <Text style={styles.payBtnText}>
                       {language === 'sw'
                         ? `Lipa TZS ${payableAmount.toLocaleString()} ${selectedMethod === 'CASH_ON_DELIVERY' ? 'kwa Fedha Taslimu' : 'Sasa'} →`
-                        : `Pay TZS ${payableAmount.toLocaleString()} via ${PaymentGatewayService.getCarrierInfo(selectedMethod).name} →`}
+                        : `Pay TZS ${payableAmount.toLocaleString()} via ${(paymentMethods.find((m) => m.code === selectedMethod)?.name || selectedMethod)} →`}
                     </Text>
                   </>
                 )}
@@ -471,50 +535,78 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
             </View>
           )}
 
-          {/* SIMULATED USSD PUSH PROMPT OVERLAY */}
-          {showUssdPrompt && initiationResult?.simulatedUssdPrompt && (
+          {/* AUTHENTIC MOBILE MONEY USSD PUSH SCREEN */}
+          {showUssdPrompt && initiationResult && (
             <View style={styles.ussdOverlay}>
               <View style={styles.ussdDialog}>
                 <View style={styles.ussdHeader}>
-                  <Text style={styles.ussdCarrierTitle}>
-                    📲 {initiationResult.simulatedUssdPrompt.carrierName} USSD Push
-                  </Text>
-                  <Text style={styles.ussdCodeTag}>{initiationResult.simulatedUssdPrompt.ussdString}</Text>
+                  <View style={styles.ussdCarrierIconBox}>
+                    <Ionicons name="phone-portrait" size={24} color="#10b981" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.ussdCarrierTitle}>
+                      {language === 'sw' ? 'Angalia Simu Yako' : 'Check Your Phone'}
+                    </Text>
+                    <Text style={styles.ussdCodeTag}>
+                      {initiationResult.carrierName} • {initiationResult.ussdCode}
+                    </Text>
+                  </View>
+                  <View style={styles.countdownBadge}>
+                    <Text style={styles.countdownText}>{countdownSeconds}s</Text>
+                  </View>
                 </View>
 
                 <Text style={styles.ussdMessage}>
-                  {initiationResult.simulatedUssdPrompt.promptMessage}
+                  {language === 'sw'
+                    ? `Ombi la malipo la TZS ${initiationResult.amountTzs.toLocaleString()} limetumwa kwenda ${payerPhone}. Tafadhali weka PIN yako ya ${initiationResult.carrierName} kwenye simu yako kukamilisha.`
+                    : `A payment prompt of TZS ${initiationResult.amountTzs.toLocaleString()} was sent to ${payerPhone}. Please enter your ${initiationResult.carrierName} PIN on your phone to complete.`}
                 </Text>
 
-                <View style={styles.pinBox}>
-                  <Text style={styles.pinLabel}>Enter PIN:</Text>
-                  <TextInput
-                    style={styles.pinInput}
-                    secureTextEntry
-                    maxLength={4}
-                    value={pinInput}
-                    onChangeText={setPinInput}
-                  />
+                {/* Security Trust Notice */}
+                <View style={styles.securityNoticeBox}>
+                  <Ionicons name="shield-checkmark" size={16} color="#10b981" />
+                  <Text style={styles.securityNoticeText}>
+                    {language === 'sw'
+                      ? 'Usalama wa Mteja: MloHub haitakuomba au kuhifadhi PIN yako ya mtandao wa simu ndani ya app. Weka PIN tu kwenye ujumbe rasmi wa mtandao wako.'
+                      : 'Customer Security: MloHub will never ask for or store your mobile money PIN in the app. Enter your PIN exclusively on your telecom prompt.'}
+                  </Text>
                 </View>
+
+                {/* USSD Fallback Notice */}
+                <View style={styles.fallbackNoticeBox}>
+                  <Ionicons name="help-circle-outline" size={15} color="#94a3b8" />
+                  <Text style={styles.fallbackNoticeText}>
+                    {language === 'sw'
+                      ? `Hukuona ujumbe? Piga ${initiationResult.ussdCode} kwenye simu yako kukamilisha malipo.`
+                      : `Didn't see the prompt? Dial ${initiationResult.ussdCode} on your phone to approve.`}
+                  </Text>
+                </View>
+
+                {/* Real-time Waiting Spinner */}
+                <View style={styles.waitingContainer}>
+                  <ActivityIndicator size="small" color="#10b981" />
+                  <Text style={styles.waitingText}>
+                    {language === 'sw'
+                      ? 'Inasubiri uthibitisho wa mtandao wa simu...'
+                      : 'Waiting for mobile carrier confirmation...'}
+                  </Text>
+                </View>
+
+                {gatewayError && (
+                  <View style={styles.errorAlert}>
+                    <Ionicons name="alert-circle" size={16} color="#ef4444" />
+                    <Text style={styles.errorAlertText}>{gatewayError}</Text>
+                  </View>
+                )}
 
                 <View style={styles.ussdActions}>
                   <TouchableOpacity
                     style={styles.ussdCancelBtn}
                     onPress={() => setShowUssdPrompt(false)}
                   >
-                    <Text style={styles.ussdCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.ussdConfirmBtn}
-                    onPress={handleAuthorizeUssdPayment}
-                    disabled={isWebhookSimulating}
-                  >
-                    {isWebhookSimulating ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.ussdConfirmText}>Authorize Payment →</Text>
-                    )}
+                    <Text style={styles.ussdCancelText}>
+                      {language === 'sw' ? 'Funga Dirisha' : 'Cancel & Close'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -860,59 +952,141 @@ const styles = StyleSheet.create({
   },
   ussdHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  ussdCarrierIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: Radii.md,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ussdCarrierTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: '#f8fafc',
   },
   ussdCodeTag: {
-    backgroundColor: '#334155',
     color: '#94a3b8',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radii.sm,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  countdownBadge: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  countdownText: {
+    color: '#10b981',
+    fontWeight: '800',
+    fontSize: 13,
   },
   ussdMessage: {
     fontSize: 13,
     color: '#cbd5e1',
     lineHeight: 18,
   },
-  pinBox: {
+  securityNoticeBox: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: Radii.md,
+    padding: 10,
+    gap: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#10b981',
+  },
+  securityNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#86efac',
+    lineHeight: 15,
+  },
+  fallbackNoticeBox: {
+    flexDirection: 'row',
     backgroundColor: '#0f172a',
     borderRadius: Radii.md,
     padding: 10,
+    gap: 8,
+    alignItems: 'center',
+  },
+  fallbackNoticeText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: 15,
+  },
+  waitingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pinLabel: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  pinInput: {
-    backgroundColor: '#334155',
-    color: '#ffffff',
-    borderRadius: Radii.sm,
+    justifyContent: 'center',
+    gap: 8,
     paddingVertical: 4,
-    paddingHorizontal: 10,
-    fontSize: 14,
-    fontWeight: '800',
-    width: 80,
-    textAlign: 'center',
+  },
+  waitingText: {
+    fontSize: 12,
+    color: '#10b981',
+    fontWeight: '600',
+  },
+  errorAlert: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: Radii.md,
+    padding: 10,
+    gap: 8,
+    alignItems: 'center',
+  },
+  errorAlertText: {
+    flex: 1,
+    fontSize: 11.5,
+    color: '#f87171',
+  },
+  sandboxBar: {
+    backgroundColor: '#0f172a',
+    borderRadius: Radii.md,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    gap: 8,
+  },
+  sandboxBarLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#e2e8f0',
+  },
+  sandboxBtnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sandboxApproveBtn: {
+    flex: 1,
+    backgroundColor: '#059669',
+    borderRadius: Radii.sm,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sandboxRejectBtn: {
+    flex: 1,
+    backgroundColor: '#b91c1c',
+    borderRadius: Radii.sm,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sandboxBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   ussdActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
+    marginTop: 4,
   },
   ussdCancelBtn: {
-    flex: 1,
     paddingVertical: 10,
     borderRadius: Radii.md,
     backgroundColor: '#334155',
@@ -922,17 +1096,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#94a3b8',
-  },
-  ussdConfirmBtn: {
-    flex: 2,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-    backgroundColor: '#10b981',
-    alignItems: 'center',
-  },
-  ussdConfirmText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ffffff',
   },
 });

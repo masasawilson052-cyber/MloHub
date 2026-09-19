@@ -1,0 +1,114 @@
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { Reservation } from '../types/domain';
+
+export class ReservationRepository {
+  private static mapRowToReservation(row: any): Reservation {
+    return {
+      id: row.id,
+      customerId: row.user_id,
+      restaurantId: row.restaurant_id,
+      restaurantName: row.restaurants?.name,
+      branchId: row.branch_id,
+      partySize: row.party_size,
+      reservationDate: row.reservation_date,
+      reservationTime: row.reservation_time,
+      status: row.status || 'CONFIRMED',
+      customerNote: row.special_requests,
+      depositOption: row.deposit_amount_tzs && row.deposit_amount_tzs > 0 ? 'deposit_50' : 'full_100',
+      depositAmountTzs: row.deposit_amount_tzs || 0,
+      isDepositPaid: row.is_deposit_paid ?? false,
+      createdAt: row.created_at || new Date().toISOString(),
+      updatedAt: row.updated_at || new Date().toISOString(),
+    };
+  }
+
+  public static async create(res: Partial<Reservation>): Promise<Reservation> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const row = {
+      id: res.id || `res_${Date.now()}`,
+      user_id: res.customerId,
+      restaurant_id: res.restaurantId,
+      branch_id: res.branchId,
+      party_size: res.partySize || 2,
+      reservation_date: res.reservationDate || new Date().toISOString().split('T')[0],
+      reservation_time: res.reservationTime || '07:30 PM',
+      status: res.status || 'CONFIRMED',
+      deposit_amount_tzs: res.depositAmountTzs || 0,
+      is_deposit_paid: res.isDepositPaid ?? false,
+      special_requests: res.customerNote,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('reservations')
+      .insert(row)
+      .select('*, restaurants(name)')
+      .single();
+
+    if (error) {
+      console.error('ReservationRepository.create error:', error.message);
+      throw new Error(`Failed to create reservation: ${error.message}`);
+    }
+
+    return this.mapRowToReservation(data);
+  }
+
+  public static async listByCustomer(customerId: string): Promise<Reservation[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*, restaurants(name)')
+      .eq('user_id', customerId)
+      .order('reservation_date', { ascending: false });
+
+    if (error) {
+      console.error(`ReservationRepository.listByCustomer error:`, error.message);
+      throw new Error(`Failed to list customer reservations: ${error.message}`);
+    }
+
+    return (data || []).map(this.mapRowToReservation);
+  }
+
+  public static async listByRestaurant(restaurantId: string): Promise<Reservation[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('reservations')
+      .select('*, restaurants(name)')
+      .eq('restaurant_id', restaurantId)
+      .order('reservation_date', { ascending: false });
+
+    if (error) {
+      console.error(`ReservationRepository.listByRestaurant error:`, error.message);
+      throw new Error(`Failed to list restaurant reservations: ${error.message}`);
+    }
+
+    return (data || []).map(this.mapRowToReservation);
+  }
+
+  public static async cancel(id: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { error } = await supabase
+      .from('reservations')
+      .update({
+        status: 'CANCELLED',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error(`ReservationRepository.cancel(${id}) error:`, error.message);
+      throw new Error(`Failed to cancel reservation: ${error.message}`);
+    }
+
+    return true;
+  }
+}
+

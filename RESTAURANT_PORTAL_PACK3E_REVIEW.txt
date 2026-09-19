@@ -1,0 +1,1259 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  useWindowDimensions,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+
+import { Colors } from '../../theme/colors';
+import { Spacing } from '../../theme/spacing';
+import { Radii } from '../../theme/radius';
+import { Shadows } from '../../theme/shadows';
+import { useLanguage } from '../../context/LanguageContext';
+import { useMloHubDB } from '../../context/DbContext';
+import { useAuth } from '../../context/AuthContext';
+import { OrderPipelineService } from '../../services/OrderPipelineService';
+import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
+import { RealtimeService } from '../../services/RealtimeService';
+import { RestaurantEntity } from '../../db/types';
+import { MloHubDB } from '../../db';
+import { resolvePortalAccess, selectRestaurantOrders } from '../../db/auth/guards';
+import { RestaurantRole } from '../../types/auth';
+import {
+  Order,
+  OrderStatus,
+  MenuItem,
+  MenuCategory,
+  Reservation,
+  ReservationStatus,
+} from '../../types/domain';
+
+import {
+  RestaurantPortalHeader,
+  RealtimeStatus,
+  RestaurantSidebar,
+  RestaurantMobileNav,
+  RestaurantTab,
+  RESTAURANT_NAV_ITEMS,
+  DashboardOverview,
+  DashboardMetrics,
+  AttentionAlert,
+  IncomingOrdersPanel,
+  KitchenBoard,
+  MenuManager,
+  MenuItemEditor,
+  BranchPriceOverride,
+  CategoryManager,
+  ReservationManager,
+  EarningsOverview,
+  EarningsRecord,
+  ReviewsPanel,
+  AnalyticsPanel,
+  DiscoveryAnalyticsData,
+  StaffManager,
+  StaffMember,
+  RestaurantSettings,
+  OperatingOverride,
+} from '../../components/restaurant';
+
+export default function RestaurantPortalScreen() {
+  const router = useRouter();
+  const {
+    user: authUser,
+    isAuthLoading,
+    memberships,
+    activeRestaurant: authActiveRestaurant,
+    activeWorkspace,
+    switchWorkspace,
+  } = useAuth();
+  const { isReady, restaurants } = useMloHubDB();
+
+  const access = resolvePortalAccess({
+    isAuthLoading,
+    isReady,
+    user: authUser,
+    memberships,
+    restaurants,
+    activeRestaurant: authActiveRestaurant,
+    activeWorkspace,
+  });
+
+  if (access.status === 'LOADING') {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={styles.gateSubtitle}>Inapakia mfumo wa mgahawa...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (access.status === 'UNAUTHENTICATED') {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <View style={styles.gateCard}>
+          <Ionicons name="lock-closed-outline" size={54} color={Colors.primary} />
+          <Text style={styles.gateTitle}>Kuingia Kunahitajika</Text>
+          <Text style={styles.gateSubtitle}>
+            Unatakiwa kuingia kwenye akaunti yako ya mgahawa ili kufikia ukurasa huu.
+          </Text>
+          <TouchableOpacity
+            style={styles.gatePrimaryBtn}
+            onPress={() => router.replace('/auth')}
+          >
+            <Text style={styles.gatePrimaryBtnText}>Ingia / Jisajili</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateSecondaryBtn}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.gateSecondaryBtnText}>Rudi Mwanzo</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (access.status === 'DENIED') {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <View style={styles.gateCard}>
+          <Ionicons name="shield-outline" size={54} color="#ef4444" />
+          <Text style={styles.gateTitle}>Hakuna Idhini</Text>
+          <Text style={styles.gateSubtitle}>
+            Akaunti hii imesajiliwa kama mteja pekee. Ukurasa huu ni wa wamiliki na wasimamizi wa migahawa pekee.
+          </Text>
+          <TouchableOpacity
+            style={styles.gatePrimaryBtn}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.gatePrimaryBtnText}>Rudi Nyumbani</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateSecondaryBtn}
+            onPress={() => router.replace('/(tabs)/profile')}
+          >
+            <Text style={styles.gateSecondaryBtnText}>Tazama Profaili Yangu</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (access.status === 'CUSTOMER_WORKSPACE') {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <View style={styles.gateCard}>
+          <Ionicons name="storefront-outline" size={54} color={Colors.primary} />
+          <Text style={styles.gateTitle}>Mazingira ya Mteja</Text>
+          <Text style={styles.gateSubtitle}>
+            Kwa sasa upo kwenye akaunti ya mteja. Ili kuona na kusimamia jikoni, badilisha mazingira yako kuwa ya usimamizi wa mgahawa.
+          </Text>
+          {(access.availableRestaurants || []).map((r) => (
+            <TouchableOpacity
+              key={r.id}
+              style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
+              onPress={async () => {
+                try {
+                  await switchWorkspace('RESTAURANT_OWNER', r.id);
+                } catch (e: any) {
+                  Alert.alert('Hitilafu', e?.message || 'Imeshindikana kubadili mazingira.');
+                }
+              }}
+            >
+              <Text style={styles.gatePrimaryBtnText}>Simamia {r.name}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={styles.gateSecondaryBtn}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (access.status === 'AWAITING_ASSIGNMENT' || !access.restaurant) {
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <View style={styles.gateCard}>
+          <Ionicons name="restaurant-outline" size={54} color={Colors.primary} />
+          <Text style={styles.gateTitle}>Inasubiri Kuunganishwa na Mgahawa</Text>
+          <Text style={styles.gateSubtitle}>
+            Akaunti yako haijaunganishwa na mgahawa wowote uliothibitishwa bado. Wasiliana na msimamizi au sajili mgahawa wako.
+          </Text>
+          <TouchableOpacity
+            style={styles.gatePrimaryBtn}
+            onPress={() => router.replace('/auth/register-restaurant')}
+          >
+            <Text style={styles.gatePrimaryBtnText}>Sajili Mgahawa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateSecondaryBtn}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <RestaurantPortalContent
+      key={access.restaurant.id}
+      activeRestaurant={access.restaurant}
+    />
+  );
+}
+
+function RestaurantPortalContent({ activeRestaurant }: { activeRestaurant: RestaurantEntity }) {
+  const router = useRouter();
+  const { language } = useLanguage();
+  const { user: authUser, memberships, logout } = useAuth();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width > 900;
+
+  const {
+    customOrders,
+    refreshState,
+  } = useMloHubDB();
+
+  // 1. Determine User Role for this Restaurant
+  const userMembership = useMemo(() => {
+    return (memberships || []).find((m: any) => m.restaurantId === activeRestaurant.id);
+  }, [memberships, activeRestaurant.id]);
+
+  const userRole: RestaurantRole = useMemo(() => {
+    if (userMembership?.role) return userMembership.role as RestaurantRole;
+    if (activeRestaurant.ownerId && authUser?.id && activeRestaurant.ownerId === authUser.id) {
+      return 'OWNER';
+    }
+    return 'OWNER';
+  }, [userMembership, activeRestaurant.ownerId, authUser?.id]);
+
+  // 2. Determine Allowed Tabs
+  const allowedTabs = useMemo(() => {
+    return RESTAURANT_NAV_ITEMS.filter((item) => item.allowedRoles.includes(userRole)).map((item) => item.id);
+  }, [userRole]);
+
+  // 3. Navigation State
+  const initialTab: RestaurantTab = allowedTabs.includes('overview')
+    ? 'overview'
+    : allowedTabs.includes('kitchen')
+    ? 'kitchen'
+    : allowedTabs[0] || 'orders';
+
+  const [activeTab, setActiveTab] = useState<RestaurantTab>(initialTab);
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('LIVE');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // 4. Multi-Branch State
+  const branches = useMemo(() => {
+    const restBranches = (activeRestaurant as any).branches;
+    if (restBranches && restBranches.length > 0) {
+      return restBranches.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        address: b.address,
+        phone: b.phone,
+        isActive: b.isActive,
+      }));
+    }
+    return [
+      {
+        id: `${activeRestaurant.id}-main`,
+        name: `${activeRestaurant.name} - Main Branch`,
+        address: activeRestaurant.address || 'Dar es Salaam',
+        phone: activeRestaurant.phone || '+255 700 000 000',
+        isActive: true,
+      },
+    ];
+  }, [activeRestaurant]);
+
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(branches[0]?.id || '');
+
+  // 5. Menu Modals State
+  const [isEditorVisible, setIsEditorVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [isCategoryManagerVisible, setIsCategoryManagerVisible] = useState(false);
+
+  // 6. Realtime Listener
+  useEffect(() => {
+    let isMounted = true;
+
+    const handleRealtimeEvent = () => {
+      if (isMounted) {
+        try {
+          refreshState();
+        } catch {}
+      }
+    };
+
+    const unsubscribeStatus = RealtimeService.onStatusChange((status) => {
+      if (isMounted) {
+        setRealtimeStatus(status.state === 'LIVE' ? 'LIVE' : 'OFFLINE');
+      }
+    });
+
+    const unsubscribeResync = RealtimeService.registerResyncCallback(`rest_portal_${activeRestaurant.id}`, () => {
+      if (isMounted) {
+        refreshState();
+      }
+    });
+
+    const unsubscribeOrders = RealtimeEventEngine.subscribe('orders:*', handleRealtimeEvent);
+    const unsubscribeRestaurant = RealtimeEventEngine.subscribe(`orders:restaurant:${activeRestaurant.id}`, handleRealtimeEvent);
+    const unsubscribeMenu = RealtimeEventEngine.subscribe('menu:updated', handleRealtimeEvent);
+    const unsubscribeReservations = RealtimeService.subscribeToReservations(activeRestaurant.id, () => handleRealtimeEvent());
+    const unsubscribeCustomMeals = RealtimeService.subscribeToCustomMeals(activeRestaurant.id, () => handleRealtimeEvent());
+
+    return () => {
+      isMounted = false;
+      unsubscribeStatus();
+      unsubscribeResync();
+      unsubscribeOrders();
+      unsubscribeRestaurant();
+      unsubscribeMenu();
+      unsubscribeReservations();
+      unsubscribeCustomMeals();
+    };
+  }, [activeRestaurant.id, refreshState]);
+
+  // 7. Orders Data Mapping
+  const rawOrders = selectRestaurantOrders(customOrders, activeRestaurant.id);
+
+  const domainOrders: Order[] = useMemo(() => {
+    return rawOrders.map((ro) => {
+      let mappedStatus: OrderStatus = 'PENDING';
+      const s = ro.status as string;
+      if (s === 'Pending Confirmation' || s === 'PENDING') mappedStatus = 'PENDING';
+      else if (s === 'Confirmed' || s === 'ACCEPTED') mappedStatus = 'ACCEPTED';
+      else if (s === 'Cooking' || s === 'PREPARING') mappedStatus = 'PREPARING';
+      else if (s === 'Ready' || s === 'READY') mappedStatus = 'READY';
+      else if (s === 'Out for Delivery') mappedStatus = 'READY';
+      else if (s === 'Completed' || s === 'COMPLETED') mappedStatus = 'COMPLETED';
+      else if (s === 'Cancelled' || s === 'CANCELLED') mappedStatus = 'CANCELLED';
+      else if (s === 'Rejected' || s === 'REJECTED') mappedStatus = 'REJECTED';
+
+      return {
+        id: ro.id,
+        orderNumber: ro.orderNumber || `MLO-${ro.id.slice(-4)}`,
+        customerId: ro.userId,
+        restaurantId: ro.targetRestaurantId || activeRestaurant.id,
+        branchId: selectedBranchId,
+        status: mappedStatus,
+        paymentStatus: ro.paymentStatus === 'PAID' ? 'SUCCESS' : 'PENDING',
+        subtotalTzs: ro.budgetTzs || 12000,
+        deliveryFeeTzs: ro.diningOption === 'Delivery' ? 2500 : 0,
+        serviceFeeTzs: 1500,
+        totalTzs: ro.budgetTzs || 12000,
+        currency: 'TZS',
+        fulfillmentType: ro.diningOption === 'Delivery' ? 'Delivery' : ro.diningOption === 'Takeaway' ? 'Takeaway' : 'Dine-In',
+        deliveryAddress: ro.deliveryAddress || (ro as any).neighborhood || 'Dar es Salaam',
+        specialInstructions: ro.specialInstructions,
+        items: [
+          {
+            id: `item-${ro.id}`,
+            orderId: ro.id,
+            menuItemId: ro.id,
+            itemNameSnapshot: ro.dishName,
+            quantity: 1,
+            priceSnapshot: ro.budgetTzs || 12000,
+            subtotal: ro.budgetTzs || 12000,
+            createdAt: ro.createdAt || new Date().toISOString(),
+          },
+        ],
+        createdAt: ro.createdAt || new Date().toISOString(),
+        updatedAt: ro.updatedAt || new Date().toISOString(),
+      };
+    });
+  }, [rawOrders, activeRestaurant.id, selectedBranchId]);
+
+  // Order counts for badges
+  const pendingOrders = domainOrders.filter((o) => o.status === 'PENDING');
+  const kitchenOrders = domainOrders.filter(
+    (o) => o.status === 'ACCEPTED' || o.status === 'PREPARING' || o.status === 'READY'
+  );
+
+  // 8. Menu Items & Categories Mapping
+  const menuItems: MenuItem[] = useMemo(() => {
+    const rawMenu = activeRestaurant.menu || [];
+    return rawMenu.map((m) => ({
+      id: m.id,
+      restaurantId: activeRestaurant.id,
+      categoryId: m.category || 'cat-main',
+      name: m.name,
+      nameEn: m.name,
+      nameSw: m.nameSw || m.name,
+      description: m.description,
+      descriptionEn: m.description,
+      descriptionSw: m.descriptionSw || m.description,
+      basePrice: m.priceTzs || 10000,
+      priceTzs: m.priceTzs || 10000,
+      currency: 'TZS',
+      photoUrl: m.photoUrl,
+      imageUrl: m.photoUrl,
+      stockQuantity: m.stockQuantity ?? 10,
+      isAvailable: m.isAvailable ?? true,
+      isArchived: false,
+      preparationMinutes: m.prepTimeMinutes || m.estimatedPrepTimeMinutes || 20,
+      dietaryTags: m.dietaryTags || ['Halal'],
+      spiceLevel: m.spiceLevel || 'Medium',
+      createdAt: m.createdAt || activeRestaurant.createdAt || new Date().toISOString(),
+      updatedAt: m.updatedAt || activeRestaurant.updatedAt || new Date().toISOString(),
+    }));
+  }, [activeRestaurant]);
+
+  const categories: MenuCategory[] = useMemo(() => {
+    const uniqueCategoryNames = Array.from(
+      new Set(menuItems.map((m) => m.categoryId || 'Main Course'))
+    );
+    return uniqueCategoryNames.map((name, idx) => ({
+      id: name,
+      restaurantId: activeRestaurant.id,
+      nameEn: name,
+      nameSw: name === 'Main Course' ? 'Vyakula Vikuu' : name === 'Appetizer' ? 'Vifungua Kinywa' : name,
+      displayOrder: idx,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+    }));
+  }, [menuItems, activeRestaurant.id]);
+
+  // 9. Branch Overrides
+  const branchOverrides: BranchPriceOverride[] = useMemo(() => {
+    return branches.map((b: any) => ({
+      branchId: b.id,
+      branchName: b.name,
+      customPriceTzs: undefined,
+    }));
+  }, [branches]);
+
+  // 10. Attention Alerts Feed
+  const alerts: AttentionAlert[] = useMemo(() => {
+    const list: AttentionAlert[] = [];
+
+    if (pendingOrders.length > 0) {
+      list.push({
+        id: 'alert-pending-orders',
+        type: 'ORDER',
+        severity: 'HIGH',
+        title: language === 'sw' ? 'Oda Mpya Zinazosubiri' : 'Pending Incoming Orders',
+        description:
+          language === 'sw'
+            ? `Kuna oda ${pendingOrders.length} zinahitaji kukubaliwa mara moja jikoni.`
+            : `You have ${pendingOrders.length} order(s) waiting for kitchen acceptance.`,
+        actionLabel: language === 'sw' ? 'Tazama Oda' : 'Review Orders',
+        targetTab: 'orders',
+      });
+    }
+
+    const itemsNeedingVerification = menuItems.filter((item) => {
+      const updatedMs = new Date(item.updatedAt).getTime();
+      const diffDays = (Date.now() - updatedMs) / (1000 * 60 * 60 * 24);
+      return diffDays > 7;
+    });
+
+    if (itemsNeedingVerification.length > 0) {
+      list.push({
+        id: 'alert-verify-menu',
+        type: 'VERIFICATION',
+        severity: 'MEDIUM',
+        title: language === 'sw' ? 'Thibitisha Bei za Menyu' : 'Price Verification Overdue',
+        description:
+          language === 'sw'
+            ? `Vyakula ${itemsNeedingVerification.length} havijathibitishwa kwa zaidi ya siku 7. Vithibitishe kupata nafasi ya kwanza discovery.`
+            : `${itemsNeedingVerification.length} dish(es) have unverified prices. Verify now to maintain top discovery ranking.`,
+        actionLabel: language === 'sw' ? 'Thibitisha Menyu' : 'Verify Menu',
+        targetTab: 'menu',
+      });
+    }
+
+    const unavailableItems = menuItems.filter((m) => !m.isAvailable);
+    if (unavailableItems.length > 0) {
+      list.push({
+        id: 'alert-stock',
+        type: 'STOCK',
+        severity: 'INFO',
+        title: language === 'sw' ? 'Vyakula Vilivyoisha' : 'Unavailable Menu Items',
+        description:
+          language === 'sw'
+            ? `Vyakula ${unavailableItems.length} vimewekwa kuwa havipatikani.`
+            : `${unavailableItems.length} menu items are currently marked sold out.`,
+        actionLabel: language === 'sw' ? 'Sasisha Upatikanaji' : 'Manage Stock',
+        targetTab: 'menu',
+      });
+    }
+
+    return list;
+  }, [pendingOrders.length, menuItems, language]);
+
+  // 11. Dashboard Metrics
+  const metrics: DashboardMetrics = useMemo(() => {
+    const completed = domainOrders.filter((o) => o.status === 'COMPLETED');
+    const todaySales = completed.reduce((sum, o) => sum + o.totalTzs, 0);
+    const cookingCount = domainOrders.filter((o) => o.status === 'PREPARING').length;
+    const unavailableCount = menuItems.filter((m) => !m.isAvailable).length;
+    const needingVerifyCount = menuItems.filter((item) => {
+      const diffDays = (Date.now() - new Date(item.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays > 7;
+    }).length;
+
+    return {
+      openOrdersCount: pendingOrders.length,
+      cookingOrdersCount: cookingCount,
+      reservationsTodayCount: 2,
+      itemsNeedingVerificationCount: needingVerifyCount,
+      unavailableItemsCount: unavailableCount,
+      todaySalesTzs: todaySales,
+      averageRating: activeRestaurant.rating || 4.8,
+      totalReviewsCount: activeRestaurant.reviewsCount || 42,
+    };
+  }, [domainOrders, pendingOrders.length, menuItems, activeRestaurant]);
+
+  // 12. Mock/Domain Reservations
+  const reservations: Reservation[] = useMemo(() => {
+    return [
+      {
+        id: 'res-1',
+        restaurantId: activeRestaurant.id,
+        customerId: 'usr-1',
+        partySize: 4,
+        reservationDate: new Date().toISOString().split('T')[0],
+        reservationTime: '19:30',
+        status: 'CONFIRMED',
+        customerNote: 'Window table requested for anniversary celebration.',
+        isDepositPaid: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'res-2',
+        restaurantId: activeRestaurant.id,
+        customerId: 'usr-2',
+        partySize: 2,
+        reservationDate: new Date().toISOString().split('T')[0],
+        reservationTime: '20:00',
+        status: 'PENDING',
+        customerNote: 'Quiet area preferred.',
+        isDepositPaid: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+  }, [activeRestaurant.id]);
+
+  // 13. Financial Transactions
+  const earningsTransactions: EarningsRecord[] = useMemo(() => {
+    return domainOrders.slice(0, 15).map((o) => {
+      const platformFee = Math.round(o.totalTzs * 0.10);
+      const mappedPayStatus: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' =
+        o.paymentStatus === 'SUCCESS' ? 'SUCCESS' : o.paymentStatus === 'FAILED' ? 'FAILED' : 'PENDING';
+
+      return {
+        orderId: o.id,
+        orderNumber: o.orderNumber,
+        createdAt: o.createdAt,
+        grossAmountTzs: o.totalTzs,
+        platformFeeTzs: platformFee,
+        netPayoutTzs: o.totalTzs - platformFee,
+        paymentStatus: mappedPayStatus,
+        paymentProvider: 'M-Pesa / TigoPesa',
+        settlementStatus: o.status === 'COMPLETED' ? 'SETTLED' : 'PENDING',
+      };
+    });
+  }, [domainOrders]);
+
+  // 14. Discovery Analytics Data
+  const discoveryAnalytics: DiscoveryAnalyticsData = useMemo(() => {
+    const weeklyViews = 1840;
+    const verifiedRatio = menuItems.length > 0
+      ? Math.round(
+          (menuItems.filter((m) => {
+            const diffDays = (Date.now() - new Date(m.updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+            return diffDays <= 7;
+          }).length / menuItems.length) * 100
+        )
+      : 95;
+
+    return {
+      weeklySearchAppearances: weeklyViews,
+      searchToRestaurantClicks: 420,
+      menuFreshnessPercentage: verifiedRatio,
+      averageOrderValueTzs: 18500,
+      topSearchedDishes: [
+        { name: 'Chicken Biryani Feast', searchCount: 840, ordersCount: 52 },
+        { name: 'Swahili Pilau Ya Ng’ombe', searchCount: 420, ordersCount: 28 },
+        { name: 'Mshikaki Platter', searchCount: 260, ordersCount: 19 },
+      ],
+      lostOpportunities: [
+        {
+          dishName: 'Samaki wa Kupaka',
+          missedSearchesCount: 48,
+          reason: 'Marked unavailable during peak dinner hours (18:00 - 21:00)',
+        },
+      ],
+    };
+  }, [menuItems]);
+
+  // 15. Staff List & Last-Owner Rule
+  const [staffList, setStaffList] = useState<StaffMember[]>([
+    {
+      id: 'mem-1',
+      userId: authUser?.id || 'usr-owner',
+      fullName: authUser?.fullName || (authUser as any)?.name || 'Restaurant Owner',
+      email: authUser?.email || 'owner@mlohub.tz',
+      phone: '+255 754 999 000',
+      role: 'OWNER',
+      isActive: true,
+      joinedAt: new Date().toISOString(),
+    },
+    {
+      id: 'mem-2',
+      userId: 'usr-chef-1',
+      fullName: 'Chef Hamza',
+      email: 'chef.hamza@mlohub.tz',
+      phone: '+255 765 123 456',
+      role: 'CHEF',
+      isActive: true,
+      joinedAt: new Date().toISOString(),
+    },
+  ]);
+
+  // Handlers
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshState();
+      setRealtimeStatus('LIVE');
+    } catch {
+      setRealtimeStatus('OFFLINE');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshState]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logout();
+      router.replace('/');
+    } catch (e: any) {
+      Alert.alert('Hitilafu', e?.message || 'Imeshindikana kutoka.');
+    }
+  }, [logout, router]);
+
+  // Order Handlers
+  const handleAcceptOrder = useCallback(
+    async (orderId: string, estimatedPrepMinutes: number) => {
+      try {
+        await OrderPipelineService.acceptOrder(orderId, estimatedPrepMinutes, activeRestaurant.id);
+        await refreshState();
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kukubali agizo.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  const handleRejectOrder = useCallback(
+    async (orderId: string, reason: string) => {
+      try {
+        await OrderPipelineService.rejectOrder(orderId, reason);
+        await refreshState();
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusitisha agizo.');
+      }
+    },
+    [refreshState]
+  );
+
+  const handleAdvanceKitchenStatus = useCallback(
+    async (orderId: string, nextStatus: OrderStatus) => {
+      try {
+        let pipelineStatus: 'Cooking' | 'Ready' | 'Completed' | 'Cancelled' = 'Cooking';
+        if (nextStatus === 'PREPARING') pipelineStatus = 'Cooking';
+        else if (nextStatus === 'READY') pipelineStatus = 'Ready';
+        else if (nextStatus === 'COMPLETED') pipelineStatus = 'Completed';
+
+        await OrderPipelineService.updateFulfillmentStatus(orderId, pipelineStatus);
+        await refreshState();
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya jikoni.');
+      }
+    },
+    [refreshState]
+  );
+
+  // Menu Handlers
+  const handleToggleAvailability = useCallback(
+    async (itemId: string, isAvailable: boolean) => {
+      try {
+        await MloHubDB.init();
+        const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+        if (rest && rest.menu) {
+          const item = rest.menu.find((m) => m.id === itemId);
+          if (item) {
+            item.isAvailable = isAvailable;
+            item.updatedAt = new Date().toISOString();
+            await MloHubDB.save();
+            RealtimeEventEngine.publish('menu:updated', {
+              restaurantId: activeRestaurant.id,
+              data: { itemId, isAvailable },
+            });
+            await refreshState();
+          }
+        }
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kubadili upatikanaji.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  const handleBulkSetAvailability = useCallback(
+    async (itemIds: string[], isAvailable: boolean) => {
+      try {
+        await MloHubDB.init();
+        const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+        if (rest && rest.menu) {
+          rest.menu.forEach((m) => {
+            if (itemIds.includes(m.id)) {
+              m.isAvailable = isAvailable;
+              m.updatedAt = new Date().toISOString();
+            }
+          });
+          await MloHubDB.save();
+          RealtimeEventEngine.publish('menu:updated', {
+            restaurantId: activeRestaurant.id,
+            data: { bulk: true, isAvailable },
+          });
+          await refreshState();
+        }
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kubadili upatikanaji kwa wingi.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  const handleVerifyFullMenu = useCallback(async () => {
+    try {
+      await MloHubDB.init();
+      const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+      if (rest && rest.menu) {
+        const now = new Date().toISOString();
+        rest.menu.forEach((m) => {
+          m.updatedAt = now;
+          m.lastVerifiedAt = now;
+        });
+        await MloHubDB.save();
+        RealtimeEventEngine.publish('menu:updated', {
+          restaurantId: activeRestaurant.id,
+          data: { verifiedAt: now },
+        });
+        await refreshState();
+        Alert.alert(
+          language === 'sw' ? 'Menyu Imethibitishwa!' : 'Menu Verified!',
+          language === 'sw'
+            ? 'Bei na upatikanaji wote sasa ni FRESH na vinapewa kipaumbele kwenye utafutaji.'
+            : 'All prices and availability are marked FRESH. Your dishes now rank higher in discovery.'
+        );
+      }
+    } catch (e: any) {
+      Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuthibitisha menyu.');
+    }
+  }, [activeRestaurant.id, refreshState, language]);
+
+  const handleVerifySingleDish = useCallback(
+    async (itemId: string) => {
+      try {
+        await MloHubDB.init();
+        const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+        if (rest && rest.menu) {
+          const item = rest.menu.find((m) => m.id === itemId);
+          if (item) {
+            const now = new Date().toISOString();
+            item.updatedAt = now;
+            item.lastVerifiedAt = now;
+            await MloHubDB.save();
+            RealtimeEventEngine.publish('menu:updated', {
+              restaurantId: activeRestaurant.id,
+              data: { itemId, verifiedAt: now },
+            });
+            await refreshState();
+          }
+        }
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuthibitisha chakula.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  const handleSaveMenuItem = useCallback(
+    async (savedItem: Partial<MenuItem>, overrides?: BranchPriceOverride[]) => {
+      try {
+        await MloHubDB.init();
+        const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+        if (rest) {
+          if (!rest.menu) rest.menu = [];
+          if (editingItem) {
+            const idx = rest.menu.findIndex((m) => m.id === editingItem.id);
+            if (idx >= 0) {
+              rest.menu[idx] = {
+                ...rest.menu[idx],
+                name: savedItem.name || rest.menu[idx].name,
+                nameSw: savedItem.nameSw || rest.menu[idx].nameSw,
+                description: savedItem.description || rest.menu[idx].description,
+                priceTzs: savedItem.priceTzs || rest.menu[idx].priceTzs,
+                category: savedItem.categoryId || rest.menu[idx].category,
+                photoUrl: savedItem.photoUrl || rest.menu[idx].photoUrl,
+                updatedAt: new Date().toISOString(),
+              };
+            }
+          } else {
+            const newItemId = `menu-${Date.now()}`;
+            rest.menu.push({
+              id: newItemId,
+              restaurantId: activeRestaurant.id,
+              name: savedItem.name || 'New Dish',
+              nameSw: savedItem.nameSw || savedItem.name || 'Chakula Kipya',
+              description: savedItem.description || '',
+              priceTzs: savedItem.priceTzs || 10000,
+              category: savedItem.categoryId || 'Main Course',
+              photoUrl: savedItem.photoUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
+              isAvailable: true,
+              prepTimeMinutes: savedItem.preparationMinutes || 20,
+              stockQuantity: 20,
+              dietaryTags: savedItem.dietaryTags || ['Halal'],
+              spiceLevel: savedItem.spiceLevel || 'Medium',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          await MloHubDB.save();
+          RealtimeEventEngine.publish('menu:updated', { restaurantId: activeRestaurant.id });
+          await refreshState();
+          setIsEditorVisible(false);
+          setEditingItem(null);
+        }
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuhifadhi chakula.');
+      }
+    },
+    [activeRestaurant.id, editingItem, refreshState]
+  );
+
+  const handleArchiveDish = useCallback(
+    async (itemId: string) => {
+      try {
+        await MloHubDB.init();
+        const rest = MloHubDB.restaurants.getById(activeRestaurant.id);
+        if (rest && rest.menu) {
+          rest.menu = rest.menu.filter((m) => m.id !== itemId);
+          await MloHubDB.save();
+          RealtimeEventEngine.publish('menu:updated', { restaurantId: activeRestaurant.id });
+          await refreshState();
+        }
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuondoa chakula.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  // Category Handlers
+  const handleAddCategory = useCallback(
+    async (nameEn: string, nameSw?: string) => {
+      Alert.alert('Category Added', `${nameEn} has been added.`);
+    },
+    []
+  );
+
+  const handleArchiveCategory = useCallback(
+    async (categoryId: string) => {
+      Alert.alert('Category Archived', `${categoryId} archived.`);
+    },
+    []
+  );
+
+  // Reservation Handlers
+  const handleUpdateReservationStatus = useCallback(
+    async (resId: string, nextStatus: ReservationStatus) => {
+      Alert.alert('Reservation Updated', `Reservation ${resId} marked as ${nextStatus}.`);
+    },
+    []
+  );
+
+  // Review Handlers
+  const handleRespondToReview = useCallback(
+    async (reviewId: string, responseText: string) => {
+      Alert.alert('Response Posted', 'Your response to the customer was saved.');
+    },
+    []
+  );
+
+  // Staff Handlers with Last-Owner Rule
+  const handleInviteStaff = useCallback(
+    async (email: string, role: RestaurantRole, fullName: string) => {
+      const newMember: StaffMember = {
+        id: `mem-${Date.now()}`,
+        userId: `usr-${Date.now()}`,
+        fullName,
+        email,
+        role,
+        isActive: true,
+        joinedAt: new Date().toISOString(),
+      };
+      setStaffList((prev) => [...prev, newMember]);
+      Alert.alert('Staff Invited', `Invitation sent to ${email} as ${role}.`);
+    },
+    []
+  );
+
+  const handleChangeStaffRole = useCallback(
+    async (membershipId: string, newRole: RestaurantRole) => {
+      setStaffList((prev) => {
+        const target = prev.find((m) => m.id === membershipId);
+        if (target && target.role === 'OWNER' && newRole !== 'OWNER') {
+          const ownerCount = prev.filter((m) => m.role === 'OWNER' && m.isActive).length;
+          if (ownerCount <= 1) {
+            Alert.alert(
+              'Ulinzi wa Mmiliki',
+              'Huwezi kubadilisha jukumu la mmiliki wa pekee wa mgahawa huu.'
+            );
+            return prev;
+          }
+        }
+        return prev.map((m) => (m.id === membershipId ? { ...m, role: newRole } : m));
+      });
+    },
+    []
+  );
+
+  const handleDeactivateStaff = useCallback(
+    async (membershipId: string) => {
+      const target = staffList.find((m) => m.id === membershipId);
+      if (target && target.role === 'OWNER') {
+        const activeOwners = staffList.filter((m) => m.role === 'OWNER' && m.isActive);
+        if (activeOwners.length <= 1) {
+          Alert.alert(
+            'Ulinzi wa Mmiliki',
+            'Huwezi kumwondoa mmiliki wa pekee wa mgahawa huu. Lazima ateuliwe mmiliki mwingine kwanza.'
+          );
+          return;
+        }
+      }
+      setStaffList((prev) => prev.filter((m) => m.id !== membershipId));
+      Alert.alert('Staff Removed', 'Team member has been removed.');
+    },
+    [staffList]
+  );
+
+  // Settings Handlers
+  const handleSaveProfile = useCallback(
+    async (updates: Partial<RestaurantEntity>) => {
+      try {
+        await MloHubDB.init();
+        await MloHubDB.restaurants.update(activeRestaurant.id, updates);
+        await refreshState();
+        Alert.alert('Profile Saved', 'Restaurant profile details updated.');
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuhifadhi maelezo.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  const handleUpdateOperatingStatus = useCallback(
+    async (status: OperatingOverride) => {
+      try {
+        await MloHubDB.init();
+        const isOpen = status === 'OPEN';
+        await MloHubDB.restaurants.update(activeRestaurant.id, { isOpen });
+        await refreshState();
+        Alert.alert(
+          'Operating Status Updated',
+          `Kitchen is now ${status}.`
+        );
+      } catch (e: any) {
+        Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya kufungua.');
+      }
+    },
+    [activeRestaurant.id, refreshState]
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* 1. Header Bar */}
+      <RestaurantPortalHeader
+        restaurant={activeRestaurant}
+        userRoleLabel={userRole}
+        realtimeStatus={realtimeStatus}
+        onRefresh={handleRefresh}
+        onLogout={handleLogout}
+        branches={branches}
+        activeBranchId={selectedBranchId}
+        onSelectBranch={setSelectedBranchId}
+      />
+
+      {/* 2. Main Workspace Layout */}
+      <View style={styles.workspaceRow}>
+        {/* Desktop Sidebar */}
+        {isLargeScreen && (
+          <View style={styles.sidebarWrapper}>
+            <RestaurantSidebar
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              userRole={userRole}
+              orderBadgeCount={pendingOrders.length}
+              kitchenBadgeCount={kitchenOrders.length}
+              language={language as any}
+            />
+          </View>
+        )}
+
+        {/* Content Viewport */}
+        <View style={styles.viewport}>
+          {/* Mobile Tab Bar */}
+          {!isLargeScreen && (
+            <RestaurantMobileNav
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              userRole={userRole}
+              orderBadgeCount={pendingOrders.length}
+              kitchenBadgeCount={kitchenOrders.length}
+              language={language as any}
+            />
+          )}
+
+          {/* Tab Views */}
+          <View style={styles.tabContentArea}>
+            {activeTab === 'overview' && (
+              <DashboardOverview
+                restaurantName={activeRestaurant.name}
+                metrics={metrics}
+                alerts={alerts}
+                onNavigateTab={setActiveTab}
+                onQuickVerifyMenu={handleVerifyFullMenu}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'orders' && (
+              <IncomingOrdersPanel
+                orders={domainOrders}
+                onAcceptOrder={handleAcceptOrder}
+                onRejectOrder={handleRejectOrder}
+                onUpdateStatus={async (orderId, nextStatus) => {
+                  await handleAdvanceKitchenStatus(orderId, nextStatus);
+                }}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'kitchen' && (
+              <KitchenBoard
+                orders={kitchenOrders}
+                onAdvanceStatus={handleAdvanceKitchenStatus}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'menu' && (
+              <MenuManager
+                items={menuItems}
+                categories={categories}
+                onAddNewDish={() => {
+                  setEditingItem(null);
+                  setIsEditorVisible(true);
+                }}
+                onEditDish={(item) => {
+                  setEditingItem(item);
+                  setIsEditorVisible(true);
+                }}
+                onArchiveDish={handleArchiveDish}
+                onToggleAvailability={handleToggleAvailability}
+                onBulkSetAvailability={handleBulkSetAvailability}
+                onVerifyFullMenu={handleVerifyFullMenu}
+                onVerifySingleDish={handleVerifySingleDish}
+                onOpenCategoriesManager={() => setIsCategoryManagerVisible(true)}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'reservations' && (
+              <ReservationManager
+                reservations={reservations}
+                onUpdateStatus={handleUpdateReservationStatus}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'reviews' && (
+              <ReviewsPanel
+                reviews={[]}
+                averageRating={activeRestaurant.rating || 4.8}
+                onRespondToReview={handleRespondToReview}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'earnings' && (
+              <EarningsOverview
+                todayGrossTzs={metrics.todaySalesTzs}
+                weekGrossTzs={metrics.todaySalesTzs * 4.5}
+                monthGrossTzs={metrics.todaySalesTzs * 18}
+                transactions={earningsTransactions}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'analytics' && (
+              <AnalyticsPanel
+                data={discoveryAnalytics}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'staff' && (
+              <StaffManager
+                staffList={staffList}
+                currentUserId={authUser?.id || ''}
+                onInviteStaff={handleInviteStaff}
+                onChangeRole={handleChangeStaffRole}
+                onDeactivateStaff={handleDeactivateStaff}
+                language={language as any}
+              />
+            )}
+
+            {activeTab === 'settings' && (
+              <RestaurantSettings
+                restaurant={activeRestaurant}
+                branches={branches}
+                onSaveProfile={handleSaveProfile}
+                onUpdateOperatingStatus={handleUpdateOperatingStatus}
+                language={language as any}
+              />
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Root Modals */}
+      <MenuItemEditor
+        visible={isEditorVisible}
+        item={editingItem}
+        categories={categories}
+        branches={branches}
+        branchOverrides={branchOverrides}
+        onSave={handleSaveMenuItem}
+        onClose={() => {
+          setIsEditorVisible(false);
+          setEditingItem(null);
+        }}
+        language={language as any}
+      />
+
+      <CategoryManager
+        visible={isCategoryManagerVisible}
+        categories={categories}
+        onAddCategory={handleAddCategory}
+        onArchiveCategory={handleArchiveCategory}
+        onClose={() => setIsCategoryManagerVisible(false)}
+        language={language as any}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+  },
+  workspaceRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sidebarWrapper: {
+    width: 250,
+    borderRightWidth: 1,
+    borderRightColor: '#1e293b',
+    backgroundColor: '#0b1120',
+  },
+  viewport: {
+    flex: 1,
+    flexDirection: 'column',
+    backgroundColor: '#0f172a',
+  },
+  tabContentArea: {
+    flex: 1,
+  },
+  gateContainer: {
+    flex: 1,
+    backgroundColor: '#0f172a',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  gateCard: {
+    backgroundColor: '#1e293b',
+    borderRadius: Radii.lg,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    maxWidth: 440,
+    width: '100%',
+    ...Shadows.md,
+  },
+  gateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#f8fafc',
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  gateSubtitle: {
+    fontSize: 14,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
+  },
+  gatePrimaryBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: Radii.md,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  gatePrimaryBtnText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  gateSecondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: Radii.md,
+    width: '100%',
+    alignItems: 'center',
+  },
+  gateSecondaryBtnText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+});
+

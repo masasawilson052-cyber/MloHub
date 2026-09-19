@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 
 export type NotificationType =
   | 'reservation_confirmed'
@@ -243,7 +244,7 @@ interface NotificationContextType {
   markAllAsRead: () => void;
   deleteNotification: (id: string) => void;
   clearAll: () => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => void;
   updatePreference: <K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]) => void;
   simulateIncomingNotification: () => void;
 }
@@ -274,14 +275,20 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     setNotifications([]);
   };
 
-  const addNotification = (notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'>) => {
-    const newNotif: Notification = {
-      ...notificationData,
-      id: `notif-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      isRead: false,
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
+  const addNotification = (notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => {
+    const notifId = notificationData.id || `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    setNotifications((prev) => {
+      if (prev.some((n) => n.id === notifId)) {
+        return prev;
+      }
+      const newNotif: Notification = {
+        ...notificationData,
+        id: notifId,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      };
+      return [newNotif, ...prev];
+    });
   };
 
   const updatePreference = <K extends keyof NotificationPreferences>(
@@ -290,6 +297,67 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   ) => {
     setPreferences((prev) => ({ ...prev, [key]: value }));
   };
+
+  useEffect(() => {
+    // 1. Listen for real-time order updates across the platform
+    const unsubOrders = RealtimeEventEngine.subscribe('orders:*', (payload) => {
+      const order = payload?.data?.order;
+      const eventType = payload?.eventType;
+      if (!order) return;
+
+      let titleEn = `Order Update: #${order.orderNumber || order.id}`;
+      let titleSw = `Taarifa ya Oda: #${order.orderNumber || order.id}`;
+      let messageEn = order.statusMessageEn || `Order status is now ${order.status}`;
+      let messageSw = order.statusMessageSw || `Hali ya oda ni ${order.status}`;
+
+      if (eventType === 'NEW_ORDER_PLACED') {
+        titleEn = `New Order Placed: #${order.orderNumber || order.id}`;
+        titleSw = `Oda Mpya Imepokelewa: #${order.orderNumber || order.id}`;
+      } else if (eventType === 'ORDER_CONFIRMED') {
+        titleEn = `Order Confirmed: #${order.orderNumber || order.id}`;
+        titleSw = `Oda Imethibitishwa: #${order.orderNumber || order.id}`;
+      }
+
+      addNotification({
+        userId: payload.customerId || order.userId || 'user-1',
+        type: 'custom_meal_ready',
+        category: 'order',
+        titleEn,
+        titleSw,
+        messageEn,
+        messageSw,
+        timeAgoEn: 'Just now',
+        timeAgoSw: 'Sasa hivi',
+        restaurantName: order.restaurantName,
+        restaurantId: order.targetRestaurantId,
+        dishName: order.dishName,
+        actionType: 'view_order',
+      });
+    });
+
+    // 2. Listen for platform announcements
+    const unsubAnnouncements = RealtimeEventEngine.subscribe('announcements:broadcast', (payload) => {
+      const title = payload?.data?.title || payload?.title || 'Tangazo Rasmi la MloHub';
+      const message = payload?.data?.message || payload?.message || 'Kuna taarifa mpya kutoka kwa uongozi.';
+      addNotification({
+        userId: 'all',
+        type: 'promotion',
+        category: 'offer',
+        titleEn: title,
+        titleSw: title,
+        messageEn: message,
+        messageSw: message,
+        timeAgoEn: 'Just now',
+        timeAgoSw: 'Sasa hivi',
+        actionType: 'view_order',
+      });
+    });
+
+    return () => {
+      unsubOrders();
+      unsubAnnouncements();
+    };
+  }, []);
 
   // Simulator helper for testing real-time updates
   const simulateIncomingNotification = () => {

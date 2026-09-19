@@ -33,6 +33,8 @@ export interface UserEntity {
   dietaryPreferences?: string[];
   isEmailVerified?: boolean;
   isPhoneVerified?: boolean;
+  phoneVerifiedAt?: string;
+  notificationPreferences?: { sms?: boolean; push?: boolean; inApp?: boolean; email?: boolean };
   createdAt: string;
   updatedAt: string;
 }
@@ -58,6 +60,18 @@ export interface RestaurantMembershipEntity {
   permissions: string[];
   isPrimaryOwner: boolean;
   createdAt: string;
+}
+
+/**
+ * Shared helper to evaluate whether a restaurant membership is active.
+ * Compatibility rule: legacy records that lack a 'status' field are treated as ACTIVE.
+ * Explicitly revoked ('REVOKED') or inactive statuses return false.
+ */
+export function isMembershipActive(membership: RestaurantMembershipEntity | undefined | null): boolean {
+  if (!membership) return false;
+  if (membership.status === 'REVOKED') return false;
+  if (membership.status !== undefined && membership.status !== 'ACTIVE') return false;
+  return true;
 }
 
 export interface AuditLogEntity {
@@ -88,18 +102,36 @@ export interface RefreshSessionEntity {
   deviceInfo: string;
   expiresAt: string;
   createdAt: string;
+  sessionId?: string;
 }
 
 export interface OtpChallengeEntity {
   id: string;
   phone: string;
   otpHash: string;
-  purpose: 'VENDOR_ACTIVATION' | 'PASSWORD_RESET' | 'LOGIN';
+  purpose: 'VENDOR_ACTIVATION' | 'CUSTOMER_VERIFICATION' | 'CUSTOMER_REGISTRATION' | 'PASSWORD_RESET' | 'LOGIN' | string;
   attemptsCount: number;
   maxAttempts: number;
   isVerified: boolean;
   expiresAt: string;
   createdAt: string;
+  invalidatedAt?: string;
+}
+
+export interface SmsLogEntity {
+  id: string;
+  recipient: string;
+  carrier?: string;
+  templateId: string;
+  provider: string; // NEXTSMS, BEEM_AFRICA, SANDBOX
+  providerMessageId?: string;
+  status: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED';
+  errorMessage?: string;
+  latencyMs?: number;
+  costTzs?: number;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface RestaurantApplicationEntity {
@@ -135,12 +167,15 @@ export interface MenuItemEntity {
   photoUrl?: string;
   stockQuantity?: number;
   estimatedPrepTimeMinutes?: number;
+  prepTimeMinutes?: number;
   dietaryTags?: string[];
   spiceLevel?: string;
   popular?: boolean;
   isAvailable: boolean;
   isArchived?: boolean;
   createdAt: string;
+  updatedAt?: string;
+  lastVerifiedAt?: string;
 }
 
 export type SellerTier = 'BASIC_SELLER' | 'VERIFIED_SELLER' | 'VERIFIED_RESTAURANT';
@@ -152,6 +187,13 @@ export interface OnboardingChecklistState {
   businessPhotoAttached: boolean;
   menuWithPricesAdded: boolean;
   termsAccepted: boolean;
+}
+
+export interface LipaNumberEntry {
+  id?: string;
+  provider: string; // e.g. 'Vodacom Lipa / Till', 'Tigo Pesa Lipa', 'Airtel Money Till', 'Selcom Pay / Masterpass', 'CRDB / NMB QR'
+  number: string;   // e.g. '5566778'
+  accountName?: string;
 }
 
 export interface RestaurantEntity {
@@ -184,9 +226,15 @@ export interface RestaurantEntity {
   estimatedPrepTimeMinutes?: number;
   isOpen: boolean;
   isVerified: boolean;
+  isPublished?: boolean;
+  isActive?: boolean;
   verificationStatus: RestaurantVerificationStatus;
   payoutPhoneNumber?: string;
   payoutProvider?: string;
+  acceptedPaymentMethods?: string[];
+  lipaNumbers?: LipaNumberEntry[];
+  lipaNumber?: string;
+  lipaProvider?: string;
   foodSpotPhotos?: string[];
   onboardingChecklist?: OnboardingChecklistState;
   invitationStatus?: 'NOT_SENT' | 'INVITATION_SENT' | 'ACTIVATED';
@@ -221,7 +269,15 @@ export interface RestaurantEntity {
   updatedAt?: string;
 }
 
-export type PaymentGatewayProvider = 'CLICKPESA' | 'SELCOM' | 'PESAPAL' | 'CASH';
+export type PaymentGatewayProvider =
+  | 'CLICKPESA'
+  | 'SELCOM'
+  | 'PESAPAL'
+  | 'CASH'
+  | 'SANDBOX'
+  | 'clickpesa'
+  | 'selcom'
+  | 'sandbox';
 
 export type PaymentMethodCode =
   | 'MPESA'
@@ -243,6 +299,8 @@ export type PaymentStatus =
 
 export type PaymentType =
   | 'ORDER_FULL'
+  | 'CUSTOM_MEAL_QUOTE'
+  | 'CUSTOM_MEAL_FULL'
   | 'RESERVATION_DEPOSIT_50'
   | 'RESERVATION_FULL_100';
 
@@ -285,11 +343,21 @@ export interface CustomMealRequestEntity {
   targetRestaurantId?: string;
   specialInstructions: string;
   budgetTzs: number;
+  quotedPriceTzs?: number;
+  finalPrice?: number;
   servingsCount: string;
   diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
-  status: 'Pending Confirmation' | 'Confirmed' | 'Cooking' | 'Ready' | 'Completed' | 'Cancelled';
+  status: 'Pending Confirmation' | 'Confirmed' | 'Cooking' | 'Ready' | 'Out for Delivery' | 'Completed' | 'Cancelled';
   statusMessageEn: string;
   statusMessageSw: string;
+  deliveryPin?: string;
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  riderName?: string;
+  riderPhone?: string;
+  dispatchedAt?: string;
+  deliveredAt?: string;
   paymentStatus?: 'UNPAID' | 'AWAITING_PAYMENT' | 'PAID' | 'REFUNDED';
   paymentId?: string;
   createdAt: string;
@@ -314,10 +382,47 @@ export interface PaymentTransactionEntity {
   payerPhone?: string;
   breakdown?: PaymentBreakdown;
   failureReason?: string;
+  providerTransactionId?: string;
+  merchantReference?: string;
+  idempotencyKey?: string;
+  confirmedAt?: string;
+  failedAt?: string;
+  metadata?: Record<string, any>;
+  gatewayResponse?: any;
   paidAt?: string;
   refundedAt?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface PaymentEventEntity {
+  id: string;
+  paymentId?: string;
+  eventId: string;
+  eventType: string;
+  provider: string;
+  status: string;
+  amountTzs: number;
+  currency: string;
+  merchantReference?: string;
+  providerReference?: string;
+  rawPayload?: any;
+  actorType: 'GATEWAY_WEBHOOK' | 'CUSTOMER' | 'ADMIN' | 'SYSTEM';
+  actorId?: string;
+  createdAt: string;
+}
+
+export interface RefundEntity {
+  id: string;
+  paymentId: string;
+  refundReference: string;
+  amountTzs: number;
+  reason: string;
+  status: 'PENDING' | 'REFUNDED' | 'FAILED';
+  authorizedBy?: string;
+  gatewayResponse?: any;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReviewEntity {
@@ -373,11 +478,14 @@ export interface MloHubDatabaseSchema {
   reservations: ReservationEntity[];
   customMealRequests: CustomMealRequestEntity[];
   payments: PaymentTransactionEntity[];
+  paymentEvents?: PaymentEventEntity[];
+  refunds?: RefundEntity[];
   reviews: ReviewEntity[];
   notifications: NotificationEntity[];
   favorites: string[];
   auditLogs?: AuditLogEntity[];
   otpChallenges?: OtpChallengeEntity[];
+  smsLogs?: SmsLogEntity[];
   restaurantApplications?: RestaurantApplicationEntity[];
   lastSyncedAt: string;
 }
@@ -387,16 +495,8 @@ export function getUserRoles(user?: Partial<UserEntity> | null): UserRole[] {
   const roles: UserRole[] = [];
   if (user.roles && Array.isArray(user.roles)) {
     roles.push(...user.roles);
-  }
-  if (user.role && !roles.includes(user.role)) {
+  } else if (user.role && !roles.includes(user.role)) {
     roles.push(user.role);
-  }
-  if (user.activeRole && !roles.includes(user.activeRole)) {
-    roles.push(user.activeRole);
-  }
-  if (user.id === 'usr-admin' || user.email === 'admin@mlohub.tz') {
-    if (!roles.includes(UserRole.SUPER_ADMIN)) roles.push(UserRole.SUPER_ADMIN);
-    if (!roles.includes(UserRole.ADMIN)) roles.push(UserRole.ADMIN);
   }
   if (roles.length === 0) {
     roles.push(UserRole.CUSTOMER);
@@ -406,10 +506,6 @@ export function getUserRoles(user?: Partial<UserEntity> | null): UserRole[] {
 
 export function hasAdminAccess(user?: Partial<UserEntity> | null): boolean {
   if (!user) return false;
-  if (user.id === 'usr-admin' || user.email === 'admin@mlohub.tz') return true;
-  if (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN) return true;
-  if (user.activeRole === UserRole.ADMIN || user.activeRole === UserRole.SUPER_ADMIN) return true;
-  if (user.activeWorkspace === 'MLOHUB_ADMIN') return true;
   const roles = getUserRoles(user);
   return roles.includes(UserRole.ADMIN) || roles.includes(UserRole.SUPER_ADMIN);
 }

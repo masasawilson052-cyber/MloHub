@@ -109,7 +109,14 @@ export async function runAdminOnboardingTestSuite() {
     openingHours: '06:30 AM',
     closingHours: '08:30 PM',
     payoutPhoneNumber: '+255 754 888 777',
-    payoutProvider: 'M-Pesa',
+    payoutProvider: 'M-Pesa, Tigo Pesa, Airtel Money',
+    acceptedPaymentMethods: ['Vodacom M-Pesa', 'Mixx by Yas (Tigo)', 'Airtel Money'],
+    lipaNumbers: [
+      { provider: 'Vodacom Lipa / Till', number: '5566778' },
+      { provider: 'Tigo Pesa Lipa', number: '601234' },
+    ],
+    lipaNumber: '5566778',
+    lipaProvider: 'Vodacom Lipa / Till',
     initialMenu: [
       {
         name: 'Supu ya Ng\'ombe & Chapati 2',
@@ -138,6 +145,9 @@ export async function runAdminOnboardingTestSuite() {
   assert(mamaLisheResult.restaurant?.sellerTier === 'BASIC_SELLER', 'Assigned BASIC_SELLER tier without requiring TIN/BRELA');
   assert(mamaLisheResult.restaurant?.ownerName === 'Rehema Kassim Mwalimu', 'Owner name persisted in restaurant entity');
   assert(mamaLisheResult.restaurant?.ownerNationalId === '19850412-12345-00001-20', 'Owner NIDA ID persisted');
+  assert(Array.isArray(mamaLisheResult.restaurant?.acceptedPaymentMethods) && mamaLisheResult.restaurant.acceptedPaymentMethods.length === 3, 'Multiple payment methods persisted');
+  assert(Array.isArray(mamaLisheResult.restaurant?.lipaNumbers) && mamaLisheResult.restaurant.lipaNumbers.length === 2, 'Multiple Lipa numbers persisted');
+  assert(mamaLisheResult.restaurant?.lipaNumber === '5566778', 'Lipa Namba persisted correctly on restaurant entity');
   assert(mamaLisheResult.restaurant?.payoutPhoneNumber === '+255 754 888 777', 'Payout phone number configured');
   assert(mamaLisheResult.restaurant?.menu.length === 2, 'Initial 2 menu dishes created with prices');
   assert(mamaLisheResult.ownerUser?.role === UserRole.RESTAURANT_OWNER, 'Owner user created with RESTAURANT_OWNER role');

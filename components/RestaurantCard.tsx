@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
-import { Restaurant } from '../constants/data';
+import { Restaurant } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 

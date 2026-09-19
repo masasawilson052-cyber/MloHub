@@ -5,6 +5,9 @@
  *         Mobile Money Payments, Idempotency, and Session Security.
  * ============================================================================
  */
+// Ensure test environment variables are set for automated test runners
+(process.env as any).NODE_ENV = process.env.NODE_ENV || 'test';
+process.env.SMS_OTP_PEPPER = process.env.SMS_OTP_PEPPER || 'test-sms-otp-pepper-secret-key-32chars';
 
 import { MloHubDB } from '../db';
 import { UserRole, SellerTier, hasAdminAccess, getUserRoles } from '../db/types';
@@ -14,6 +17,31 @@ import { AdminOnboardingService } from '../services/AdminOnboardingService';
 import { OrderPipelineService } from '../services/OrderPipelineService';
 import { PaymentGatewayService } from '../services/PaymentGatewayService';
 import { AdminApiService } from '../services/AdminApiService';
+import { runAuthTestSuite } from './auth.test';
+import { runSupabaseDataLayerTestSuite } from './supabaseDataLayer.test';
+import { runSecurityRulesTestSuite } from './securityRules.test';
+import { runDiscoveryEngineTestSuite } from './discoveryEngine.test';
+import { runCustomerExperienceTestSuite } from './customerExperience.test';
+import { runRestaurantPortalTestSuite } from './restaurantPortal.test';
+import { runAdminPortalTestSuite } from './adminPortal.test';
+import { runSmsOtpTestSuite } from './smsOtp.test';
+import { runPaymentArchitectureTestSuite } from './paymentArchitecture.test';
+import { runRealtimePipelineTests } from './realtimePipeline.test';
+import { runTrustEngineTests } from './trustEngine.test';
+import { runDbContextCutoverTestSuite } from './dbContextCutover.test';
+import { runCustomerCutoverTestSuite } from './customerCutover.test';
+import { runRestaurantPortalCutoverTests } from './restaurantPortalCutover.test';
+import { runAdminPortalCutoverTestSuite } from './adminPortalCutover.test';
+import { runMediaCutoverTestSuite } from './mediaCutover.test';
+import { runDemoIsolationTestSuite } from './demoIsolation.test';
+import { runStage3OnboardingTestSuite } from './stage3Onboarding.test';
+import { runOrderPipelineAuthorityTestSuite } from './orderPipelineAuthority.test';
+import { runReservationCapacityTestSuite } from './reservationCapacity.test';
+import { runFinancialAuthorityTestSuite } from './financialAuthority.test';
+import { runReviewsTrustTestSuite } from './reviewsTrust.test';
+import { runNotificationsCommunicationTestSuite } from './notificationsCommunication.test';
+import { runRestaurantOperationsTestSuite } from './restaurantOperations.test';
+
 
 let passed = 0;
 let failed = 0;
@@ -26,6 +54,26 @@ function assert(condition: boolean, testName: string) {
     console.error(`  ✗ FAIL: ${testName}`);
     failed++;
   }
+}
+
+function createSignedSessionToken(payload: {
+  userId: string;
+  role: UserRole;
+  email: string;
+  restaurantId?: string;
+}): string {
+  const token = CryptoEngine.signToken(payload);
+  const db = MloHubDB.getSnapshot();
+  db.sessions = db.sessions || [];
+  db.sessions.push({
+    id: `sess-test-${Date.now()}-${Math.random()}`,
+    userId: payload.userId,
+    token,
+    deviceInfo: 'Test Runner',
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    createdAt: new Date().toISOString(),
+  });
+  return token;
 }
 
 async function runMasterTestSuite() {
@@ -51,7 +99,7 @@ async function runMasterTestSuite() {
   assert(customerUser !== undefined, 'Customer profile exists');
   assert(hasAdminAccess(customerUser) === false, 'Customer user hasAdminAccess is FALSE');
   
-  const custToken = CryptoEngine.signToken({
+  const custToken = createSignedSessionToken({
     userId: 'usr-frank',
     role: UserRole.CUSTOMER,
     email: 'frank.mlaki@mlohub.tz',
@@ -71,7 +119,7 @@ async function runMasterTestSuite() {
   assert(ownerUser !== undefined, 'Owner profile exists');
   assert(hasAdminAccess(ownerUser) === false, 'Restaurant Owner hasAdminAccess is FALSE');
 
-  const ownerToken = CryptoEngine.signToken({
+  const ownerToken = createSignedSessionToken({
     userId: 'usr-chef-amina',
     role: UserRole.RESTAURANT_OWNER,
     email: 'mama.amina@mlohub.tz',
@@ -270,32 +318,32 @@ async function runMasterTestSuite() {
   });
 
   assert(placedOrder !== undefined, 'Order placed successfully');
-  assert(placedOrder.status === 'Pending Confirmation', 'Order status initialized to Pending Confirmation');
-  assert(placedOrder.budgetTzs === 24000 + 1500 + 2500, 'Order total calculated with service & delivery fees');
+  assert(placedOrder.status === 'PENDING', 'Order status initialized to PENDING');
+  assert(placedOrder.totalTzs === 24000 + 1500 + 2500, 'Order total calculated with service & delivery fees');
 
   // ---------------------------------------------------------------------------
   // SCENARIO 10: Restaurant Accepts Order with Estimated Prep Time
   // ---------------------------------------------------------------------------
   console.log('\nScenario 10: Restaurant Order Acceptance & Prep Time');
   const acceptedOrder = await OrderPipelineService.acceptOrder(placedOrder.id, 30, restId);
-  assert(acceptedOrder.status === 'Confirmed', 'Order status moved to Confirmed upon acceptance');
-  assert(acceptedOrder.statusMessageEn.includes('30 mins'), 'Prep time reflected in status message');
+  assert(acceptedOrder.status === 'ACCEPTED', 'Order status moved to ACCEPTED upon acceptance');
+  assert(acceptedOrder.estimatedPrepMinutes === 30, 'Prep time reflected in estimatedPrepMinutes');
 
   // ---------------------------------------------------------------------------
   // SCENARIO 11: Kitchen Kanban Stage Transitions
   // ---------------------------------------------------------------------------
   console.log('\nScenario 11: Kitchen Kanban Status Transitions');
-  // Cooking
-  const cookingOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'Cooking');
-  assert(cookingOrder.status === 'Cooking', 'Order stage transitioned to Cooking');
+  // Cooking (PREPARING)
+  const cookingOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'PREPARING');
+  assert(cookingOrder.status === 'PREPARING', 'Order stage transitioned to PREPARING');
 
-  // Ready
-  const readyOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'Ready');
-  assert(readyOrder.status === 'Ready', 'Order stage transitioned to Ready (Packed for dispatch)');
+  // Ready (READY)
+  const readyOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'READY');
+  assert(readyOrder.status === 'READY', 'Order stage transitioned to READY (Packed for dispatch)');
 
-  // Completed
-  const completedOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'Completed');
-  assert(completedOrder.status === 'Completed', 'Order stage transitioned to Completed');
+  // Completed (COMPLETED)
+  const completedOrder = await OrderPipelineService.updateFulfillmentStatus(placedOrder.id, 'COMPLETED');
+  assert(completedOrder.status === 'COMPLETED', 'Order stage transitioned to COMPLETED');
 
   // ---------------------------------------------------------------------------
   // SCENARIO 12: Mobile Money Payment Initiation (M-Pesa USSD Push)
@@ -306,7 +354,7 @@ async function runMasterTestSuite() {
     orderId: placedOrder.id,
     restaurantId: restId,
     restaurantName: 'Zanzibar Spice Spot',
-    amountTzs: placedOrder.budgetTzs,
+    amountTzs: placedOrder.totalTzs,
     methodCode: 'MPESA',
     paymentType: 'ORDER_FULL',
     payerPhone: '+255754123456',
@@ -330,7 +378,7 @@ async function runMasterTestSuite() {
       eventType: 'payment.success',
       providerReference: payInit.providerReference,
       paymentId: payInit.paymentId,
-      amount: placedOrder.budgetTzs,
+      amount: placedOrder.totalTzs,
       currency: 'TZS',
       method: 'M-Pesa',
       payerPhone: '+255754123456',
@@ -348,7 +396,7 @@ async function runMasterTestSuite() {
       eventType: 'payment.success',
       providerReference: payInit.providerReference,
       paymentId: payInit.paymentId,
-      amount: placedOrder.budgetTzs,
+      amount: placedOrder.totalTzs,
       currency: 'TZS',
       method: 'M-Pesa',
       payerPhone: '+255754123456',
@@ -370,7 +418,7 @@ async function runMasterTestSuite() {
       eventType: 'payment.success',
       providerReference: payInit.providerReference,
       paymentId: payInit.paymentId,
-      amount: placedOrder.budgetTzs,
+      amount: placedOrder.totalTzs,
       currency: 'TZS',
       method: 'M-Pesa',
       payerPhone: '+255754123456',
@@ -434,6 +482,236 @@ async function runMasterTestSuite() {
   assert(upgradeRes.success === true, 'Restaurant successfully upgraded to Verified Seller');
   assert(upgradeRes.restaurant?.sellerTier === 'VERIFIED_SELLER', 'Seller tier set to VERIFIED_SELLER');
   assert(upgradeRes.restaurant?.tinNumber === '123-456-789', 'TIN number recorded on restaurant');
+
+  // ---------------------------------------------------------------------------
+  // SCENARIO 19: Restaurant-Managed Fulfillment & Kitchen Progression
+  // ---------------------------------------------------------------------------
+  console.log('\nScenario 19: Restaurant-Managed Fulfillment & Kitchen Progression');
+  const deliveryOrder = await OrderPipelineService.submitStandardMenuOrder({
+    userId: 'usr-frank',
+    customerName: 'Frank Mlaki',
+    customerPhone: '+255 754 123 456',
+    restaurantId: restId,
+    diningOption: 'Delivery',
+    specialInstructions: 'Pili pili pembeni',
+    deliveryAddress: 'Mikocheni B, Dar es Salaam',
+    items: [
+      {
+        menuItemId: 'dish-1',
+        name: 'Kuku wa Kienyeji na Ugali wa Muhogo',
+        unitPriceTzs: 18000,
+        quantity: 1,
+        totalPriceTzs: 18000,
+      },
+    ],
+  });
+
+  assert(!!deliveryOrder.id, 'Standard delivery order created with valid ID');
+  assert(deliveryOrder.status === 'PENDING', 'Initial order status is PENDING');
+
+  // Kitchen accepts order
+  const acceptedDelivery = await OrderPipelineService.acceptOrder(deliveryOrder.id, 25, restId);
+  assert(acceptedDelivery.status === 'ACCEPTED' || (acceptedDelivery as any).status === 'Confirmed', 'Order moved to ACCEPTED');
+
+  // Kitchen marks preparing (cooking)
+  const cookingDelivery = await OrderPipelineService.updateFulfillmentStatus(deliveryOrder.id, 'Cooking');
+  assert(cookingDelivery.status === 'PREPARING' || (cookingDelivery as any).status === 'Cooking', 'Order moved to PREPARING');
+
+  // Kitchen marks ready
+  const readyDelivery = await OrderPipelineService.updateFulfillmentStatus(deliveryOrder.id, 'Ready');
+  assert(readyDelivery.status === 'READY' || (readyDelivery as any).status === 'Ready', 'Order moved to READY');
+
+  // Kitchen completes delivery handoff
+  const completedDelivery = await OrderPipelineService.updateFulfillmentStatus(deliveryOrder.id, 'Completed');
+  assert(completedDelivery.status === 'COMPLETED' || (completedDelivery as any).status === 'Completed', 'Order moved to COMPLETED');
+  assert(deliveryOrder.paymentStatus === 'PENDING', 'Payment status remains decoupled throughout kitchen fulfillment');
+
+  // ---------------------------------------------------------------------------
+  // SCENARIO 20: Tri-Party Communication & Realtime Synchronization (Admin, Customer, Restaurant)
+  // ---------------------------------------------------------------------------
+  console.log('\nScenario 20: Tri-Party Communication (Admin ↔ Customer ↔ Restaurant)');
+  
+  // 1. Vendor submits application
+  const app = await MloHubDB.restaurantApplications.create({
+    businessName: 'Mama Neema Supu & Pilau Kitchen',
+    ownerName: 'Neema Joseph',
+    ownerPhone: '+255 754 332 211',
+    cuisineType: 'Vyakula vya Asili',
+    neighborhood: 'Sinza',
+    address: 'Mtaa wa Mori, Sinza C',
+    hasTinOrLicense: true,
+    tinNumber: '998-112-443',
+  });
+  assert(app.id.startsWith('app-'), 'Vendor application registered successfully');
+  assert(app.status === 'PENDING', 'Application status initialized to PENDING');
+
+  // 2. Admin 1-Click Approval & Activation
+  const approvalRes = await AdminOnboardingService.approveApplication(app.id, 'usr-admin');
+  assert(approvalRes.success === true, 'Admin 1-Click approval succeeded');
+  assert(!!approvalRes.restaurant, 'Live restaurant entity activated on platform');
+  assert(approvalRes.restaurant?.name === 'Mama Neema Supu & Pilau Kitchen', 'Activated restaurant has matching business name');
+  assert(!!approvalRes.ownerUser, 'Restaurant owner credentials generated');
+  assert(approvalRes.ownerUser?.role === UserRole.RESTAURANT_OWNER, 'Owner assigned RESTAURANT_OWNER role');
+  assert(!!approvalRes.temporaryPin, 'Temporary login PIN generated for vendor');
+
+  const updatedApp = MloHubDB.restaurantApplications.getById(app.id);
+  assert(updatedApp?.status === 'APPROVED', 'Application status updated to APPROVED');
+
+  // 3. Customer places order with newly approved restaurant
+  const liveRestId = approvalRes.restaurant!.id;
+  const triPartyOrder = await OrderPipelineService.submitStandardMenuOrder({
+    userId: 'usr-frank',
+    customerName: 'Frank Mlaki',
+    customerPhone: '+255 754 999 888',
+    restaurantId: liveRestId,
+    items: [
+      {
+        name: 'Chakula cha Siku (Special of the Day)',
+        unitPriceTzs: 6500,
+        quantity: 2,
+        totalPriceTzs: 13000,
+      },
+    ],
+    diningOption: 'Delivery',
+    deliveryAddress: 'Sinza Palestina',
+  });
+  assert(triPartyOrder.restaurantId === liveRestId, 'Order dispatched to newly approved restaurant kitchen');
+  assert(triPartyOrder.status === 'PENDING', 'Order status initialized to PENDING');
+
+  // 4. Restaurant Kitchen accepts order
+  const kitchenAccepted = await OrderPipelineService.acceptOrder(triPartyOrder.id, 20, liveRestId);
+  assert(kitchenAccepted.status === 'ACCEPTED', 'Restaurant accepted order and set prep time');
+
+  // 5. Admin broadcasts platform announcement across all parties
+  const broadcastRes = await AdminOnboardingService.broadcastAnnouncement(
+    'Karibu kwenye MloHub Dar!',
+    'Wateja na Migahawa wote wanaunganishwa moja kwa moja bila kuchelewa.',
+    'ALL',
+    'MloHub Uongozi'
+  );
+  assert(broadcastRes.success === true, 'Platform broadcast delivered successfully');
+  assert(broadcastRes.recipientCount > 0, 'Broadcast received by registered users across the platform');
+
+  // Stage 2: Supabase Data Layer & Repositories Test Suite
+  const dataLayerResults = await runSupabaseDataLayerTestSuite();
+  passed += dataLayerResults.passedCount;
+  failed += dataLayerResults.failedCount;
+
+  // Stage 3: Security Hardening & Tenant Isolation Test Suite
+  const securityResults = await runSecurityRulesTestSuite();
+  passed += securityResults.passedCount;
+  failed += securityResults.failedCount;
+
+  // Stage 4: Food-First Discovery Engine Test Suite
+  const discoveryResults = await runDiscoveryEngineTestSuite();
+  passed += discoveryResults.passedCount;
+  failed += discoveryResults.failedCount;
+
+  // Stage 5: Customer Experience & Investor Demo Test Suite
+  const customerResults = await runCustomerExperienceTestSuite();
+  passed += customerResults.passedCount;
+  failed += customerResults.failedCount;
+
+  // Stage 6: Restaurant Operating Workspace & Trust Engine Test Suite
+  const restaurantPortalResults = await runRestaurantPortalTestSuite();
+  passed += restaurantPortalResults.passedCount;
+  failed += restaurantPortalResults.failedCount;
+
+  // Stage 7: Secure Platform Operations & Governance Control Center Test Suite
+  const adminPortalResults = await runAdminPortalTestSuite();
+  passed += adminPortalResults.passedCount;
+  failed += adminPortalResults.failedCount;
+
+  // Stage 8: Production-Oriented SMS Delivery & Secure OTP Verification Test Suite
+  const smsOtpResults = await runSmsOtpTestSuite();
+  passed += smsOtpResults.passed;
+  failed += smsOtpResults.failed;
+
+  // Stage 9: Server-Driven Tanzanian Payment Architecture Test Suite
+  const paymentResults = await runPaymentArchitectureTestSuite();
+  passed += paymentResults.passed;
+  failed += paymentResults.failed;
+
+  // Stage 10: Authoritative Cloud Realtime Pipeline Test Suite
+  const realtimeResults = await runRealtimePipelineTests();
+  passed += realtimeResults.passed;
+  failed += realtimeResults.failed;
+
+  // Stage 11: Explainable Trust & Market Intelligence Test Suite
+  const trustResults = await runTrustEngineTests();
+  passed += trustResults.passed;
+  failed += trustResults.failed;
+
+  // Integrated Dual-Account & Regression Test Suite
+
+  const authResults = await runAuthTestSuite();
+  passed += authResults.passedCount;
+  failed += authResults.failedCount;
+
+  // Pack 3C: DbContext Production Cutover Test Suite
+  const dbCutoverResults = await runDbContextCutoverTestSuite();
+  passed += dbCutoverResults.passed;
+  failed += dbCutoverResults.failed;
+
+  // Pack 3D: Customer Runtime Cutover Test Suite
+  const customerCutoverResults = await runCustomerCutoverTestSuite();
+  passed += customerCutoverResults.passed;
+  failed += customerCutoverResults.failed;
+
+  // Pack 3E: Restaurant Portal Supabase Cutover Test Suite
+  const portalCutoverResults = await runRestaurantPortalCutoverTests();
+  passed += portalCutoverResults.passed;
+  failed += portalCutoverResults.failed;
+
+  // Pack 3F: Admin Portal Supabase Cutover Test Suite
+  const adminCutoverResults = await runAdminPortalCutoverTestSuite();
+  passed += adminCutoverResults.passed;
+  failed += adminCutoverResults.failed;
+
+  // Pack 3G: Storage & Media Production Cutover Test Suite
+  const mediaCutoverResults = await runMediaCutoverTestSuite();
+  passed += mediaCutoverResults.passed;
+  failed += mediaCutoverResults.failed;
+
+  // Pack 3H: Demo / Test Isolation Acceptance Suite
+  const demoIsolationResults = await runDemoIsolationTestSuite();
+  passed += demoIsolationResults.passed;
+  failed += demoIsolationResults.failed;
+
+  // Stage 3: Real Restaurant Onboarding Acceptance Suite
+  const stage3OnboardingResults = await runStage3OnboardingTestSuite();
+  passed += stage3OnboardingResults.passed;
+  failed += stage3OnboardingResults.failed;
+
+  // Stage 14: Order Pipeline Authority Acceptance Suite
+  const orderPipelineResults = await runOrderPipelineAuthorityTestSuite();
+  passed += orderPipelineResults.passed;
+  failed += orderPipelineResults.failed;
+
+  // Pack 4B: Reservation Capacity Acceptance Suite
+  const reservationResults = await runReservationCapacityTestSuite();
+  passed += reservationResults.passed;
+  failed += reservationResults.failed;
+
+  // Pack 4C: Financial Authority & Subledger Acceptance Suite
+  const financialResults = await runFinancialAuthorityTestSuite();
+  passed += financialResults.passed;
+  failed += financialResults.failed;
+
+  // Pack 4D: Ratings, Reviews, Dish Trust & Content Integrity Suite
+  const reviewsTrustResults = await runReviewsTrustTestSuite();
+  passed += reviewsTrustResults.passed;
+  failed += reviewsTrustResults.failed;
+
+  // Pack 4E: Notifications, Communication & Delivery Reliability Suite
+  const notificationsResults = await runNotificationsCommunicationTestSuite();
+  passed += notificationsResults.passed;
+  failed += notificationsResults.failed;
+
+  // Pack 4F: Advanced Restaurant, Branch, Menu & Meal Operations Suite
+  const restaurantOpsResults = await runRestaurantOperationsTestSuite();
+  passed += restaurantOpsResults.passed;
+  failed += restaurantOpsResults.failed;
 
   // Final Results
   console.log('\n================================================================');

@@ -1,0 +1,302 @@
+﻿-- ============================================================================
+-- LOCAL AUTH FIXTURES
+-- These users exist only to satisfy auth.users -> public.profiles integrity
+-- during local development/testing.
+-- ============================================================================
+
+INSERT INTO auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at
+)
+VALUES
+(
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000001',
+    'authenticated',
+    'authenticated',
+    'frank.mlaki@mlohub.tz',
+    '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Frank Mlaki","phone":"+255754123456","account_type":"CUSTOMER"}'::jsonb,
+    NOW(),
+    NOW()
+),
+(
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000002',
+    'authenticated',
+    'authenticated',
+    'amina.bakari@mlohub.tz',
+    '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Amina Bakari","phone":"+255784987654","account_type":"CUSTOMER"}'::jsonb,
+    NOW(),
+    NOW()
+),
+(
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000003',
+    'authenticated',
+    'authenticated',
+    'mama.amina@mlohub.tz',
+    '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Mama Amina Juma","phone":"+255754889120","account_type":"RESTAURANT_OWNER"}'::jsonb,
+    NOW(),
+    NOW()
+),
+(
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000004',
+    'authenticated',
+    'authenticated',
+    'admin@mlohub.tz',
+    '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"MloHub Admin Team","phone":"+255700000000","account_type":"CUSTOMER"}'::jsonb,
+    NOW(),
+    NOW()
+),
+(
+    '00000000-0000-0000-0000-000000000000',
+    '00000000-0000-0000-0000-000000000005',
+    'authenticated',
+    'authenticated',
+    'rashid.mwinyi@mlohub.tz',
+    '',
+    NOW(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Chef Rashid Mwinyi","phone":"+255713444555","account_type":"RESTAURANT_OWNER"}'::jsonb,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+-- ============================================================================
+-- MLOHUB SUPABASE SEED DATA (STAGE 2)
+-- Version: 20260916000001
+-- Description: Rich multi-neighborhood Dar es Salaam seed data for testing
+--              real user journeys, multi-branch operations, menu freshness,
+--              order snapshots, 50% deposit reservations, and notifications.
+-- ============================================================================
+
+-- 1. Profiles Seed
+INSERT INTO public.profiles (
+    id, full_name, email, phone, role, roles, active_workspace, language, avatar_emoji, company_or_group, is_phone_verified, is_email_verified
+) VALUES
+('00000000-0000-0000-0000-000000000001', 'Frank Mlaki', 'frank.mlaki@mlohub.tz', '+255754123456', 'CUSTOMER', ARRAY['CUSTOMER'::user_role_enum], 'CUSTOMER', 'en', NULL, 'Dar Tech Labs (10 Staff)', TRUE, TRUE),
+('00000000-0000-0000-0000-000000000002', 'Amina Bakari', 'amina.bakari@mlohub.tz', '+255784987654', 'CUSTOMER', ARRAY['CUSTOMER'::user_role_enum], 'CUSTOMER', 'sw', NULL, 'Solo Meal Plan', TRUE, TRUE),
+('00000000-0000-0000-0000-000000000003', 'Mama Amina Juma', 'mama.amina@mlohub.tz', '+255754889120', 'RESTAURANT_OWNER', ARRAY['CUSTOMER'::user_role_enum, 'RESTAURANT_OWNER'::user_role_enum], 'RESTAURANT_OWNER', 'sw', NULL, 'Mama Amina Biryani House', TRUE, TRUE),
+('00000000-0000-0000-0000-000000000004', 'MloHub Admin Team', 'admin@mlohub.tz', '+255700000000', 'SUPER_ADMIN', ARRAY['SUPER_ADMIN'::user_role_enum, 'ADMIN'::user_role_enum], 'MLOHUB_ADMIN', 'sw', NULL, 'MloHub Administration', TRUE, TRUE),
+('00000000-0000-0000-0000-000000000005', 'Chef Rashid Mwinyi', 'rashid.mwinyi@mlohub.tz', '+255713444555', 'RESTAURANT_OWNER', ARRAY['CUSTOMER'::user_role_enum, 'RESTAURANT_OWNER'::user_role_enum], 'RESTAURANT_OWNER', 'sw', NULL, 'Samaki Samaki Mwenge', TRUE, TRUE)
+ON CONFLICT (id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    phone = EXCLUDED.phone,
+    active_workspace = EXCLUDED.active_workspace,
+    language = EXCLUDED.language,
+    avatar_emoji = EXCLUDED.avatar_emoji,
+    company_or_group = EXCLUDED.company_or_group;
+
+-- 2. Restaurants Seed (Dar es Salaam Neighborhoods)
+INSERT INTO public.restaurants (
+    id, owner_id, name, slug, cuisine, description, seller_tier, rating, reviews_count,
+    min_price_tzs, max_price_tzs, address, neighborhood, region_city, distance_km, estimated_prep_time_minutes,
+    is_open, is_verified, verification_status, tin_number, business_license_number, payout_phone_number, payout_provider,
+    opening_hours, closing_hours, cover_image_url, specialty, specialist_badge, emoji, tags
+) VALUES
+('mama-amina-biryani', '00000000-0000-0000-0000-000000000003', 'Mama Amina Biryani House', 'mama-amina-biryani', 'Zanzibar Biryani & Pilau', 'Authentic Zanzibar dum biryani slow-cooked with fresh local spices.', 'VERIFIED_SELLER', 4.9, 142, 6000, 25000, 'Old Bagamoyo Rd, Mikocheni B', 'Mikocheni', 'Dar es Salaam', 0.8, 30, TRUE, TRUE, 'VERIFIED', '109-887-234', 'BL-DAR-2025-0992', '+255754889120', 'M-Pesa', '09:00 AM', '09:00 PM', 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80', 'Authentic Zanzibar Beef Biryani', 'TOP_CHEF', NULL, ARRAY['Biryani', 'Pilau', 'Mikocheni', 'Halal']),
+('kibo-mchemsho', NULL, 'Kibo Peak Mchemsho Spot', 'kibo-mchemsho', 'Swahili Soups & Healthy Boils', 'Nutritious slow-simmered beef and fish broth with sweet potatoes and green bananas.', 'BASIC_SELLER', 4.7, 89, 5000, 18000, 'Sinza Mori Near Deluxe', 'Sinza', 'Dar es Salaam', 2.3, 20, TRUE, TRUE, 'VERIFIED', '201-445-889', 'BL-DAR-2024-5512', '+255784999111', 'Airtel Money', '06:30 AM', '08:00 PM', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80', 'Special Supu ya Mkia', 'LOCAL_LEGEND', NULL, ARRAY['Supu', 'Mchemsho', 'Sinza', 'Healthy']),
+('green-leaf', NULL, 'Green Leaf Fresh Kitchen', 'green-leaf', 'Healthy Salads & Vegan Bowls', 'Fresh organic salads and cold-pressed juices.', 'VERIFIED_SELLER', 4.8, 64, 8000, 22000, 'Masaki Chole Road', 'Masaki', 'Dar es Salaam', 3.5, 25, TRUE, TRUE, 'VERIFIED', '330-998-112', 'BL-DAR-2025-1104', '+255715222333', 'Mixx by Yas', '08:00 AM', '08:00 PM', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80', 'Avocado Protein Bowl', 'VERIFIED_ORGANIC', NULL, ARRAY['Salad', 'Vegan', 'Masaki', 'Gluten-Free']),
+('samaki-samaki-mwenge', '00000000-0000-0000-0000-000000000005', 'Samaki Samaki Seafood Bar', 'samaki-samaki-mwenge', 'Seafood & Swahili Grills', 'Crispy spiced red snapper, prawns, coconut coconut fish soup, and roasted cassava.', 'VERIFIED_SELLER', 4.85, 210, 8000, 35000, 'Mwenge ITV Junction', 'Mwenge', 'Dar es Salaam', 1.8, 35, TRUE, TRUE, 'VERIFIED', '405-112-990', 'BL-DAR-2025-8833', '+255713444555', 'M-Pesa', '11:00 AM', '11:00 PM', 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=800&q=80', 'Pweza wa Nazi & Samaki Choma', 'SEAFOOD_SPECIALIST', NULL, ARRAY['Seafood', 'Fish', 'Mwenge', 'Dinner Spot']),
+('kariakoo-ugali-choma', NULL, 'Kariakoo Tamu Tamu Kitchen', 'kariakoo-ugali-choma', 'Traditional Swahili Comfort Food', 'Steaming hot dona ugali served with mbuzi choma, mchicha wa nazi, and fresh pili pili.', 'BASIC_SELLER', 4.6, 75, 3500, 15000, 'Msimbazi Street, Kariakoo', 'Kariakoo', 'Dar es Salaam', 5.2, 15, TRUE, TRUE, 'VERIFIED', NULL, NULL, '+255762000111', 'M-Pesa', '06:00 AM', '10:00 PM', 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80', 'Ugali Afya na Mbuzi Choma', 'STREET_HERO', NULL, ARRAY['Ugali', 'Nyama Choma', 'Kariakoo', 'Affordable'])
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    specialty = EXCLUDED.specialty,
+    seller_tier = EXCLUDED.seller_tier;
+
+-- 3. Multi-Branch Support (restaurant_branches)
+INSERT INTO public.restaurant_branches (
+    id,
+    restaurant_id,
+    name,
+    address,
+    region,
+    district,
+    ward,
+    latitude,
+    longitude,
+    phone,
+    is_active
+) VALUES
+(
+    '10000000-0000-0000-0000-000000000001',
+    'mama-amina-biryani',
+    'Mikocheni Flagship',
+    'Old Bagamoyo Rd, Mikocheni B',
+    'Dar es Salaam',
+    NULL,
+    'Mikocheni',
+    -6.764500,
+    39.245800,
+    '+255754889120',
+    TRUE
+),
+(
+    '10000000-0000-0000-0000-000000000002',
+    'mama-amina-biryani',
+    'Posta City Express',
+    'Samora Avenue, CBD',
+    'Dar es Salaam',
+    NULL,
+    'Posta',
+    -6.816200,
+    39.289400,
+    '+255754889121',
+    TRUE
+),
+(
+    '10000000-0000-0000-0000-000000000003',
+    'samaki-samaki-mwenge',
+    'Mwenge Hub',
+    'Mwenge ITV Junction',
+    'Dar es Salaam',
+    NULL,
+    'Mwenge',
+    -6.772500,
+    39.219800,
+    '+255713444555',
+    TRUE
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- 4. Restaurant Memberships
+ALTER TABLE public.restaurant_members
+DISABLE TRIGGER trg_protect_restaurant_membership;
+
+INSERT INTO public.restaurant_members (
+    id, user_id, restaurant_id, role, is_primary_owner, is_active
+) VALUES
+('mem-amina-01', '00000000-0000-0000-0000-000000000003', 'mama-amina-biryani', 'OWNER', TRUE, TRUE),
+('mem-rashid-01', '00000000-0000-0000-0000-000000000005', 'samaki-samaki-mwenge', 'OWNER', TRUE, TRUE)
+ON CONFLICT (user_id, restaurant_id) DO NOTHING;
+
+ALTER TABLE public.restaurant_members
+ENABLE TRIGGER trg_protect_restaurant_membership;
+
+-- 5. Menu Categories
+INSERT INTO public.menu_categories (
+    id, restaurant_id, name_en, name_sw, display_order
+) VALUES
+('cat-amina-main', 'mama-amina-biryani', 'Main Dishes', 'Vyakula Vikuu', 1),
+('cat-amina-specials', 'mama-amina-biryani', 'Weekend Specials', 'Vyakula Maalum vya Wikendi', 2),
+('cat-amina-drinks', 'mama-amina-biryani', 'Fresh Drinks', 'Vinywaji Baridi', 3),
+('cat-samaki-grills', 'samaki-samaki-mwenge', 'Charcoal Grills', 'Choma ya Mkaa', 1),
+('cat-samaki-soups', 'samaki-samaki-mwenge', 'Coconut Broths', 'Mchuzi wa Nazi', 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- 6. Menu Items
+INSERT INTO public.menu_items (
+    id, restaurant_id, category_id, name_en, name_sw, description_en, description_sw, price_tzs, photo_url, stock_quantity, is_available, estimated_prep_time_minutes, dietary_tags
+) VALUES
+('item-biryani-beef', 'mama-amina-biryani', 'cat-amina-main', 'Zanzibar Beef Biryani', 'Biryani ya Ng''ombe ya Zanzibar', 'Tender marinated beef served over fragrant basmati saffron rice with spicy kachumbari.', 'Nyama laini ya ng''ombe na mchele wa basmati uliopikwa na viungo asilia vya Zanzibar.', 12000, 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80', 35, TRUE, 25, ARRAY['High Protein', 'Halal']),
+('item-pilau-kuku', 'mama-amina-biryani', 'cat-amina-main', 'Swahili Spiced Chicken Pilau', 'Pilau ya Kuku ya Viungo', 'Traditional fragrant spiced rice with tender free-range chicken and salad.', 'Pilau yenye harufu nzuri na kuku wa kienyeji.', 14000, 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=800&q=80', 25, TRUE, 20, ARRAY['Halal']),
+('item-tamarind-juice', 'mama-amina-biryani', 'cat-amina-drinks', 'Fresh Ukwaju Juice', 'Jusi Safi ya Ukwaju', 'Refreshing chilled tamarind juice with hints of ginger and clove.', 'Jusi baridi ya ukwaju na tangawizi.', 3000, 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=800&q=80', 50, TRUE, 5, ARRAY['Vegan', 'Gluten-Free']),
+('item-samaki-choma', 'samaki-samaki-mwenge', 'cat-samaki-grills', 'Whole Red Snapper Choma', 'Changu Mzima wa Kuchoma', 'Freshly caught red snapper marinated with garlic, lime, and crushed chilies.', 'Changu mbichi wa baharini aliyekolea kitunguu saumu, ndimu na pilipili.', 22000, 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=800&q=80', 15, TRUE, 30, ARRAY['Seafood', 'Gluten-Free']),
+('item-pweza-nazi', 'samaki-samaki-mwenge', 'cat-samaki-soups', 'Octopus in Spiced Coconut Broth', 'Pweza wa Nazi na Viungo', 'Tender fresh octopus simmered in thick Zanzibar coconut milk.', 'Pweza laini aliyetokotwa katika tui zito la nazi na viungo vya pwani.', 16000, 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80', 20, TRUE, 25, ARRAY['Seafood', 'Keto'])
+ON CONFLICT (id) DO NOTHING;
+
+-- 7. Branch Menu Items (branch-specific pricing/stock)
+INSERT INTO public.branch_menu_items (
+    id, branch_id, menu_item_id, price_tzs, is_available, stock_status
+) VALUES
+('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'item-biryani-beef', 12000, TRUE, 'IN_STOCK'),
+('20000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'item-biryani-beef', 13000, TRUE, 'IN_STOCK'),
+('20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000003', 'item-samaki-choma', 22000, TRUE, 'IN_STOCK')
+ON CONFLICT (branch_id, menu_item_id) DO NOTHING;
+
+-- 8. Menu Verification Audit Trail
+INSERT INTO public.menu_verifications (
+    id, menu_item_id, verified_by_user_id, verified_price_tzs, freshness_grade, notes
+) VALUES
+('verif-01', 'item-biryani-beef', '00000000-0000-0000-0000-000000000004', 12000, 'GRADE_A_FRESH', 'Verified morning kitchen batch. Authentic basmati and fresh highland beef.'),
+('verif-02', 'item-samaki-choma', '00000000-0000-0000-0000-000000000004', 22000, 'GRADE_A_FRESH', 'Delivered from Kivukoni Fish Market at 06:00 AM. Stored on ice.')
+ON CONFLICT (id) DO NOTHING;
+
+-- 9. Orders & Line Item Snapshots
+INSERT INTO public.orders (
+    id, order_number, user_id, restaurant_id, branch_id, status, payment_status, subtotal_tzs, service_fee_tzs, delivery_fee_tzs, total_tzs, dining_option, delivery_address, estimated_prep_minutes
+) VALUES
+('ord-sample-01', 'MLO-2026-8801', '00000000-0000-0000-0000-000000000001', 'mama-amina-biryani', '10000000-0000-0000-0000-000000000001', 'ACCEPTED', 'SUCCESS', 24000, 1500, 2500, 28000, 'Delivery', 'Old Bagamoyo Rd, Mikocheni B', 30)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.order_items (
+    id, order_id, menu_item_id, item_name, item_name_snapshot, unit_price_tzs, price_snapshot, quantity, total_price_tzs
+) VALUES
+('item-ord-01', 'ord-sample-01', 'item-biryani-beef', 'Zanzibar Beef Biryani', 'Zanzibar Beef Biryani', 12000, 12000, 2, 24000)
+ON CONFLICT (id) DO NOTHING;
+
+-- 10. Dining Reservations (50% Deposit Model)
+INSERT INTO public.reservations (
+    id, user_id, restaurant_id, branch_id, party_size, reservation_date, reservation_time, status, deposit_amount_tzs, is_deposit_paid, special_requests
+) VALUES
+('res-sample-01', '00000000-0000-0000-0000-000000000001', 'mama-amina-biryani', '10000000-0000-0000-0000-000000000001', 4, '2026-09-20', '07:30 PM', 'CONFIRMED', 20000, TRUE, 'Near garden terrace table with quiet ambiance.'),
+('res-sample-02', '00000000-0000-0000-0000-000000000002', 'samaki-samaki-mwenge', '10000000-0000-0000-0000-000000000003', 2, '2026-09-22', '08:00 PM', 'CONFIRMED', 10000, TRUE, 'Anniversary table setting.')
+ON CONFLICT (id) DO NOTHING;
+
+-- 11. Custom Meal Requests & Chef Quotes
+INSERT INTO public.custom_meal_requests (
+    id, order_number, user_id, dish_name, special_instructions, budget_tzs, servings_count, dining_option, delivery_location, status, status_message_en, status_message_sw
+) VALUES
+('cm-sample-01', 'MLO-2026-9001', '00000000-0000-0000-0000-000000000001', '10-Person Zanzibar Spiced Feast', '5 Chicken Biryani, 5 Beef Pilau, Tamarind Kachumbari, Banana Coconut Custard', 150000, '10 Persons', 'Delivery', 'Mikocheni B, Dar es Salaam', 'PENDING', 'Broadcast sent to top chefs. Awaiting quotes.', 'Ombi limetumwa kwa wapishi. Linasubiri ofa.')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.restaurant_quotes (
+    id, request_id, restaurant_id, quoted_price_tzs, estimated_prep_minutes, chef_notes, status
+) VALUES
+('quote-01', 'cm-sample-01', 'mama-amina-biryani', 145000, 90, 'Includes complimentary fresh Ukwaju juice pitcher and homemade chutney.', 'OFFERED')
+ON CONFLICT (id) DO NOTHING;
+
+-- 12. Reviews
+INSERT INTO public.reviews (
+    id, user_id, restaurant_id, order_id, rating, comment
+) VALUES
+('rev-01', '00000000-0000-0000-0000-000000000001', 'mama-amina-biryani', 'ord-sample-01', 5, 'Best authentic Biryani in Dar es Salaam! Fragrant rice, very tender beef and prompt delivery.'),
+('rev-02', '00000000-0000-0000-0000-000000000002', 'kibo-mchemsho', NULL, 5, 'Supu ya mkia ilikuwa safi sana asubuhi ya leo. Inatia nguvu na haina mafuta mengi.')
+ON CONFLICT (id) DO NOTHING;
+
+-- 13. Notifications
+INSERT INTO public.notifications (
+    id, user_id, type, category, title_en, title_sw, message_en, message_sw, is_read, order_id, restaurant_id
+) VALUES
+('notif-01', '00000000-0000-0000-0000-000000000001', 'order', 'ORDER', 'Order #MLO-2026-8801 Confirmed!', 'Agizo #MLO-2026-8801 Limethibitishwa!', 'Mama Amina is cooking your order right now.', 'Mama Amina anaandaa agizo lako sasa hivi.', FALSE, 'ord-sample-01', 'mama-amina-biryani')
+ON CONFLICT (id) DO NOTHING;
+
+-- 14. Audit Logs
+INSERT INTO public.audit_logs (
+    id, admin_user_id, admin_name, action, target_type, target_id, details
+) VALUES
+('audit-01', '00000000-0000-0000-0000-000000000004', 'MloHub Admin Team', 'VERIFY_VENDOR', 'RESTAURANT', 'mama-amina-biryani', '{"verifiedFields": ["tinNumber", "businessLicense"], "tier": "VERIFIED_SELLER"}')
+ON CONFLICT (id) DO NOTHING;
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,17 @@
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = true
+
+[functions.get-payment-status]
+verify_jwt = true
+
+[functions.request-refund]
+verify_jwt = true
+
+[functions.payment-webhook]
+verify_jwt = false

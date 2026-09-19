@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,19 +15,23 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
-import { MloHubDB } from '../../db';
+import { useAuth } from '../../context/AuthContext';
+import { ApplicationRepository } from '../../repositories/applications.repository';
+import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
 
 export default function RegisterRestaurantScreen() {
   const router = useRouter();
   const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
+  const { user: authUser, signUpCustomer } = useAuth();
 
   // Form Fields
   const [businessName, setBusinessName] = useState('');
-  const [ownerFullName, setOwnerFullName] = useState('');
-  const [ownerPhone, setOwnerPhone] = useState('+255 ');
-  const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerFullName, setOwnerFullName] = useState(authUser?.fullName || '');
+  const [ownerPhone, setOwnerPhone] = useState(authUser?.phone || '+255 ');
+  const [ownerEmail, setOwnerEmail] = useState(authUser?.email || '');
+  const [password, setPassword] = useState('');
   const [cuisine, setCuisine] = useState('Swahili');
   const [neighborhood, setNeighborhood] = useState('Mikocheni');
   const [address, setAddress] = useState('');
@@ -39,6 +43,15 @@ export default function RegisterRestaurantScreen() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // Sync with authUser when available
+  useEffect(() => {
+    if (authUser) {
+      if (authUser.fullName && !ownerFullName) setOwnerFullName(authUser.fullName);
+      if (authUser.phone && ownerPhone === '+255 ') setOwnerPhone(authUser.phone);
+      if (authUser.email && !ownerEmail) setOwnerEmail(authUser.email);
+    }
+  }, [authUser]);
 
   const cuisinePresets = [
     { id: 'Swahili', label: '🥘 Traditional Swahili' },
@@ -56,6 +69,14 @@ export default function RegisterRestaurantScreen() {
     if (!ownerPhone.trim() || ownerPhone.length < 9) {
       errs.ownerPhone = 'Valid phone number is required (+255...)';
     }
+    if (!authUser) {
+      if (!ownerEmail.trim() || !ownerEmail.includes('@')) {
+        errs.ownerEmail = 'Valid email is required to create your owner account';
+      }
+      if (!password.trim() || password.length < 6) {
+        errs.password = 'Password must be at least 6 characters';
+      }
+    }
     if (!address.trim()) errs.address = 'Physical operating address is required';
     if (!neighborhood.trim()) errs.neighborhood = 'Neighborhood is required';
     setErrors(errs);
@@ -66,8 +87,27 @@ export default function RegisterRestaurantScreen() {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      await MloHubDB.init();
-      const app = await MloHubDB.restaurantApplications.create({
+      let currentUserId = authUser?.id;
+
+      // If user is not authenticated yet, register account in Supabase
+      if (!currentUserId) {
+        const signupRes = await signUpCustomer({
+          email: ownerEmail.trim(),
+          password: password,
+          fullName: ownerFullName.trim(),
+          phone: ownerPhone.trim(),
+          location: neighborhood.trim(),
+        });
+        currentUserId = signupRes.user?.id;
+      }
+
+      if (!currentUserId) {
+        throw new Error('Could not establish authenticated owner identity. Please log in or verify credentials.');
+      }
+
+      // Submit application with authentic user ID
+      const app = await ApplicationRepository.submit({
+        applicantUserId: currentUserId,
         businessName: businessName.trim(),
         ownerName: ownerFullName.trim(),
         ownerPhone: ownerPhone.trim(),
@@ -82,6 +122,16 @@ export default function RegisterRestaurantScreen() {
 
       setApplicationId(app.id);
       setIsSubmitted(true);
+
+      // Broadcast to Admin and all connected peers
+      try {
+        RealtimeEventEngine.publish('restaurants:updates', {
+          action: 'APPLICATION_SUBMITTED',
+          application: app,
+        });
+      } catch (err) {
+        console.warn('Realtime publish error:', err);
+      }
     } catch (e: any) {
       setErrors({ form: e?.message || 'Failed to submit application. Please try again.' });
     } finally {
@@ -97,14 +147,16 @@ export default function RegisterRestaurantScreen() {
             <View style={styles.successIconWrap}>
               <Ionicons name="checkmark-circle" size={56} color="#1d6637" />
             </View>
-            <Text style={styles.successBadge}>OMBI LIMEPOKELEWA • APPLICATION RECEIVED</Text>
+            <Text style={styles.successBadge}>
+              {language === 'sw' ? 'OMBI LIMEPOKELEWA • LINAKAGULIWA NA ADMIN' : 'APPLICATION RECEIVED • UNDER ADMIN REVIEW'}
+            </Text>
             <Text style={styles.successTitle}>
               {language === 'sw' ? 'Ombi Lako Limetumwa Kikamilifu!' : 'Application Submitted Successfully!'}
             </Text>
             <Text style={styles.successSub}>
               {language === 'sw'
-                ? `Asante ${ownerFullName}! Timu ya MloHub inakagua taarifa za "${businessName}". Utapokea ujumbe wa SMS wenye msimbo wa OTP wa kuwezesha akaunti yako mara tu ukaguzi utakapokamilika.`
-                : `Thank you ${ownerFullName}! The MloHub admin team is reviewing "${businessName}". You will receive an SMS with an activation OTP code on your phone once reviewed.`}
+                ? `Asante ${ownerFullName}! Maombi ya "${businessName}" yametumwa kwenye mfumo rasmi wa MloHub. Utaarifiwa pindi msimamizi atakapoidhinisha mgahawa wako.`
+                : `Thank you ${ownerFullName}! Details for "${businessName}" have been submitted for administrator review. You will be notified once reviewed and approved.`}
             </Text>
 
             <View style={styles.appRefBox}>
@@ -114,9 +166,21 @@ export default function RegisterRestaurantScreen() {
 
             <View style={styles.nextStepsBox}>
               <Text style={styles.nextStepsTitle}>Hatua Zinazofuata / Next Steps:</Text>
-              <Text style={styles.nextStepItem}>1. Timu ya MloHub itathibitisha namba yako ya simu.</Text>
-              <Text style={styles.nextStepItem}>2. Utapokea SMS yenye OTP ya kuanzisha akaunti ya muuzaji.</Text>
-              <Text style={styles.nextStepItem}>3. Utaweka nenosiri lako na kuanza kuingiza orodha ya chakula (menu).</Text>
+              <Text style={styles.nextStepItem}>
+                {language === 'sw'
+                  ? '1. Usimamizi wa MloHub unakagua taarifa na eneo la mgahawa.'
+                  : '1. MloHub administration verifies business credentials and location.'}
+              </Text>
+              <Text style={styles.nextStepItem}>
+                {language === 'sw'
+                  ? '2. Baada ya kuidhinishwa, utaingia kwenye Kitchen Portal kuongeza tawi na menyu yenye bei.'
+                  : '2. Once approved, you can access the Kitchen Portal to set up branches, menu items, and pricing.'}
+              </Text>
+              <Text style={styles.nextStepItem}>
+                {language === 'sw'
+                  ? '3. Zindua mgahawa wako ili uonekane kwa wateja wote wa Dar es Salaam mtandaoni.'
+                  : '3. Publish your restaurant to make it discoverable to customers across Dar es Salaam.'}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -143,31 +207,31 @@ export default function RegisterRestaurantScreen() {
         </TouchableOpacity>
         <View style={styles.stepHeaderInfo}>
           <Text style={styles.headerTitle}>
-            {language === 'sw' ? 'Omba Kujiunga kama Muuzaji' : 'Apply to Join MloHub'}
+            {language === 'sw' ? 'Sajili Mgahawa / Kibanda' : 'Register Food Spot'}
           </Text>
-          <Text style={styles.headerStepText}>Food Vendor & Mama Lishe Intake</Text>
+          <Text style={styles.headerStepText}>
+            {language === 'sw' ? 'Hatua 1 ya 1 • Usajili Rasmi' : 'Step 1 of 1 • Official Onboarding'}
+          </Text>
         </View>
-        <View style={{ width: 32 }} />
+        <View style={{ width: 38 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isLargeScreen && styles.largeScreenContent,
-        ]}
+        contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContent]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Value Proposition Intro */}
         <View style={styles.introCard}>
           <View style={styles.introHeader}>
-            <Text style={{ fontSize: 28 }}>👩‍🍳</Text>
+            <Ionicons name="storefront" size={24} color="#1d6637" />
             <View style={{ flex: 1 }}>
               <Text style={styles.introTitle}>
-                {language === 'sw' ? 'Jiunge na MloHub' : 'Partner with MloHub'}
+                {language === 'sw' ? 'Jiunge na Mtandao wa MloHub' : 'Join the MloHub Network'}
               </Text>
               <Text style={styles.introSub}>
                 {language === 'sw'
-                  ? 'Ongeza mauzo ya mgahawa au kibanda chako cha chakula kwa wateja waliopo karibu nawe.'
-                  : 'Reach hungry diners in your neighborhood. Quick 6-point verification for informal & formal vendors.'}
+                  ? 'Wafikie maelfu ya wateja wa Dar es Salaam wanaotafuta vyakula halisi vya asili na migahawa ya kisasa.'
+                  : 'Reach thousands of diners in Dar es Salaam discovering local food spots, home kitchens, and restaurants.'}
               </Text>
             </View>
           </View>
@@ -217,6 +281,17 @@ export default function RegisterRestaurantScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>2. Taarifa za Mmiliki / Owner Contact</Text>
 
+          {authUser && (
+            <View style={styles.sessionBadgeRow}>
+              <Ionicons name="person-circle" size={16} color="#0f766e" />
+              <Text style={styles.sessionBadgeText}>
+                {language === 'sw'
+                  ? `Umeingia kama: ${authUser.fullName || authUser.email}`
+                  : `Signed in as: ${authUser.fullName || authUser.email}`}
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.inputLabel}>Jina Kamili la Mmiliki (Owner Full Name) *</Text>
           <TextInput
             style={[styles.input, errors.ownerFullName && styles.inputError]}
@@ -227,7 +302,7 @@ export default function RegisterRestaurantScreen() {
           />
           {errors.ownerFullName && <Text style={styles.fieldError}>{errors.ownerFullName}</Text>}
 
-          <Text style={styles.inputLabel}>Namba ya Simu ya Kupokea OTP & Malipo *</Text>
+          <Text style={styles.inputLabel}>Namba ya Simu ya Mmiliki & Malipo (M-Pesa / Tigo Pesa) *</Text>
           <TextInput
             style={[styles.input, errors.ownerPhone && styles.inputError]}
             value={ownerPhone}
@@ -238,9 +313,11 @@ export default function RegisterRestaurantScreen() {
           />
           {errors.ownerPhone && <Text style={styles.fieldError}>{errors.ownerPhone}</Text>}
 
-          <Text style={styles.inputLabel}>Barua Pepe (Email - Hiari)</Text>
+          <Text style={styles.inputLabel}>
+            Barua Pepe (Email) {authUser ? '(Hiari)' : '*'}
+          </Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.ownerEmail && styles.inputError]}
             value={ownerEmail}
             onChangeText={setOwnerEmail}
             placeholder="owner@example.com"
@@ -248,6 +325,31 @@ export default function RegisterRestaurantScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {errors.ownerEmail && <Text style={styles.fieldError}>{errors.ownerEmail}</Text>}
+
+          {!authUser && (
+            <>
+              <Text style={styles.inputLabel}>Nenosiri la Akaunti ya Mmiliki (Password) *</Text>
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Weka nenosiri salama (angalau herufi 6)"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+              />
+              {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
+            </>
+          )}
+
+          <View style={styles.verifiedBadgeRow}>
+            <Ionicons name="information-circle-outline" size={15} color="#0f766e" />
+            <Text style={styles.verifiedBadgeText}>
+              {language === 'sw'
+                ? 'Nambari itatumika kupokea arifa za oda na malipo ya biashara.'
+                : 'Phone number will be used for order dispatch alerts and merchant payouts.'}
+            </Text>
+          </View>
         </View>
 
         {/* 3. LOCATION & OPERATING AREA */}
@@ -264,7 +366,7 @@ export default function RegisterRestaurantScreen() {
           />
           {errors.neighborhood && <Text style={styles.fieldError}>{errors.neighborhood}</Text>}
 
-          <Text style={styles.inputLabel}>Anwani Kamili (Physical Address / Land Mark) *</Text>
+          <Text style={styles.inputLabel}>Anwani Kamili (Physical Address / Landmark) *</Text>
           <TextInput
             style={[styles.input, errors.address && styles.inputError]}
             value={address}
@@ -452,6 +554,23 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
     paddingBottom: 6,
     marginBottom: 4,
+  },
+  sessionBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f0fdfa',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: '#ccfbf1',
+    marginBottom: 6,
+  },
+  sessionBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0f766e',
   },
   inputLabel: {
     fontSize: 12,
@@ -646,5 +765,22 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     color: '#ffffff',
+  },
+  verifiedBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f0fdfa',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: Radii.md,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#ccfbf1',
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0f766e',
   },
 });

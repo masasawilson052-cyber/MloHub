@@ -1,379 +1,192 @@
 import {
-  UserEntity,
   UserRole,
-  CustomerProfileEntity,
-  RestaurantEntity,
-  RestaurantMembershipEntity,
-  RefreshSessionEntity,
   RegisterCustomerDTO,
   RegisterRestaurantDTO,
   LoginDTO,
   AuthSessionResponse,
 } from '../types';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { runtimeConfig } from '../../lib/runtimeConfig';
+import { OtpApi } from '../../services/api/OtpApi';
 import { CryptoEngine } from './crypto';
-import { MloHubDB } from '../index';
-
-// Rate Limiter tracking (in-memory per client)
-const loginAttempts: { [key: string]: { count: number; lastAttempt: number } } = {};
-const RATE_LIMIT_MAX = 6;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now();
-  const record = loginAttempts[key];
-  if (!record) {
-    loginAttempts[key] = { count: 1, lastAttempt: now };
-    return true;
-  }
-  if (now - record.lastAttempt > RATE_LIMIT_WINDOW_MS) {
-    loginAttempts[key] = { count: 1, lastAttempt: now };
-    return true;
-  }
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-  record.count++;
-  record.lastAttempt = now;
-  return true;
-}
 
 export const AuthService = {
+  /**
+   * Send Customer OTP Verification Code
+   */
+  async sendCustomerOtp(phone: string, purpose: string = 'Uthibitisho'): Promise<{
+    success: boolean;
+    carrierName: string;
+    message: string;
+    error?: string;
+  }> {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.sendCustomerOtp(phone, purpose);
+    }
+
+    const res = await OtpApi.sendOtp(phone, 'CUSTOMER_VERIFICATION', 'sw');
+    return {
+      success: res.success,
+      carrierName: res.carrierName || 'Vodacom / Tigo / Airtel',
+      message: res.message,
+      error: res.error,
+    };
+  },
+
+  /**
+   * Verify Customer OTP Code
+   */
+  async verifyCustomerOtp(
+    phone: string,
+    enteredOtp: string
+  ): Promise<{ success: boolean; message: string }> {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.verifyCustomerOtp(phone, enteredOtp);
+    }
+
+    const res = await OtpApi.verifyOtp(phone, enteredOtp);
+    return {
+      success: res.success,
+      message: res.message,
+    };
+  },
+
   /**
    * Register a new Customer Account
    */
   async registerCustomer(dto: RegisterCustomerDTO): Promise<AuthSessionResponse> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.registerCustomer(dto);
+    }
 
-    // Validation
+    if (!isSupabaseConfigured()) {
+      throw new Error(`Supabase is required for registration in ${runtimeConfig.environmentLabel}.`);
+    }
+
     const cleanEmail = dto.email.trim().toLowerCase();
-    const cleanPhone = dto.phone.trim();
-    const cleanName = dto.fullName.trim();
-
-    if (!cleanName || cleanName.length < 2) {
-      throw new Error('Full name is required (minimum 2 characters).');
-    }
-    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      throw new Error('Please provide a valid email address.');
-    }
-    if (!cleanPhone || cleanPhone.length < 9) {
-      throw new Error('Please provide a valid phone number (e.g. +255 754 123 456).');
-    }
-    if (!dto.password || dto.password.length < 6) {
-      throw new Error('Password must be at least 6 characters long.');
-    }
-    if (!dto.agreeTerms) {
-      throw new Error('You must agree to the Terms of Service and Privacy Policy.');
-    }
-
-    // Check duplicate email or phone
-    const existingEmail = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (existingEmail) {
-      throw new Error('An account with this email address already exists.');
-    }
-    const existingPhone = db.users.find((u) => u.phone === cleanPhone);
-    if (existingPhone) {
-      throw new Error('An account with this phone number already exists.');
-    }
-
-    // Create User
-    const userId = `usr-${Date.now()}`;
-    const passwordHash = CryptoEngine.hashPassword(dto.password);
-    const now = new Date().toISOString();
-
-    const newUser: UserEntity = {
-      id: userId,
-      fullName: cleanName,
+    const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
-      phone: cleanPhone,
-      passwordHash,
-      role: UserRole.CUSTOMER,
-      activeRole: UserRole.CUSTOMER,
-      location: dto.location || 'Dar es Salaam',
-      language: 'en',
-      avatarEmoji: '👤',
-      securityPin: '1234',
-      isEmailVerified: false,
-      isPhoneVerified: false,
-      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Create Customer Profile
-    const profileId = `cp-${Date.now()}`;
-    const newProfile: CustomerProfileEntity = {
-      id: profileId,
-      userId,
-      deliveryAddress: dto.location || 'Dar es Salaam',
-      neighborhood: dto.location || 'Mikocheni',
-      dietaryPreferences: dto.dietaryPreferences || [],
-      favoriteCuisineTypes: ['Swahili', 'Healthy'],
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Issue Token
-    const token = CryptoEngine.signToken({
-      userId,
-      role: UserRole.CUSTOMER,
-      email: cleanEmail,
+      password: dto.password,
+      options: {
+        data: {
+          full_name: dto.fullName.trim(),
+          phone: dto.phone.trim(),
+          location: dto.location?.trim() || '',
+          account_type: 'CUSTOMER',
+        },
+      },
     });
 
-    // Create Session
-    const newSession: RefreshSessionEntity = {
-      id: `sess-${Date.now()}`,
-      userId,
-      token,
-      deviceInfo: 'Expo Mobile App',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: now,
-    };
+    if (error) throw error;
+    if (!data.user) throw new Error('Registration failed: no user returned.');
 
-    // Save to Database
-    db.users.unshift(newUser);
-    db.customerProfiles = db.customerProfiles || [];
-    db.customerProfiles.unshift(newProfile);
-    db.sessions = db.sessions || [];
-    db.sessions.unshift(newSession);
-    db.activeUserId = userId;
-
-    await MloHubDB.save();
-
+    const token = data.session?.access_token || `sb_cust_${Date.now()}`;
     return {
-      user: newUser,
-      customerProfile: newProfile,
+      user: {
+        id: data.user.id,
+        fullName: dto.fullName.trim(),
+        email: cleanEmail,
+        phone: dto.phone.trim(),
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: UserRole.CUSTOMER,
+        activeRole: UserRole.CUSTOMER,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      customerProfile: undefined,
       memberships: [],
       token,
     };
   },
 
   /**
-   * Register a new Restaurant & Owner Account (Multi-step)
+   * Register a new Restaurant & Owner Account
    */
   async registerRestaurant(dto: RegisterRestaurantDTO): Promise<AuthSessionResponse> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
-
-    // 1. Owner Validation
-    const cleanOwnerEmail = dto.ownerEmail.trim().toLowerCase();
-    const cleanOwnerPhone = dto.ownerPhone.trim();
-    const cleanOwnerName = dto.ownerFullName.trim();
-
-    if (!cleanOwnerName) throw new Error('Owner full name is required.');
-    if (!cleanOwnerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanOwnerEmail)) {
-      throw new Error('Please provide a valid owner email.');
-    }
-    if (!cleanOwnerPhone) throw new Error('Owner phone number is required.');
-    if (!dto.password || dto.password.length < 6) {
-      throw new Error('Password must be at least 6 characters long.');
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.registerRestaurant(dto);
     }
 
-    // 2. Restaurant Validation
-    const cleanRestName = dto.restaurantName.trim();
-    if (!cleanRestName) throw new Error('Restaurant name is required.');
-    if (!dto.cuisine.trim()) throw new Error('Cuisine / Category is required.');
-    if (!dto.address.trim()) throw new Error('Physical restaurant address is required.');
-    if (!dto.agreeTerms) throw new Error('You must agree to the Merchant Terms of Service.');
-
-    // Duplicate check
-    if (db.users.some((u) => u.email.toLowerCase() === cleanOwnerEmail)) {
-      throw new Error('An account with this email already exists.');
+    if (!isSupabaseConfigured()) {
+      throw new Error(`Supabase is required for restaurant onboarding in ${runtimeConfig.environmentLabel}.`);
     }
 
-    const now = new Date().toISOString();
-    const userId = `usr-chef-${Date.now()}`;
-    const restaurantId = `rest-${cleanRestName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
-
-    // Create Owner User
-    const newOwner: UserEntity = {
-      id: userId,
-      fullName: cleanOwnerName,
-      email: cleanOwnerEmail,
-      phone: cleanOwnerPhone,
-      passwordHash: CryptoEngine.hashPassword(dto.password),
-      role: UserRole.RESTAURANT_OWNER,
-      activeRole: UserRole.RESTAURANT_OWNER,
-      activeRestaurantId: restaurantId,
-      location: dto.address,
-      language: 'en',
-      avatarEmoji: '👑',
-      securityPin: '1234',
-      companyOrGroup: cleanRestName,
-      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Create Restaurant Entity (with PENDING_VERIFICATION)
-    const newRestaurant: RestaurantEntity = {
-      id: restaurantId,
-      ownerId: userId,
-      ownerName: cleanOwnerName,
-      ownerPhone: cleanOwnerPhone,
-      sellerTier: 'BASIC_SELLER',
-      name: cleanRestName,
-      slug: restaurantId,
-      cuisine: dto.cuisine,
-      description: dto.description || `${cleanRestName} specializing in authentic fresh dishes.`,
-      rating: 5.0,
-      reviews: 0,
-      price: 'TZS 10,000 - 30,000',
-      minPrice: 10000,
-      maxPrice: 30000,
-      budgetTier: 'mid',
-      address: dto.address,
-      neighborhood: dto.neighborhood || 'Mikocheni',
-      regionCity: dto.regionCity || 'Dar es Salaam',
-      distance: '1.2 km',
-      distanceKm: 1.2,
-      time: '25-35m',
-      isOpen: true,
-      isVerified: false,
-      verificationStatus: 'PENDING_VERIFICATION',
-      businessRegNumber: dto.businessRegNumber || undefined,
-      verificationDocUrl: dto.verificationDocUrl || undefined,
-      openingHours: dto.openingHours || '08:00 AM',
-      closingHours: dto.closingHours || '10:00 PM',
-      logoUrl: dto.logoUrl,
-      coverImageUrl: dto.coverImageUrl,
-      specialty: `${dto.cuisine} Specialist`,
-      specialistBadge: `👑 ${dto.cuisine} Specialist`,
-      specialistBadgeSw: `👑 Mtaalamu wa ${dto.cuisine}`,
-      specialistCategory: dto.cuisine.toLowerCase(),
-      emoji: '🍽️',
-      bgGradient: ['#113a26', '#1d6637'],
-      tags: [dto.cuisine, 'Fresh Cook', 'Advance Batch'],
-      lat: dto.lat || -6.7780,
-      lng: dto.lng || 39.2660,
-      supportsOrderAhead: true,
-      maxGroupCapacity: 50,
-      menu: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    // Create Restaurant Membership
-    const membershipId = `rm-${Date.now()}`;
-    const newMembership: RestaurantMembershipEntity = {
-      id: membershipId,
-      userId,
-      restaurantId,
-      role: 'OWNER',
-      permissions: ['MANAGE_MENU', 'MANAGE_ORDERS', 'MANAGE_RESERVATIONS', 'VIEW_FINANCES', 'MANAGE_STAFF'],
-      isPrimaryOwner: true,
-      createdAt: now,
-    };
-
-    // Issue Token
-    const token = CryptoEngine.signToken({
-      userId,
-      role: UserRole.RESTAURANT_OWNER,
-      email: cleanOwnerEmail,
-      restaurantId,
+    const cleanEmail = dto.ownerEmail.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password: dto.password,
+      options: {
+        data: {
+          full_name: dto.ownerFullName.trim(),
+          phone: dto.ownerPhone.trim(),
+          account_type: 'RESTAURANT',
+          role: 'RESTAURANT_OWNER',
+        },
+      },
     });
 
-    // Create Session
-    const newSession: RefreshSessionEntity = {
-      id: `sess-${Date.now()}`,
-      userId,
-      token,
-      deviceInfo: 'Expo Mobile App (Merchant Portal)',
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: now,
-    };
-
-    // Save to Database
-    db.users.unshift(newOwner);
-    db.restaurants.unshift(newRestaurant);
-    db.restaurantMemberships = db.restaurantMemberships || [];
-    db.restaurantMemberships.unshift(newMembership);
-    db.sessions = db.sessions || [];
-    db.sessions.unshift(newSession);
-    db.activeUserId = userId;
-
-    await MloHubDB.save();
+    if (error) throw error;
+    if (!data.user) throw new Error('Restaurant owner registration failed.');
 
     return {
-      user: newOwner,
-      memberships: [newMembership],
-      activeRestaurant: newRestaurant,
-      token,
+      user: {
+        id: data.user.id,
+        fullName: dto.ownerFullName.trim(),
+        email: cleanEmail,
+        phone: dto.ownerPhone.trim(),
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: UserRole.RESTAURANT_OWNER,
+        activeRole: UserRole.RESTAURANT_OWNER,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      memberships: [],
+      token: data.session?.access_token || `sb_rest_${Date.now()}`,
     };
   },
 
   /**
-   * Unified Shared Login for all Account Types
+   * Login with email or phone and password
    */
   async login(dto: LoginDTO): Promise<AuthSessionResponse> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
-
-    const cleanInput = dto.emailOrPhone.trim().toLowerCase();
-    if (!cleanInput) {
-      throw new Error('Please enter your email or phone number.');
-    }
-    if (!dto.password) {
-      throw new Error('Please enter your password.');
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.login(dto);
     }
 
-    // Rate Limiter
-    if (!checkRateLimit(cleanInput)) {
-      throw new Error('Too many login attempts. Please wait 1 minute before trying again.');
+    if (!isSupabaseConfigured()) {
+      throw new Error(`Supabase connection required for login in ${runtimeConfig.environmentLabel}.`);
     }
 
-    // Find User by email or phone
-    const user = db.users.find(
-      (u) => u.email.toLowerCase() === cleanInput || u.phone.replace(/[\s-]/g, '') === cleanInput.replace(/[\s-]/g, '')
-    );
-
-    if (!user) {
-      // Avoid revealing account existence
-      throw new Error('Invalid email/phone or password. Please check your credentials.');
-    }
-
-    // Verify Password
-    const isValid = CryptoEngine.verifyPassword(dto.password, user.passwordHash);
-    if (!isValid) {
-      throw new Error('Invalid email/phone or password. Please check your credentials.');
-    }
-
-    // Resolve Customer Profile & Memberships
-    const customerProfile = db.customerProfiles?.find((cp) => cp.userId === user.id);
-    const memberships = db.restaurantMemberships?.filter((rm) => rm.userId === user.id) || [];
-    const activeRestId = user.activeRestaurantId || (memberships.length > 0 ? memberships[0].restaurantId : undefined);
-    const activeRestaurant = activeRestId ? db.restaurants.find((r) => r.id === activeRestId) : undefined;
-
-    // Issue Token
-    const token = CryptoEngine.signToken({
-      userId: user.id,
-      role: user.activeRole || user.role,
-      email: user.email,
-      restaurantId: activeRestId,
+    const cleanEmail = dto.emailOrPhone.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: dto.password,
     });
 
-    // Store Session
-    const newSession: RefreshSessionEntity = {
-      id: `sess-${Date.now()}`,
-      userId: user.id,
-      token,
-      deviceInfo: 'Expo Mobile App',
-      expiresAt: new Date(Date.now() + (dto.rememberMe ? 60 : 30) * 24 * 60 * 60 * 1000).toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    db.sessions = db.sessions || [];
-    db.sessions.unshift(newSession);
-    db.activeUserId = user.id;
-
-    await MloHubDB.save();
+    if (error) throw error;
+    if (!data.user) throw new Error('Sign in failed: no user returned.');
 
     return {
-      user,
-      customerProfile,
-      memberships,
-      activeRestaurant,
-      token,
+      user: {
+        id: data.user.id,
+        fullName: data.user.user_metadata?.full_name || 'MloHub User',
+        email: cleanEmail,
+        phone: data.user.phone || '',
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: (data.user.user_metadata?.role as UserRole) || UserRole.CUSTOMER,
+        createdAt: data.user.created_at,
+        updatedAt: new Date().toISOString(),
+      },
+      memberships: [],
+      token: data.session?.access_token || 'sb_token',
     };
   },
 
@@ -388,146 +201,109 @@ export const AuthService = {
     role: UserRole;
     restaurantId?: string;
   }[]> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      const db = DemoAuthAdapter.getSnapshot();
+      const user = db.users?.find((u: any) => u.id === userId);
+      if (!user) return [];
 
-    const user = db.users.find((u) => u.id === userId);
-    if (!user) return [];
+      const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
+      const workspaces: any[] = [
+        {
+          type: 'CUSTOMER',
+          name: 'Personal Account',
+          subtitle: 'Customer',
+          icon: 'person-circle',
+          role: UserRole.CUSTOMER,
+        },
+      ];
 
-    const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
-    const workspaces: {
-      type: 'CUSTOMER' | 'RESTAURANT_OWNER' | 'MLOHUB_ADMIN';
-      name: string;
-      subtitle: string;
-      icon: string;
-      role: UserRole;
-      restaurantId?: string;
-    }[] = [];
+      const memberships = (db.restaurantMemberships || []).filter((rm: any) => rm.userId === userId);
+      for (const mem of memberships) {
+        const rest = db.restaurants?.find((r: any) => r.id === mem.restaurantId);
+        if (rest) {
+          workspaces.push({
+            type: 'RESTAURANT_OWNER',
+            name: rest.name,
+            subtitle: 'Restaurant Owner',
+            icon: 'restaurant',
+            role: UserRole.RESTAURANT_OWNER,
+            restaurantId: rest.id,
+          });
+        }
+      }
 
-    // 1. Personal Account — Customer (always available to valid users)
-    workspaces.push({
-      type: 'CUSTOMER',
-      name: 'Personal Account',
-      subtitle: 'Customer',
-      icon: 'person-circle',
-      role: UserRole.CUSTOMER,
-    });
-
-    // 2. Restaurant Owner Workspaces (only for verified active restaurant memberships)
-    const memberships = db.restaurantMemberships?.filter(
-      (rm) => rm.userId === userId && (!rm.status || rm.status === 'ACTIVE')
-    ) || [];
-
-    for (const mem of memberships) {
-      const rest = db.restaurants.find((r) => r.id === mem.restaurantId);
-      if (rest) {
+      const isAdmin = userRoles.includes(UserRole.ADMIN) || userRoles.includes(UserRole.SUPER_ADMIN);
+      if (isAdmin) {
+        const isSuper = userRoles.includes(UserRole.SUPER_ADMIN);
         workspaces.push({
-          type: 'RESTAURANT_OWNER',
-          name: rest.name,
-          subtitle: 'Restaurant Owner',
-          icon: 'restaurant',
-          role: UserRole.RESTAURANT_OWNER,
-          restaurantId: rest.id,
+          type: 'MLOHUB_ADMIN',
+          name: 'MloHub Administration',
+          subtitle: isSuper ? 'Super Admin' : 'Admin',
+          icon: 'shield-checkmark',
+          role: isSuper ? UserRole.SUPER_ADMIN : UserRole.ADMIN,
         });
       }
+
+      return workspaces;
     }
 
-    // 3. MloHub Administration (ONLY if user has ADMIN or SUPER_ADMIN role)
-    const isAdmin = userRoles.includes(UserRole.ADMIN) || userRoles.includes(UserRole.SUPER_ADMIN);
-    if (isAdmin) {
-      const isSuper = userRoles.includes(UserRole.SUPER_ADMIN);
-      workspaces.push({
-        type: 'MLOHUB_ADMIN',
-        name: 'MloHub Administration',
-        subtitle: isSuper ? 'Super Admin' : 'Admin',
-        icon: 'shield-checkmark',
-        role: isSuper ? UserRole.SUPER_ADMIN : UserRole.ADMIN,
-      });
-    }
-
-    return workspaces;
+    // Supabase Mode
+    return [
+      {
+        type: 'CUSTOMER',
+        name: 'Personal Account',
+        subtitle: 'Customer',
+        icon: 'person-circle',
+        role: UserRole.CUSTOMER,
+      },
+    ];
   },
 
   /**
    * Switch Context between authorized workspaces with strict server-side validation
    */
   async switchWorkspace(
-    userId: string,
+    currentToken: string,
     targetWorkspace: 'CUSTOMER' | 'RESTAURANT_OWNER' | 'MLOHUB_ADMIN',
     restaurantId?: string
   ): Promise<AuthSessionResponse> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
-
-    const user = db.users.find((u) => u.id === userId);
-    if (!user) {
-      throw new Error('404 Not Found: User account not found.');
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.switchWorkspace(currentToken, targetWorkspace, restaurantId);
     }
 
-    const userRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role];
-    const memberships = db.restaurantMemberships?.filter(
-      (rm) => rm.userId === userId && (!rm.status || rm.status === 'ACTIVE')
-    ) || [];
-
-    let targetRole = UserRole.CUSTOMER;
-    let resolvedRestId: string | undefined = undefined;
-
-    if (targetWorkspace === 'CUSTOMER') {
-      targetRole = UserRole.CUSTOMER;
-      resolvedRestId = undefined;
-    } else if (targetWorkspace === 'RESTAURANT_OWNER') {
-      // Must have membership for requested restaurant
-      const targetMem = restaurantId
-        ? memberships.find((m) => m.restaurantId === restaurantId)
-        : memberships[0];
-
-      if (!targetMem && !userRoles.includes(UserRole.RESTAURANT_OWNER)) {
-        throw new Error('403 Forbidden: You do not have permission to access this restaurant workspace.');
-      }
-
-      targetRole = UserRole.RESTAURANT_OWNER;
-      resolvedRestId = targetMem ? targetMem.restaurantId : restaurantId || user.activeRestaurantId;
-    } else if (targetWorkspace === 'MLOHUB_ADMIN') {
-      const isAdmin = userRoles.includes(UserRole.ADMIN) || userRoles.includes(UserRole.SUPER_ADMIN);
-      if (!isAdmin) {
-        throw new Error('403 Forbidden: You do not have permission to access MloHub Administration.');
-      }
-      targetRole = userRoles.includes(UserRole.SUPER_ADMIN) ? UserRole.SUPER_ADMIN : UserRole.ADMIN;
-      resolvedRestId = undefined;
+    if (!currentToken || typeof currentToken !== 'string' || !currentToken.includes('.')) {
+      throw new Error('401 Unauthorized: Valid session token is required to switch workspace.');
     }
 
-    // Update user state
-    user.activeRole = targetRole;
-    user.activeWorkspace = targetWorkspace;
-    user.activeRestaurantId = resolvedRestId;
-    user.updatedAt = new Date().toISOString();
-
-    const token = CryptoEngine.signToken({
-      userId: user.id,
-      role: targetRole,
-      email: user.email,
-      restaurantId: resolvedRestId,
-    });
-
-    await MloHubDB.save();
-
-    const customerProfile = db.customerProfiles?.find((cp) => cp.userId === user.id);
-    const activeRestaurant = resolvedRestId ? db.restaurants.find((r) => r.id === resolvedRestId) : undefined;
+    const payload = CryptoEngine.verifyToken(currentToken);
+    if (!payload || !payload.userId) {
+      throw new Error('401 Unauthorized: Valid active session is required to switch workspace.');
+    }
 
     return {
-      user,
-      customerProfile,
-      memberships,
-      activeRestaurant,
-      token,
+      user: {
+        id: payload.userId,
+        fullName: 'User',
+        email: payload.email || '',
+        phone: '',
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: targetWorkspace === 'RESTAURANT_OWNER' ? UserRole.RESTAURANT_OWNER : UserRole.CUSTOMER,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      memberships: [],
+      token: currentToken,
     };
   },
 
   /**
-   * Switch Context between Customer and Restaurant Owner without re-login (Legacy support)
+   * Switch Context between Customer and Restaurant Owner without re-login
    */
   async switchAccountContext(
-    userId: string,
+    currentToken: string,
     targetRole: UserRole,
     restaurantId?: string
   ): Promise<AuthSessionResponse> {
@@ -537,19 +313,20 @@ export const AuthService = {
         : targetRole === UserRole.RESTAURANT_OWNER || targetRole === UserRole.RESTAURANT_STAFF
         ? 'RESTAURANT_OWNER'
         : 'CUSTOMER';
-    return this.switchWorkspace(userId, ws, restaurantId);
+    return this.switchWorkspace(currentToken, ws, restaurantId);
   },
 
   /**
    * Logout current session
    */
   async logout(token: string): Promise<boolean> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.logout(token);
+    }
 
-    if (db.sessions) {
-      db.sessions = db.sessions.filter((s) => s.token !== token);
-      await MloHubDB.save();
+    if (isSupabaseConfigured()) {
+      await supabase.auth.signOut();
     }
     return true;
   },
@@ -558,40 +335,62 @@ export const AuthService = {
    * Bootstrap session from active session token
    */
   async bootstrapSession(): Promise<AuthSessionResponse | null> {
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
-    if (!db.activeUserId) return null;
-    const session = db.sessions?.find((s) => s.userId === db.activeUserId);
-    if (!session) return null;
-    return this.verifySession(session.token);
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.bootstrapSession();
+    }
+
+    if (!isSupabaseConfigured()) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return null;
+
+    return {
+      user: {
+        id: session.user.id,
+        fullName: session.user.user_metadata?.full_name || 'MloHub User',
+        email: session.user.email || '',
+        phone: session.user.phone || '',
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: (session.user.user_metadata?.role as UserRole) || UserRole.CUSTOMER,
+        createdAt: session.user.created_at,
+        updatedAt: new Date().toISOString(),
+      },
+      memberships: [],
+      token: session.access_token,
+    };
   },
 
   /**
-   * Verify token and restore session
+   * Verify token and restore session with strict security validations
    */
   async verifySession(token: string): Promise<AuthSessionResponse | null> {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
+      return DemoAuthAdapter.verifySession(token);
+    }
+
+    if (!token || typeof token !== 'string') return null;
     const payload = CryptoEngine.verifyToken(token);
-    if (!payload) return null;
+    if (!payload || !payload.userId) return null;
 
-    await MloHubDB.init();
-    const db = MloHubDB.getSnapshot();
-
-    const user = db.users.find((u) => u.id === payload.userId);
-    if (!user) return null;
-
-    const customerProfile = db.customerProfiles?.find((cp) => cp.userId === user.id);
-    const memberships = db.restaurantMemberships?.filter((rm) => rm.userId === user.id) || [];
-    const activeRestaurant = payload.restaurantId
-      ? db.restaurants.find((r) => r.id === payload.restaurantId)
-      : user.activeRestaurantId
-      ? db.restaurants.find((r) => r.id === user.activeRestaurantId)
-      : undefined;
+    if (typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) || payload.exp <= Date.now()) {
+      return null;
+    }
 
     return {
-      user,
-      customerProfile,
-      memberships,
-      activeRestaurant,
+      user: {
+        id: payload.userId,
+        fullName: 'MloHub User',
+        email: payload.email || '',
+        phone: '',
+        passwordHash: 'sb-external-auth',
+        language: 'sw',
+        role: (payload.role as UserRole) || UserRole.CUSTOMER,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      memberships: [],
       token,
     };
   },

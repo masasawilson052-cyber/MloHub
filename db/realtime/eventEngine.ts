@@ -1,68 +1,79 @@
+import { RealtimeService } from '../../services/RealtimeService';
+import { CanonicalRealtimeEvent } from '../../types/realtime';
+
 export type OrderEventType =
   | 'NEW_ORDER_PLACED'
   | 'QUOTE_OFFERED'
   | 'QUOTE_ACCEPTED'
   | 'ORDER_CONFIRMED'
+  | 'ORDER_ACCEPTED'
   | 'STATUS_UPDATED'
   | 'ORDER_CANCELLED'
-  | 'PAYMENT_RECEIVED';
+  | 'PAYMENT_RECEIVED'
+  | 'PAYMENT_CONFIRMED'
+  | 'APPLICATION_APPROVED'
+  | 'APPLICATION_REJECTED'
+  | 'BROADCAST_ANNOUNCEMENT'
+  | string;
 
 export interface RealtimeEventPayload<T = any> {
   eventId: string;
-  eventType: OrderEventType;
+  eventType?: OrderEventType;
   topic: string;
-  orderId: string;
-  customerId: string;
-  restaurantId: string;
+  orderId?: string;
+  customerId?: string;
+  restaurantId?: string;
   timestamp: string;
-  data: T;
+  data?: T;
+  title?: string;
+  message?: string;
+  action?: string;
+  applicationId?: string;
+  application?: any;
+  restaurant?: any;
+  reason?: string;
+  ownerUserId?: string;
 }
 
 type EventListener<T = any> = (payload: RealtimeEventPayload<T>) => void;
 
 class RealtimeEventEngineImpl {
-  private listeners: Map<string, Set<EventListener>> = new Map();
-  private broadcastChannel: any = null;
-
-  constructor() {
-    // Cross-tab / Cross-window sync via Web BroadcastChannel
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      try {
-        this.broadcastChannel = new (window as any).BroadcastChannel('mlohub_realtime_channel_v1');
-        this.broadcastChannel.onmessage = (event: MessageEvent) => {
-          if (event.data && event.data.topic) {
-            this.dispatchLocally(event.data.topic, event.data);
-          }
-        };
-      } catch (e) {
-        console.warn('Realtime BroadcastChannel initialization notice:', e);
-      }
-    }
-  }
-
   /**
-   * Subscribe to a specific topic (e.g. `orders:restaurant:<id>`, `orders:customer:<id>`, `orders:*`)
+   * Subscribe to a topic (e.g. `orders:restaurant:<id>`, `orders:customer:<id>`, `orders:*`)
    */
   public subscribe<T = any>(topic: string, callback: EventListener<T>): () => void {
-    if (!this.listeners.has(topic)) {
-      this.listeners.set(topic, new Set());
-    }
-    const topicListeners = this.listeners.get(topic)!;
-    topicListeners.add(callback as EventListener);
-
-    // Return unsubscription function
-    return () => {
-      topicListeners.delete(callback as EventListener);
-      if (topicListeners.size === 0) {
-        this.listeners.delete(topic);
-      }
-    };
+    // Delegate to authoritative RealtimeService
+    return RealtimeService.subscribe(topic, (evt) => {
+      const p = evt.payload || {};
+      const payload: RealtimeEventPayload<T> = {
+        eventId: p.eventId || `sb_evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        eventType: p.eventType || (evt.canonicalEvent as any),
+        topic,
+        orderId: p.orderId || p.id || '',
+        customerId: p.customerId || p.customer_id || p.userId || p.user_id || '',
+        restaurantId: p.restaurantId || p.restaurant_id || p.targetRestaurantId || '',
+        timestamp: evt.timestamp || new Date().toISOString(),
+        data: (p.data !== undefined ? p.data : p) as T,
+        title: p.title,
+        message: p.message,
+        action: p.action,
+        applicationId: p.applicationId,
+        application: p.application,
+        restaurant: p.restaurant,
+        reason: p.reason,
+        ownerUserId: p.ownerUserId,
+      };
+      callback(payload);
+    });
   }
 
   /**
-   * Publishes an event to a topic, notifying local subscribers and broadcasting to other tabs
+   * Publishes an event to a topic, notifying local and cloud subscribers
    */
-  public publish<T = any>(topic: string, event: Omit<RealtimeEventPayload<T>, 'eventId' | 'timestamp' | 'topic'>): RealtimeEventPayload<T> {
+  public publish<T = any>(
+    topic: string,
+    event: Omit<RealtimeEventPayload<T>, 'eventId' | 'timestamp' | 'topic'>
+  ): RealtimeEventPayload<T> {
     const fullPayload: RealtimeEventPayload<T> = {
       ...event,
       topic,
@@ -70,17 +81,27 @@ class RealtimeEventEngineImpl {
       timestamp: new Date().toISOString(),
     };
 
-    // 1. Dispatch to local subscribers matching topic or wildcard `orders:*`
-    this.dispatchLocally(topic, fullPayload);
+    let canonicalEvent: CanonicalRealtimeEvent = 'ORDER_CREATED';
+    const evtType = event.eventType || '';
 
-    // 2. Broadcast across tabs/windows
-    if (this.broadcastChannel) {
-      try {
-        this.broadcastChannel.postMessage(fullPayload);
-      } catch (e) {
-        console.warn('Broadcast error:', e);
-      }
+    if (evtType === 'ORDER_ACCEPTED' || evtType === 'ORDER_CONFIRMED') {
+      canonicalEvent = 'ORDER_ACCEPTED';
+    } else if (evtType === 'STATUS_UPDATED') {
+      canonicalEvent = 'ORDER_ACCEPTED';
+    } else if (evtType === 'ORDER_CANCELLED') {
+      canonicalEvent = 'ORDER_CANCELLED';
+    } else if (evtType === 'PAYMENT_RECEIVED' || evtType === 'PAYMENT_CONFIRMED') {
+      canonicalEvent = 'PAYMENT_CONFIRMED';
+    } else if (topic.startsWith('menu:')) {
+      canonicalEvent = 'MENU_ITEM_UPDATED';
+    } else if (topic.startsWith('reservations:')) {
+      canonicalEvent = 'RESERVATION_CREATED';
+    } else if (topic.startsWith('notifications:')) {
+      canonicalEvent = 'NOTIFICATION_CREATED';
     }
+
+    // Publish to RealtimeService
+    RealtimeService.publishEvent(topic, canonicalEvent, fullPayload);
 
     return fullPayload;
   }
@@ -95,30 +116,13 @@ class RealtimeEventEngineImpl {
     });
   }
 
-  private dispatchLocally(topic: string, payload: RealtimeEventPayload) {
-    // Exact topic match
-    const exactListeners = this.listeners.get(topic);
-    if (exactListeners) {
-      exactListeners.forEach((cb) => {
-        try {
-          cb(payload);
-        } catch (err) {
-          console.error('Error in realtime event listener:', err);
-        }
-      });
-    }
-
-    // Wildcard topics (e.g., `orders:*`)
-    this.listeners.forEach((set, key) => {
-      if (key !== topic && (key === 'orders:*' || key === '*' || (key.endsWith('*') && topic.startsWith(key.slice(0, -1))))) {
-        set.forEach((cb) => {
-          try {
-            cb(payload);
-          } catch (err) {
-            console.error('Error in wildcard event listener:', err);
-          }
-        });
-      }
+  public broadcast(topic: string, data?: any): void {
+    this.publish(topic, {
+      eventType: 'STATUS_UPDATED',
+      orderId: '',
+      customerId: '',
+      restaurantId: '',
+      data,
     });
   }
 
@@ -126,7 +130,7 @@ class RealtimeEventEngineImpl {
    * Clears all listeners (useful for test resets)
    */
   public clearAll(): void {
-    this.listeners.clear();
+    RealtimeService.clearAll();
   }
 }
 

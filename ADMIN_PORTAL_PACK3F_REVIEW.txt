@@ -1,0 +1,75 @@
+================================================================================
+MLOHUB REPAIR PACK 3F: ADMIN PORTAL PRODUCTION CUTOVER REVIEW
+================================================================================
+Timestamp: 2026-09-17
+Status: COMPLETE & VERIFIED
+Target: app/admin/index.tsx
+Supporting Repositories:
+  - repositories/applications.repository.ts
+  - repositories/restaurants.repository.ts
+  - repositories/orders.repository.ts
+  - repositories/payments.repository.ts
+  - repositories/auditLogs.repository.ts
+  - repositories/notifications.repository.ts
+  - repositories/dataReports.repository.ts
+  - repositories/profiles.repository.ts
+
+================================================================================
+1. DECOUPLING FROM MloHubDB AND DbContext
+================================================================================
+- Completely purged all imports and references to `useMloHubDB` and `MloHubDB` from `app/admin/index.tsx`.
+- Removed `dbUser` fallback; `activeUser` is derived solely and strictly from `useAuth().user`.
+- Removed mock user ID fallbacks (`'usr-admin'`, `'super-admin'`). Unauthenticated callers or non-admin roles receive an explicit 401/403 access gate.
+- Removed references to `customOrders` from administrative order tracking.
+- Replaced `OrdersMonitor` input with canonical Supabase `Order[]` records.
+
+================================================================================
+2. CANONICAL REPOSITORY LAYER INTEGRATION
+================================================================================
+All platform data and governance actions are executed via authoritative repositories:
+- Application Onboarding & Review:
+  - Loaded via `ApplicationRepository.listAll()`
+  - Approved via `ApplicationRepository.updateStatus(appId, 'APPROVED', activeUser.id)`
+  - Rejected via `ApplicationRepository.updateStatus(appId, 'REJECTED', activeUser.id, reason)`
+  - Revisions requested via `ApplicationRepository.updateStatus(appId, 'PENDING', activeUser.id, note)`
+- Restaurant Governance:
+  - Suspended via `RestaurantRepository.suspendRestaurant(restaurantId, reason)` (calls PostgreSQL RPC `suspend_restaurant`)
+  - Reactivated via `RestaurantRepository.reactivateRestaurant(restaurantId)` (calls PostgreSQL RPC `reactivate_restaurant`)
+  - Verified via `RestaurantRepository.update(restaurantId, { tinNumber, businessLicenseNumber, isVerified: true, verificationStatus: 'VERIFIED', sellerTier: 'VERIFIED_SELLER' })`
+- Catalog & Quality Reports:
+  - Resolved via `DataReportsRepository.resolveReport(reportId, activeUser.id, status, notes)`
+- Platform Identity & Role Management:
+  - Loaded via `ProfileAdminRepository.listAll()`
+  - Roles granted/revoked via `ProfileAdminRepository.changeRole(userId, newRole, newAccountType)` (calls PostgreSQL RPC `change_platform_role`)
+  - Self-revocation prevention enforced at frontend and database RPC level.
+- Orders:
+  - Loaded via `OrderRepository.listAll()`
+- Payments:
+  - Loaded via `PaymentRepository.listAll()`
+- Audit Logs:
+  - Loaded via `AuditLogRepository.listAll()`
+  - Logged via `AuditLogRepository.logAction()`
+
+================================================================================
+3. FINANCIAL KPI INTEGRITY & HONESTY
+================================================================================
+- Gross volume (TZS) is computed strictly from real `public.payments` where `status === 'SUCCESS'`.
+- Non-successful payments (`PENDING`, `FAILED`, `CANCELLED`, `REFUNDED`) are strictly excluded from gross volume.
+- Platform revenue (TZS) is calculated strictly from persisted `platformCommissionTzs` on successful payments.
+- Order volume is derived strictly from real `public.orders`. Completed order counts do not synthesize financial settlement.
+- Freshness score does not fabricate 100% when no restaurants exist; returns 0% honestly.
+- SystemHealth measures real Supabase configuration and runtime status rather than static "100% Operational" assertions.
+
+================================================================================
+4. VERIFICATION & TEST RESULTS
+================================================================================
+- TypeScript Compilation:
+  - `npm run typecheck`: 0 errors.
+- Test Suite Execution:
+  - `tests/adminPortalCutover.test.ts`: 28 passed / 0 failed (covering all criteria A-AB).
+  - Master Test Suite: 980 passed / 0 failed across all 18 test suites.
+  - Security Smoke Test: 48 passed / 0 failed (22 static invariants + all RBAC isolation scenarios).
+- Negative Audits:
+  - Zero occurrences of `MloHubDB`, `useMloHubDB`, `dbUser`, `customOrders`, `usr-admin`, `super-admin`, `FINANCIAL_CONFIG`, `DEFAULT_PLATFORM_COMMISSION_RATE` in `app/admin/index.tsx`.
+  - Zero occurrences of `auth.admin`, `service_role`, `admin_auto_provisioned`, `SERVICE_ROLE_KEY` in `app/admin`, `services`, or `repositories`.
+  - `git diff -- supabase/migrations`: completely clean / untouched.

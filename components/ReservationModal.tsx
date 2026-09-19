@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Restaurant } from '../constants/data';
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Platform,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
+import { Restaurant, ReservationSlot, AreaPreference } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
-import { useMloHubDB } from '../context/DbContext';
+import { useAuth } from '../context/AuthContext';
+import { ReservationRepository } from '../repositories/reservations.repository';
+import { BranchRepository } from '../repositories/branches.repository';
 import { PaymentCheckoutModal } from './PaymentCheckoutModal';
 import { PaymentTransactionEntity } from '../db/types';
 
@@ -19,43 +31,124 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   onClose,
 }) => {
   const { t, language } = useLanguage();
-  const { user, createReservation } = useMloHubDB();
+  const { user } = useAuth();
+
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [guests, setGuests] = useState('2');
-  const [date, setDate] = useState(language === 'sw' ? 'Leo' : 'Today');
-  const [time, setTime] = useState('07:30 PM');
+  const [dateStr, setDateStr] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [dateLabel, setDateLabel] = useState<string>('Today');
+  const [availableSlots, setAvailableSlots] = useState<ReservationSlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<ReservationSlot | null>(null);
+  const [areaPref, setAreaPref] = useState<AreaPreference>('ANY');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
   const [confirmed, setConfirmed] = useState(false);
+  const [createdReference, setCreatedReference] = useState<string | null>(null);
   const [createdReservationId, setCreatedReservationId] = useState<string | null>(null);
+  const [depositRequired, setDepositRequired] = useState(false);
+  const [depositAmount, setDepositAmount] = useState(0);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [paidPayment, setPaidPayment] = useState<PaymentTransactionEntity | null>(null);
 
+  // Load branches when restaurant opens
+  useEffect(() => {
+    if (!restaurant?.id || !visible) return;
+
+    BranchRepository.listByRestaurant(restaurant.id)
+      .then((brList) => {
+        setBranches(brList);
+        if (brList.length > 0) {
+          setSelectedBranchId(brList[0].id);
+        }
+      })
+      .catch((err) => console.error('Failed to load branches', err));
+  }, [restaurant?.id, visible]);
+
+  // Query server availability whenever branch, date, or guests change
+  useEffect(() => {
+    if (!restaurant?.id || !selectedBranchId || !visible) return;
+
+    const numGuests = Math.max(1, parseInt(guests.replace('+', ''), 10) || 2);
+    setLoadingSlots(true);
+    setSelectedSlot(null);
+
+    ReservationRepository.getAvailability({
+      restaurantId: restaurant.id,
+      branchId: selectedBranchId,
+      date: dateStr,
+      partySize: numGuests,
+    })
+      .then((slots) => {
+        setAvailableSlots(slots);
+        const firstAvail = slots.find((s) => s.isAvailable);
+        if (firstAvail) setSelectedSlot(firstAvail);
+      })
+      .catch((err) => {
+        console.error('Availability check error', err);
+        setAvailableSlots([]);
+      })
+      .finally(() => setLoadingSlots(false));
+  }, [restaurant?.id, selectedBranchId, dateStr, guests, visible]);
+
   if (!restaurant) return null;
 
-  const numGuests = Math.max(1, parseInt(guests.replace('+', ''), 10) || 2);
-  const avgPricePerPerson = restaurant.minPrice && restaurant.minPrice > 0 ? restaurant.minPrice : 15000;
-  const estimatedBill = numGuests * avgPricePerPerson;
-  const deposit50 = Math.round(estimatedBill * 0.5);
+  const handleDateSelect = (offsetDays: number, label: string) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    setDateStr(d.toISOString().split('T')[0]);
+    setDateLabel(label);
+  };
 
-  const handleProceedToPayment = async () => {
+  const handleProceed = async () => {
+    if (!user?.id) {
+      Alert.alert(
+        language === 'sw' ? 'Ingia Kwanza' : 'Sign In Required',
+        language === 'sw'
+          ? 'Tafadhali ingia au jisajili ili kukamilisha uhifadhi wa meza.'
+          : 'Please sign in or register to complete your table reservation.'
+      );
+      return;
+    }
+
+    if (!selectedBranchId || !selectedSlot) {
+      Alert.alert(
+        language === 'sw' ? 'Chagua Muda' : 'Select Time Slot',
+        language === 'sw' ? 'Tafadhali chagua muda unaopatikana.' : 'Please select an available time slot.'
+      );
+      return;
+    }
+
+    const numGuests = Math.max(1, parseInt(guests.replace('+', ''), 10) || 2);
+    setSubmitting(true);
+
     try {
-      const newRes = await createReservation({
-        userId: user?.id || 'usr-frank',
+      const result = await ReservationRepository.createSecure({
         restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        guestsCount: guests,
-        reservationDate: date,
-        timeSlot: time,
-        address: restaurant.address || 'Dar es Salaam, Tanzania',
-        status: 'pending',
-        depositOption: 'deposit_50',
-        depositAmountTzs: deposit50,
-        totalBillTzs: estimatedBill,
-        remainingBalanceTzs: estimatedBill - deposit50,
+        branchId: selectedBranchId,
+        scheduledAt: selectedSlot.slotStart,
+        partySize: numGuests,
+        areaPreference: areaPref,
+        specialRequests: specialRequests || undefined,
       });
 
-      setCreatedReservationId(newRes.id);
-      setShowCheckoutModal(true);
-    } catch (e) {
+      setCreatedReservationId(result.reservationId);
+      setCreatedReference(result.reference);
+      setDepositRequired(result.depositRequired);
+      setDepositAmount(result.depositAmountTzs);
+
+      if (result.depositRequired && result.depositAmountTzs > 0) {
+        setShowCheckoutModal(true);
+      } else {
+        setConfirmed(true);
+      }
+    } catch (e: any) {
       console.error('Reservation creation error', e);
+      Alert.alert('Reservation Error', e?.message || 'Failed to create reservation');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -69,13 +162,19 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
     setConfirmed(false);
     setShowCheckoutModal(false);
     setCreatedReservationId(null);
+    setCreatedReference(null);
     setPaidPayment(null);
     onClose();
   };
 
-  const dateOptions = language === 'sw'
-    ? ['Leo', 'Kesho', 'Wikendi']
-    : ['Today', 'Tomorrow', 'Weekend'];
+  const formatSlotTime = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    } catch {
+      return isoString;
+    }
+  };
 
   return (
     <>
@@ -87,21 +186,40 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
             </TouchableOpacity>
 
             {!confirmed ? (
-              <View>
+              <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.tagWrap}>
                   <Text style={styles.tagText}>🪑 {t('tableReservationTitle').toUpperCase()}</Text>
                 </View>
 
                 <Text style={styles.title}>{t('tableReservationTitle')}</Text>
                 <Text style={styles.subtitle}>
-                  {t('instantReservationSub')}{' '}
-                  <Text style={styles.boldText}>{restaurant.name}</Text>
+                  {restaurant.name}
                 </Text>
+
+                {/* Branch Selector if multiple branches */}
+                {branches.length > 1 && (
+                  <View style={{ marginBottom: Spacing.sm }}>
+                    <Text style={styles.label}>{language === 'sw' ? 'Tawi la Mgahawa' : 'Branch Location'}</Text>
+                    <View style={styles.pillRow}>
+                      {branches.map((b) => (
+                        <TouchableOpacity
+                          key={b.id}
+                          style={[styles.pill, selectedBranchId === b.id && styles.pillActive]}
+                          onPress={() => setSelectedBranchId(b.id)}
+                        >
+                          <Text style={[styles.pillText, selectedBranchId === b.id && styles.pillTextActive]}>
+                            {b.name}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
 
                 {/* Guest Selector */}
                 <Text style={styles.label}>{t('numGuestsLabel')}</Text>
                 <View style={styles.pillRow}>
-                  {['1', '2', '4', '6+'].map((g) => (
+                  {['1', '2', '4', '6', '8+'].map((g) => (
                     <TouchableOpacity
                       key={g}
                       style={[styles.pill, guests === g && styles.pillActive]}
@@ -117,64 +235,134 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 {/* Date Selector */}
                 <Text style={styles.label}>{t('dateLabel')}</Text>
                 <View style={styles.pillRow}>
-                  {dateOptions.map((d) => (
-                    <TouchableOpacity
-                      key={d}
-                      style={[styles.pill, date === d && styles.pillActive]}
-                      onPress={() => setDate(d)}
-                    >
-                      <Text style={[styles.pillText, date === d && styles.pillTextActive]}>
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Time Slot */}
-                <Text style={styles.label}>{t('timeSlotLabel')}</Text>
-                <View style={styles.pillRow}>
-                  {['12:30 PM', '01:30 PM', '07:30 PM', '08:30 PM'].map((tVal) => (
-                    <TouchableOpacity
-                      key={tVal}
-                      style={[styles.pill, time === tVal && styles.pillActive]}
-                      onPress={() => setTime(tVal)}
-                    >
-                      <Text style={[styles.pillText, time === tVal && styles.pillTextActive]}>
-                        {tVal}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* 50% Deposit Estimate Box */}
-                <View style={styles.depositNoticeBox}>
-                  <View style={styles.depositNoticeRow}>
-                    <Text style={styles.depositNoticeTitle}>
-                      {language === 'sw' ? 'Amana ya Meza (50% Deposit):' : 'Table Deposit (50% Required):'}
+                  <TouchableOpacity
+                    style={[styles.pill, dateLabel === 'Today' && styles.pillActive]}
+                    onPress={() => handleDateSelect(0, 'Today')}
+                  >
+                    <Text style={[styles.pillText, dateLabel === 'Today' && styles.pillTextActive]}>
+                      {language === 'sw' ? 'Leo' : 'Today'}
                     </Text>
-                    <Text style={styles.depositNoticeAmount}>
-                      TZS {deposit50.toLocaleString()}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.pill, dateLabel === 'Tomorrow' && styles.pillActive]}
+                    onPress={() => handleDateSelect(1, 'Tomorrow')}
+                  >
+                    <Text style={[styles.pillText, dateLabel === 'Tomorrow' && styles.pillTextActive]}>
+                      {language === 'sw' ? 'Kesho' : 'Tomorrow'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.pill, dateLabel === '+2 Days' && styles.pillActive]}
+                    onPress={() => handleDateSelect(2, '+2 Days')}
+                  >
+                    <Text style={[styles.pillText, dateLabel === '+2 Days' && styles.pillTextActive]}>
+                      {language === 'sw' ? 'Keshokutwa' : '+2 Days'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Area Preference */}
+                <Text style={styles.label}>{language === 'sw' ? 'Eneo la Meza (Hiari)' : 'Seating Area Preference'}</Text>
+                <View style={styles.pillRow}>
+                  {(['ANY', 'INDOOR', 'OUTDOOR', 'WINDOW', 'QUIET'] as AreaPreference[]).map((pref) => (
+                    <TouchableOpacity
+                      key={pref}
+                      style={[styles.pill, areaPref === pref && styles.pillActive]}
+                      onPress={() => setAreaPref(pref)}
+                    >
+                      <Text style={[styles.pillText, areaPref === pref && styles.pillTextActive]}>
+                        {pref}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Server-calculated Available Slots */}
+                <Text style={styles.label}>{language === 'sw' ? 'Muda Unaopatikana' : 'Available Time Slots'}</Text>
+                {loadingSlots ? (
+                  <View style={{ padding: Spacing.md, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  </View>
+                ) : availableSlots.length === 0 ? (
+                  <Text style={{ fontSize: 12, color: Colors.muted, marginVertical: Spacing.xs }}>
+                    {language === 'sw' ? 'Hakuna meza zilizopo kwa tarehe hii.' : 'No available slots for this date/party size.'}
+                  </Text>
+                ) : (
+                  <View style={styles.pillRow}>
+                    {availableSlots.map((slot) => {
+                      const isSelected = selectedSlot?.slotStart === slot.slotStart;
+                      return (
+                        <TouchableOpacity
+                          key={slot.slotStart}
+                          disabled={!slot.isAvailable}
+                          style={[
+                            styles.pill,
+                            isSelected && styles.pillActive,
+                            !slot.isAvailable && { backgroundColor: '#f1f1f1', opacity: 0.5 },
+                          ]}
+                          onPress={() => setSelectedSlot(slot)}
+                        >
+                          <Text
+                            style={[
+                              styles.pillText,
+                              isSelected && styles.pillTextActive,
+                              !slot.isAvailable && { color: '#999' },
+                            ]}
+                          >
+                            {formatSlotTime(slot.slotStart)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* Deposit Notice Box */}
+                {selectedSlot && (
+                  <View style={styles.depositNoticeBox}>
+                    <View style={styles.depositNoticeRow}>
+                      <Text style={styles.depositNoticeTitle}>
+                        {selectedSlot.depositRequired
+                          ? (language === 'sw' ? 'Amana ya Meza Inahitajika:' : 'Table Deposit Required:')
+                          : (language === 'sw' ? 'Hakuna Amana Inayohitajika' : 'No Deposit Required')}
+                      </Text>
+                      {selectedSlot.depositRequired && (
+                        <Text style={styles.depositNoticeAmount}>
+                          TZS {selectedSlot.depositAmountTzs.toLocaleString()}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.depositNoticeSub}>
+                      {selectedSlot.depositRequired
+                        ? (language === 'sw'
+                            ? `Mgahawa unahitaji amana ya TZS ${selectedSlot.depositAmountTzs.toLocaleString()} ili kufunga nafasi ya meza yako.`
+                            : `The restaurant requires a TZS ${selectedSlot.depositAmountTzs.toLocaleString()} deposit to confirm your table.`)
+                        : (selectedSlot.confirmationMode === 'MANUAL'
+                            ? (language === 'sw' ? 'Ombi lako litakaguliwa na mgahawa mara moja.' : 'Your booking will be reviewed and confirmed by the restaurant.')
+                            : (language === 'sw' ? 'Meza yako itathibitishwa mara moja bure.' : 'Your table will be instantly confirmed at no upfront charge.'))}
                     </Text>
                   </View>
-                  <Text style={styles.depositNoticeSub}>
-                    {language === 'sw'
-                      ? `Makadirio ya bili ni TZS ${estimatedBill.toLocaleString()} (kwa wageni ${guests}). Lipa amana ya 50% kwa ClickPesa M-Pesa kufunga meza yako.`
-                      : `Estimated total bill: TZS ${estimatedBill.toLocaleString()} (${guests} guests). Pay 50% deposit via ClickPesa M-Pesa to lock your table.`}
-                  </Text>
-                </View>
+                )}
 
                 <TouchableOpacity
-                  style={styles.submitBtn}
-                  onPress={handleProceedToPayment}
+                  style={[styles.submitBtn, (!selectedSlot || submitting) && { opacity: 0.5 }]}
+                  disabled={!selectedSlot || submitting}
+                  onPress={handleProceed}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.submitBtnText}>
-                    {language === 'sw'
-                      ? `Lipa Amana (TZS ${deposit50.toLocaleString()}) & Hifadhi Meza →`
-                      : `Pay Deposit (TZS ${deposit50.toLocaleString()}) & Book Table →`}
-                  </Text>
+                  {submitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>
+                      {selectedSlot?.depositRequired
+                        ? (language === 'sw'
+                            ? `Lipa Amana (TZS ${selectedSlot.depositAmountTzs.toLocaleString()}) & Hifadhi →`
+                            : `Pay Deposit (TZS ${selectedSlot.depositAmountTzs.toLocaleString()}) & Book →`)
+                        : (language === 'sw' ? 'Thibitisha Nafasi ya Meza →' : 'Confirm Table Booking →')}
+                    </Text>
+                  )}
                 </TouchableOpacity>
-              </View>
+              </ScrollView>
             ) : (
               <View style={styles.successBox}>
                 <View style={styles.successCircle}>
@@ -185,8 +373,8 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   {language === 'sw' ? (
                     <>
                       Meza ya <Text style={styles.boldText}>wageni {guests}</Text> katika{' '}
-                      <Text style={styles.boldText}>{restaurant.name}</Text> imehifadhiwa kwa{' '}
-                      {date} saa {time}.
+                      <Text style={styles.boldText}>{restaurant.name}</Text> imehifadhiwa.{'\n'}
+                      Rejea: <Text style={styles.boldText}>{createdReference || createdReservationId}</Text>
                       {paidPayment ? (
                         <Text style={{ color: '#113a26', fontWeight: '800' }}>
                           {'\n\n'}✓ Amana ya TZS {paidPayment.amountTzs.toLocaleString()} imethibitishwa kupitia {paidPayment.paymentMethod}.
@@ -196,8 +384,8 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   ) : (
                     <>
                       A table for <Text style={styles.boldText}>{guests} guests</Text> at{' '}
-                      <Text style={styles.boldText}>{restaurant.name}</Text> has been reserved for{' '}
-                      {date} at {time}.
+                      <Text style={styles.boldText}>{restaurant.name}</Text> has been booked.{'\n'}
+                      Reference: <Text style={styles.boldText}>{createdReference || createdReservationId}</Text>
                       {paidPayment ? (
                         <Text style={{ color: '#113a26', fontWeight: '800' }}>
                           {'\n\n'}✓ Deposit of TZS {paidPayment.amountTzs.toLocaleString()} verified via {paidPayment.paymentMethod}.
@@ -223,7 +411,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
         restaurantName={restaurant.name}
         restaurantId={restaurant.id}
         reservationId={createdReservationId || undefined}
-        amountTzs={estimatedBill}
+        amountTzs={depositAmount}
         isReservation={true}
         guestCount={guests}
         title={language === 'sw' ? 'Amana ya Meza (ClickPesa)' : 'Table Deposit Checkout'}
@@ -244,7 +432,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: Radii.xxl,
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 440,
+    maxHeight: '90%',
     padding: Spacing.xl,
     ...Shadows.lg,
     position: 'relative',
@@ -285,80 +474,78 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     marginBottom: Spacing.md,
   },
-  boldText: {
-    fontWeight: '800',
-    color: Colors.text,
-  },
   label: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
     color: Colors.text,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginTop: Spacing.sm,
-    marginBottom: 6,
+    marginBottom: Spacing.xs,
   },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: Spacing.xs,
     marginBottom: Spacing.sm,
   },
   pill: {
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: Radii.lg,
-    backgroundColor: Colors.background,
+    borderRadius: Radii.full,
+    backgroundColor: '#f3f4f6',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#e5e7eb',
   },
   pillActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
   pillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: Colors.text,
   },
   pillTextActive: {
     color: Colors.white,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   depositNoticeBox: {
-    backgroundColor: '#f5faf6',
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.sm,
+    backgroundColor: '#ecfdf5',
     borderWidth: 1,
-    borderColor: '#cde4d4',
+    borderColor: '#a7f3d0',
+    borderRadius: Radii.md,
+    padding: Spacing.sm,
+    marginVertical: Spacing.sm,
   },
   depositNoticeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 2,
   },
   depositNoticeTitle: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#113a26',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#065f46',
   },
   depositNoticeAmount: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#113a26',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#047857',
   },
   depositNoticeSub: {
     fontSize: 10,
-    color: Colors.muted,
-    marginTop: 4,
+    color: '#047857',
     lineHeight: 14,
   },
   submitBtn: {
     backgroundColor: Colors.primary,
-    paddingVertical: 14,
-    borderRadius: Radii.xl,
+    paddingVertical: 12,
+    borderRadius: Radii.full,
     alignItems: 'center',
     marginTop: Spacing.md,
-    ...Shadows.md,
+    ...Shadows.sm,
   },
   submitBtnText: {
     color: Colors.white,
@@ -367,22 +554,22 @@ const styles = StyleSheet.create({
   },
   successBox: {
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
   },
   successCircle: {
     width: 60,
     height: 60,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.primaryMuted,
-    alignItems: 'center',
+    borderRadius: 30,
+    backgroundColor: '#ecfdf5',
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: Spacing.md,
   },
   successIcon: {
-    fontSize: 30,
+    fontSize: 28,
   },
   successTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: Colors.text,
     marginBottom: Spacing.xs,
@@ -393,5 +580,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: Spacing.lg,
+  },
+  boldText: {
+    fontWeight: '800',
+    color: Colors.text,
   },
 });

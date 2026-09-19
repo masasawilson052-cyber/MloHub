@@ -98,6 +98,14 @@ function sha256(ascii: string): string {
 
 const JWT_SECRET_SALT = 'mlohub-sec-2026-auth-salt-key';
 
+function toUtf8String(str: string): string {
+  try {
+    return unescape(encodeURIComponent(str));
+  } catch {
+    return str;
+  }
+}
+
 export const CryptoEngine = {
   /**
    * Generates a random alphanumeric salt
@@ -112,36 +120,84 @@ export const CryptoEngine = {
   },
 
   /**
-   * Hashes a password with salt using SHA-256
+   * Hashes a password with salt using SHA-256 and UTF-8 encoding.
+   * Produces modern mlohub_v2$ hashes.
    */
   hashPassword: (password: string, salt?: string): string => {
     const s = salt || CryptoEngine.generateSalt(16);
-    const hash = sha256(`${s}:${password}:${JWT_SECRET_SALT}`);
-    return `mlohub_v1$${s}$${hash}`;
+    const hash = sha256(toUtf8String(`${s}:${password}:${JWT_SECRET_SALT}`));
+    if (!hash || !/^[a-f0-9]{64}$/i.test(hash)) {
+      throw new Error('Failed to generate valid password hash digest.');
+    }
+    return `mlohub_v2$${s}$${hash}`;
   },
 
   /**
-   * Verifies password against stored hash with constant-time check
+   * Generates legacy mlohub_v1 hash for backwards-compatibility tests.
+   */
+  createLegacyV1Hash: (password: string, salt?: string, utf8: boolean = false): string => {
+    const s = salt || CryptoEngine.generateSalt(16);
+    const text = `${s}:${password}:${JWT_SECRET_SALT}`;
+    const digest = utf8 ? sha256(toUtf8String(text)) : sha256(text);
+    return `mlohub_v1$${s}$${digest}`;
+  },
+
+  /**
+   * Identifies whether a stored hash is an older format (mlohub_v1) eligible for upgrade.
+   */
+  shouldUpgradeHash: (storedHash: string): boolean => {
+    return typeof storedHash === 'string' && storedHash.startsWith('mlohub_v1$');
+  },
+
+  /**
+   * Verifies password against stored hash with constant-time check.
+   * Supports both mlohub_v2 (strict UTF-8) and mlohub_v1 (legacy compatibility for raw Latin-1 and UTF-8).
+   * Rejects malformed, truncated, or unrecoverable hashes safely.
    */
   verifyPassword: (password: string, storedHash: string): boolean => {
     try {
-      if (!storedHash || !storedHash.startsWith('mlohub_v1$')) {
-        // Fallback for legacy passwords
-        return password === 'password123' || password === '1234';
+      if (!storedHash || typeof storedHash !== 'string') {
+        return false;
       }
       const parts = storedHash.split('$');
       if (parts.length !== 3) return false;
-      const salt = parts[1];
-      const expectedHash = parts[2];
-      const computedHash = sha256(`${salt}:${password}:${JWT_SECRET_SALT}`);
-      
-      // Constant-time check
-      if (computedHash.length !== expectedHash.length) return false;
-      let diff = 0;
-      for (let i = 0; i < computedHash.length; i++) {
-        diff |= computedHash.charCodeAt(i) ^ expectedHash.charCodeAt(i);
+      const [version, salt, expectedHash] = parts;
+
+      if (!salt || !/^[a-f0-9]{64}$/i.test(expectedHash)) {
+        return false;
       }
-      return diff === 0;
+
+      const constantTimeCheck = (computed: string): boolean => {
+        if (!computed || !/^[a-f0-9]{64}$/i.test(computed) || computed.length !== expectedHash.length) {
+          return false;
+        }
+        let diff = 0;
+        for (let i = 0; i < computed.length; i++) {
+          diff |= computed.charCodeAt(i) ^ expectedHash.charCodeAt(i);
+        }
+        return diff === 0;
+      };
+
+      if (version === 'mlohub_v2') {
+        // Modern strict UTF-8
+        const computed = sha256(toUtf8String(`${salt}:${password}:${JWT_SECRET_SALT}`));
+        return constantTimeCheck(computed);
+      }
+
+      if (version === 'mlohub_v1') {
+        // Legacy compatibility:
+        // 1. Check historical raw string (Latin-1/direct character codes for existing accented passwords)
+        const rawComputed = sha256(`${salt}:${password}:${JWT_SECRET_SALT}`);
+        if (constantTimeCheck(rawComputed)) {
+          return true;
+        }
+        // 2. Check UTF-8 byte encoding
+        const utf8Computed = sha256(toUtf8String(`${salt}:${password}:${JWT_SECRET_SALT}`));
+        return constantTimeCheck(utf8Computed);
+      }
+
+      // Any other prefix or version is rejected
+      return false;
     } catch {
       return false;
     }
@@ -182,12 +238,18 @@ export const CryptoEngine = {
   },
 
   /**
-   * Generates a signed session token
+   * Generates a signed session token.
+   * Embeds an unpredictable, unique session identifier (sessionId / jti) so identical claims
+   * issued within the same millisecond or with a frozen clock produce distinct tokens.
    */
-  signToken: (payload: { userId: string; role: string; email: string; restaurantId?: string }): string => {
+  signToken: (
+    payload: { userId: string; role: string; email: string; restaurantId?: string; sessionId?: string; jti?: string },
+    expiresInMs?: number
+  ): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
-    const exp = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-    const fullPayload = { ...payload, exp, iat: Date.now() };
+    const exp = Date.now() + (expiresInMs !== undefined ? expiresInMs : 30 * 24 * 60 * 60 * 1000);
+    const sessionId = payload.sessionId || payload.jti || `sess_${CryptoEngine.generateSalt(24)}`;
+    const fullPayload = { ...payload, sessionId, jti: sessionId, exp, iat: Date.now() };
 
     const encodedHeader = btoa(JSON.stringify(header));
     const encodedPayload = btoa(JSON.stringify(fullPayload));
@@ -199,7 +261,17 @@ export const CryptoEngine = {
   /**
    * Verifies and decodes a token
    */
-  verifyToken: (token: string): { userId: string; role: string; email: string; restaurantId?: string; exp: number } | null => {
+  verifyToken: (
+    token: string
+  ): {
+    userId: string;
+    role: string;
+    email: string;
+    restaurantId?: string;
+    exp: number;
+    sessionId?: string;
+    jti?: string;
+  } | null => {
     try {
       if (!token) return null;
       const parts = token.split('.');

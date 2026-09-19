@@ -1,87 +1,156 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScrollView,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import { Header } from '../../components/Header';
-import { SearchBar } from '../../components/SearchBar';
-import { ServiceCard } from '../../components/ServiceCard';
-import { RestaurantCard } from '../../components/RestaurantCard';
+import { HeroSearchBar } from '../../components/discovery/HeroSearchBar';
+import { DishCard } from '../../components/discovery/DishCard';
+import { DishCardSkeleton } from '../../components/discovery/DishCardSkeleton';
 import { CustomMealBanner } from '../../components/CustomMealBanner';
 import { LocationModal } from '../../components/LocationModal';
 import { ReservationModal } from '../../components/ReservationModal';
-import { RESTAURANTS, Restaurant } from '../../constants/data';
+import { RestaurantCard } from '../../components/RestaurantCard';
+import { ServiceCard } from '../../components/ServiceCard';
+import { Restaurant } from '../../types/domain';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
+import { DiscoveryService } from '../../services/DiscoveryService';
+import { DishDiscoveryResult } from '../../types/discovery';
+import { AnalyticsService } from '../../services/AnalyticsService';
+import { useCart } from '../../context/CartContext';
+import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
+import { CartDrawer } from '../../components/cart/CartDrawer';
+import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { restaurants: dbRestaurants, favorites, toggleFavorite } = useMloHubDB();
+  const { restaurants: dbRestaurants, favorites, toggleFavorite, loading } = useMloHubDB();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [selectedService, setSelectedService] = useState('Nearby');
+  const [selectedQuickBudget, setSelectedQuickBudget] = useState<number | undefined>(undefined);
+  const [selectedQuickDistance, setSelectedQuickDistance] = useState<number | undefined>(undefined);
+  const [isOpenNowOnly, setIsOpenNowOnly] = useState(false);
+
+  // Discovery Dishes State
+  const [popularDishes, setPopularDishes] = useState<DishDiscoveryResult[]>([]);
+  const [recommendedDishes, setRecommendedDishes] = useState<DishDiscoveryResult[]>([]);
+  const [isLoadingDishes, setIsLoadingDishes] = useState(true);
+  const [comparedDishes, setComparedDishes] = useState<DishDiscoveryResult[]>([]);
 
   // Location
-  const [currentLocation, setCurrentLocation] = useState('Dar es Salaam');
+  const [currentLocation, setCurrentLocation] = useState('Mikocheni');
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
   // Reservation Modal
   const [selectedReserveRestaurant, setSelectedReserveRestaurant] = useState<Restaurant | null>(null);
 
-  const toggleFilter = (filterKey: string) => {
-    setActiveFilters((prev) =>
-      prev.includes(filterKey) ? prev.filter((f) => f !== filterKey) : [...prev, filterKey]
-    );
+  // Cart & Order Review Modal State
+  const { isCartOpen, setIsCartOpen } = useCart();
+  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
+
+  // Load Popular and Recommended Dishes on Mount / Location Change
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoadingDishes(true);
+
+    Promise.all([
+      DiscoveryService.getPopularDishes({ neighborhood: currentLocation }),
+      DiscoveryService.getRecommendedDishes({ neighborhood: currentLocation }),
+    ])
+      .then(([pop, rec]) => {
+        if (isMounted) {
+          setPopularDishes(pop);
+          setRecommendedDishes(rec);
+          setIsLoadingDishes(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('HomeScreen: Failed to load discovery dishes:', err);
+        if (isMounted) setIsLoadingDishes(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentLocation]);
+
+  const handleSearchSubmit = () => {
+    AnalyticsService.trackEvent('SEARCH_STARTED', {
+      query: searchQuery,
+      neighborhood: currentLocation,
+      filterValue: selectedQuickBudget,
+    });
+
+    router.push({
+      pathname: '/(tabs)/explore',
+      params: {
+        q: searchQuery,
+        budget: selectedQuickBudget ? String(selectedQuickBudget) : undefined,
+        dist: selectedQuickDistance ? String(selectedQuickDistance) : undefined,
+        openNow: isOpenNowOnly ? 'true' : undefined,
+        neighborhood: currentLocation,
+      },
+    });
   };
 
-  const services = [
-    {
-      id: 'Nearby',
-      label: t('serviceNearbyLabel'),
-      detail: t('serviceNearbyDetail'),
-      icon: '📍',
-    },
-    {
-      id: 'Compare',
-      label: t('serviceCompareLabel'),
-      detail: t('serviceCompareDetail'),
-      icon: '💰',
-    },
-    {
-      id: 'Reservations',
-      label: t('serviceReserveLabel'),
-      detail: t('serviceReserveDetail'),
-      icon: '🪑',
-    },
-    {
-      id: 'Top Rated',
-      label: t('serviceTopRatedLabel'),
-      detail: t('serviceTopRatedDetail'),
-      icon: '★',
-    },
-  ];
+  const toggleCompare = (dish: DishDiscoveryResult) => {
+    setComparedDishes((prev) => {
+      const exists = prev.some((d) => d.menuItemId === dish.menuItemId);
+      if (exists) {
+        return prev.filter((d) => d.menuItemId !== dish.menuItemId);
+      }
+      if (prev.length >= 4) {
+        alert('You can compare up to 4 dishes at a time.');
+        return prev;
+      }
+      return [...prev, dish];
+    });
+  };
+
+  const handleOpenCompare = () => {
+    if (comparedDishes.length >= 2) {
+      router.push({
+        pathname: '/compare' as any,
+        params: {
+          dishes: JSON.stringify(comparedDishes),
+        },
+      });
+    }
+  };
 
   const quickFilterKeys = [
-    { id: 'Within 3 km', label: t('filterWithin3km') },
-    { id: 'Open now', label: t('filterOpenNow') },
-    { id: 'Rating 4.0+', label: t('filterRating4') },
-    { id: 'Budget', label: t('filterBudget') },
+    { id: 'b-10k', label: '≤ 10K TZS', budget: 10000 },
+    { id: 'b-12k', label: '≤ 12K TZS', budget: 12000 },
+    { id: 'd-3km', label: '≤ 3 km', distance: 3 },
+    { id: 'd-5km', label: '≤ 5 km', distance: 5 },
+    { id: 'open', label: 'Open Now', openNow: true },
   ];
+
+  const handleQuickFilterPress = (item: typeof quickFilterKeys[0]) => {
+    if (item.budget) {
+      setSelectedQuickBudget((prev) => (prev === item.budget ? undefined : item.budget));
+    }
+    if (item.distance) {
+      setSelectedQuickDistance((prev) => (prev === item.distance ? undefined : item.distance));
+    }
+    if (item.openNow) {
+      setIsOpenNowOnly((prev) => !prev);
+    }
+  };
 
   const whyBenefits = [
     {
@@ -104,48 +173,9 @@ export default function HomeScreen() {
     },
   ];
 
-  const filteredRestaurants = useMemo(() => {
-    const baseList = dbRestaurants && dbRestaurants.length > 0 ? dbRestaurants : RESTAURANTS;
-    let list = [...baseList];
-    const q = searchQuery.trim().toLowerCase();
-
-    if (q) {
-      list = list.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          r.cuisine.toLowerCase().includes(q) ||
-          r.neighborhood.toLowerCase().includes(q) ||
-          r.tags.some((item) => item.toLowerCase().includes(q))
-      );
-    }
-
-    if (activeFilters.includes('Within 3 km')) {
-      list = list.filter((r) => r.distanceKm <= 3.0);
-    }
-    if (activeFilters.includes('Open now')) {
-      list = list.filter((r) => r.isOpen);
-    }
-    if (activeFilters.includes('Rating 4.0+')) {
-      list = list.filter((r) => r.rating >= 4.0);
-    }
-    if (activeFilters.includes('Budget')) {
-      list = list.filter((r) => r.budgetTier === 'budget' || r.minPrice <= 6000);
-    }
-
-    if (selectedService === 'Nearby') {
-      list.sort((a, b) => a.distanceKm - b.distanceKm);
-    } else if (selectedService === 'Top Rated') {
-      list.sort((a, b) => b.rating - a.rating);
-    } else if (selectedService === 'Compare') {
-      list.sort((a, b) => a.minPrice - b.minPrice);
-    }
-
-    return list;
-  }, [dbRestaurants, searchQuery, activeFilters, selectedService]);
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Top Header */}
+      {/* Header */}
       <Header
         location={currentLocation}
         favoriteCount={favorites.length}
@@ -154,116 +184,144 @@ export default function HomeScreen() {
       />
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isLargeScreen && styles.largeScreenContainer,
-        ]}
+        contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContainer]}
         showsVerticalScrollIndicator={false}
       >
-        {/* HERO SECTION */}
+        {/* HERO FOOD DISCOVERY SECTION */}
         <View style={styles.heroSection}>
           <View style={styles.eyebrowBadge}>
             <View style={styles.pulsingDot} />
-            <Text style={styles.eyebrowText}>{t('eyebrowHero')}</Text>
+            <Text style={styles.eyebrowText}>
+              {language === 'sw' ? 'UGUNDUZI WA CHAKULA KWANZA' : 'FOOD-FIRST DISCOVERY'}
+            </Text>
           </View>
 
           <Text style={styles.heroHeading}>
-            {t('heroHeading1')}{'\n'}
-            <Text style={styles.heroHeadingGreen}>{t('heroHeading2')}</Text>
+            {language === 'sw' ? 'Ungependa Kula Nini Leo?' : 'What do you want to eat?'}
           </Text>
 
-          <Text style={styles.heroSub}>{t('heroSub')}</Text>
+          <Text style={styles.heroSub}>
+            {language === 'sw'
+              ? 'Tafuta vyakula halisi, bei zilizothibitishwa, na umbali kutoka ulipo Dar es Salaam.'
+              : 'Discover real dishes, verified prices, and exact distance across Dar es Salaam.'}
+          </Text>
 
-          {/* Search Bar & Filter Toggle */}
-          <SearchBar
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            filtersOpen={filtersOpen}
-            activeFilterCount={activeFilters.length}
-            onToggleFilters={() => setFiltersOpen(!filtersOpen)}
-          />
+          {/* Hero Search Bar */}
+          <View style={styles.searchBarWrapper}>
+            <HeroSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmit={handleSearchSubmit}
+              placeholder={language === 'sw' ? 'Tafuta chakula (mf. Chicken Biryani, Chipsi Kuku)...' : 'Search food (e.g. Chicken Biryani, Chipsi Kuku)...'}
+              onSelectSuggestion={(sug) => {
+                setSearchQuery(sug.text);
+                router.push({
+                  pathname: '/(tabs)/explore',
+                  params: { q: sug.text, neighborhood: currentLocation },
+                });
+              }}
+            />
+          </View>
 
-          {/* Filter Pills Panel */}
-          {filtersOpen && (
-            <View style={styles.filterPillsContainer}>
-              <Text style={styles.filterLabel}>{t('filterTitle')}</Text>
-              <View style={styles.filterChipsRow}>
-                {quickFilterKeys.map((f) => {
-                  const isSelected = activeFilters.includes(f.id);
-                  return (
-                    <TouchableOpacity
-                      key={f.id}
-                      style={[styles.filterChip, isSelected && styles.filterChipSelected]}
-                      onPress={() => toggleFilter(f.id)}
-                    >
-                      <Text style={[styles.filterChipText, isSelected && styles.filterChipTextSelected]}>
-                        {isSelected ? '✓ ' : ''}{f.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+          {/* Quick Filter Chips */}
+          <View style={styles.quickChipsRow}>
+            {quickFilterKeys.map((f) => {
+              const isSelected =
+                (f.budget && selectedQuickBudget === f.budget) ||
+                (f.distance && selectedQuickDistance === f.distance) ||
+                (f.openNow && isOpenNowOnly);
 
-                {activeFilters.length > 0 && (
-                  <TouchableOpacity onPress={() => setActiveFilters([])}>
-                    <Text style={styles.resetFiltersText}>{t('resetFilters')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Trust Stats */}
-          <View style={styles.trustRow}>
-            <Text style={styles.trustItem}>{t('statsRestaurants')}</Text>
-            <Text style={styles.trustDot}>•</Text>
-            <Text style={styles.trustItem}><Text style={styles.trustOrange}>★</Text> {t('statsRating')}</Text>
-            <Text style={styles.trustDot}>•</Text>
-            <Text style={styles.trustItem}><Text style={styles.trustGreen}>✓</Text> {t('statsPrices')}</Text>
+              return (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.quickChip, isSelected && styles.quickChipActive]}
+                  onPress={() => handleQuickFilterPress(f)}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.quickChipText, isSelected && styles.quickChipTextActive]}>
+                    {isSelected ? '✓ ' : ''}{f.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* 4 SERVICE SHORTCUTS */}
+        {/* SECTION 1: POPULAR DISHES NEAR YOU */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionEyebrow}>{t('exploreEyebrow')}</Text>
-          <Text style={styles.sectionTitle}>{t('exploreTitle')}</Text>
+          <View>
+            <Text style={styles.sectionEyebrow}>
+              {language === 'sw' ? 'INAYOPENDWA ZAIDI' : 'POPULAR DISHES NEARBY'}
+            </Text>
+            <Text style={styles.sectionTitle}>
+              {language === 'sw' ? `Vyakula Maarufu ${currentLocation}` : `Popular in ${currentLocation}`}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/explore', params: { neighborhood: currentLocation } })}>
+            <Text style={styles.seeAllText}>{language === 'sw' ? 'Ona Zaidi →' : 'See All →'}</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.serviceGrid}>
-          {services.map((s) => (
-            <ServiceCard
-              key={s.id}
-              id={s.id}
-              label={s.label}
-              detail={s.detail}
-              icon={s.icon}
-              isSelected={selectedService === s.id}
-              onPress={() => {
-                setSelectedService(s.id);
-                if (s.id === 'Reservations') {
-                  const r = RESTAURANTS[0];
-                  if (r) setSelectedReserveRestaurant(r);
-                }
-              }}
+        {isLoadingDishes ? (
+          <View>
+            <DishCardSkeleton />
+            <DishCardSkeleton />
+          </View>
+        ) : popularDishes.length > 0 ? (
+          popularDishes.slice(0, 4).map((dish) => (
+            <DishCard
+              key={dish.menuItemId}
+              dish={dish}
+              onToggleCompare={toggleCompare}
+              isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
             />
-          ))}
-        </View>
+          ))
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyCardText}>No dishes found near {currentLocation}.</Text>
+          </View>
+        )}
 
         {/* CUSTOM MEAL FEATURE BANNER */}
         <CustomMealBanner onStartRequest={() => router.push('/(tabs)/custom')} />
 
-        {/* POPULAR RESTAURANTS */}
+        {/* SECTION 2: RECOMMENDED FOR YOU */}
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionEyebrow}>
+              {language === 'sw' ? 'KWA AJILI YAKO' : 'RECOMMENDED FOR YOU'}
+            </Text>
+            <Text style={styles.sectionTitle}>
+              {language === 'sw' ? 'Chakula Chenye Ubora wa Juu' : 'Top Quality & Freshness'}
+            </Text>
+          </View>
+        </View>
+
+        {isLoadingDishes ? (
+          <DishCardSkeleton />
+        ) : recommendedDishes.length > 0 ? (
+          recommendedDishes.slice(0, 4).map((dish) => (
+            <DishCard
+              key={dish.menuItemId}
+              dish={dish}
+              onToggleCompare={toggleCompare}
+              isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
+            />
+          ))
+        ) : null}
+
+        {/* SECTION 3: FEATURED RESTAURANTS */}
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionEyebrow}>{t('popularEyebrow')}</Text>
             <Text style={styles.sectionTitle}>{t('popularTitle')}</Text>
           </View>
-          <Text style={styles.countText}>
-            {filteredRestaurants.length} {t('placesCount')}
-          </Text>
         </View>
 
-        {filteredRestaurants.length > 0 ? (
-          filteredRestaurants.map((restaurant) => (
+        {loading ? (
+          <DishCardSkeleton />
+        ) : dbRestaurants && dbRestaurants.length > 0 ? (
+          dbRestaurants.slice(0, 3).map((restaurant) => (
             <RestaurantCard
               key={restaurant.id}
               restaurant={restaurant as any}
@@ -274,20 +332,11 @@ export default function HomeScreen() {
             />
           ))
         ) : (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyIcon}>🍽️</Text>
-            <Text style={styles.emptyTitle}>{t('noRestaurantsTitle')}</Text>
-            <Text style={styles.emptyMsg}>{t('noRestaurantsMsg')}</Text>
-            <TouchableOpacity
-              style={styles.clearBtn}
-              onPress={() => {
-                setSearchQuery('');
-                setActiveFilters([]);
-              }}
-            >
-              <Text style={styles.clearBtnText}>{t('clearFilters')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            title={language === 'sw' ? 'Hakuna migahawa kwa sasa' : 'No restaurants available'}
+            message={language === 'sw' ? 'Migahawa itaonekana hapa mara itakapopatikana.' : 'Restaurants will appear here once available.'}
+            icon="restaurant-outline"
+          />
         )}
 
         {/* WHY MLOHUB */}
@@ -309,6 +358,21 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
+      {/* FLOATING COMPARE BAR (Appears when 2+ dishes selected) */}
+      {comparedDishes.length >= 2 ? (
+        <View style={styles.floatingCompareBar}>
+          <View style={styles.floatingCompareLeft}>
+            <Text style={styles.floatingCompareEmoji}>⚖️</Text>
+            <Text style={styles.floatingCompareText}>
+              {comparedDishes.length} {comparedDishes.length === 1 ? 'Dish' : 'Dishes'} Selected
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.floatingCompareBtn} onPress={handleOpenCompare}>
+            <Text style={styles.floatingCompareBtnText}>Compare Now ➔</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Location Modal */}
       <LocationModal
         visible={isLocationModalOpen}
@@ -323,6 +387,25 @@ export default function HomeScreen() {
         restaurant={selectedReserveRestaurant as any}
         onClose={() => setSelectedReserveRestaurant(null)}
       />
+
+      {/* Floating Cart Button (Presents when user has items in cart) */}
+      <FloatingCartButton />
+
+      {/* Slide-in Cart Drawer */}
+      <CartDrawer
+        visible={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
+      />
+
+      {/* Order Review & Placement Modal */}
+      <OrderReviewModal
+        visible={isOrderReviewOpen}
+        onClose={() => setIsOrderReviewOpen(false)}
+        onOrderConfirmed={(orderId) => {
+          router.push('/(tabs)/bookings');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -334,7 +417,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.lg,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   largeScreenContainer: {
     maxWidth: 960,
@@ -348,230 +431,191 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
     backgroundColor: Colors.primaryMuted,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: Radii.full,
+    alignSelf: 'flex-start',
     marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#cce3d3',
   },
   pulsingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: Radii.full,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: Colors.primary,
   },
   eyebrowText: {
-    fontSize: 9,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
     color: Colors.primaryDark,
     letterSpacing: 0.5,
   },
   heroHeading: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     color: Colors.text,
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    lineHeight: 34,
+    lineHeight: 30,
     marginBottom: Spacing.xs,
-  },
-  heroHeadingGreen: {
-    color: Colors.primaryLight,
-    fontStyle: 'italic',
   },
   heroSub: {
     fontSize: 13,
     color: Colors.muted,
-    lineHeight: 19,
-    marginBottom: Spacing.lg,
-  },
-  filterPillsContainer: {
-    marginTop: Spacing.sm,
-    padding: Spacing.sm,
-    backgroundColor: Colors.white,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  filterLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.subtle,
-    textTransform: 'uppercase',
-    marginBottom: 6,
-  },
-  filterChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    alignItems: 'center',
-  },
-  filterChip: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterChipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  filterChipTextSelected: {
-    color: Colors.white,
-    fontWeight: '800',
-  },
-  resetFiltersText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.accent,
-    marginLeft: 6,
-  },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: Spacing.md,
-  },
-  trustItem: {
-    fontSize: 11,
-    color: Colors.muted,
-  },
-  trustOrange: {
-    fontWeight: '800',
-    color: Colors.accent,
-  },
-  trustGreen: {
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  trustDot: {
-    color: Colors.subtle,
-    fontSize: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  sectionEyebrow: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: Colors.primaryLight,
-    letterSpacing: 0.5,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.text,
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-  },
-  countText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.muted,
-  },
-  serviceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  emptyBox: {
-    backgroundColor: Colors.white,
-    borderRadius: Radii.xxl,
-    padding: Spacing.xxl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Colors.border,
-    marginVertical: Spacing.lg,
-  },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: Spacing.sm,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  emptyMsg: {
-    fontSize: 12,
-    color: Colors.muted,
-    textAlign: 'center',
     lineHeight: 18,
     marginBottom: Spacing.md,
   },
-  clearBtn: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: Radii.lg,
+  searchBarWrapper: {
+    marginBottom: Spacing.sm,
   },
-  clearBtnText: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '800',
+  quickChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
   },
-  whySection: {
-    backgroundColor: Colors.primaryMuted,
-    borderRadius: Radii.xxl,
-    padding: Spacing.xl,
-    marginTop: Spacing.xl,
+  quickChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.full,
+    backgroundColor: '#f1f5f2',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#e2e7e3',
   },
-  whyHeading: {
-    fontSize: 20,
+  quickChipActive: {
+    backgroundColor: Colors.primaryMuted,
+    borderColor: Colors.primary,
+  },
+  quickChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.muted,
+  },
+  quickChipTextActive: {
+    color: Colors.primaryDark,
+    fontWeight: '700',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  sectionEyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.primaryLight,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: Colors.text,
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    marginVertical: Spacing.xs,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    paddingBottom: 2,
+  },
+  emptyCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radii.md,
+    padding: Spacing.lg,
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  emptyCardText: {
+    color: Colors.muted,
+    fontSize: 13,
+  },
+  whySection: {
+    marginTop: Spacing.xl,
+    paddingTop: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  whyHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.text,
+    marginBottom: Spacing.md,
   },
   whyGrid: {
-    marginTop: Spacing.md,
     gap: Spacing.sm,
   },
   whyCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: Radii.xl,
+    backgroundColor: Colors.white,
+    borderRadius: Radii.lg,
     padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
     ...Shadows.sm,
   },
   whyIconBadge: {
     width: 28,
     height: 28,
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: Colors.primaryMuted,
     justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 6,
   },
   whyIconText: {
-    color: Colors.white,
-    fontWeight: '900',
-    fontSize: 12,
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '800',
   },
   whyCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 2,
   },
   whyCardDesc: {
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.muted,
     lineHeight: 16,
+  },
+  floatingCompareBar: {
+    position: 'absolute',
+    bottom: 20,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    backgroundColor: Colors.primaryDark,
+    borderRadius: Radii.full,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    ...Shadows.lg,
+    zIndex: 1000,
+  },
+  floatingCompareLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  floatingCompareEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  floatingCompareText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  floatingCompareBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: Radii.full,
+  },
+  floatingCompareBtnText: {
+    color: Colors.white,
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

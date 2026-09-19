@@ -1,0 +1,454 @@
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import {
+  MloHubDB,
+  MloHubDatabaseSchema,
+  RestaurantEntity,
+  ReservationEntity,
+  CustomMealRequestEntity,
+  NotificationEntity,
+  PaymentTransactionEntity,
+  ReviewEntity,
+  UserEntity,
+} from '../db';
+import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { RestaurantRepository } from '../repositories/restaurants.repository';
+import { ReservationRepository } from '../repositories/reservations.repository';
+import { CustomMealRepository } from '../repositories/customMeals.repository';
+import { NotificationRepository } from '../repositories/notifications.repository';
+import { ReviewRepository } from '../repositories/reviews.repository';
+import { RealtimeEventEngine } from '../db/realtime/eventEngine';
+import { RealtimeService } from '../services/RealtimeService';
+import { Restaurant, Reservation, CustomMealRequest, Notification } from '../types/domain';
+
+interface DbContextType {
+  isReady: boolean;
+  loading: boolean;
+  error: string | null;
+  isCloudBacked: boolean;
+  dbSnapshot: MloHubDatabaseSchema;
+  hasCompletedOnboarding: boolean;
+  user?: UserEntity;
+  users: UserEntity[];
+  restaurants: RestaurantEntity[];
+  reservations: ReservationEntity[];
+  customOrders: CustomMealRequestEntity[];
+  notifications: NotificationEntity[];
+  payments: PaymentTransactionEntity[];
+  favorites: string[];
+  // Actions
+  setOnboardingCompleted: (completed?: boolean) => Promise<void>;
+  updateUser: (data: Partial<UserEntity>) => Promise<UserEntity>;
+  switchUser: (userId: string) => Promise<UserEntity>;
+  toggleFavorite: (restaurantId: string) => Promise<boolean>;
+  createReservation: (data: Omit<ReservationEntity, 'id' | 'createdAt'>) => Promise<ReservationEntity>;
+  cancelReservation: (id: string) => Promise<boolean>;
+  createCustomOrder: (data: Omit<CustomMealRequestEntity, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => Promise<CustomMealRequestEntity>;
+  updateCustomOrder: (id: string, data: Partial<CustomMealRequestEntity>) => Promise<CustomMealRequestEntity | undefined>;
+  deleteCustomOrder: (id: string) => Promise<boolean>;
+  addReview: (data: Omit<ReviewEntity, 'id' | 'createdAt'>) => Promise<ReviewEntity>;
+  resetDatabase: () => Promise<void>;
+  exportDatabaseSnapshot: () => string;
+  refreshState: () => void;
+  retry: () => Promise<void>;
+}
+
+const DbContext = createContext<DbContextType | undefined>(undefined);
+
+function mapDomainRestaurantToEntity(r: Restaurant): RestaurantEntity {
+  return {
+    id: r.id,
+    ownerId: r.ownerId || 'usr-chef-amina',
+    name: r.name,
+    slug: r.slug,
+    cuisine: r.cuisine,
+    description: r.description,
+    sellerTier: r.sellerTier,
+    rating: r.rating,
+    reviews: r.reviewsCount || 0,
+    reviewsCount: r.reviewsCount || 0,
+    price: `TZS ${(r.minPriceTzs || 3000).toLocaleString()}`,
+    minPrice: r.minPriceTzs || 3000,
+    maxPrice: r.maxPriceTzs || 25000,
+    minPriceTzs: r.minPriceTzs || 3000,
+    maxPriceTzs: r.maxPriceTzs || 25000,
+    address: r.address || 'Mikocheni, Dar es Salaam',
+    neighborhood: r.neighborhood || 'Mikocheni',
+    regionCity: r.regionCity || 'Dar es Salaam',
+    distanceKm: r.distanceKm || 1.0,
+    distance: `${r.distanceKm || 1.0} km`,
+    estimatedPrepTimeMinutes: r.estimatedPrepTimeMinutes || 25,
+    time: `${r.estimatedPrepTimeMinutes || 25} mins`,
+    isOpen: r.isOpen,
+    isVerified: r.isVerified,
+    verificationStatus: r.verificationStatus,
+    tinNumber: r.tinNumber,
+    businessLicenseNumber: r.businessLicenseNumber,
+    payoutPhoneNumber: r.payoutPhoneNumber,
+    payoutProvider: r.payoutProvider,
+    openingHours: r.openingHours,
+    closingHours: r.closingHours,
+    logoUrl: r.logoUrl,
+    coverImageUrl: r.coverImageUrl,
+    foodSpotPhotos: r.foodSpotPhotos || [],
+    specialty: r.specialty || 'Swahili Dishes',
+    specialistBadge: r.specialistBadge,
+    specialistCategory: r.specialistCategory,
+    emoji: r.emoji || '🍲',
+    tags: r.tags || [],
+    supportsOrderAhead: r.supportsOrderAhead,
+    menu: [],
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
+function mapDomainReservationToEntity(r: Reservation): ReservationEntity {
+  let mappedStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed' = 'confirmed';
+  if (r.status === 'CANCELLED') mappedStatus = 'cancelled';
+  else if (r.status === 'PENDING') mappedStatus = 'pending';
+  else if (r.status === 'CONFIRMED' || r.status === 'SEATED') mappedStatus = 'confirmed';
+
+  return {
+    id: r.id,
+    userId: r.customerId,
+    restaurantId: r.restaurantId,
+    restaurantName: r.restaurantName || 'Restaurant',
+    guestsCount: `${r.partySize || 2} Guests`,
+    reservationDate: r.reservationDate,
+    timeSlot: r.reservationTime,
+    address: 'Mikocheni, Dar es Salaam',
+    depositAmountTzs: r.depositAmountTzs || 0,
+    depositOption: r.depositOption || 'deposit_50',
+    specialNotes: r.customerNote,
+    status: mappedStatus,
+    createdAt: r.createdAt,
+  };
+}
+
+function mapDomainCustomMealToEntity(r: CustomMealRequest): CustomMealRequestEntity {
+  return {
+    id: r.id,
+    orderNumber: r.orderNumber,
+    userId: r.customerId,
+    dishName: r.dishName || r.title || 'Custom Meal',
+    restaurantName: 'All Participating Chefs',
+    specialInstructions: r.specialInstructions || r.description || '',
+    budgetTzs: r.budgetTzs,
+    servingsCount: r.servingsCount || r.servings || '1',
+    diningOption: (r.diningOption as any) || 'Delivery',
+    status: 'Pending Confirmation',
+    statusMessageEn: r.statusMessageEn || 'Order submitted.',
+    statusMessageSw: r.statusMessageSw || 'Agizo limetumwa.',
+    paymentStatus: 'UNPAID',
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
+function mapDomainNotificationToEntity(n: Notification): NotificationEntity {
+  return {
+    id: n.id,
+    userId: n.userId,
+    type: (n.type as any) || 'system',
+    titleEn: n.titleEn,
+    titleSw: n.titleSw,
+    messageEn: n.messageEn,
+    messageSw: n.messageSw,
+    isRead: n.isRead,
+    createdAt: n.createdAt,
+    timeAgoEn: 'Just now',
+    timeAgoSw: 'Sasa hivi',
+    data: n.payload,
+  };
+}
+
+export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [isReady, setIsReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dbState, setDbState] = useState<MloHubDatabaseSchema>(MloHubDB.getSnapshot());
+  const [cloudRestaurants, setCloudRestaurants] = useState<RestaurantEntity[]>([]);
+  const [cloudReservations, setCloudReservations] = useState<ReservationEntity[]>([]);
+  const [cloudOrders, setCloudOrders] = useState<CustomMealRequestEntity[]>([]);
+  const [cloudNotifications, setCloudNotifications] = useState<NotificationEntity[]>([]);
+
+  const isCloud = isSupabaseConfigured();
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Initialize local prototype snapshot as baseline
+      const snapshot = await MloHubDB.init();
+      setDbState({ ...snapshot });
+
+      if (isCloud) {
+        // Load live PostgreSQL data
+        const restaurants = await RestaurantRepository.list();
+        if (restaurants && restaurants.length > 0) {
+          setCloudRestaurants(restaurants.map(mapDomainRestaurantToEntity));
+        }
+
+        // Active user reservations / orders / notifications
+        const activeUserId = snapshot.activeUserId || 'usr-customer-1';
+        try {
+          const reservations = await ReservationRepository.listByCustomer(activeUserId);
+          setCloudReservations(reservations.map(mapDomainReservationToEntity));
+
+          const orders = await CustomMealRepository.listRequestsForCustomer(activeUserId);
+          setCloudOrders(orders.map(mapDomainCustomMealToEntity));
+
+          const notifications = await NotificationRepository.listForUser(activeUserId);
+          setCloudNotifications(notifications.map(mapDomainNotificationToEntity));
+        } catch (subErr) {
+          console.warn('DbContext: Notice loading user-specific data from Supabase:', subErr);
+        }
+      }
+    } catch (err: any) {
+      console.error('DbContext loadData error:', err);
+      setError(err?.message || 'Failed to initialize database connection');
+    } finally {
+      setIsReady(true);
+      setLoading(false);
+    }
+  }, [isCloud]);
+
+  useEffect(() => {
+    loadData();
+
+    // Realtime listeners to keep state synchronized across tabs & flows
+    const unsubOrders = RealtimeEventEngine.subscribe('orders:*', () => {
+      refreshState();
+    });
+    const unsubNotif = RealtimeEventEngine.subscribe('notifications:*', () => {
+      refreshState();
+    });
+    const unsubRestaurants = RealtimeEventEngine.subscribe('restaurants:*', () => {
+      refreshState();
+    });
+    const unsubAuth = RealtimeEventEngine.subscribe('auth:*', () => {
+      refreshState();
+    });
+
+    const unsubResync = RealtimeService.registerResyncCallback('db_context', () => {
+      refreshState();
+    });
+
+    return () => {
+      unsubOrders();
+      unsubNotif();
+      unsubRestaurants();
+      unsubAuth();
+      unsubResync();
+    };
+  }, [loadData]);
+
+  const refreshState = () => {
+    loadData();
+  };
+
+  const setOnboardingCompleted = async (completed: boolean = true): Promise<void> => {
+    await MloHubDB.setOnboardingCompleted(completed);
+    refreshState();
+  };
+
+  const updateUser = async (data: Partial<UserEntity>): Promise<UserEntity> => {
+    const updated = await MloHubDB.user.update(data);
+    if (isCloud && updated.id) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: updated.fullName,
+            phone: updated.phone,
+            preferred_language: updated.language,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', updated.id);
+      } catch (e) {
+        console.warn('DbContext.updateUser Supabase sync notice:', e);
+      }
+    }
+    refreshState();
+    return updated;
+  };
+
+  const switchUser = async (userId: string): Promise<UserEntity> => {
+    const switched = await MloHubDB.user.switch(userId);
+    refreshState();
+    return switched;
+  };
+
+  const toggleFavorite = async (restaurantId: string): Promise<boolean> => {
+    const isFav = await MloHubDB.restaurants.toggleFavorite(restaurantId);
+    refreshState();
+    return isFav;
+  };
+
+  const createReservation = async (
+    data: Omit<ReservationEntity, 'id' | 'createdAt'>
+  ): Promise<ReservationEntity> => {
+    if (isCloud) {
+      const partySize = parseInt(data.guestsCount || '2', 10) || 2;
+      const created = await ReservationRepository.create({
+        customerId: data.userId || dbState.activeUserId || 'usr-customer-1',
+        restaurantId: data.restaurantId,
+        partySize,
+        reservationDate: data.reservationDate,
+        reservationTime: data.timeSlot,
+        status: data.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
+        customerNote: data.specialNotes,
+        depositOption: data.depositOption || 'deposit_50',
+        depositAmountTzs: data.depositAmountTzs || 0,
+      });
+      const entity = mapDomainReservationToEntity(created);
+      setCloudReservations((prev) => [entity, ...prev]);
+      return entity;
+    }
+
+    const res = await MloHubDB.reservations.create(data);
+    refreshState();
+    return res;
+  };
+
+  const cancelReservation = async (id: string): Promise<boolean> => {
+    if (isCloud) {
+      const success = await ReservationRepository.cancel(id);
+      setCloudReservations((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'cancelled' } : r)));
+      return success;
+    }
+
+    const res = await MloHubDB.reservations.cancel(id);
+    refreshState();
+    return res;
+  };
+
+  const createCustomOrder = async (
+    data: Omit<CustomMealRequestEntity, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
+  ): Promise<CustomMealRequestEntity> => {
+    if (isCloud) {
+      const created = await CustomMealRepository.createRequest({
+        customerId: data.userId || dbState.activeUserId || 'usr-customer-1',
+        dishName: data.dishName,
+        specialInstructions: data.specialInstructions,
+        budgetTzs: data.budgetTzs,
+        servingsCount: data.servingsCount,
+        diningOption: data.diningOption,
+        deliveryLocation: data.deliveryAddress || 'Mikocheni',
+      });
+      const entity = mapDomainCustomMealToEntity(created);
+      setCloudOrders((prev) => [entity, ...prev]);
+      return entity;
+    }
+
+    const ord = await MloHubDB.customOrders.create(data);
+    refreshState();
+    return ord;
+  };
+
+  const updateCustomOrder = async (
+    id: string,
+    data: Partial<CustomMealRequestEntity>
+  ): Promise<CustomMealRequestEntity | undefined> => {
+    const ord = await MloHubDB.customOrders.update(id, data);
+    refreshState();
+    return ord;
+  };
+
+  const deleteCustomOrder = async (id: string): Promise<boolean> => {
+    const res = await MloHubDB.customOrders.delete(id);
+    refreshState();
+    return res;
+  };
+
+  const addReview = async (
+    data: Omit<ReviewEntity, 'id' | 'createdAt'>
+  ): Promise<ReviewEntity> => {
+    if (isCloud) {
+      const created = await ReviewRepository.create({
+        customerId: data.userId,
+        restaurantId: data.restaurantId,
+        overallRating: data.rating,
+        comment: data.comment,
+      });
+      return {
+        id: created.id,
+        restaurantId: created.restaurantId,
+        userId: created.customerId,
+        userName: data.userName || 'Customer',
+        rating: created.overallRating,
+        comment: created.comment || '',
+        createdAt: created.createdAt,
+      };
+    }
+
+    const rev = await MloHubDB.reviews.create(data);
+    refreshState();
+    return rev;
+  };
+
+  const resetDatabase = async (): Promise<void> => {
+    await MloHubDB.reset();
+    refreshState();
+  };
+
+  const exportDatabaseSnapshot = (): string => {
+    return JSON.stringify(MloHubDB.getSnapshot(), null, 2);
+  };
+
+  const activeUser = dbState.activeUserId
+    ? dbState.users.find((u) => u.id === dbState.activeUserId) || MloHubDB.user.get()
+    : undefined;
+
+  // Prefer cloud-backed data when Supabase is configured and data is loaded; fall back to local snapshot
+  const activeRestaurants = isCloud && cloudRestaurants.length > 0 ? cloudRestaurants : dbState.restaurants;
+  const activeReservations = isCloud && cloudReservations.length > 0 ? cloudReservations : dbState.reservations;
+  const activeOrders = isCloud && cloudOrders.length > 0 ? cloudOrders : dbState.customMealRequests;
+  const activeNotifications = isCloud && cloudNotifications.length > 0 ? cloudNotifications : dbState.notifications;
+
+  return (
+    <DbContext.Provider
+      value={{
+        isReady,
+        loading,
+        error,
+        isCloudBacked: isCloud,
+        dbSnapshot: dbState,
+        hasCompletedOnboarding: !!dbState.hasCompletedOnboarding,
+        user: activeUser,
+        users: dbState.users,
+        restaurants: activeRestaurants,
+        reservations: activeReservations,
+        customOrders: activeOrders,
+        notifications: activeNotifications,
+        payments: dbState.payments,
+        favorites: dbState.favorites,
+        setOnboardingCompleted,
+        updateUser,
+        switchUser,
+        toggleFavorite,
+        createReservation,
+        cancelReservation,
+        createCustomOrder,
+        updateCustomOrder,
+        deleteCustomOrder,
+        addReview,
+        resetDatabase,
+        exportDatabaseSnapshot,
+        refreshState,
+        retry: loadData,
+      }}
+    >
+      {children}
+    </DbContext.Provider>
+  );
+};
+
+export const useMloHubDB = (): DbContextType => {
+  const context = useContext(DbContext);
+  if (!context) {
+    throw new Error('useMloHubDB must be used within a DbProvider');
+  }
+  return context;
+};
+

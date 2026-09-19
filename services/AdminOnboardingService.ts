@@ -6,10 +6,15 @@ import {
   SellerTier,
   OnboardingChecklistState,
   MenuItemEntity,
+  LipaNumberEntry,
 } from '../db/types';
 import { CryptoEngine } from '../db/auth/crypto';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { getSmsProvider } from './sms/SmsProvider';
+import { SmsService } from './sms/SmsService';
+import { OtpSecurityEngine } from './sms/OtpSecurityEngine';
+import { normalizeTanzanianPhone } from '../utils/phoneNormalization';
+import { runtimeConfig } from '../lib/runtimeConfig';
 
 export interface OnboardRestaurantDTO {
   businessName: string;
@@ -25,6 +30,10 @@ export interface OnboardRestaurantDTO {
   closingHours?: string;
   payoutPhoneNumber: string;
   payoutProvider?: string; // M-Pesa, Airtel Money, Mixx by Yas, HaloPesa
+  acceptedPaymentMethods?: string[];
+  lipaNumbers?: LipaNumberEntry[];
+  lipaNumber?: string;
+  lipaProvider?: string;
   coverImageUrl?: string;
   foodSpotPhotos?: string[];
   initialMenu: {
@@ -71,7 +80,7 @@ export class AdminOnboardingService {
     }
 
     // Generate random 6-digit cryptographic OTP
-    const rawOtp = `${Math.floor(100000 + Math.random() * 900000)}`;
+    const rawOtp = OtpSecurityEngine.generateCryptographicOtp();
     const otpHash = CryptoEngine.hashOtp(rawOtp, cleanPhone);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
 
@@ -87,11 +96,8 @@ export class AdminOnboardingService {
       expiresAt,
     });
 
-    // Detect Tanzanian carrier for notification context
-    let carrier = 'Vodacom M-Pesa';
-    if (cleanPhone.includes('78') || cleanPhone.includes('68') || cleanPhone.includes('69')) carrier = 'Airtel Money';
-    else if (cleanPhone.includes('71') || cleanPhone.includes('65') || cleanPhone.includes('67')) carrier = 'Mixx by Yas (Tigo)';
-    else if (cleanPhone.includes('62') || cleanPhone.includes('61')) carrier = 'HaloPesa (Halotel)';
+    const norm = normalizeTanzanianPhone(cleanPhone);
+    const carrier = norm.valid ? norm.carrier : 'Vodacom M-Pesa';
 
     // Dispatch via configured SMS Gateway
     const smsProvider = getSmsProvider();
@@ -105,6 +111,19 @@ export class AdminOnboardingService {
       targetType: 'PHONE',
       targetId: cleanPhone,
       details: { carrier, provider: smsProvider.name, success: smsResult.success },
+    });
+
+    // Delivery log entry
+    await MloHubDB.smsLogs.create({
+      id: `sms_log_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
+      recipient: cleanPhone,
+      carrier,
+      templateId: 'OTP_VENDOR_ACTIVATION',
+      provider: smsResult.provider,
+      providerMessageId: smsResult.messageId,
+      status: smsResult.deliveryStatus || (smsResult.success ? 'SENT' : 'FAILED'),
+      errorMessage: smsResult.error,
+      createdAt: new Date().toISOString(),
     });
 
     return {
@@ -155,8 +174,14 @@ export class AdminOnboardingService {
     // Increment attempt count
     await MloHubDB.otpChallenges.incrementAttempts(challenge.id);
 
-    // Constant-time cryptographic verification
-    const isValid = CryptoEngine.verifyOtpHash(enteredOtp.trim(), cleanPhone, challenge.otpHash);
+    // Constant-time verification supporting both otp_v1 and hmac hashes
+    let isValid = false;
+    if (challenge.otpHash.startsWith('otp_v1$')) {
+      isValid = CryptoEngine.verifyOtpHash(enteredOtp.trim(), cleanPhone, challenge.otpHash);
+    } else {
+      isValid = OtpSecurityEngine.timingSafeVerify(enteredOtp.trim(), cleanPhone, challenge.otpHash);
+    }
+
     if (!isValid) {
       const remaining = Math.max(0, challenge.maxAttempts - challenge.attemptsCount);
       return {
@@ -248,7 +273,12 @@ export class AdminOnboardingService {
         category: primaryItem.category || 'Vyakula Vikuu (Main Dishes)',
         description: primaryItem.description || `${primaryItem.name} safi na moto`,
         descriptionSw: primaryItem.description || `${primaryItem.name} safi na moto`,
-        photoUrl: dto.coverImageUrl || dto.foodSpotPhotos?.[0] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80',
+        photoUrl:
+          dto.coverImageUrl ||
+          dto.foodSpotPhotos?.[0] ||
+          (runtimeConfig.allowLocalDataFallbacks
+            ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80'
+            : undefined),
         stockQuantity: 50,
         isAvailable: true,
         isArchived: false,
@@ -289,8 +319,33 @@ export class AdminOnboardingService {
       openingHours: dto.openingHours || '06:30 AM',
       closingHours: dto.closingHours || '09:00 PM',
       payoutPhoneNumber: dto.payoutPhoneNumber || dto.ownerPhone,
-      payoutProvider: dto.payoutProvider || 'M-Pesa',
-      coverImageUrl: dto.coverImageUrl || dto.foodSpotPhotos?.[0] || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80',
+      payoutProvider:
+        dto.payoutProvider ||
+        (dto.acceptedPaymentMethods && dto.acceptedPaymentMethods.length > 0
+          ? dto.acceptedPaymentMethods.join(', ')
+          : 'M-Pesa'),
+      acceptedPaymentMethods:
+        dto.acceptedPaymentMethods && dto.acceptedPaymentMethods.length > 0
+          ? dto.acceptedPaymentMethods
+          : [dto.payoutProvider || 'M-Pesa'],
+      lipaNumbers:
+        dto.lipaNumbers && dto.lipaNumbers.length > 0
+          ? dto.lipaNumbers
+          : dto.lipaNumber?.trim()
+          ? [{ provider: dto.lipaProvider || 'Vodacom Lipa / Till', number: dto.lipaNumber.trim() }]
+          : [],
+      lipaNumber:
+        dto.lipaNumber?.trim() ||
+        (dto.lipaNumbers && dto.lipaNumbers.length > 0 ? dto.lipaNumbers[0].number : undefined),
+      lipaProvider:
+        dto.lipaProvider?.trim() ||
+        (dto.lipaNumbers && dto.lipaNumbers.length > 0 ? dto.lipaNumbers[0].provider : undefined),
+      coverImageUrl:
+        dto.coverImageUrl ||
+        dto.foodSpotPhotos?.[0] ||
+        (runtimeConfig.allowLocalDataFallbacks
+          ? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80'
+          : undefined),
       foodSpotPhotos: dto.foodSpotPhotos || [],
       specialty: dto.specialty || primaryItem.name,
       emoji: '🍲',
@@ -318,12 +373,12 @@ export class AdminOnboardingService {
     // Real-time broadcast
     RealtimeEventEngine.emit('restaurants:created', { restaurant });
 
-    // Send Activation Notification via SMS
-    const sms = getSmsProvider();
-    await sms.sendNotification(
-      dto.ownerPhone,
-      `Hongera ${dto.ownerName}! Biashara yako ya "${dto.businessName}" imewashwa rasmi kwenye MloHub. PIN yako ya kuingia ni [ ${tempPin} ].`
-    );
+    // Send Secure Activation Notification via SMS (OTP without plaintext PIN)
+    await SmsService.sendOtp({
+      phone: dto.ownerPhone,
+      purpose: 'VENDOR_ACTIVATION',
+      language: 'sw',
+    });
 
     // Audit Log
     await MloHubDB.auditLogs.create({
@@ -458,6 +513,293 @@ export class AdminOnboardingService {
       success: true,
       message: `"${rest.name}" has been reactivated.`,
       restaurant: updated,
+    };
+  }
+
+  /**
+   * 7. Approve Restaurant Application (Converts vendor application into live restaurant & owner account)
+   */
+  public static async approveApplication(
+    applicationId: string,
+    reviewerAdminId: string = 'usr-admin'
+  ): Promise<{
+    success: boolean;
+    message: string;
+    restaurant?: RestaurantEntity;
+    ownerUser?: UserEntity;
+    temporaryPin?: string;
+  }> {
+    await MloHubDB.init();
+    const app = MloHubDB.restaurantApplications.getById(applicationId);
+    if (!app) {
+      return { success: false, message: 'Application not found.' };
+    }
+
+    if (app.status === 'APPROVED') {
+      return { success: false, message: 'Maombi haya tayari yalishaidhinishwa.' };
+    }
+
+    const slug = app.businessName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const restaurantId = `${slug}-${Math.floor(100 + Math.random() * 900)}`;
+    const tempPin = `${Math.floor(1000 + Math.random() * 9000)}`;
+    const ownerUserId = `usr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const ownerEmail = app.ownerEmail || `${slug}.owner@mlohub.tz`;
+
+    // Create Owner Account
+    const ownerUser: UserEntity = {
+      id: ownerUserId,
+      fullName: app.ownerName.trim(),
+      email: ownerEmail,
+      phone: app.ownerPhone.trim(),
+      passwordHash: CryptoEngine.hashPassword(tempPin),
+      role: UserRole.RESTAURANT_OWNER,
+      roles: [UserRole.CUSTOMER, UserRole.RESTAURANT_OWNER],
+      activeRole: UserRole.RESTAURANT_OWNER,
+      activeWorkspace: 'RESTAURANT_OWNER',
+      activeRestaurantId: restaurantId,
+      status: 'ACTIVE',
+      language: 'sw',
+      avatarEmoji: '👑',
+      securityPin: tempPin,
+      companyOrGroup: app.businessName.trim(),
+      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      isPhoneVerified: true,
+      isEmailVerified: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await MloHubDB.users.create(ownerUser);
+
+    // Initial Menu Item
+    const initialMenuItems: MenuItemEntity[] = [
+      {
+        id: `item-${Date.now()}-1`,
+        restaurantId,
+        name: 'Chakula cha Siku (Special of the Day)',
+        nameSw: 'Chakula cha Siku (Special of the Day)',
+        priceTzs: 6500,
+        category: 'Vyakula Vikuu (Main Dishes)',
+        description: `Mlo maalum safi kutoka ${app.businessName.trim()}`,
+        descriptionSw: `Mlo maalum safi kutoka ${app.businessName.trim()}`,
+        photoUrl:
+          (app as any).coverImageUrl ||
+          (runtimeConfig.allowLocalDataFallbacks
+            ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80'
+            : undefined),
+        stockQuantity: 50,
+        isAvailable: true,
+        isArchived: false,
+        estimatedPrepTimeMinutes: 20,
+        dietaryTags: ['Fresh Local'],
+        spiceLevel: 'Mild',
+        createdAt: new Date().toISOString(),
+      },
+    ];
+
+    const sellerTier: SellerTier = app.hasTinOrLicense ? 'VERIFIED_SELLER' : 'BASIC_SELLER';
+
+    const restaurant: RestaurantEntity = {
+      id: restaurantId,
+      ownerId: ownerUserId,
+      ownerName: app.ownerName.trim(),
+      ownerPhone: app.ownerPhone.trim(),
+      name: app.businessName.trim(),
+      slug,
+      cuisine: app.cuisineType || 'Vyakula vya Asili (Traditional Swahili)',
+      description: `Chakula safi na cha uhakika kutoka ${app.businessName.trim()}, ${app.neighborhood}.`,
+      sellerTier,
+      rating: 5.0,
+      reviewsCount: 1,
+      minPrice: 5000,
+      maxPrice: 15000,
+      minPriceTzs: 5000,
+      maxPriceTzs: 15000,
+      price: 'TZS 6,500',
+      address: app.address.trim(),
+      neighborhood: app.neighborhood.trim(),
+      regionCity: 'Dar es Salaam',
+      distanceKm: 0.9,
+      estimatedPrepTimeMinutes: 20,
+      isOpen: true,
+      isVerified: true,
+      verificationStatus: 'VERIFIED',
+      openingHours: '07:00 AM',
+      closingHours: '09:00 PM',
+      payoutPhoneNumber: app.ownerPhone.trim(),
+      payoutProvider: 'Vodacom M-Pesa',
+      acceptedPaymentMethods: ['Vodacom M-Pesa', 'Mixx by Yas (Tigo)', 'Airtel Money'],
+      lipaNumbers: [],
+      coverImageUrl:
+        (app as any).coverImageUrl ||
+        (runtimeConfig.allowLocalDataFallbacks
+          ? 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80'
+          : undefined),
+      foodSpotPhotos: [],
+      specialty: 'Vyakula vya Asili',
+      emoji: '🍲',
+      tags: ['Mama Lishe', app.neighborhood, 'Fast Prep', 'M-Pesa'],
+      supportsOrderAhead: true,
+      menu: initialMenuItems,
+      tinNumber: app.tinNumber,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await MloHubDB.restaurants.create(restaurant);
+
+    // Membership
+    await MloHubDB.restaurantMemberships.create({
+      userId: ownerUserId,
+      restaurantId,
+      role: 'OWNER',
+      status: 'ACTIVE',
+      permissions: ['ALL'],
+      isPrimaryOwner: true,
+    });
+
+    // Update Application Status
+    await MloHubDB.restaurantApplications.updateStatus(applicationId, 'APPROVED', 'Approved by Admin', reviewerAdminId);
+
+    // Notification for Vendor
+    await MloHubDB.notifications.create({
+      userId: ownerUserId,
+      type: 'order',
+      titleEn: 'Restaurant Approved & Activated!',
+      titleSw: 'Hongera! Mgahawa Wako Umeidhinishwa!',
+      messageEn: `Your restaurant "${app.businessName}" has been approved by MloHub Admin. An SMS activation code has been sent to your phone.`,
+      messageSw: `Mgahawa wako wa "${app.businessName}" umeidhinishwa rasmi na Admin. Msimbo wa SMS wa kuanzisha akaunti umetumwa kwenye simu yako.`,
+      data: { restaurantId, temporaryPin: tempPin },
+    });
+
+    // Dispatch Secure SMS Activation OTP to Owner Phone
+    await SmsService.sendOtp({
+      phone: app.ownerPhone,
+      purpose: 'VENDOR_ACTIVATION',
+      language: 'sw',
+    });
+
+    // Real-time Event
+    RealtimeEventEngine.emit('restaurants:created', { restaurant });
+    RealtimeEventEngine.publish('restaurants:updates', {
+      eventType: 'APPLICATION_APPROVED',
+      applicationId,
+      restaurant,
+      ownerUserId,
+    });
+
+    // Audit Log
+    await MloHubDB.auditLogs.create({
+      adminUserId: reviewerAdminId,
+      adminName: 'MloHub Admin Console',
+      action: 'APPROVE_APPLICATION',
+      targetType: 'RESTAURANT_APPLICATION',
+      targetId: applicationId,
+      details: {
+        businessName: app.businessName,
+        ownerPhone: app.ownerPhone,
+        restaurantId,
+      },
+    });
+
+    return {
+      success: true,
+      message: `"${app.businessName}" umeidhinishwa na kuwashwa rasmi!`,
+      restaurant,
+      ownerUser,
+      temporaryPin: tempPin,
+    };
+  }
+
+  /**
+   * 8. Reject Restaurant Application
+   */
+  public static async rejectApplication(
+    applicationId: string,
+    reason: string = 'Vigezo vya usajili havijakamilika',
+    reviewerAdminId: string = 'usr-admin'
+  ): Promise<{ success: boolean; message: string }> {
+    await MloHubDB.init();
+    const app = MloHubDB.restaurantApplications.getById(applicationId);
+    if (!app) return { success: false, message: 'Application not found.' };
+
+    await MloHubDB.restaurantApplications.updateStatus(applicationId, 'REJECTED', reason, reviewerAdminId);
+
+    RealtimeEventEngine.publish('restaurants:updates', {
+      eventType: 'APPLICATION_REJECTED',
+      applicationId,
+      reason,
+    });
+
+    await MloHubDB.auditLogs.create({
+      adminUserId: reviewerAdminId,
+      adminName: 'MloHub Admin Console',
+      action: 'REJECT_APPLICATION',
+      targetType: 'RESTAURANT_APPLICATION',
+      targetId: applicationId,
+      details: { reason },
+    });
+
+    return { success: true, message: `Maombi ya "${app.businessName}" yamekataliwa.` };
+  }
+
+  /**
+   * 9. Broadcast Announcement across Platform (Admin to Customers, Restaurants, or All)
+   */
+  public static async broadcastAnnouncement(
+    title: string,
+    message: string,
+    targetAudience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS' = 'ALL',
+    adminName: string = 'MloHub Admin'
+  ): Promise<{ success: boolean; recipientCount: number; message: string }> {
+    await MloHubDB.init();
+    const allUsers = MloHubDB.users.getAll();
+
+    const recipients = allUsers.filter((u) => {
+      if (targetAudience === 'ALL') return true;
+      if (targetAudience === 'CUSTOMERS') return u.role === UserRole.CUSTOMER || u.roles?.includes(UserRole.CUSTOMER);
+      if (targetAudience === 'RESTAURANTS') return u.role === UserRole.RESTAURANT_OWNER || u.roles?.includes(UserRole.RESTAURANT_OWNER);
+      return true;
+    });
+
+    for (const recipient of recipients) {
+      await MloHubDB.notifications.create({
+        userId: recipient.id,
+        type: 'promotion',
+        titleEn: title,
+        titleSw: title,
+        messageEn: message,
+        messageSw: message,
+        data: { broadcastBy: adminName, targetAudience, sentAt: new Date().toISOString() },
+      });
+    }
+
+    // Realtime Broadcast
+    RealtimeEventEngine.emit('announcements:broadcast', {
+      title,
+      message,
+      targetAudience,
+      sentAt: new Date().toISOString(),
+    });
+    RealtimeEventEngine.publish('announcements:broadcast', {
+      eventType: 'BROADCAST_ANNOUNCEMENT',
+      data: { title, message, targetAudience, adminName },
+    });
+
+    await MloHubDB.auditLogs.create({
+      adminUserId: 'usr-admin',
+      adminName,
+      action: 'BROADCAST_ANNOUNCEMENT',
+      targetType: 'SYSTEM',
+      targetId: 'all-users',
+      details: { title, targetAudience, recipientCount: recipients.length },
+    });
+
+    return {
+      success: true,
+      recipientCount: recipients.length,
+      message: `Tangazo limetumwa kwa mafanikio kwa watumiaji ${recipients.length}!`,
     };
   }
 }

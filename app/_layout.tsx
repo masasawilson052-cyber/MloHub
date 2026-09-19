@@ -7,13 +7,14 @@ import { DbProvider, useMloHubDB } from '../context/DbContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { NotificationProvider } from '../context/NotificationContext';
+import { CartProvider } from '../context/CartContext';
 import { UserRole } from '../db/types';
 
 function RootNavigationLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { isReady, hasCompletedOnboarding } = useMloHubDB();
-  const { isAuthLoading, isAuthenticated, currentRole, user } = useAuth();
+  const { isAuthLoading, isAuthenticated, currentRole, activeWorkspace, user } = useAuth();
 
   useEffect(() => {
     if (!isReady || isAuthLoading) return;
@@ -29,25 +30,30 @@ function RootNavigationLayout() {
     }
 
     if (isAuthenticated) {
-      const isRestaurantAccount =
-        currentRole === UserRole.RESTAURANT_OWNER ||
-        currentRole === UserRole.RESTAURANT_STAFF ||
-        user?.role === UserRole.RESTAURANT_OWNER ||
-        user?.activeRole === UserRole.RESTAURANT_OWNER;
-
-      // Restaurant Owner should access the Restaurant Portal and not the customer app
-      if (isRestaurantAccount && (inTabs || inAuth)) {
+      // Respect active workspace: if owner switched to customer workspace, allow customer tabs
+      if (activeWorkspace === 'RESTAURANT_OWNER' && inAuth) {
         router.replace('/restaurant-portal');
         return;
       }
+
+      if ((activeWorkspace === 'CUSTOMER' || !activeWorkspace) && inAuth) {
+        router.replace('/(tabs)');
+        return;
+      }
     } else {
-      // Unauthenticated users attempting to access restaurant portal
+      // Unauthenticated users can freely browse Customer Discovery and public tabs
+      // Protect partner portals and admin consoles
+      const inAdmin = segments[0] === 'admin';
       if (inRestaurantPortal) {
-        router.replace('/auth/login?type=restaurant' as any);
+        router.replace('/auth/login?type=restaurant');
+        return;
+      }
+      if (inAdmin) {
+        router.replace('/auth/login?type=admin');
         return;
       }
     }
-  }, [isReady, isAuthLoading, hasCompletedOnboarding, isAuthenticated, currentRole, user, segments]);
+  }, [isReady, isAuthLoading, hasCompletedOnboarding, isAuthenticated, currentRole, activeWorkspace, user, segments]);
 
   return (
     <>
@@ -68,7 +74,7 @@ function RootNavigationLayout() {
           }}
         />
         <Stack.Screen
-          name="restaurant-portal"
+          name="restaurant-portal/index"
           options={{
             headerShown: false,
             animation: 'slide_from_right',
@@ -114,7 +120,9 @@ export default function RootLayout() {
         <AuthProvider>
           <LanguageProvider>
             <NotificationProvider>
-              <RootNavigationLayout />
+              <CartProvider>
+                <RootNavigationLayout />
+              </CartProvider>
             </NotificationProvider>
           </LanguageProvider>
         </AuthProvider>

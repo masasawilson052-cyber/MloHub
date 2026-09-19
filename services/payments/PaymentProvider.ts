@@ -57,7 +57,7 @@ export class ClickPesaPaymentProvider implements PaymentProvider {
   private clientId = process.env.CLICKPESA_CLIENT_ID || '';
   private apiKey = process.env.CLICKPESA_API_KEY || '';
   private baseUrl = process.env.CLICKPESA_BASE_URL || 'https://api.clickpesa.com/v1';
-  private webhookSecret = process.env.CLICKPESA_WEBHOOK_SECRET || 'mlohub_cp_sec_993847291048_prod';
+  private webhookSecret = process.env.CLICKPESA_WEBHOOK_SECRET || '';
 
   async initiatePush(req: PaymentPushRequest): Promise<PaymentPushResponse> {
     if (!this.clientId || !this.apiKey) {

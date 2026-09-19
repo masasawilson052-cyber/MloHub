@@ -11,7 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Restaurant } from '../constants/data';
+import { Restaurant } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -34,8 +34,8 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   const { language } = useLanguage();
   const { width } = useWindowDimensions();
 
-  const [activeRestaurant, setActiveRestaurant] = useState<Restaurant>(
-    restaurants.find((r) => r.id === selectedRestaurantId) || restaurants[0]
+  const [activeRestaurant, setActiveRestaurant] = useState<Restaurant | undefined>(
+    restaurants.find((r) => r.id === selectedRestaurantId) || (restaurants.length > 0 ? restaurants[0] : undefined)
   );
   const [zoomLevel, setZoomLevel] = useState<number>(14);
 
@@ -54,7 +54,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
 
   const handleSelectPin = (restaurant: Restaurant) => {
     setActiveRestaurant(restaurant);
-    setMapCenter({ lat: restaurant.lat, lng: restaurant.lng });
+    setMapCenter({ lat: restaurant.lat || -6.7735, lng: restaurant.lng || 39.2730 });
     if (onSelectRestaurant) {
       onSelectRestaurant(restaurant);
     }

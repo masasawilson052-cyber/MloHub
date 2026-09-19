@@ -1,5 +1,5 @@
 import { MloHubDatabaseSchema, RestaurantEntity, UserRole, UserEntity, CustomerProfileEntity, RestaurantMembershipEntity } from './types';
-import { RESTAURANTS } from '../constants/data';
+import { DEMO_RESTAURANTS as RESTAURANTS } from '../demo/fixtures/restaurants';
 import { CryptoEngine } from './auth/crypto';
 
 const defaultPasswordHash = CryptoEngine.hashPassword('password123', 'seed_salt_2026');
@@ -192,8 +192,17 @@ export const INITIAL_DATABASE_SEED: MloHubDatabaseSchema = {
     ownerPhone: r.id === 'mama-amina-biryani' ? '+255 754 889 120' : '+255 700 000 000',
     ownerNationalId: '19850412-12345-00001-20',
     sellerTier: r.id === 'mama-amina-biryani' ? 'BASIC_SELLER' : 'VERIFIED_RESTAURANT',
-    payoutPhoneNumber: r.id === 'mama-amina-biryani' ? '+255 754 889 120' : '+255 700 000 000',
-    payoutProvider: 'M-Pesa',
+    payoutProvider: 'Vodacom M-Pesa, Mixx by Yas (Tigo), Airtel Money',
+    acceptedPaymentMethods: ['Vodacom M-Pesa', 'Mixx by Yas (Tigo)', 'Airtel Money'],
+    lipaNumbers: r.id === 'mama-amina-biryani'
+      ? [
+          { provider: 'Vodacom Lipa / Till', number: '5566778' },
+          { provider: 'Tigo Pesa Lipa', number: '601234' },
+          { provider: 'Airtel Money Till', number: '778899' },
+        ]
+      : [{ provider: 'Selcom Pay / Till', number: '601234' }],
+    lipaNumber: r.id === 'mama-amina-biryani' ? '5566778' : '601234',
+    lipaProvider: r.id === 'mama-amina-biryani' ? 'Vodacom Lipa / Till' : 'Selcom Pay / Till',
     platformCommissionRate: 10,
     invitationStatus: 'ACTIVATED',
     onboardingChecklist: {
@@ -324,8 +333,11 @@ export const INITIAL_DATABASE_SEED: MloHubDatabaseSchema = {
     },
   ],
   favorites: ['mama-amina-biryani', 'kibo-mchemsho', 'green-leaf'],
+  paymentEvents: [],
+  refunds: [],
   auditLogs: [],
   otpChallenges: [],
+  smsLogs: [],
   restaurantApplications: [],
   lastSyncedAt: '2026-08-27T08:00:00Z',
 };
