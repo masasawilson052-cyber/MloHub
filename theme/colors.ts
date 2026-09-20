@@ -11,14 +11,19 @@
  */
 
 export const Colors = {
-  // --- Brand Ink & Primaries (Deep midnight / navy-charcoal) ---
+  // --- Primary Brand Interaction Accent (Radiant Food Orange / Coral) ---
+  primary: '#FA541C',           // Warm food orange for primary CTAs and active tabs
+  primaryDark: '#D4380D',
+  primaryLight: '#FF7A45',
+  primaryMuted: '#FFF2E8',
+  primaryOrange: '#FA541C',
+  primaryOrangeDark: '#E0441B',
+  primaryOrangeLight: '#FFF2E8',
+
+  // --- Brand Ink & Dark Accents (Deep midnight ink for text & high-contrast elements) ---
   brandInk: '#142033',
   brandInkLight: '#1E2D44',
   brandInkDark: '#0D1522',
-  primary: '#142033',           // Brand Ink as authoritative primary
-  primaryDark: '#0D1522',
-  primaryLight: '#24344D',
-  primaryMuted: '#E8EDF5',
 
   // --- Backgrounds & Surfaces (Warm Ivory & Pure White) ---
   warmIvory: '#FAF8F3',

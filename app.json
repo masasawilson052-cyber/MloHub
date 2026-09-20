@@ -14,7 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1d6637"
+        "backgroundColor": "#FA541C"
       },
       "package": "com.mlohub.app"
     },

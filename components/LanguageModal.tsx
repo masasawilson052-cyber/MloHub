@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   itemSubSelected: {
-    color: '#d8e5dc',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   checkIcon: {
     color: Colors.white,

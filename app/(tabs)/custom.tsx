@@ -580,12 +580,18 @@ export default function CustomMealScreen() {
                       <Text style={styles.quoteRestaurantName}>
                         {q.restaurantName || 'Verified Kitchen'}
                       </Text>
-                      <View style={styles.quoteRatingRow}>
-                        <Text style={styles.quoteStar}>★ 4.8</Text>
+                      {(q as any).restaurantRating ? (
+                        <View style={styles.quoteRatingRow}>
+                          <Text style={styles.quoteStar}>★ {(q as any).restaurantRating.toFixed(1)}</Text>
+                          <Text style={styles.quoteReviews}>
+                            • Rev v{q.revisionNumber || 1}
+                          </Text>
+                        </View>
+                      ) : (
                         <Text style={styles.quoteReviews}>
-                          • Rev v{q.revisionNumber || 1}
+                          Revision v{q.revisionNumber || 1}
                         </Text>
-                      </View>
+                      )}
                     </View>
 
                     <Badge

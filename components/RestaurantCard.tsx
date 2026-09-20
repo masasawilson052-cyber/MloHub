@@ -89,15 +89,23 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
             <Text style={styles.cuisine}>{restaurant.cuisine}</Text>
           </View>
 
-          <View style={styles.ratingBox}>
-            <View style={styles.ratingPill}>
-              <Text style={styles.star}>★</Text>
-              <Text style={styles.ratingText}>{restaurant.rating.toFixed(1)}</Text>
+          {restaurant.rating && restaurant.rating > 0 ? (
+            <View style={styles.ratingBox}>
+              <View style={styles.ratingPill}>
+                <Text style={styles.star}>★</Text>
+                <Text style={styles.ratingText}>{restaurant.rating.toFixed(1)}</Text>
+              </View>
+              {restaurant.reviews && restaurant.reviews > 0 ? (
+                <Text style={styles.reviewCount}>
+                  {restaurant.reviews} {language === 'sw' ? 'maoni' : 'reviews'}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.reviewCount}>
-              {restaurant.reviews} {language === 'sw' ? 'maoni' : 'reviews'}
-            </Text>
-          </View>
+          ) : (
+            <View style={styles.ratingPill}>
+              <Text style={styles.ratingText}>New</Text>
+            </View>
+          )}
         </View>
 
         {/* Distance & Prep Time & Neighborhood */}

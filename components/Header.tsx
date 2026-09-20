@@ -8,14 +8,12 @@ import { useNotifications } from '../context/NotificationContext';
 
 interface HeaderProps {
   location: string;
-  favoriteCount: number;
   onOpenLocation: () => void;
   onOpenProfile: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   location,
-  favoriteCount,
   onOpenLocation,
   onOpenProfile,
 }) => {
@@ -25,14 +23,23 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Brand Logo */}
+      {/* Brand Logo & Location */}
       <View style={styles.brandRow}>
         <View style={styles.logoBadge}>
           <Text style={styles.logoBadgeText}>M</Text>
         </View>
-        <Text style={styles.brandText}>
-          Mlo<Text style={styles.brandTextGreen}>Hub</Text>
-        </Text>
+        <TouchableOpacity
+          style={styles.locationButton}
+          onPress={onOpenLocation}
+          activeOpacity={0.8}
+          accessibilityLabel={`Selected location ${location}. Tap to change.`}
+        >
+          <Ionicons name="location" size={14} color={Colors.primary} style={{ marginRight: 3 }} />
+          <Text style={styles.locationMain} numberOfLines={1}>
+            {location.split(',')[0]}
+          </Text>
+          <Ionicons name="chevron-down" size={13} color={Colors.brandInk} style={{ marginLeft: 2 }} />
+        </TouchableOpacity>
       </View>
 
       {/* Right Controls */}
@@ -55,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
           activeOpacity={0.8}
           accessibilityLabel={`Notifications. ${unreadCount} unread.`}
         >
-          <Ionicons name="notifications-outline" size={18} color={Colors.text} />
+          <Ionicons name="notifications-outline" size={20} color={Colors.brandInk} />
           {unreadCount > 0 && (
             <View style={styles.notifBadge}>
               <Text style={styles.notifBadgeText}>
@@ -65,38 +72,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* Location Switcher */}
-        <TouchableOpacity
-          style={styles.locationButton}
-          onPress={onOpenLocation}
-          activeOpacity={0.8}
-          accessibilityLabel={`Selected location ${location}. Tap to change.`}
-        >
-          <View style={styles.locationIconBadge}>
-            <Text style={styles.locationIcon}>📍</Text>
-          </View>
-          <View style={styles.locationTextWrap}>
-            <Text style={styles.locationSub}>{t('selectArea')}</Text>
-            <Text style={styles.locationMain} numberOfLines={1}>
-              {location.split(',')[0]}
-            </Text>
-          </View>
-          <Text style={styles.chevron}>▾</Text>
-        </TouchableOpacity>
-
-        {/* Profile Button */}
+        {/* Profile Avatar Button */}
         <TouchableOpacity
           style={styles.profileButton}
           onPress={onOpenProfile}
           activeOpacity={0.8}
           accessibilityLabel="Open Profile"
         >
-          <Text style={styles.profileIcon}>👤</Text>
-          {favoriteCount > 0 && (
-            <View style={styles.favBadge}>
-              <Text style={styles.favBadgeText}>{favoriteCount}</Text>
-            </View>
-          )}
+          <Ionicons name="person-circle-outline" size={30} color={Colors.brandInk} />
         </TouchableOpacity>
       </View>
     </View>
@@ -203,14 +186,12 @@ const styles = StyleSheet.create({
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.white,
-    paddingVertical: 5,
-    paddingHorizontal: 7,
+    backgroundColor: Colors.surfaceSecondary,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.sm,
+    borderColor: Colors.borderLight,
   },
   locationIconBadge: {
     width: 18,
@@ -233,23 +214,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   locationMain: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: Colors.brandInk,
+    maxWidth: 90,
   },
   chevron: {
     fontSize: 9,
     color: Colors.subtle,
   },
   profileButton: {
-    width: 34,
-    height: 34,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.primary,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-    ...Shadows.sm,
   },
   profileIcon: {
     fontSize: 14,

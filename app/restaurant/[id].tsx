@@ -286,23 +286,36 @@ export default function RestaurantDetailScreen() {
           {/* Quick Metrics */}
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricStar}>★ {restaurant.rating}</Text>
-              <Text style={styles.metricSub}>
-                {restaurant.reviews} {language === 'sw' ? 'maoni' : 'reviews'}
-              </Text>
+              {restaurant.rating && restaurant.rating > 0 ? (
+                <>
+                  <Text style={styles.metricStar}>★ {typeof restaurant.rating === 'number' ? restaurant.rating.toFixed(1) : restaurant.rating}</Text>
+                  <Text style={styles.metricSub}>
+                    {restaurant.reviews ? `${restaurant.reviews} ${language === 'sw' ? 'maoni' : 'reviews'}` : (language === 'sw' ? 'MloHub' : 'Verified')}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.metricVal}>✨ New</Text>
+                  <Text style={styles.metricSub}>{language === 'sw' ? 'Mkahawa Mpya' : 'Fresh Listing'}</Text>
+                </>
+              )}
             </View>
+            {restaurant.time ? (
+              <>
+                <Text style={styles.divider}>|</Text>
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricVal}>⏱ {restaurant.time}</Text>
+                  <Text style={styles.metricSub}>
+                    {language === 'sw' ? 'Muda wa kupika' : 'Prep time'}
+                  </Text>
+                </View>
+              </>
+            ) : null}
             <Text style={styles.divider}>|</Text>
             <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>⏱ {restaurant.time}</Text>
+              <Text style={styles.metricVal}>📍 {restaurant.distance || 'Dar es Salaam'}</Text>
               <Text style={styles.metricSub}>
-                {language === 'sw' ? 'Muda wa kupika' : 'Prep time'}
-              </Text>
-            </View>
-            <Text style={styles.divider}>|</Text>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>📍 {restaurant.distance}</Text>
-              <Text style={styles.metricSub}>
-                {language === 'sw' ? 'Kutoka hapa' : 'From you'}
+                {restaurant.neighborhood || (language === 'sw' ? 'Eneo' : 'Location')}
               </Text>
             </View>
           </View>

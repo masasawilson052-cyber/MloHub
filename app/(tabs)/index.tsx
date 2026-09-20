@@ -178,7 +178,6 @@ export default function HomeScreen() {
       {/* Header */}
       <Header
         location={currentLocation}
-        favoriteCount={favorites.length}
         onOpenLocation={() => setIsLocationModalOpen(true)}
         onOpenProfile={() => router.push('/(tabs)/profile')}
       />

@@ -173,11 +173,19 @@ export const DishCard: React.FC<DishCardProps> = ({
 
         {/* Footer: Rating, Reviews & Compare Action */}
         <View style={styles.footerRow}>
-          <View style={styles.ratingBox}>
-            <Text style={styles.starIcon}>★</Text>
-            <Text style={styles.ratingNumber}>{dish.restaurantRating.toFixed(1)}</Text>
-            <Text style={styles.reviewsCount}>({dish.reviewCount})</Text>
-          </View>
+          {dish.restaurantRating && dish.restaurantRating > 0 ? (
+            <View style={styles.ratingBox}>
+              <Text style={styles.starIcon}>★</Text>
+              <Text style={styles.ratingNumber}>{dish.restaurantRating.toFixed(1)}</Text>
+              {dish.reviewCount && dish.reviewCount > 0 ? (
+                <Text style={styles.reviewsCount}>({dish.reviewCount})</Text>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.ratingBox}>
+              <Text style={styles.newBadgeText}>New</Text>
+            </View>
+          )}
 
           <View style={styles.actionBtnsRow}>
             {showCompareButton && onToggleCompare ? (
@@ -432,6 +440,11 @@ const styles = StyleSheet.create({
   reviewsCount: {
     fontSize: 12,
     color: Colors.subtle,
+  },
+  newBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.muted,
   },
   compareBtn: {
     paddingHorizontal: 10,

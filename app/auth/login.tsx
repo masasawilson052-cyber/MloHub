@@ -8,6 +8,8 @@ import {
   ScrollView,
   useWindowDimensions,
   Alert,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -114,20 +116,22 @@ export default function LoginScreen() {
       >
         {/* Brand Logo & Greeting */}
         <View style={styles.brandContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>M</Text>
-          </View>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logoSquircle}
+            resizeMode="contain"
+          />
           <Text style={styles.welcomeHeading}>
-            {language === 'sw' ? 'Karibu Tena MloHub' : 'Welcome Back'}
+            {language === 'sw' ? 'Karibu Tena' : 'Welcome Back'}
           </Text>
           <Text style={styles.welcomeSub}>
             {isRestaurantLogin
               ? language === 'sw'
-                ? 'Dhibiti mgahawa wako, pokea maagizo ya wateja na sasisha orodha ya vyakula.'
-                : 'Access your kitchen display, orders, and manage live menu availability.'
+                ? 'Dhibiti mgahawa wako na pokea maagizo ya wateja.'
+                : 'Access your kitchen display and manage live orders.'
               : language === 'sw'
-              ? 'Ingia ili kugundua vyakula halisi na bei zilizothibitishwa Dar es Salaam.'
-              : 'Sign in to discover verified dishes and transparent pricing near you.'}
+              ? 'Ingia ili uendelee kufurahia vyakula halisi na meza zilizothibitishwa.'
+              : 'Sign in to discover dishes, order meals and book tables.'}
           </Text>
         </View>
 
@@ -156,7 +160,7 @@ export default function LoginScreen() {
                 style={styles.input}
                 value={emailOrPhone}
                 onChangeText={setEmailOrPhone}
-                placeholder="frank.mlaki@mlohub.tz au 0754..."
+                placeholder={language === 'sw' ? 'frank.mlaki@mlohub.tz au 0754...' : 'name@example.com or +255...'}
                 placeholderTextColor={Colors.subtle}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -218,6 +222,24 @@ export default function LoginScreen() {
             fullWidth={true}
             style={styles.signInBtn}
           />
+
+          {/* Or Divider & Guest Exploration */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{language === 'sw' ? 'au' : 'or'}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.guestBtn}
+            onPress={() => router.replace('/(tabs)')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="compass-outline" size={18} color={Colors.brandInk} style={{ marginRight: 8 }} />
+            <Text style={styles.guestBtnText}>
+              {language === 'sw' ? 'Gundua Chakula Bila Kuingia' : 'Explore as Guest'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Create Account Link */}
@@ -351,33 +373,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: Spacing.xl,
   },
-  logoCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logoSquircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 18,
     marginBottom: Spacing.sm,
-    ...Shadows.sm,
-  },
-  logoText: {
-    color: Colors.white,
-    fontSize: 26,
-    fontWeight: '900',
   },
   welcomeHeading: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.textPrimary,
+    fontSize: 26,
+    fontWeight: '900',
+    color: Colors.brandInk,
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+    marginTop: 4,
   },
   welcomeSub: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: Colors.muted,
     textAlign: 'center',
     marginTop: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   errorBox: {
     flexDirection: 'row',
@@ -385,7 +400,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
-    borderRadius: Radii.md,
+    borderRadius: Radii.lg,
     padding: Spacing.sm,
     marginBottom: Spacing.md,
   },
@@ -393,12 +408,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#b91c1c',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   formCard: {
     backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.lg,
+    borderRadius: Radii.xxl,
+    padding: Spacing.xl,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     ...Shadows.sm,
@@ -408,8 +423,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.brandInk,
     marginBottom: 6,
   },
   inputWrap: {
@@ -417,8 +432,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radii.md,
+    borderColor: Colors.borderLight,
+    borderRadius: Radii.xl,
     paddingHorizontal: Spacing.sm,
     height: 48,
   },
@@ -428,7 +443,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: Colors.brandInk,
   },
   eyeBtn: {
     padding: 6,
@@ -440,10 +455,42 @@ const styles = StyleSheet.create({
   forgotText: {
     fontSize: 12,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   signInBtn: {
     marginTop: Spacing.xs,
+    borderRadius: Radii.xl,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.borderLight,
+  },
+  dividerText: {
+    fontSize: 12,
+    color: Colors.muted,
+    paddingHorizontal: Spacing.md,
+    fontWeight: '600',
+  },
+  guestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    borderRadius: Radii.xl,
+    paddingVertical: 13,
+  },
+  guestBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.brandInk,
   },
   registerRow: {
     flexDirection: 'row',

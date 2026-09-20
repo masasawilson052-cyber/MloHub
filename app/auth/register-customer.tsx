@@ -135,13 +135,16 @@ export default function RegisterCustomerScreen() {
           style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="arrow-back" size={20} color={Colors.brandInk} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {language === 'sw' ? 'Usajili wa Mteja' : 'Customer Sign Up'}
+          {language === 'sw' ? 'Usajili wa Mteja' : 'Create Account'}
         </Text>
-        <View style={{ width: 32 }} />
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
@@ -153,16 +156,13 @@ export default function RegisterCustomerScreen() {
       >
         {/* Title Header */}
         <View style={styles.titleSection}>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>👤 CUSTOMER ACCOUNT</Text>
-          </View>
           <Text style={styles.mainTitle}>
-            {language === 'sw' ? 'Unda Akaunti Yako ya MloHub' : 'Join MloHub as a Diner'}
+            {language === 'sw' ? 'Unda Akaunti Yako' : 'Create Account'}
           </Text>
           <Text style={styles.mainSubtitle}>
             {language === 'sw'
-              ? 'Gundua chakula safi, meza za VIP, na maagizo maalum ya mapema.'
-              : 'Discover authentic dishes, reserve VIP tables, and order customized advance batches.'}
+              ? 'Jisajili ili kugundua vyakula halisi na kuagiza milo safi.'
+              : 'Sign up to discover verified dishes and order delicious meals.'}
           </Text>
         </View>
 
@@ -183,217 +183,215 @@ export default function RegisterCustomerScreen() {
 
         {/* CUSTOMER REGISTRATION FORM */}
         <View style={styles.formCard}>
-            {/* 1. Full Name */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Jina Kamili *' : 'Full Name *'}
-              </Text>
-              <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
-                <Ionicons name="person-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={fullName}
-                  onChangeText={(text) => {
-                    setFullName(text);
-                    if (errors.fullName) setErrors({ ...errors, fullName: '' });
-                  }}
-                  placeholder="e.g. Frank Mlaki"
-                  autoCapitalize="words"
-                />
-              </View>
-              {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
+          {/* 1. Full Name */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Jina Kamili *' : 'Full Name *'}
+            </Text>
+            <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
+              <Ionicons name="person-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={fullName}
+                onChangeText={(text) => {
+                  setFullName(text);
+                  if (errors.fullName) setErrors({ ...errors, fullName: '' });
+                }}
+                placeholder={language === 'sw' ? 'Mfano: Frank Mlaki' : 'e.g. Frank Mlaki'}
+                placeholderTextColor={Colors.subtle}
+                autoCapitalize="words"
+              />
             </View>
-
-            {/* 2. Email Address */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Barua Pepe (Email) *' : 'Email Address *'}
-              </Text>
-              <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
-                <Ionicons name="mail-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    if (errors.email) setErrors({ ...errors, email: '' });
-                  }}
-                  placeholder="user@mlohub.tz"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-            </View>
-
-            {/* 3. Phone Number */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Namba ya Simu (M-Pesa / SMS) *' : 'Phone Number (M-Pesa / SMS) *'}
-              </Text>
-              <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
-                <Ionicons name="call-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={phone}
-                  onChangeText={(text) => {
-                    setPhone(text);
-                    if (errors.phone) setErrors({ ...errors, phone: '' });
-                  }}
-                  placeholder="+255 754 123 456"
-                  keyboardType="phone-pad"
-                />
-              </View>
-              {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-              <View style={styles.verifiedBadgeRow}>
-                <Ionicons name="shield-checkmark" size={15} color="#113a26" />
-                <Text style={styles.verifiedBadgeText}>
-                  {language === 'sw'
-                    ? '✓ Nambari ya Simu Imehakikiwa Moja kwa Moja (Bila SMS OTP)'
-                    : '✓ Phone verified directly (SMS OTP bypassed)'}
-                </Text>
-              </View>
-            </View>
-
-            {/* 4. Password with Strength Meter */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Nenosiri *' : 'Password *'}
-              </Text>
-              <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
-                <Ionicons name="lock-closed-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errors.password) setErrors({ ...errors, password: '' });
-                  }}
-                  placeholder="Min 6 characters"
-                  secureTextEntry={!showPassword}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={Colors.muted}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              {/* Password Strength Indicator */}
-              {password.length > 0 && (
-                <View style={styles.strengthBox}>
-                  <View style={styles.strengthBarsRow}>
-                    {[1, 2, 3, 4].map((step) => (
-                      <View
-                        key={step}
-                        style={[
-                          styles.strengthSegment,
-                          {
-                            backgroundColor:
-                              step <= strength.score ? getStrengthBarColor(strength.score) : Colors.borderLight,
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                  <Text
-                    style={[
-                      styles.strengthLabel,
-                      { color: getStrengthBarColor(strength.score) },
-                    ]}
-                  >
-                    Strength: {strength.label}
-                  </Text>
-                </View>
-              )}
-              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-            </View>
-
-            {/* 5. Confirm Password */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Thibitisha Nenosiri *' : 'Confirm Password *'}
-              </Text>
-              <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
-                <Ionicons name="shield-checkmark-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={(text) => {
-                    setConfirmPassword(text);
-                    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
-                  }}
-                  placeholder="Re-enter password"
-                  secureTextEntry={!showConfirmPassword}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons
-                    name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={Colors.muted}
-                  />
-                </TouchableOpacity>
-              </View>
-              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-            </View>
-
-            {/* 6. Optional Neighborhood */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>
-                {language === 'sw' ? 'Mtaa / Eneo la Dar es Salaam (Hiari)' : 'Neighborhood / Delivery Area (Optional)'}
-              </Text>
-              <View style={styles.inputBox}>
-                <Ionicons name="location-outline" size={17} color={Colors.muted} style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="e.g. Mikocheni, Masaki, Sinza"
-                />
-              </View>
-            </View>
-
-            {/* 7. Terms & Privacy Checkbox */}
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => setAgreeTerms(!agreeTerms)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.checkboxBox, agreeTerms && styles.checkboxBoxActive]}>
-                {agreeTerms && <Ionicons name="checkmark" size={13} color="#ffffff" />}
-              </View>
-              <Text style={styles.checkboxLabel}>
-                {language === 'sw'
-                  ? 'Ninakubali Vigezo vya Huduma na Sera ya Faragha ya MloHub'
-                  : 'I agree to the MloHub Terms of Service and Privacy Policy'}
-              </Text>
-            </TouchableOpacity>
-            {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
-
-            {/* DIRECT SUBMIT BUTTON */}
-            <TouchableOpacity
-              style={[styles.submitBtn, (isSubmitting || isAuthLoading) && styles.submitBtnDisabled]}
-              onPress={handleDirectRegister}
-              disabled={isSubmitting || isAuthLoading}
-              activeOpacity={0.88}
-            >
-              {isSubmitting || isAuthLoading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.submitBtnText}>
-                  {language === 'sw' ? 'Kamilisha Usajili (Jisajili Sasa) →' : 'Complete Sign Up →'}
-                </Text>
-              )}
-            </TouchableOpacity>
+            {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
           </View>
+
+          {/* 2. Email Address */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Barua Pepe (Email) *' : 'Email Address *'}
+            </Text>
+            <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
+              <Ionicons name="mail-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (errors.email) setErrors({ ...errors, email: '' });
+                }}
+                placeholder="name@example.com"
+                placeholderTextColor={Colors.subtle}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+          </View>
+
+          {/* 3. Phone Number */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Namba ya Simu *' : 'Phone Number *'}
+            </Text>
+            <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
+              <Ionicons name="call-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={(text) => {
+                  setPhone(text);
+                  if (errors.phone) setErrors({ ...errors, phone: '' });
+                }}
+                placeholder="+255 754 123 456"
+                placeholderTextColor={Colors.subtle}
+                keyboardType="phone-pad"
+              />
+            </View>
+            {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+          </View>
+
+          {/* 4. Password with Strength Meter */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Nenosiri *' : 'Password *'}
+            </Text>
+            <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) setErrors({ ...errors, password: '' });
+                }}
+                placeholder="••••••••"
+                placeholderTextColor={Colors.subtle}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={18}
+                  color={Colors.muted}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Password Strength Indicator */}
+            {password.length > 0 && (
+              <View style={styles.strengthBox}>
+                <View style={styles.strengthBarsRow}>
+                  {[1, 2, 3, 4].map((step) => (
+                    <View
+                      key={step}
+                      style={[
+                        styles.strengthSegment,
+                        {
+                          backgroundColor:
+                            step <= strength.score ? getStrengthBarColor(strength.score) : Colors.borderLight,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text
+                  style={[
+                    styles.strengthLabel,
+                    { color: getStrengthBarColor(strength.score) },
+                  ]}
+                >
+                  Strength: {strength.label}
+                </Text>
+              </View>
+            )}
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          </View>
+
+          {/* 5. Confirm Password */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Thibitisha Nenosiri *' : 'Confirm Password *'}
+            </Text>
+            <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
+                }}
+                placeholder="••••••••"
+                placeholderTextColor={Colors.subtle}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={18}
+                  color={Colors.muted}
+                />
+              </TouchableOpacity>
+            </View>
+            {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+          </View>
+
+          {/* 6. Optional Neighborhood */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>
+              {language === 'sw' ? 'Mtaa / Eneo la Dar es Salaam (Hiari)' : 'Delivery Neighborhood (Optional)'}
+            </Text>
+            <View style={styles.inputBox}>
+              <Ionicons name="location-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <TextInput
+                style={styles.input}
+                value={location}
+                onChangeText={setLocation}
+                placeholder="e.g. Mikocheni, Masaki, Sinza"
+                placeholderTextColor={Colors.subtle}
+              />
+            </View>
+          </View>
+
+          {/* 7. Terms & Privacy Checkbox */}
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setAgreeTerms(!agreeTerms)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkboxBox, agreeTerms && styles.checkboxBoxActive]}>
+              {agreeTerms && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              {language === 'sw'
+                ? 'Ninakubali Vigezo vya Huduma na Sera ya Faragha ya MloHub'
+                : 'I agree to the MloHub Terms of Service and Privacy Policy'}
+            </Text>
+          </TouchableOpacity>
+          {errors.terms && <Text style={styles.errorText}>{errors.terms}</Text>}
+
+          {/* DIRECT SUBMIT BUTTON - Vibrant Warm Orange CTA */}
+          <TouchableOpacity
+            style={[styles.submitBtn, (isSubmitting || isAuthLoading) && styles.submitBtnDisabled]}
+            onPress={handleDirectRegister}
+            disabled={isSubmitting || isAuthLoading}
+            activeOpacity={0.88}
+          >
+            {isSubmitting || isAuthLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.submitBtnText}>
+                {language === 'sw' ? 'Tengeneza Akaunti →' : 'Create Account →'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
         {/* Existing Account Footer Link */}
         <TouchableOpacity
@@ -401,9 +399,9 @@ export default function RegisterCustomerScreen() {
           onPress={() => router.push('/auth/login')}
         >
           <Text style={styles.loginFooterText}>
-            {language === 'sw' ? 'Tayari una akaunti ya MloHub? ' : 'Already have an account? '}
+            {language === 'sw' ? 'Tayari una akaunti? ' : 'Already have an account? '}
             <Text style={styles.loginLink}>
-              {language === 'sw' ? 'Ingia Hapa' : 'Log In'}
+              {language === 'sw' ? 'Ingia Hapa' : 'Sign In'}
             </Text>
           </Text>
         </TouchableOpacity>
@@ -423,63 +421,53 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
+    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
   },
   backBtn: {
-    padding: 6,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.white,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.brandInk,
   },
   scrollContent: {
     padding: Spacing.xl,
     paddingBottom: 40,
   },
   largeScreenContent: {
-    maxWidth: 540,
+    maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
   },
   titleSection: {
-    marginBottom: Spacing.lg,
-  },
-  badgePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#113a26',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: Radii.full,
-    marginBottom: 6,
-  },
-  badgeText: {
-    color: '#e8c468',
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    marginBottom: Spacing.xl,
   },
   mainTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '900',
-    color: '#113a26',
+    color: Colors.brandInk,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    marginBottom: 4,
+    marginBottom: 6,
   },
   mainSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.muted,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   generalErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#fee2e2',
-    padding: 10,
+    padding: 12,
     borderRadius: Radii.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
@@ -487,7 +475,7 @@ const styles = StyleSheet.create({
   },
   generalErrorText: {
     color: '#b91c1c',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
     flex: 1,
   },
@@ -504,120 +492,36 @@ const styles = StyleSheet.create({
   },
   generalSuccessText: {
     color: '#166534',
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: '700',
     flex: 1,
   },
-  otpHeaderBox: {
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  otpIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#eaf4ed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  otpCardTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#113a26',
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  otpCardSubtitle: {
-    fontSize: 12,
-    color: Colors.muted,
-    textAlign: 'center',
-  },
-  otpPhoneHighlight: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#113a26',
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
-  otpInputBox: {
-    backgroundColor: Colors.background,
-    borderWidth: 2,
-    borderColor: '#113a26',
-    borderRadius: Radii.xl,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  otpTextInput: {
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 10,
-    color: '#113a26',
-    textAlign: 'center',
-    width: '100%',
-  },
-  otpActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Spacing.sm,
-    paddingHorizontal: 4,
-  },
-  resendBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-  },
-  resendBtnDisabled: {
-    opacity: 0.5,
-  },
-  resendBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#113a26',
-  },
-  resendBtnTextDisabled: {
-    color: Colors.muted,
-  },
-  changePhoneBtn: {
-    paddingVertical: 6,
-  },
-  changePhoneBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.muted,
-    textDecorationLine: 'underline',
-  },
   formCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: Radii.xxl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderLight,
     ...Shadows.sm,
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
   fieldGroup: {
-    gap: 4,
+    gap: 6,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.brandInk,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radii.lg,
-    paddingHorizontal: 10,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+    borderColor: Colors.borderLight,
+    borderRadius: Radii.xl,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   inputBoxError: {
     borderColor: '#ef4444',
@@ -627,31 +531,14 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 13,
-    color: Colors.text,
+    fontSize: 14,
+    color: Colors.brandInk,
   },
   errorText: {
-    fontSize: 10,
-    color: '#ef4444',
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  verifiedBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#dcfce7',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: Radii.md,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-  },
-  verifiedBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#113a26',
+    color: '#ef4444',
+    fontWeight: '600',
+    marginTop: 2,
   },
   strengthBox: {
     marginTop: 4,
@@ -666,20 +553,20 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   strengthLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     marginTop: 3,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 4,
+    gap: 10,
+    marginTop: 2,
   },
   checkboxBox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 6,
     borderWidth: 1.5,
     borderColor: Colors.border,
     alignItems: 'center',
@@ -687,17 +574,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   checkboxBoxActive: {
-    backgroundColor: '#113a26',
-    borderColor: '#113a26',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   checkboxLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: Colors.muted,
     flex: 1,
-    lineHeight: 16,
+    lineHeight: 18,
   },
   submitBtn: {
-    backgroundColor: '#113a26',
+    backgroundColor: Colors.primary,
     paddingVertical: 14,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -705,24 +592,23 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   submitBtnDisabled: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
   submitBtnText: {
     color: Colors.white,
-    fontSize: 13.5,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
   },
   loginFooterRow: {
     alignItems: 'center',
-    marginTop: Spacing.lg,
+    marginTop: Spacing.xl,
   },
   loginFooterText: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.muted,
   },
   loginLink: {
-    color: '#113a26',
-    fontWeight: '900',
-    textDecorationLine: 'underline',
+    color: Colors.primary,
+    fontWeight: '800',
   },
 });

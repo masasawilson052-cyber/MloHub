@@ -5,8 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
   Platform,
   useWindowDimensions,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageModal } from '../../components/LanguageModal';
+
+const APP_ICON = require('../../assets/icon.png');
 
 export default function AuthLandingScreen() {
   const router = useRouter();
@@ -26,24 +30,26 @@ export default function AuthLandingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Top Header with Brand & Language Selector */}
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F3" />
+
+      {/* Top Header with App Logo & Language Toggle */}
       <View style={styles.topBar}>
-        <View style={styles.logoRowSmall}>
-          <Text style={styles.logoEmojiSmall}>🍲</Text>
-          <Text style={styles.logoTextSmall}>
-            Mlo<Text style={{ color: '#16a34a' }}>Hub</Text>
-          </Text>
+        <View style={styles.logoRow}>
+          <Image source={APP_ICON} style={styles.logoIcon} resizeMode="contain" />
+          <Text style={styles.logoText}>MloHub</Text>
         </View>
 
         <TouchableOpacity
           style={styles.langPill}
           onPress={() => setIsLangModalOpen(true)}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Change Language"
         >
+          <Text style={styles.langFlag}>{language === 'sw' ? '🇹🇿' : '🇬🇧'}</Text>
           <Text style={styles.langPillText}>
-            {language === 'sw' ? '🇹🇿 Kiswahili' : '🇬🇧 English'}
+            {language === 'sw' ? 'Kiswahili' : 'English'}
           </Text>
-          <Ionicons name="chevron-down" size={13} color={Colors.muted} />
         </TouchableOpacity>
       </View>
 
@@ -54,144 +60,151 @@ export default function AuthLandingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* HERO BRAND SECTION */}
+        {/* Headline Section */}
         <View style={styles.heroSection}>
-          <View style={styles.logoIconCircle}>
-            <Text style={styles.heroLogoEmoji}>🍲</Text>
-            <View style={styles.glowDot} />
-          </View>
-
           <Text style={styles.welcomeTitle}>
             {language === 'sw' ? 'Karibu MloHub' : 'Welcome to MloHub'}
           </Text>
           <Text style={styles.welcomeSubtitle}>
             {language === 'sw'
-              ? 'Gundua vyakula halisi kutoka kwa migahawa na jikoni bora za Dar es Salaam na Tanzania.'
+              ? 'Gundua vyakula halisi kutoka jikoni za mitaani na migahawa iliyothibitishwa Dar es Salaam.'
               : 'Discover authentic food from local kitchens and verified restaurants in Dar es Salaam.'}
           </Text>
         </View>
 
-        {/* VALUE HIGHLIGHTS */}
-        <View style={styles.valueCardsContainer}>
-          <View style={styles.valueRow}>
-            <View style={[styles.valueIcon, { backgroundColor: '#eaf4ed' }]}>
-              <Text style={{ fontSize: 18 }}>🍽️</Text>
+        {/* Feature Cards Group */}
+        <View style={styles.featureCard}>
+          {/* Item 1: Dine & Reserve */}
+          <View style={styles.featureRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#EAF4EE' }]}>
+              <Ionicons name="restaurant-outline" size={20} color="#246B39" />
             </View>
-            <View style={styles.valueTextCol}>
-              <Text style={styles.valueTitle}>
-                {language === 'sw' ? 'Agiza Chakula & Meza' : 'Dine & Reserve'}
+            <View style={styles.featureTextCol}>
+              <Text style={styles.featureTitle}>
+                {language === 'sw' ? 'Kula & Weka Meza' : 'Dine & Reserve'}
               </Text>
-              <Text style={styles.valueDesc}>
+              <Text style={styles.featureSubtitle}>
                 {language === 'sw'
-                  ? 'Gundua menyu safi, weka oda ya kuchukua au kuletewa na mgahawa.'
-                  : 'Browse real menus, pickup directly or get restaurant-managed delivery.'}
+                  ? 'Gundua menyu, weka meza mapema, au agiza chakula kiletwe kwako.'
+                  : 'Browse menus, reserve tables, or order for delivery/pickup.'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.valueRow}>
-            <View style={[styles.valueIcon, { backgroundColor: '#fef3c7' }]}>
-              <Text style={{ fontSize: 18 }}>⚡</Text>
+          <View style={styles.featureDivider} />
+
+          {/* Item 2: Custom Advance Meals */}
+          <View style={styles.featureRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Ionicons name="flash-outline" size={20} color="#D97706" />
             </View>
-            <View style={styles.valueTextCol}>
-              <Text style={styles.valueTitle}>
-                {language === 'sw' ? 'Maagizo Maalum (Custom Meals)' : 'Custom Advance Meals'}
+            <View style={styles.featureTextCol}>
+              <Text style={styles.featureTitle}>
+                {language === 'sw' ? 'Mlo Maalum wa Mapema' : 'Custom Advance Meals'}
               </Text>
-              <Text style={styles.valueDesc}>
+              <Text style={styles.featureSubtitle}>
                 {language === 'sw'
-                  ? 'Omba mlo maalum kwa muda wako na bajeti unayotaka.'
-                  : 'Request custom batch meals tailored to your schedule and diet.'}
+                  ? 'Agiza vyakula maalum kwa hafla, ofisini au nyumbani.'
+                  : 'Request special meals for events, office or home.'}
               </Text>
             </View>
           </View>
 
-          <View style={styles.valueRow}>
-            <View style={[styles.valueIcon, { backgroundColor: '#eff6ff' }]}>
-              <Text style={{ fontSize: 18 }}>🛡️</Text>
+          <View style={styles.featureDivider} />
+
+          {/* Item 3: Verified & Transparent */}
+          <View style={styles.featureRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#EFF6FF' }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color="#2B6CB0" />
             </View>
-            <View style={styles.valueTextCol}>
-              <Text style={styles.valueTitle}>
-                {language === 'sw' ? 'Uhakika wa Bei na Malipo' : 'Verified Pricing & Secure Checkout'}
+            <View style={styles.featureTextCol}>
+              <Text style={styles.featureTitle}>
+                {language === 'sw' ? 'Uhakika & Uwazi' : 'Verified & Transparent'}
               </Text>
-              <Text style={styles.valueDesc}>
+              <Text style={styles.featureSubtitle}>
                 {language === 'sw'
-                  ? 'Hakuna bei feki au madereva feki. Malipo salama ya M-Pesa.'
-                  : 'Zero synthetic data, true kitchen capacity, and safe M-Pesa payments.'}
+                  ? 'Bei halisi, menyu zilizothibitishwa na malipo salama ya M-Pesa.'
+                  : 'Real prices, verified menus and secure M-Pesa payments.'}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* PRIMARY CUSTOMER ACTIONS */}
-        <View style={styles.actionButtonsBox}>
+        {/* CTA Actions Group */}
+        <View style={styles.ctaGroup}>
+          {/* Primary CTA: Create Customer Account */}
           <TouchableOpacity
-            style={styles.primaryCreateBtn}
+            style={styles.primaryBtn}
             onPress={() => router.push('/auth/register-customer')}
             activeOpacity={0.88}
+            accessibilityRole="button"
           >
-            <Ionicons name="sparkles" size={18} color="#ffffff" />
-            <Text style={styles.primaryCreateText}>
-              {language === 'sw' ? 'Fungua Akaunti ya Mteja →' : 'Create Customer Account →'}
+            <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryBtnText}>
+              {language === 'sw' ? 'Fungua Akaunti ya Mteja' : 'Create Customer Account'}
             </Text>
           </TouchableOpacity>
 
+          {/* Secondary CTA: Sign In as Customer */}
           <TouchableOpacity
-            style={styles.secondaryLoginBtn}
-            onPress={() => router.push('/auth/login?type=customer')}
+            style={styles.secondaryBtn}
+            onPress={() => router.push('/auth/login')}
             activeOpacity={0.85}
+            accessibilityRole="button"
           >
-            <Ionicons name="log-in-outline" size={18} color="#113a26" />
-            <Text style={styles.secondaryLoginText}>
-              {language === 'sw' ? 'Ingia kwenye Akaunti (Sign In)' : 'Sign In as Customer'}
+            <Ionicons name="log-in-outline" size={18} color="#246B39" style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryBtnText}>
+              {language === 'sw' ? 'Ingia Kama Mteja' : 'Sign In as Customer'}
             </Text>
           </TouchableOpacity>
 
+          {/* Browse as Guest Link */}
           <TouchableOpacity
-            style={styles.guestBtn}
-            onPress={() => router.push('/(tabs)')}
+            style={styles.guestLink}
+            onPress={() => router.replace('/(tabs)')}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            <Text style={styles.guestBtnText}>
-              {language === 'sw' ? 'Gundua Vyakula Kwanza (Bila Kuingia) →' : 'Explore Food First (Browse as Guest) →'}
+            <Text style={styles.guestLinkText}>
+              {language === 'sw' ? 'Gundua Vyakula Kwanza (Kama Mgeni)' : 'Explore Food First (Browse as Guest)'}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* PARTNER / RESTAURANT FOOTER SECTION */}
-        <View style={styles.partnerFooterCard}>
-          <View style={styles.partnerIconCol}>
-            <Text style={{ fontSize: 24 }}>🏪</Text>
-          </View>
-          <View style={styles.partnerInfoCol}>
-            <Text style={styles.partnerPromptTitle}>
-              {language === 'sw' ? 'Una mgahawa au jikoni?' : 'Are you a restaurant partner?'}
-            </Text>
-            <Text style={styles.partnerPromptDesc}>
-              {language === 'sw'
-                ? 'Dhibiti jikoni, menyu, na maagizo yako kupitia Portal ya Washirika.'
-                : 'Manage kitchen orders, menus, branches, and M-Pesa payouts.'}
-            </Text>
-            <TouchableOpacity
-              style={styles.partnerCtaLink}
-              onPress={() => router.push('/partner' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.partnerCtaLinkText}>
-                {language === 'sw' ? 'Fungua Portal ya Mgahawa →' : 'Access Partner Portal & Onboarding →'}
+        {/* Discreet Partner Card */}
+        <View style={styles.partnerCard}>
+          <View style={styles.partnerRow}>
+            <View style={styles.partnerIconBox}>
+              <Ionicons name="storefront-outline" size={22} color="#4F46E5" />
+            </View>
+            <View style={styles.partnerTextCol}>
+              <Text style={styles.partnerQuestion}>
+                {language === 'sw' ? 'Wewe ni mwenye mgahawa au jiko?' : 'Are you a restaurant partner?'}
               </Text>
-            </TouchableOpacity>
+              <Text style={styles.partnerDesc}>
+                {language === 'sw'
+                  ? 'Jiunge na MloHub kupokea oda na kukuza mauzo yako.'
+                  : 'List your kitchen and start earning.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.partnerLinkBtn}
+                onPress={() => router.push('/partner')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.partnerLinkText}>
+                  {language === 'sw' ? 'Bofya Hapa Kusajili Jiko ›' : 'Partner Portal →'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Language Selector Modal */}
+      {/* Language Modal */}
       <LanguageModal
         visible={isLangModalOpen}
         currentLanguage={language}
-        onSelectLanguage={(lang) => {
-          setLanguage(lang);
-          setIsLangModalOpen(false);
-        }}
+        onSelectLanguage={setLanguage}
         onClose={() => setIsLangModalOpen(false)}
       />
     </SafeAreaView>
@@ -201,7 +214,7 @@ export default function AuthLandingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FAF8F3',
   },
   topBar: {
     flexDirection: 'row',
@@ -209,213 +222,199 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    backgroundColor: '#FAF8F3',
   },
-  logoRowSmall: {
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  logoEmojiSmall: {
-    fontSize: 22,
+  logoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
   },
-  logoTextSmall: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#113a26',
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+  logoText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FA541C',
+    letterSpacing: -0.2,
   },
   langPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.white,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#EBE6DD',
+    gap: 6,
+    ...Shadows.sm,
+  },
+  langFlag: {
+    fontSize: 14,
   },
   langPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#142033',
   },
   scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
+    paddingTop: Spacing.md,
   },
   largeScreenContent: {
-    maxWidth: 560,
+    maxWidth: 520,
     width: '100%',
     alignSelf: 'center',
   },
   heroSection: {
-    alignItems: 'center',
     marginVertical: Spacing.md,
   },
-  logoIconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: '#eaf4ed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#badbcc',
-    marginBottom: Spacing.sm,
-    position: 'relative',
-    ...Shadows.md,
-  },
-  heroLogoEmoji: {
-    fontSize: 38,
-  },
-  glowDot: {
-    position: 'absolute',
-    top: 3,
-    right: 3,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#e8c468',
-    borderWidth: 2,
-    borderColor: Colors.white,
-  },
   welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#113a26',
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    textAlign: 'center',
-    marginBottom: 4,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#142033',
+    letterSpacing: -0.4,
+    marginBottom: 8,
   },
   welcomeSubtitle: {
-    fontSize: 13,
-    color: Colors.muted,
-    textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: Spacing.sm,
+    fontSize: 14,
+    color: '#5A6B7C',
+    lineHeight: 22,
   },
-  valueCardsContainer: {
-    backgroundColor: Colors.white,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
-    marginBottom: Spacing.lg,
+  featureCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    gap: Spacing.md,
+    borderColor: '#EBE6DD',
+    marginVertical: Spacing.md,
     ...Shadows.sm,
   },
-  valueRow: {
+  featureRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: 4,
   },
-  valueIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  iconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  valueTextCol: {
+  featureTextCol: {
     flex: 1,
   },
-  valueTitle: {
-    fontSize: 14,
+  featureTitle: {
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.text,
+    color: '#142033',
     marginBottom: 2,
   },
-  valueDesc: {
+  featureSubtitle: {
     fontSize: 12,
-    color: Colors.muted,
-    lineHeight: 16,
+    color: '#718096',
+    lineHeight: 18,
   },
-  actionButtonsBox: {
-    gap: Spacing.sm,
+  featureDivider: {
+    height: 1,
+    backgroundColor: '#F5F2EA',
+    marginVertical: 12,
   },
-  primaryCreateBtn: {
+  ctaGroup: {
+    marginTop: Spacing.md,
+    gap: 12,
+    alignItems: 'center',
+  },
+  primaryBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: '#FA541C',
+    borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#16a34a',
-    paddingVertical: 14,
-    borderRadius: Radii.md,
-    ...Shadows.sm,
+    ...Shadows.md,
   },
-  primaryCreateText: {
-    color: '#ffffff',
+  primaryBtnText: {
+    color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
-  secondaryLoginBtn: {
+  secondaryBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: '#EAF4EE',
+    borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#eaf4ed',
-    paddingVertical: 13,
-    borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#badbcc',
+    borderColor: '#C6E6D1',
   },
-  secondaryLoginText: {
-    color: '#113a26',
-    fontSize: 14,
+  secondaryBtnText: {
+    color: '#246B39',
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
-  guestBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  guestLink: {
     paddingVertical: 10,
   },
-  guestBtnText: {
+  guestLinkText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: '#142033',
     textDecorationLine: 'underline',
   },
-  partnerFooterCard: {
+  partnerCard: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 16,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+    marginTop: Spacing.lg,
+  },
+  partnerRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FAF5FF',
-    borderWidth: 1,
-    borderColor: '#E9D8FD',
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.xl,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
-  partnerIconCol: {
-    paddingTop: 2,
+  partnerIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
   },
-  partnerInfoCol: {
+  partnerTextCol: {
     flex: 1,
   },
-  partnerPromptTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#553C9A',
+  partnerQuestion: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
     marginBottom: 2,
   },
-  partnerPromptDesc: {
+  partnerDesc: {
     fontSize: 12,
-    color: '#6B46C1',
-    lineHeight: 16,
+    color: '#6B7280',
     marginBottom: 6,
   },
-  partnerCtaLink: {
+  partnerLinkBtn: {
     alignSelf: 'flex-start',
   },
-  partnerCtaLinkText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#805AD5',
-    textDecorationLine: 'underline',
+  partnerLinkText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
   },
 });

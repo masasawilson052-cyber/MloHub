@@ -54,8 +54,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
       </View>
 
       <View style={styles.badgeRow}>
-        <Badge label="MloHub Diner" variant="success" size="sm" />
-        <Badge label="Verified Phone" variant="primary" size="sm" />
+        <Badge label="MloHub Diner" variant="neutral" size="sm" />
+        {phone ? <Badge label="Active Account" variant="neutral" size="sm" /> : null}
       </View>
     </View>
   );

@@ -4,7 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Image,
   useWindowDimensions,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,13 +16,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../context/LanguageContext';
 import { useMloHubDB } from '../context/DbContext';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
-import { Button } from '../components/ui/Button';
+
+const SLIDE_IMAGES = [
+  require('../assets/onboarding/slide1_art.jpg'),
+  require('../assets/onboarding/slide2_art.jpg'),
+  require('../assets/onboarding/slide3_art.jpg'),
+];
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { language, toggleLanguage } = useLanguage();
+  const { language } = useLanguage();
   const { setOnboardingCompleted } = useMloHubDB();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -27,33 +35,30 @@ export default function OnboardingScreen() {
   const slides = [
     {
       id: 'slide1',
-      icon: 'restaurant-outline' as const,
-      emoji: '🍲',
-      badge: 'FOOD-FIRST DISCOVERY',
-      titleEn: 'Find exactly what you want to eat',
-      titleSw: 'Pata chakula unachotaka kula mara moja',
-      subEn: 'Search by dish name, budget, and neighborhood. Discover Chicken Biryani, Chipsi Kuku, and authentic Swahili dishes near you.',
-      subSw: 'Tafuta kwa jina la chakula, bajeti, na mtaa wako. Pata Biryani ya Kuku, Chipsi, na vyakula asilia vya Dar es Salaam.',
+      titleEn: 'Discover Amazing\nFood Near You',
+      titleSw: 'Gundua Vyakula Bora\nKaribu Nawe',
+      subEn: 'Explore authentic dishes from local kitchens and verified restaurants in Dar es Salaam.',
+      subSw: 'Gundua vyakula halisi kutoka jikoni za mitaani na migahawa iliyothibitishwa Dar es Salaam.',
+      ctaEn: 'Next',
+      ctaSw: 'Endelea',
     },
     {
       id: 'slide2',
-      icon: 'git-compare-outline' as const,
-      emoji: '⚖️',
-      badge: 'TRANSPARENT COMPARISON',
-      titleEn: 'Compare prices, distance & verified ratings',
-      titleSw: 'Linganisha bei, umbali na maoni ya wateja',
-      subEn: 'Compare candidate dishes side-by-side. Know exact branch prices, distance in meters, and preparation times before deciding.',
-      subSw: 'Linganisha vyakula ubavu kwa ubavu. Jua bei halisi ya tawi, umbali kwa mita, na muda wa mapishi kabla ya kuchagua.',
+      titleEn: 'Compare Before\nYou Order',
+      titleSw: 'Linganisha Kabla\nHujalipia',
+      subEn: 'See real prices, distance, ratings and kitchen details — all in one place.',
+      subSw: 'Tazama bei halisi, umbali, maoni ya wateja na taarifa za jikoni — zote sehemu moja.',
+      ctaEn: 'Next',
+      ctaSw: 'Endelea',
     },
     {
       id: 'slide3',
-      icon: 'shield-checkmark-outline' as const,
-      emoji: '✓',
-      badge: 'TRUSTED & VERIFIED MENUS',
-      titleEn: 'Order with confidence from verified menus',
-      titleSw: 'Agiza kwa uhakika kutoka menyu zilizothibitishwa',
-      subEn: 'Menu prices and dish availability are verified directly with kitchen staff. No unexpected surprises or price changes.',
-      subSw: 'Bei na upatikanaji wa vyakula vimethibitishwa moja kwa moja jikoni. Hakuna mabadiliko ya bei ya ghafla.',
+      titleEn: 'Good Food\nHappier Moments',
+      titleSw: 'Chakula Bora\ncha Furaha',
+      subEn: 'Order, reserve tables, or request custom meals — all from local kitchens you can trust.',
+      subSw: 'Agiza chakula, weka meza mapema, au omba mlo maalum — kutoka jikoni unazoziamini.',
+      ctaEn: 'Get Started',
+      ctaSw: 'Anza Sasa',
     },
   ];
 
@@ -70,267 +75,353 @@ export default function OnboardingScreen() {
     }
   };
 
-  const handleBack = () => {
-    if (currentSlide > 0) {
-      setCurrentSlide((prev) => prev - 1);
-    }
-  };
-
   const slide = slides[currentSlide];
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      {/* Top Header */}
-      <View style={styles.topHeader}>
-        <View style={styles.logoRow}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoM}>M</Text>
-          </View>
-          <Text style={styles.brandTitle}>MloHub</Text>
-        </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-        {/* Quick Language Toggle */}
-        <TouchableOpacity
-          style={styles.langPill}
-          onPress={toggleLanguage}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel={`Switch language, currently ${language.toUpperCase()}`}
-        >
-          <Text style={styles.langText}>
-            {language === 'sw' ? '🇹🇿 SW' : '🇬🇧 EN'}
-          </Text>
-        </TouchableOpacity>
+      {/* Top Visual Area (Hero Dish Photo) */}
+      <View style={[styles.visualArea, { height: height * 0.54 }]}>
+        <Image
+          source={SLIDE_IMAGES[currentSlide]}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
+        <View style={styles.imageOverlay} />
+
+        {/* Top Header Controls: Back & Skip */}
+        <SafeAreaView edges={['top']} style={styles.topControls}>
+          <View style={styles.topRow}>
+            {currentSlide > 0 ? (
+              <TouchableOpacity
+                style={styles.circleNavBtn}
+                onPress={() => setCurrentSlide((prev) => prev - 1)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ width: 40 }} />
+            )}
+
+            <TouchableOpacity
+              style={styles.skipPill}
+              onPress={handleFinish}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Skip onboarding"
+            >
+              <Text style={styles.skipText}>{language === 'sw' ? 'Ruka' : 'Skip'}</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+
+        {/* Slide 2 Floating Preview Overlays */}
+        {currentSlide === 1 && (
+          <View style={styles.slide2Overlays} pointerEvents="none">
+            <View style={styles.searchPillFloating}>
+              <Ionicons name="search" size={14} color="#718096" />
+              <Text style={styles.searchPillText}>Chicken Biryani</Text>
+            </View>
+
+            <View style={styles.bestMatchCard}>
+              <Text style={styles.bestMatchEyebrow}>Best Match</Text>
+              <View style={styles.bestMatchRow}>
+                <Ionicons name="star" size={14} color="#D97706" />
+                <Text style={styles.bestMatchValue}>4.8 (120+)</Text>
+              </View>
+              <View style={styles.bestMatchRow}>
+                <Ionicons name="location" size={14} color="#D97706" />
+                <Text style={styles.bestMatchValue}>2.3 km</Text>
+              </View>
+              <View style={styles.bestMatchRow}>
+                <Ionicons name="pricetag" size={14} color="#D97706" />
+                <Text style={styles.bestMatchValue}>TZS 12,000</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Slide 3 Floating Service Badges */}
+        {currentSlide === 2 && (
+          <View style={styles.slide3Badges} pointerEvents="none">
+            <View style={styles.serviceChipWhite}>
+              <Ionicons name="radio-button-on" size={14} color="#FA541C" />
+              <Text style={styles.serviceChipText}>Order</Text>
+            </View>
+            <View style={styles.serviceChipWhite}>
+              <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+              <Text style={styles.serviceChipText}>Reserve</Text>
+            </View>
+            <View style={styles.serviceChipViolet}>
+              <Ionicons name="sparkles" size={14} color="#6C5CE7" />
+              <Text style={[styles.serviceChipText, { color: '#6C5CE7' }]}>Custom Meals</Text>
+            </View>
+          </View>
+        )}
       </View>
 
-      {/* Main Slide Card */}
-      <View style={[styles.mainCard, isLargeScreen && styles.largeScreenContainer]}>
-        {/* Slide Visual Container */}
-        <View style={styles.visualContainer}>
-          <View style={styles.emojiCircle}>
-            <Text style={styles.emojiText}>{slide.emoji}</Text>
-          </View>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgeText}>{slide.badge}</Text>
-          </View>
-        </View>
-
-        {/* Slide Text Content */}
-        <View style={styles.contentContainer}>
-          <Text style={styles.slideTitle}>
+      {/* Bottom Content Sheet (Ivory/White with Organic Curved Header) */}
+      <View style={[styles.bottomSheet, isLargeScreen && styles.largeScreenSheet]}>
+        <View style={styles.sheetContent}>
+          <Text style={styles.titleText}>
             {language === 'sw' ? slide.titleSw : slide.titleEn}
           </Text>
-          <Text style={styles.slideSub}>
+
+          <Text style={styles.subText}>
             {language === 'sw' ? slide.subSw : slide.subEn}
           </Text>
-        </View>
 
-        {/* Dots Indicator */}
-        <View style={styles.dotsRow}>
-          {slides.map((_, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.dot,
-                idx === currentSlide && styles.dotActive,
-              ]}
-            />
-          ))}
-        </View>
+          {/* Dots Indicator: Active dark pill, Inactives gray dots */}
+          <View style={styles.dotsRow}>
+            {slides.map((_, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.dot,
+                  idx === currentSlide ? styles.dotActive : styles.dotInactive,
+                ]}
+              />
+            ))}
+          </View>
 
-        {/* Bottom Actions */}
-        <View style={styles.bottomActions}>
-          {currentSlide > 0 ? (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={handleBack}
-              accessible={true}
-              accessibilityRole="button"
-            >
-              <Text style={styles.backBtnText}>
-                {language === 'sw' ? 'Nyuma' : 'Back'}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.skipBtn}
-              onPress={handleFinish}
-              accessible={true}
-              accessibilityRole="button"
-            >
-              <Text style={styles.skipText}>
-                {language === 'sw' ? 'Ruka' : 'Skip'}
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          <Button
-            title={
-              currentSlide === slides.length - 1
-                ? language === 'sw' ? 'Anza Kugundua' : 'Start Exploring'
-                : language === 'sw' ? 'Endelea' : 'Next'
-            }
+          {/* Primary CTA Button: Radiant Rounded Orange/Coral Pill */}
+          <TouchableOpacity
+            style={styles.primaryCtaBtn}
             onPress={handleNext}
-            variant="primary"
-            size="lg"
-            style={styles.nextBtn}
-          />
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={language === 'sw' ? slide.ctaSw : slide.ctaEn}
+          >
+            <Text style={styles.primaryCtaText}>
+              {language === 'sw' ? slide.ctaSw : slide.ctaEn}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#142033',
   },
-  topHeader: {
+  visualArea: {
+    width: '100%',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
+  topControls: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-  },
-  logoRow: {
-    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Platform.OS === 'android' ? 12 : 6,
   },
-  logoCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: Colors.primary,
+  circleNavBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.xs,
   },
-  logoM: {
-    color: Colors.white,
-    fontWeight: '900',
-    fontSize: 18,
-  },
-  brandTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.primaryDark,
-  },
-  langPill: {
-    backgroundColor: Colors.surfaceSecondary,
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.md,
+  skipPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.38)',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  langText: {
+  skipText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  slide2Overlays: {
+    position: 'absolute',
+    bottom: 24,
+    left: 20,
+    right: 20,
+    alignItems: 'center',
+  },
+  searchPillFloating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Radii.full,
+    ...Shadows.md,
+    marginBottom: 10,
+    gap: 8,
+  },
+  searchPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#142033',
+  },
+  bestMatchCard: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 16,
+    ...Shadows.lg,
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  bestMatchEyebrow: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: '#FA541C',
+    marginBottom: 2,
   },
-  mainCard: {
+  bestMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bestMatchValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#142033',
+  },
+  slide3Badges: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  serviceChipWhite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radii.full,
+    gap: 6,
+    ...Shadows.sm,
+  },
+  serviceChipViolet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F0FC',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: Radii.full,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#D8B4FE',
+    ...Shadows.sm,
+  },
+  serviceChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#142033',
+  },
+  bottomSheet: {
+    flex: 1,
+    backgroundColor: Colors.warmIvory,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -24,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    justifyContent: 'space-between',
+    ...Shadows.lg,
+  },
+  largeScreenSheet: {
+    maxWidth: 520,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  sheetContent: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: Spacing.lg,
-  },
-  largeScreenContainer: {
-    maxWidth: 540,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  visualContainer: {
     alignItems: 'center',
-    marginTop: Spacing.xl,
   },
-  emojiCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: Colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.borderLight,
-    ...Shadows.md,
-    marginBottom: Spacing.lg,
-  },
-  emojiText: {
-    fontSize: 54,
-  },
-  badgePill: {
-    backgroundColor: Colors.accentLight,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: Radii.full,
-  },
-  badgeText: {
-    fontSize: 11,
+  titleText: {
+    fontSize: 26,
     fontWeight: '800',
-    color: Colors.accentDark,
-    letterSpacing: 0.5,
-  },
-  contentContainer: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-  },
-  slideTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.textPrimary,
+    color: '#142033',
     textAlign: 'center',
-    marginBottom: Spacing.sm,
-    lineHeight: 30,
+    lineHeight: 34,
+    letterSpacing: -0.3,
+    marginTop: 4,
   },
-  slideSub: {
+  subText: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    fontWeight: '400',
+    color: '#5A6B7C',
     textAlign: 'center',
     lineHeight: 22,
+    marginTop: 8,
+    paddingHorizontal: 12,
   },
   dotsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.xs,
-    marginVertical: Spacing.lg,
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 16,
   },
   dot: {
-    width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.border,
   },
   dotActive: {
     width: 24,
-    backgroundColor: Colors.primary,
+    backgroundColor: '#142033',
   },
-  bottomActions: {
+  dotInactive: {
+    width: 8,
+    backgroundColor: '#CBD5E0',
+  },
+  primaryCtaBtn: {
+    width: '100%',
+    height: 54,
+    backgroundColor: '#FA541C',
+    borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.md,
+    justifyContent: 'center',
+    ...Shadows.md,
   },
-  backBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-  },
-  backBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  skipBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-  },
-  skipText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  nextBtn: {
-    flex: 1,
+  primaryCtaText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

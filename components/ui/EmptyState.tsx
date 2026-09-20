@@ -8,9 +8,11 @@ import { Button } from './Button';
 
 export interface EmptyStateProps {
   title: string;
-  message: string;
+  message?: string;
+  description?: string;
   icon?: keyof typeof Ionicons.glyphMap;
   actionTitle?: string;
+  actionLabel?: string;
   onAction?: () => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -18,21 +20,26 @@ export interface EmptyStateProps {
 export const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   message,
-  icon = 'restaurant-outline',
+  description,
+  icon = 'map-outline',
   actionTitle,
+  actionLabel,
   onAction,
   style,
 }) => {
+  const displayText = description || message || '';
+  const buttonText = actionTitle || actionLabel;
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.iconCircle}>
         <Ionicons name={icon} size={36} color={Colors.primary} />
       </View>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
-      {actionTitle && onAction ? (
+      {displayText ? <Text style={styles.message}>{displayText}</Text> : null}
+      {buttonText && onAction ? (
         <Button
-          title={actionTitle}
+          title={buttonText}
           onPress={onAction}
           variant="primary"
           size="md"
