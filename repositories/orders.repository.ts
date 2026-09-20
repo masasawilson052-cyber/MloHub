@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, PaymentStatus, OrderOperationalEvent } from '../types/domain';
 
 export class OrderRepository {
@@ -47,45 +48,60 @@ export class OrderRepository {
   }
 
   public static async createOrder(order: Partial<Order>, items: Partial<OrderItem>[]): Promise<Order> {
-    if (!isSupabaseConfigured()) {
-      throw new Error('Supabase client is not configured.');
+    if (!order.branchId || !order.branchId.trim()) {
+      throw new Error('A valid restaurant branch is required to place this order.');
     }
 
-    // 1. Preferred Production Path: Trusted Server-Side Order Pricing via PostgreSQL RPC
-    if (order.branchId) {
-      try {
-        const rpcPayload = {
-          p_branch_id: order.branchId,
-          p_items: items.map((i) => ({
+    if (order.fulfillmentType === 'Delivery' && (!order.deliveryAddress || !order.deliveryAddress.trim())) {
+      throw new Error('A valid delivery address is required for delivery orders.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      if (!runtimeConfig.allowLocalDataFallbacks) {
+        throw new Error('Supabase client is not configured and local data fallbacks are disabled.');
+      }
+    } else {
+      // Production/development/staging standard orders MUST use create_order_secure
+      const rpcPayload = {
+        p_branch_id: order.branchId,
+        p_items: items.map((i) => {
+          if (!i.menuItemId) {
+            throw new Error('A canonical menuItemId is required for each order item.');
+          }
+          return {
             menu_item_id: i.menuItemId,
             quantity: i.quantity || 1,
             special_notes: i.specialNotes || null,
-          })),
-          p_fulfillment_type: order.fulfillmentType || 'Delivery',
-          p_delivery_address: order.fulfillmentType === 'Delivery' ? (order.deliveryAddress || 'Standard Delivery Address') : null,
-          p_special_instructions: order.specialInstructions || null,
-        };
+          };
+        }),
+        p_fulfillment_type: order.fulfillmentType || 'Delivery',
+        p_delivery_address: order.fulfillmentType === 'Delivery' ? (order.deliveryAddress?.trim() || null) : null,
+        p_special_instructions: order.specialInstructions?.trim() || null,
+      };
 
-        const { data: rpcResult, error: rpcError } = await supabase.rpc('create_order_secure', rpcPayload);
-        if (rpcError) {
-          throw new Error(rpcError.message);
-        }
-        if (rpcResult?.order_id) {
-          const loadedOrder = await this.getOrderById(rpcResult.order_id);
-          if (loadedOrder) return loadedOrder;
-        }
-      } catch (e: any) {
-        if (e.message && !e.message.includes('function public.create_order_secure does not exist')) {
-          throw e;
-        }
-        console.warn('Notice: create_order_secure RPC fallback to direct insert:', e);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_order_secure', rpcPayload);
+      if (rpcError) {
+        throw new Error(`Order creation failed: ${rpcError.message}`);
       }
+      if (!rpcResult || !rpcResult.order_id) {
+        throw new Error('Order creation failed: server did not return an order.');
+      }
+
+      const loadedOrder = await this.getOrderById(rpcResult.order_id);
+      if (!loadedOrder) {
+        throw new Error(`Order creation succeeded but order ${rpcResult.order_id} could not be retrieved.`);
+      }
+      return loadedOrder;
+    }
+
+    // Direct insert ONLY when runtimeConfig.allowLocalDataFallbacks is true and Supabase is not configured
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      throw new Error('Direct table insertion is prohibited in non-fallback environments.');
     }
 
     const orderId = order.id || `ord_${Date.now()}`;
     const orderNumber = order.orderNumber || `MLO-${Date.now().toString().slice(-4)}`;
 
-    // 2. Direct Table Insert (Fallback / Direct creation)
     const orderRow = {
       id: orderId,
       order_number: orderNumber,
@@ -99,8 +115,8 @@ export class OrderRepository {
       delivery_fee_tzs: order.deliveryFeeTzs || 0,
       total_tzs: order.totalTzs || 0,
       dining_option: order.fulfillmentType || 'Delivery',
-      delivery_address: order.deliveryAddress,
-      special_instructions: order.specialInstructions,
+      delivery_address: order.fulfillmentType === 'Delivery' ? order.deliveryAddress?.trim() : null,
+      special_instructions: order.specialInstructions?.trim() || null,
       estimated_prep_minutes: order.estimatedPrepMinutes || 30,
       updated_at: new Date().toISOString(),
     };

@@ -442,28 +442,7 @@ export default function AdminPortalScreen() {
     await loadPlatformData();
   };
 
-  // 11. Toggle Suspend User
-  const handleToggleSuspendUser = async (userId: string, shouldSuspend: boolean, reason?: string) => {
-    if (!runtimeConfig.isDemo) {
-      Alert.alert(
-        'Action Unavailable',
-        'User suspension and session revocation requires the secure server governance workflow in Pack 4.'
-      );
-      return;
-    }
-  };
 
-  // 12. Broadcast Announcement
-  const handleSendBroadcast = async (
-    title: string,
-    message: string,
-    audience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS'
-  ) => {
-    Alert.alert(
-      'Broadcast Queued',
-      'Platform broadcast notifications will be dispatched through the server-side delivery queue in Pack 4.'
-    );
-  };
 
   // Switch to customer workspace
   const handleSwitchToCustomer = async () => {

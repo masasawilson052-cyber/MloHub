@@ -34,6 +34,7 @@ export interface DaySchedule {
 export interface RestaurantSettingsProps {
   restaurant: RestaurantEntity;
   branches: { id: string; name: string; address?: string; phone?: string; isActive: boolean }[];
+  selectedBranchId?: string;
   onSaveProfile: (updates: Partial<RestaurantEntity>) => Promise<void>;
   onUpdateOperatingStatus: (status: OperatingOverride) => Promise<void>;
   language?: 'en' | 'sw';
@@ -54,10 +55,14 @@ const DEFAULT_WEEKLY_SCHEDULE: DaySchedule[] = [
 export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   restaurant,
   branches,
+  selectedBranchId,
   onSaveProfile,
   onUpdateOperatingStatus,
   language = 'en',
 }) => {
+  const activeBranch = branches.find((b) => b.id === selectedBranchId) || branches[0];
+  const activeBranchId = activeBranch?.id;
+
   const [operatingStatus, setOperatingStatus] = useState<OperatingOverride>(
     restaurant.isOpen ? 'OPEN' : 'CLOSED'
   );
@@ -67,11 +72,10 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   const [schedule, setSchedule] = useState<DaySchedule[]>(DEFAULT_WEEKLY_SCHEDULE);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load branch operational status and hours via Pack 4F BranchOperationsRepository
+  // Load branch operational status and hours via BranchOperationsRepository
   useEffect(() => {
-    if (branches.length > 0) {
-      const primaryBranchId = branches[0].id;
-      BranchOperationsRepository.getBranchOperationalStatus(primaryBranchId)
+    if (activeBranchId) {
+      BranchOperationsRepository.getBranchOperationalStatus(activeBranchId)
         .then((st) => {
           if (st?.mode) {
             setOperatingStatus(st.mode as OperatingOverride);
@@ -79,7 +83,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         })
         .catch((e) => console.warn('[RestaurantSettings] getBranchOperationalStatus error:', e));
 
-      BranchOperationsRepository.getOperatingHours(primaryBranchId)
+      BranchOperationsRepository.getOperatingHours(activeBranchId)
         .then((hours) => {
           if (hours && hours.length > 0) {
             const mapped = DAYS_OF_WEEK.map((dayName, dayIdx) => {
@@ -94,7 +98,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
               }
               return {
                 day: dayName,
-                isOpen: true,
+                isOpen: false,
                 openTime: '08:00',
                 closeTime: '22:00',
               };
@@ -104,7 +108,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         })
         .catch((e) => console.warn('[RestaurantSettings] getOperatingHours error:', e));
     }
-  }, [branches]);
+  }, [activeBranchId]);
 
   // Media state
   const [logoUrl, setLogoUrl] = useState(restaurant.logoUrl || '');
@@ -262,8 +266,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         foodSpotPhotos,
       });
 
-      if (branches.length > 0) {
-        const primaryBranchId = branches[0].id;
+      if (activeBranchId) {
         const hoursToSave = schedule.map((d, index) => {
           const dayIndex = DAYS_OF_WEEK.indexOf(d.day);
           return {
@@ -273,7 +276,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
             isClosed: !d.isOpen,
           };
         });
-        await BranchOperationsRepository.upsertOperatingHours(primaryBranchId, hoursToSave);
+        await BranchOperationsRepository.upsertOperatingHours(activeBranchId, hoursToSave);
       }
 
       Alert.alert('Settings Saved', 'Restaurant profile and operational settings saved.');
@@ -566,7 +569,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
             <View key={b.id} style={styles.branchRow}>
               <View>
                 <Text style={styles.branchName}>{b.name}</Text>
-                <Text style={styles.branchAddress}>{b.address || 'Dar es Salaam, Tanzania'}</Text>
+                <Text style={styles.branchAddress}>{b.address || 'Address not configured'}</Text>
               </View>
               <View style={styles.branchActiveBadge}>
                 <Text style={styles.branchActiveText}>{b.isActive ? 'Active ✓' : 'Inactive'}</Text>
@@ -586,8 +589,8 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
             </Text>
             <Text style={styles.sectionSub}>
               {language === 'sw'
-                ? 'Arifa za maagizo mapya na nafasi za meza zinasimamiwa na mfumo mkuu wa SMS na Push.'
-                : 'Order alerts, reservations, and customer reviews are automatically dispatched to active staff via SMS and Push.'}
+                ? 'Arifa za maagizo mapya na nafasi za meza zinasimamiwa na dashibodi ya uendeshaji ya MloHub.'
+                : 'Order alerts, reservations, and updates are monitored in real time via the MloHub kitchen operations portal.'}
             </Text>
           </View>
         </View>

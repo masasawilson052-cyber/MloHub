@@ -169,7 +169,18 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                   </Text>
                 </View>
                 <View style={styles.orderMetaRight}>
-                  {getStatusBadge(order.status)}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {getStatusBadge(order.status)}
+                    {order.status === 'PENDING' && order.paymentStatus !== 'SUCCESS' ? (
+                      <Badge label="Awaiting Payment" variant="warning" size="sm" />
+                    ) : (
+                      <Badge
+                        label={order.paymentStatus === 'SUCCESS' ? 'Paid' : order.paymentStatus}
+                        variant={order.paymentStatus === 'SUCCESS' ? 'success' : 'neutral'}
+                        size="sm"
+                      />
+                    )}
+                  </View>
                   <Text style={styles.orderTime}>
                     {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </Text>
@@ -214,12 +225,23 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                       >
                         <Text style={styles.rejectBtnText}>Reject</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.acceptBtn}
-                        onPress={() => setAcceptingOrder(order)}
-                      >
-                        <Text style={styles.acceptBtnText}>Accept Order</Text>
-                      </TouchableOpacity>
+                      {(() => {
+                        const isPaid = order.paymentStatus === 'SUCCESS';
+                        return (
+                          <TouchableOpacity
+                            style={[
+                              styles.acceptBtn,
+                              !isPaid && { opacity: 0.45, backgroundColor: '#d1d5db' },
+                            ]}
+                            disabled={!isPaid}
+                            onPress={() => isPaid && setAcceptingOrder(order)}
+                          >
+                            <Text style={[styles.acceptBtnText, !isPaid && { color: '#6b7280' }]}>
+                              {isPaid ? 'Accept Order' : 'Awaiting Payment'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })()}
                     </>
                   )}
 

@@ -25,6 +25,8 @@ import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
 import { CartDrawer } from '../../components/cart/CartDrawer';
 import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 import { CustomMealRepository } from '../../repositories/customMeals.repository';
+import { PaymentCheckoutModal } from '../../components/PaymentCheckoutModal';
+import { PaymentTransactionEntity } from '../../db/types';
 import {
   CustomMealOccasion,
   BudgetType,
@@ -38,65 +40,66 @@ const OCCASIONS: { id: CustomMealOccasion; label: string; labelSw: string }[] = 
   { id: 'FAMILY', label: 'Family Feast', labelSw: 'Sherehe ya Familia' },
   { id: 'OFFICE', label: 'Office Lunch', labelSw: 'Chakula cha Ofisi' },
   { id: 'EVENT', label: 'Formal Event', labelSw: 'Hafla Rasmi' },
-  { id: 'PARTY', label: 'Celebration / Party', labelSw: 'Sherehe' },
-  { id: 'OTHER', label: 'Other', labelSw: 'Nyingine' },
 ];
 
-const SPICE_LEVELS: { id: SpiceLevel; label: string; emoji: string }[] = [
-  { id: 'NONE', label: 'None', emoji: '🌱' },
-  { id: 'MILD', label: 'Mild', emoji: '🥗' },
-  { id: 'MEDIUM', label: 'Medium', emoji: '🌶️' },
-  { id: 'HOT', label: 'Hot', emoji: '🌶️🌶️' },
-  { id: 'EXTRA_HOT', label: 'Extra Hot', emoji: '🔥' },
+const BUDGET_TYPES: { id: BudgetType; label: string }[] = [
+  { id: 'FIXED', label: 'Fixed Price' },
+  { id: 'RANGE', label: 'Flexible Range' },
+  { id: 'OPEN_TO_QUOTES', label: 'Open to Quotes' },
 ];
 
-const AVAILABLE_DIETARY: string[] = [
+const SPICE_LEVELS: { id: SpiceLevel; label: string }[] = [
+  { id: 'NONE', label: 'Mild / No Spice' },
+  { id: 'MEDIUM', label: 'Medium Spice' },
+  { id: 'HOT', label: 'Hot & Spicy' },
+  { id: 'EXTRA_HOT', label: 'Extra Hot (Pilipili Kali)' },
+];
+
+const DIETARY_OPTIONS = [
   'Halal',
+  'Swahili Style',
+  'Fresh Coconut',
+  'Low Oil',
+  'Healthy & Fresh',
   'Vegetarian',
-  'Vegan',
-  'Gluten-Free',
-  'Keto',
-  'Low-Sodium',
-  'Nut-Free',
 ];
 
-const AVAILABLE_ALLERGENS: string[] = [
-  'Peanuts',
-  'Tree Nuts',
-  'Dairy',
-  'Eggs',
-  'Seafood / Fish',
-  'Shellfish',
-  'Wheat / Gluten',
-  'Soy',
+const ALLERGEN_OPTIONS = [
+  'Peanuts (Karanga)',
+  'Dairy (Maziwa)',
+  'Seafood (Dagaa/Samaki)',
+  'Eggs (Mayai)',
+  'Gluten (Ngano)',
 ];
 
 export default function CustomMealScreen() {
-  const { t, language } = useLanguage();
-  const { width } = useWindowDimensions();
-  const isLargeScreen = width > 768;
+  const { language } = useLanguage();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width >= 768;
+
+  // Cart & Review Modal State
   const { addToCart, isCartOpen, setIsCartOpen } = useCart();
   const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
 
   // Flow Step: 'REQUEST' | 'QUOTES'
   const [activeTab, setActiveTab] = useState<'REQUEST' | 'QUOTES'>('REQUEST');
 
-  // Form Fields
+  // Form Fields - Truthful empty defaults
   const [dishTitle, setDishTitle] = useState('');
   const [description, setDescription] = useState('');
   const [occasion, setOccasion] = useState<CustomMealOccasion>('PERSONAL');
-  const [budgetTzs, setBudgetTzs] = useState('20000');
+  const [budgetTzs, setBudgetTzs] = useState('');
   const [budgetType, setBudgetType] = useState<BudgetType>('FIXED');
   const [servings, setServings] = useState('2');
   const [spiceLevel, setSpiceLevel] = useState<SpiceLevel>('MEDIUM');
-  const [selectedDietary, setSelectedDietary] = useState<string[]>(['Halal']);
+  const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [customerArea, setCustomerArea] = useState('Mikocheni');
-  const [landmark, setLandmark] = useState('Near Shoppers Plaza');
-  const [exactAddress, setExactAddress] = useState('House 42, Rose Garden Rd');
-  const [exactPhone, setExactPhone] = useState('+255712345678');
-  const [desiredTimeHours, setDesiredTimeHours] = useState('4');
+  const [customerArea, setCustomerArea] = useState(user?.location || '');
+  const [landmark, setLandmark] = useState('');
+  const [exactAddress, setExactAddress] = useState(user?.location || '');
+  const [exactPhone, setExactPhone] = useState(user?.phone || '');
+  const [desiredTimeHours, setDesiredTimeHours] = useState('');
 
   // Active Request & Quotes State
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
@@ -105,6 +108,24 @@ export default function CustomMealScreen() {
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLockingQuote, setIsLockingQuote] = useState(false);
+
+  // Payment Modal State for Custom Meal Quote
+  const [selectedQuoteForPayment, setSelectedQuoteForPayment] = useState<RestaurantQuote | null>(null);
+  const [lockedTotalForPayment, setLockedTotalForPayment] = useState<number>(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isConvertingOrder, setIsConvertingOrder] = useState(false);
+
+  useEffect(() => {
+    if (user?.phone && !exactPhone) {
+      setExactPhone(user.phone);
+    }
+    if (user?.location && !customerArea) {
+      setCustomerArea(user.location);
+    }
+    if (user?.location && !exactAddress) {
+      setExactAddress(user.location);
+    }
+  }, [user]);
 
   // Load existing requests for authenticated user
   const loadUserRequests = useCallback(async () => {
@@ -183,12 +204,25 @@ export default function CustomMealScreen() {
       return;
     }
 
+    const cleanBudget = budgetTzs.replace(/[^0-9]/g, '');
+    const budgetNum = parseInt(cleanBudget, 10);
+    if (!cleanBudget || isNaN(budgetNum) || budgetNum <= 0) {
+      Alert.alert(
+        language === 'sw' ? 'Bajeti Inahitajika' : 'Budget Required',
+        language === 'sw'
+          ? 'Tafadhali ingiza makadirio halisi ya bajeti ya chakula chako.'
+          : 'Please enter a valid budget amount for your meal request.'
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const budgetNum = parseInt(budgetTzs.replace(/[^0-9]/g, ''), 10) || 20000;
       const servingsNum = parseInt(servings.replace(/[^0-9]/g, ''), 10) || 2;
-      const hoursNum = parseFloat(desiredTimeHours) || 4;
-      const desiredAt = new Date(Date.now() + hoursNum * 3600 * 1000).toISOString();
+      const hoursNum = parseFloat(desiredTimeHours);
+      const desiredAt = !isNaN(hoursNum) && hoursNum > 0
+        ? new Date(Date.now() + hoursNum * 3600 * 1000).toISOString()
+        : undefined;
 
       const created = await CustomMealRepository.createRequest({
         customerId: user.id,
@@ -219,7 +253,7 @@ export default function CustomMealScreen() {
       Alert.alert(
         language === 'sw' ? 'Ombi Limetumwa!' : 'Custom Request Dispatched!',
         language === 'sw'
-          ? `Ombi lako (${created.orderNumber || created.id}) limepelekwa kwa wapishi 5 bora wanaofaa katika eneo lako. Utapokea ofa za bei muda mfupi ujao.`
+          ? `Ombi lako (${created.orderNumber || created.id}) limepelekwa kwa jikoni zilizoidhinishwa katika eneo lako. Utapokea ofa za bei muda mfupi ujao.`
           : `Your request (${created.orderNumber || created.id}) has been matched and dispatched to qualified local kitchens. Quotes will appear here.`
       );
     } catch (e: any) {
@@ -234,13 +268,11 @@ export default function CustomMealScreen() {
     setIsLockingQuote(true);
     try {
       const lockResult = await CustomMealRepository.lockQuoteSelection(activeRequestId, quote.id);
-      const totalToDisplay = lockResult.grand_total_tzs || quote.totalTzs || quote.amountTzs;
-      Alert.alert(
-        language === 'sw' ? 'Ofa Imethibitishwa!' : 'Quote Selected!',
-        language === 'sw'
-          ? `Umechagua ofa ya ${quote.restaurantName || 'Mpishi'}. Jumla: TZS ${totalToDisplay.toLocaleString()}. Endelea kukamilisha malipo.`
-          : `You selected ${quote.restaurantName || 'Chef'}'s offer. Total: TZS ${totalToDisplay.toLocaleString()}. Complete payment to confirm your order.`
-      );
+      const totalToDisplay = lockResult?.grand_total_tzs || quote.totalTzs || quote.amountTzs || 0;
+      setSelectedQuoteForPayment(quote);
+      setLockedTotalForPayment(totalToDisplay);
+      setShowPaymentModal(true);
+
       // Reload quotes
       const qList = await CustomMealRepository.listQuotesForRequest(activeRequestId);
       setQuotes(qList);
@@ -248,6 +280,37 @@ export default function CustomMealScreen() {
       Alert.alert('Selection Error', err?.message || 'Failed to select quote.');
     } finally {
       setIsLockingQuote(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (payment: PaymentTransactionEntity) => {
+    setShowPaymentModal(false);
+    if (!activeRequestId) return;
+
+    setIsConvertingOrder(true);
+    try {
+      const converted = await CustomMealRepository.convertCustomMealToOrder(
+        activeRequestId,
+        payment.id
+      );
+
+      await loadUserRequests();
+
+      const orderRef = converted?.order_number || converted?.orderNumber || converted?.id || 'Confirmed';
+      Alert.alert(
+        language === 'sw' ? 'Mlo Maalum Umethibitishwa!' : 'Custom Meal Confirmed',
+        language === 'sw'
+          ? `Malipo yako yamekamilika na agizo #${orderRef} limeundwa kikamilifu.`
+          : `Your payment was verified and canonical order #${orderRef} has been created.`
+      );
+    } catch (err: any) {
+      console.error('Custom meal order conversion error:', err);
+      Alert.alert(
+        'Order Conversion Error',
+        err?.message || 'Payment received, but order conversion could not complete. Please contact support with payment ref.'
+      );
+    } finally {
+      setIsConvertingOrder(false);
     }
   };
 
@@ -397,7 +460,7 @@ export default function CustomMealScreen() {
                     onPress={() => setSpiceLevel(sp.id)}
                   >
                     <Text style={[styles.chipText, spiceLevel === sp.id && styles.chipTextActive]}>
-                      {sp.emoji} {sp.label}
+                      {sp.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -408,7 +471,7 @@ export default function CustomMealScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Dietary Preferences</Text>
               <View style={styles.chipsRow}>
-                {AVAILABLE_DIETARY.map((tag) => (
+                {DIETARY_OPTIONS.map((tag) => (
                   <TouchableOpacity
                     key={tag}
                     style={[styles.chip, selectedDietary.includes(tag) && styles.chipActive]}
@@ -426,7 +489,7 @@ export default function CustomMealScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Allergies (Chef MUST explicitly acknowledge)</Text>
               <View style={styles.chipsRow}>
-                {AVAILABLE_ALLERGENS.map((alg) => (
+                {ALLERGEN_OPTIONS.map((alg) => (
                   <TouchableOpacity
                     key={alg}
                     style={[
@@ -697,6 +760,22 @@ export default function CustomMealScreen() {
         onClose={() => setIsOrderReviewOpen(false)}
         onOrderConfirmed={() => {}}
       />
+
+      {/* Custom Meal Quote Payment Modal */}
+      {showPaymentModal && selectedQuoteForPayment && activeRequestId && (
+        <PaymentCheckoutModal
+          visible={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onPaymentSuccess={handlePaymentSuccess}
+          restaurantName={selectedQuoteForPayment.restaurantName || 'Restaurant'}
+          restaurantId={selectedQuoteForPayment.restaurantId}
+          customMealRequestId={activeRequestId}
+          quoteId={selectedQuoteForPayment.id}
+          amountTzs={lockedTotalForPayment}
+          paymentTypeOverride="CUSTOM_MEAL_FULL"
+          title={language === 'sw' ? 'Malipo ya Chakula Maalum' : 'Custom Meal Payment'}
+        />
+      )}
     </SafeAreaView>
   );
 }

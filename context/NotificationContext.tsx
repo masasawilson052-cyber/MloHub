@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { NotificationRepository } from '../repositories/notifications.repository';
+import { NotificationPreferencesRepository } from '../repositories/notificationPreferences.repository';
+import { NotificationChannel } from '../types/domain';
 import { useAuth } from './AuthContext';
 
 export type NotificationType =
@@ -285,7 +287,7 @@ interface NotificationContextType {
   deleteNotification: (id: string) => Promise<void> | void;
   clearAll: () => Promise<void> | void;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => void;
-  updatePreference: <K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]) => void;
+  updatePreference: <K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]) => Promise<void> | void;
   simulateIncomingNotification: () => void;
 }
 
@@ -313,9 +315,48 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   }, [user?.id]);
 
+  const refreshPreferences = useCallback(async () => {
+    if (!runtimeConfig.allowLocalDataFallbacks && user?.id) {
+      try {
+        const rows = await NotificationPreferencesRepository.getPreferences(user.id);
+        if (rows && rows.length > 0) {
+          setPreferences((prev) => {
+            const updated = { ...prev };
+            for (const row of rows) {
+              if (row.category === 'RESERVATION') {
+                updated.reservationUpdates = row.enabled;
+                updated.reservationReminders = row.enabled;
+              } else if (row.category === 'CUSTOM_MEAL') {
+                updated.customMealUpdates = row.enabled;
+              } else if (row.category === 'PAYMENT') {
+                updated.paymentNotifications = row.enabled;
+              } else if (row.category === 'REVIEW') {
+                updated.ratingReminders = row.enabled;
+              } else if (row.category === 'PROMOTION') {
+                updated.offersPromotions = row.enabled;
+              } else if (row.category === 'SUGGESTION') {
+                updated.nearbySuggestions = row.enabled;
+              } else if (row.channel === 'SMS' && (row.category === 'ALL' || !row.category)) {
+                updated.smsEnabled = row.enabled;
+              } else if (row.channel === 'PUSH' && (row.category === 'ALL' || !row.category)) {
+                updated.pushEnabled = row.enabled;
+              } else if (row.channel === 'EMAIL' && (row.category === 'ALL' || !row.category)) {
+                updated.emailEnabled = row.enabled;
+              }
+            }
+            return updated;
+          });
+        }
+      } catch (e) {
+        console.warn('[NotificationContext] Failed to load canonical notification preferences:', e);
+      }
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     refreshNotifications();
-  }, [refreshNotifications]);
+    refreshPreferences();
+  }, [refreshNotifications, refreshPreferences]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -369,12 +410,15 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       setNotifications([]);
       return;
     }
-    for (const notif of notifications) {
-      try {
-        await NotificationRepository.archiveNotification(notif.id);
-      } catch {}
+    const currentList = [...notifications];
+    const results = await Promise.allSettled(
+      currentList.map((notif) => NotificationRepository.archiveNotification(notif.id))
+    );
+    const failures = results.filter((r) => r.status === 'rejected');
+    if (failures.length > 0) {
+      console.warn(`[NotificationContext] clearAll: ${failures.length} archive operations failed.`);
     }
-    setNotifications([]);
+    await refreshNotifications();
   };
 
   const addNotification = (notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => {
@@ -394,11 +438,57 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     });
   };
 
-  const updatePreference = <K extends keyof NotificationPreferences>(
+  const updatePreference = async <K extends keyof NotificationPreferences>(
     key: K,
     value: NotificationPreferences[K]
   ) => {
+    const prevPreferences = { ...preferences };
     setPreferences((prev) => ({ ...prev, [key]: value }));
+
+    if (!runtimeConfig.allowLocalDataFallbacks && user?.id) {
+      try {
+        let channel: NotificationChannel = 'PUSH';
+        let category = 'ALL';
+
+        if (key === 'pushEnabled') {
+          channel = 'PUSH';
+          category = 'ALL';
+        } else if (key === 'smsEnabled') {
+          channel = 'SMS';
+          category = 'ALL';
+        } else if (key === 'emailEnabled') {
+          channel = 'EMAIL';
+          category = 'ALL';
+        } else if (key === 'reservationUpdates' || key === 'reservationReminders') {
+          channel = 'PUSH';
+          category = 'RESERVATION';
+        } else if (key === 'customMealUpdates') {
+          channel = 'PUSH';
+          category = 'CUSTOM_MEAL';
+        } else if (key === 'paymentNotifications') {
+          channel = 'PUSH';
+          category = 'PAYMENT';
+        } else if (key === 'ratingReminders') {
+          channel = 'PUSH';
+          category = 'REVIEW';
+        } else if (key === 'offersPromotions') {
+          channel = 'PUSH';
+          category = 'PROMOTION';
+        } else if (key === 'nearbySuggestions') {
+          channel = 'PUSH';
+          category = 'SUGGESTION';
+        }
+
+        await NotificationPreferencesRepository.updatePreference({
+          channel,
+          category,
+          enabled: Boolean(value),
+        });
+      } catch (err) {
+        console.warn('[NotificationContext] Failed to persist preference to database, reverting:', err);
+        setPreferences(prevPreferences);
+      }
+    }
   };
 
   useEffect(() => {

@@ -14,13 +14,10 @@ import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 
 export interface DiscoveryAnalyticsData {
-  weeklySearchAppearances?: number;
-  searchToRestaurantClicks?: number;
   menuFreshnessPercentage: number;
   averageOrderValueTzs: number;
   topOrderedDishes?: { name: string; ordersCount: number }[];
-  topSearchedDishes?: { name: string; searchCount?: number; ordersCount: number }[];
-  lostOpportunities: { dishName: string; missedSearchesCount?: number; reason: string }[];
+  lostOpportunities: { dishName: string; reason: string }[];
 }
 
 export interface AnalyticsPanelProps {
@@ -32,7 +29,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
   data,
   language = 'en',
 }) => {
-  const topDishes = data.topOrderedDishes || data.topSearchedDishes || [];
+  const topDishes = data.topOrderedDishes || [];
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
@@ -101,9 +98,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
                   <Text style={styles.lostReason}>{opp.reason}</Text>
                 </View>
                 <View style={styles.lostBadge}>
-                  <Text style={styles.lostBadgeText}>
-                    {opp.missedSearchesCount ? `${opp.missedSearchesCount} missed` : 'Out of stock'}
-                  </Text>
+                  <Text style={styles.lostBadgeText}>Out of stock</Text>
                 </View>
               </View>
             ))

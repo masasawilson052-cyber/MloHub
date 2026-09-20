@@ -77,7 +77,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
         </View>
         <View style={styles.simulatedPill}>
           <Text style={styles.simulatedText}>
-            {runtimeConfig.isProduction ? 'GATEWAY: PRODUCTION' : 'GATEWAY: SANDBOX / PILOT'}
+            {runtimeConfig.isProduction ? 'PRODUCTION MODE — GATEWAY HEALTH UNVERIFIED' : 'PAYMENT ADAPTER CONFIGURED — LIVE MONEY NOT VERIFIED'}
           </Text>
         </View>
       </View>
@@ -125,7 +125,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
             onPress={() => setStatusFilter('SUCCESS')}
           >
             <Text style={[styles.pillText, statusFilter === 'SUCCESS' && styles.pillTextActive]}>
-              Settled ({successPayments.length})
+              Successful ({successPayments.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -198,10 +198,6 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
                     <View style={styles.amountRow}>
                       <Text style={styles.amountLabel}>Gross Amount:</Text>
                       <Text style={styles.amountValue}>{formatTzs(pay.amountTzs)}</Text>
-                    </View>
-                    <View style={styles.amountRow}>
-                      <Text style={styles.amountLabel}>Platform Comm (10%):</Text>
-                      <Text style={styles.commValue}>{formatTzs(Math.round(pay.amountTzs * 0.1))}</Text>
                     </View>
                   </View>
 

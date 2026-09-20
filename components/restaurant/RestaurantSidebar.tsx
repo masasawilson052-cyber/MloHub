@@ -87,7 +87,7 @@ export const RestaurantSidebar: React.FC<RestaurantSidebarProps> = ({
         <Text style={styles.footerRoleText}>
           Role: <Text style={styles.footerRoleBold}>{userRole}</Text>
         </Text>
-        <Text style={styles.footerSecurityText}>Stage 3 RLS Protected</Text>
+        <Text style={styles.footerSecurityText}>Secure restaurant workspace</Text>
       </View>
     </View>
   );

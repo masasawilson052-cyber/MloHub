@@ -2,6 +2,7 @@ import { OrderRepository } from '../repositories/orders.repository';
 import { CustomMealRepository } from '../repositories/customMeals.repository';
 import { NotificationRepository } from '../repositories/notifications.repository';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, CustomMealRequest } from '../types/domain';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { MloHubDB } from '../db';
@@ -11,8 +12,9 @@ export interface SubmitMenuOrderDTO {
   customerName?: string;
   customerPhone?: string;
   restaurantId: string;
+  branchId: string;
   items: {
-    menuItemId?: string;
+    menuItemId: string;
     name: string;
     unitPriceTzs: number;
     quantity: number;
@@ -76,27 +78,41 @@ export class OrderService {
    * Submit a standard menu order with line-item snapshots
    */
   public static async submitStandardMenuOrder(dto: SubmitMenuOrderDTO): Promise<Order> {
-    const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
-    const serviceFee = 1500;
-    const deliveryFee = dto.diningOption === 'Delivery' ? 2500 : 0;
-    const totalTzs = subtotal + serviceFee + deliveryFee;
+    // 1. Strict Validation
+    if (!dto.branchId || !dto.branchId.trim()) {
+      throw new Error('A valid restaurant branch is required to place this order.');
+    }
+    if (!dto.restaurantId || !dto.restaurantId.trim()) {
+      throw new Error('A valid restaurant ID is required.');
+    }
+    if (!dto.items || dto.items.length === 0) {
+      throw new Error('Order must contain at least one item.');
+    }
+    for (const item of dto.items) {
+      if (!item.menuItemId || !item.menuItemId.trim()) {
+        throw new Error(`Item "${item.name}" is missing a canonical menuItemId.`);
+      }
+      if (item.quantity <= 0) {
+        throw new Error(`Item "${item.name}" has an invalid quantity.`);
+      }
+    }
+    if (dto.diningOption === 'Delivery' && (!dto.deliveryAddress || !dto.deliveryAddress.trim())) {
+      throw new Error('A valid delivery address is required for delivery orders.');
+    }
+
     const orderNumber = `MLO-${Date.now().toString().slice(-4)}`;
 
     if (isSupabaseConfigured()) {
       const orderData: Partial<Order> = {
         customerId: dto.userId,
         restaurantId: dto.restaurantId,
+        branchId: dto.branchId,
         orderNumber,
         status: 'PENDING',
         paymentStatus: 'PENDING',
-        subtotalTzs: subtotal,
-        serviceFeeTzs: serviceFee,
-        deliveryFeeTzs: deliveryFee,
-        totalTzs,
         fulfillmentType: dto.diningOption,
-        deliveryAddress: dto.deliveryAddress,
-        specialInstructions: dto.specialInstructions,
-        estimatedPrepMinutes: 25,
+        deliveryAddress: dto.diningOption === 'Delivery' ? dto.deliveryAddress?.trim() : undefined,
+        specialInstructions: dto.specialInstructions?.trim() || undefined,
       };
 
       const itemsData: Partial<OrderItem>[] = dto.items.map((it) => ({
@@ -107,6 +123,7 @@ export class OrderService {
         subtotal: it.totalPriceTzs,
       }));
 
+      // Persisted order MUST be priced authoritatively by create_order_secure RPC via OrderRepository
       const createdOrder = await OrderRepository.createOrder(orderData, itemsData);
 
       // In-app notifications
@@ -115,10 +132,10 @@ export class OrderService {
           userId: dto.userId,
           type: 'order',
           category: 'ORDER',
-          titleEn: `Order #${orderNumber} Placed!`,
-          titleSw: `Agizo #${orderNumber} Limewekwa!`,
-          messageEn: `Your order for ${itemsData.length} items has been submitted.`,
-          messageSw: `Agizo lako la vyakula ${itemsData.length} limetumwa jikoni.`,
+          titleEn: `Order #${createdOrder.orderNumber || orderNumber} Placed!`,
+          titleSw: `Agizo #${createdOrder.orderNumber || orderNumber} Limewekwa!`,
+          messageEn: `Your order has been submitted and is awaiting payment.`,
+          messageSw: `Agizo lako limewekwa na linasubiri malipo.`,
           orderId: createdOrder.id,
           restaurantId: dto.restaurantId,
         });
@@ -141,10 +158,21 @@ export class OrderService {
         data: { order: createdOrder },
       });
 
+      // Return server-priced canonical order directly
       return createdOrder;
     }
 
+    // Fail closed if local data fallbacks are not permitted
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      throw new Error('Supabase client is not configured and local data fallbacks are disabled.');
+    }
+
     // Mock / Offline Fallback for automated tests
+    const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
+    const serviceFee = 1500;
+    const deliveryFee = dto.diningOption === 'Delivery' ? 2500 : 0;
+    const totalTzs = subtotal + serviceFee + deliveryFee;
+
     const itemsSummary = dto.items.map((i) => `${i.quantity}x ${i.name}`).join(', ');
     await MloHubDB.init();
     const mockOrder = await MloHubDB.customOrders.create({
@@ -167,6 +195,7 @@ export class OrderService {
       orderNumber,
       customerId: dto.userId,
       restaurantId: dto.restaurantId,
+      branchId: dto.branchId,
       status: 'PENDING',
       paymentStatus: 'PENDING',
       subtotalTzs: subtotal,
@@ -211,7 +240,7 @@ export class OrderService {
         servings: dto.servingsCount,
         servingsCount: dto.servingsCount,
         diningOption: dto.diningOption,
-        deliveryLocation: dto.neighborhood || 'Mikocheni',
+        deliveryLocation: dto.neighborhood || undefined,
         status: 'PENDING',
       };
 
@@ -224,8 +253,8 @@ export class OrderService {
           category: 'ORDER',
           titleEn: `Custom Meal #${orderNumber} Submitted!`,
           titleSw: `Ombi la Chakula #${orderNumber} Limetumwa!`,
-          messageEn: `Your request for ${dto.dishName} has been broadcast to chefs.`,
-          messageSw: `Ombi lako la ${dto.dishName} limetumwa kwa wapishi.`,
+          messageEn: `Your request for ${dto.dishName} has been broadcast to qualified local kitchens.`,
+          messageSw: `Ombi lako la ${dto.dishName} limetumwa kwa jikoni zilizoidhinishwa.`,
         });
       } catch (err) {
         console.warn('Failed to send notification:', err);
@@ -241,13 +270,17 @@ export class OrderService {
       return created;
     }
 
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      throw new Error('Supabase client is not configured and local data fallbacks are disabled.');
+    }
+
     // Mock fallback
     await MloHubDB.init();
     const mockReq = await MloHubDB.customOrders.create({
       userId: dto.userId,
       dishName: dto.dishName,
-      restaurantName: dto.restaurantName || 'Mama Amina Authentic Biryani',
-      targetRestaurantId: dto.targetRestaurantId || 'mama-amina-biryani',
+      restaurantName: dto.restaurantName || 'Restaurant',
+      targetRestaurantId: dto.targetRestaurantId || '',
       specialInstructions: dto.specialInstructions,
       budgetTzs: dto.budgetTzs,
       servingsCount: dto.servingsCount,

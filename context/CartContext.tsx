@@ -21,6 +21,9 @@ interface CartContextType {
   items: CartItem[];
   restaurantId: string | null;
   restaurantName: string | null;
+  branchId: string | null;
+  branchName: string | null;
+  pricingDisclaimer: string;
   addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
@@ -44,16 +47,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [items, setItems] = useState<CartItem[]>([]);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState<string | null>(null);
+  const [branchId, setBranchId] = useState<string | null>(null);
+  const [branchName, setBranchName] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // Sync restaurant metadata with items
+  // Sync restaurant and branch metadata with items
   useEffect(() => {
     if (items.length === 0) {
       setRestaurantId(null);
       setRestaurantName(null);
+      setBranchId(null);
+      setBranchName(null);
     } else {
       setRestaurantId(items[0].restaurantId);
       setRestaurantName(items[0].restaurantName);
+      setBranchId(items[0].branchId || null);
+      setBranchName(items[0].branchName || null);
     }
   }, [items]);
 
@@ -101,11 +110,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = (newItem: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
     const qty = newItem.quantity && newItem.quantity > 0 ? newItem.quantity : 1;
 
-    // Check if adding from a different restaurant
-    if (restaurantId && restaurantId !== newItem.restaurantId && items.length > 0) {
+    // Check if adding from a different restaurant or different branch
+    const isDifferentRestaurant = restaurantId && restaurantId !== newItem.restaurantId;
+    const currentBranch = branchId || (items.length > 0 ? items[0].branchId : null);
+    const isDifferentBranch = currentBranch && newItem.branchId && currentBranch !== newItem.branchId;
+
+    if (items.length > 0 && (isDifferentRestaurant || isDifferentBranch)) {
+      const message = isDifferentRestaurant
+        ? `Your cart contains dishes from ${restaurantName || 'another restaurant'}. Do you want to clear your cart and start an order with ${newItem.restaurantName}?`
+        : `Your cart contains dishes from a different branch of ${restaurantName || 'this restaurant'}. Do you want to start a new order from this branch?`;
+
       Alert.alert(
         'Start new order?',
-        `Your cart contains dishes from ${restaurantName}. Do you want to clear your cart and start an order with ${newItem.restaurantName}?`,
+        message,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -115,6 +132,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setItems([{ ...newItem, quantity: qty }]);
               setRestaurantId(newItem.restaurantId);
               setRestaurantName(newItem.restaurantName);
+              setBranchId(newItem.branchId || null);
+              setBranchName(newItem.branchName || null);
             },
           },
         ]
@@ -154,6 +173,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
     setRestaurantId(null);
     setRestaurantName(null);
+    setBranchId(null);
+    setBranchName(null);
   };
 
   const getOrderQuote = useCallback(
@@ -173,6 +194,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deliveryFeeTzs = items.length > 0 ? defaultQuote.deliveryFeeTzs : 0;
   const serviceFeeTzs = items.length > 0 ? defaultQuote.serviceFeeTzs : 0;
   const totalBillTzs = items.length > 0 ? defaultQuote.totalTzs : 0;
+  const pricingDisclaimer = 'Estimate — final total is revalidated by the restaurant branch.';
 
   return (
     <CartContext.Provider
@@ -180,6 +202,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items,
         restaurantId,
         restaurantName,
+        branchId,
+        branchName,
+        pricingDisclaimer,
         addToCart,
         removeFromCart,
         updateQuantity,

@@ -627,12 +627,9 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       }));
 
     return {
-      weeklySearchAppearances: 0,
-      searchToRestaurantClicks: 0,
       menuFreshnessPercentage: verifiedRatio,
       averageOrderValueTzs: aov,
       topOrderedDishes: topDishes,
-      topSearchedDishes: topDishes,
       lostOpportunities: lostOpp,
     };
   }, [menuItems, domainOrders]);
@@ -982,26 +979,22 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     async (status: OperatingOverride) => {
       try {
         const mode = status as BranchOperationalMode;
-        if (branches.length > 0) {
-          await Promise.all(
-            branches.map((b) =>
-              BranchOperationsRepository.setBranchOperationalMode(b.id, mode)
-            )
-          );
+        const targetBranchId = selectedBranchId || branches[0]?.id;
+        if (targetBranchId) {
+          await BranchOperationsRepository.setBranchOperationalMode(targetBranchId, mode);
         }
-        await RestaurantRepository.update(activeRestaurant.id, { isOpen: status === 'OPEN' });
         await loadRestaurantWorkspace();
         Alert.alert(
           language === 'sw' ? 'Hali Imesasishwa' : 'Operating Status Updated',
           language === 'sw'
-            ? `Hali ya jikoni sasa ni: ${status}`
-            : `Kitchen operational mode set to: ${status}.`
+            ? `Hali ya jikoni ya tawi sasa ni: ${status}`
+            : `Branch kitchen operational mode set to: ${status}.`
         );
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya kufungua.');
       }
     },
-    [activeRestaurant.id, branches, loadRestaurantWorkspace, language]
+    [selectedBranchId, branches, loadRestaurantWorkspace, language]
   );
 
   const handlePublishRestaurant = useCallback(async () => {
@@ -1153,7 +1146,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                     deliveryFeeTzs: 0,
                     estimatedPrepMinutes: quote.prepMinutes,
                     promisedReadyAt: new Date(Date.now() + quote.prepMinutes * 60 * 1000).toISOString(),
-                    fulfillmentMode: 'RESTAURANT_DELIVERY',
+                    fulfillmentMode: (targetInv?.request?.fulfillmentMode as any) || 'PICKUP',
                     restaurantNote: quote.message,
                     dietaryAcknowledged: true,
                     allergyAcknowledged: true,
@@ -1246,6 +1239,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               <RestaurantSettings
                 restaurant={activeRestaurant}
                 branches={branches}
+                selectedBranchId={selectedBranchId}
                 onSaveProfile={handleSaveProfile}
                 onUpdateOperatingStatus={handleUpdateOperatingStatus}
                 language={language as any}

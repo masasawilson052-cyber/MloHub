@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../db/types';
 import { Colors } from '../../constants/theme';
@@ -8,6 +9,7 @@ import { Colors } from '../../constants/theme';
 export default function PartnerIndexRoute() {
   const router = useRouter();
   const { isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -34,8 +36,12 @@ export default function PartnerIndexRoute() {
         if (activeWorkspace !== 'RESTAURANT_OWNER' && switchWorkspace) {
           try {
             await switchWorkspace('RESTAURANT_OWNER', restaurantId);
-          } catch (err) {
+          } catch (err: any) {
             console.warn('[PartnerIndexRoute] Workspace switch error:', err);
+            if (!isCancelled) {
+              setError(err?.message || 'Failed to initialize restaurant workspace. Access denied.');
+            }
+            return; // Fail closed: do NOT navigate
           }
         }
         if (!isCancelled) {
@@ -56,6 +62,19 @@ export default function PartnerIndexRoute() {
     };
   }, [isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace]);
 
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Ionicons name="alert-circle" size={48} color="#dc2626" />
+        <Text style={styles.errorTitle}>Workspace Access Error</Text>
+        <Text style={styles.errorSub}>{error}</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
+          <Text style={styles.backBtnText}>Return to Home</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={Colors.primary} />
@@ -69,5 +88,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorSub: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  backBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backBtnText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

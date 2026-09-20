@@ -93,7 +93,7 @@ export class RestaurantMemberRepository {
     fullName?: string
   ): Promise<StaffMember> {
     if (!runtimeConfig.isDemo) {
-      throw new Error('Staff invitations are not available yet. Server-side invitation workflow will be enabled in Pack 4.');
+      throw new Error('Staff invitations are not available yet in this pilot build.');
     }
 
     // Isolated test/demo mode fixture only

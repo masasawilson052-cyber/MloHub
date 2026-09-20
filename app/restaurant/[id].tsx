@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MenuRepository } from '../../repositories';
+import { BranchRepository } from '../../repositories/branches.repository';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import {
   ScrollView,
@@ -60,6 +61,29 @@ export default function RestaurantDetailScreen() {
 
   const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
   const [isMenuLoading, setIsMenuLoading] = useState(false);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (id) {
+      BranchRepository.listByRestaurant(id)
+        .then((bList) => {
+          if (isMounted) {
+            setBranches(bList);
+            if (bList.length > 0) {
+              setSelectedBranch(bList[0]);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('RestaurantDetail: Failed to fetch branches:', err);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -440,6 +464,8 @@ export default function RestaurantDetailScreen() {
                     dishName: highlightedItem.name,
                     restaurantId: restaurant.id,
                     restaurantName: restaurant.name,
+                    branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
+                    branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
                     priceTzs: parsePriceTzs(highlightedItem.price),
                     imageUrl: coverImage,
                   })
@@ -515,6 +541,8 @@ export default function RestaurantDetailScreen() {
                         dishName: item.name,
                         restaurantId: restaurant.id,
                         restaurantName: restaurant.name,
+                        branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
+                        branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
                         priceTzs: priceVal,
                         imageUrl: coverImage,
                       })
@@ -585,6 +613,7 @@ export default function RestaurantDetailScreen() {
         visible={isOrderReviewOpen}
         onClose={() => setIsOrderReviewOpen(false)}
         onOrderConfirmed={() => router.push('/(tabs)/bookings')}
+        isVerifiedRestaurant={(restaurant as any)?.isVerified || false}
       />
 
       {/* Reservation Modal */}

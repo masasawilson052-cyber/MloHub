@@ -27,7 +27,7 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
           <Ionicons name="bar-chart-outline" size={48} color="#94a3b8" />
           <Text style={styles.emptyStateTitle}>Search Telemetry Unavailable</Text>
           <Text style={styles.emptyStateText}>
-            Production search query metrics, synonym match rates, and neighborhood demand analytics require live event-stream ingestion (scheduled for Pack 4). Fabricated analytics are strictly disabled in {runtimeConfig.environmentLabel}.
+            Production search query metrics, synonym match rates, and neighborhood demand analytics require live event-stream telemetry ingestion. Unverified analytics are strictly disabled in {runtimeConfig.environmentLabel}.
           </Text>
         </View>
       </ScrollView>

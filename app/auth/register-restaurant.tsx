@@ -32,8 +32,8 @@ export default function RegisterRestaurantScreen() {
   const [ownerPhone, setOwnerPhone] = useState(authUser?.phone || '+255 ');
   const [ownerEmail, setOwnerEmail] = useState(authUser?.email || '');
   const [password, setPassword] = useState('');
-  const [cuisine, setCuisine] = useState('Swahili');
-  const [neighborhood, setNeighborhood] = useState('Mikocheni');
+  const [cuisine, setCuisine] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
   const [address, setAddress] = useState('');
   const [hasTinOrLicense, setHasTinOrLicense] = useState(false);
   const [tinNumber, setTinNumber] = useState('');
@@ -65,6 +65,7 @@ export default function RegisterRestaurantScreen() {
   const validate = (): boolean => {
     const errs: { [key: string]: string } = {};
     if (!businessName.trim()) errs.businessName = 'Business or stall name is required';
+    if (!cuisine.trim()) errs.cuisine = 'Please select a cuisine specialty';
     if (!ownerFullName.trim()) errs.ownerFullName = 'Owner full name is required';
     if (!ownerPhone.trim() || ownerPhone.length < 9) {
       errs.ownerPhone = 'Valid phone number is required (+255...)';
@@ -275,6 +276,7 @@ export default function RegisterRestaurantScreen() {
               );
             })}
           </View>
+          {errors.cuisine && <Text style={styles.fieldError}>{errors.cuisine}</Text>}
         </View>
 
         {/* 2. OWNER CONTACT DETAILS */}

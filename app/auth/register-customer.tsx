@@ -33,8 +33,8 @@ export default function RegisterCustomerScreen() {
   const [phone, setPhone] = useState('+255 ');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [location, setLocation] = useState('Mikocheni');
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [location, setLocation] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -108,7 +108,7 @@ export default function RegisterCustomerScreen() {
         password,
         location: location.trim(),
         agreeTerms,
-        dietaryPreferences: ['Fresh Food', 'Healthy'],
+        dietaryPreferences: [],
       });
 
       setSuccessMessage(

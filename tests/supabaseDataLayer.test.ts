@@ -80,14 +80,16 @@ export async function runSupabaseDataLayerTestSuite(): Promise<{ passedCount: nu
 
   // GROUP 3: OrderService Line Items and Calculations
   console.log('\nTest Group 3: OrderService Line Items & Snapshots');
+  const branchId = (detail as any)?.branches?.[0]?.id || 'branch-1';
   const standardOrder = await OrderService.submitStandardMenuOrder({
     userId: 'usr-customer-test',
     customerName: 'Juma Selemani',
     customerPhone: '+255 754 888 999',
     restaurantId: firstRest.id,
+    branchId: branchId,
     items: [
-      { name: 'Biryani ya Kuku', unitPriceTzs: 12000, quantity: 2, totalPriceTzs: 24000 },
-      { name: 'Kachumbari Extra', unitPriceTzs: 2000, quantity: 1, totalPriceTzs: 2000 },
+      { menuItemId: 'item-test-1', name: 'Biryani ya Kuku', unitPriceTzs: 12000, quantity: 2, totalPriceTzs: 24000 },
+      { menuItemId: 'item-test-2', name: 'Kachumbari Extra', unitPriceTzs: 2000, quantity: 1, totalPriceTzs: 2000 },
     ],
     diningOption: 'Delivery',
     deliveryAddress: 'Mikocheni B, Mwai Kibaki Rd',

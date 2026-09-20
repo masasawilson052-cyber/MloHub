@@ -35,12 +35,18 @@ export interface PaymentCheckoutModalProps {
   restaurantId: string;
   orderId?: string;
   reservationId?: string;
+  customMealRequestId?: string;
+  quoteId?: string;
+  paymentTypeOverride?: PaymentType;
+  authoritativeReservationDeposit?: boolean;
   amountTzs: number;
   isReservation?: boolean;
   deliveryFee?: number;
   serviceFee?: number;
   guestCount?: string;
   itemDescription?: string;
+  initialMethodCode?: PaymentMethodCode;
+  initialPhone?: string;
 }
 
 export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
@@ -52,12 +58,18 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   restaurantId,
   orderId,
   reservationId,
+  customMealRequestId,
+  quoteId,
+  paymentTypeOverride,
+  authoritativeReservationDeposit,
   amountTzs,
   isReservation = false,
   deliveryFee = 0,
   serviceFee = 1500,
   guestCount = '2',
   itemDescription,
+  initialMethodCode = 'MPESA',
+  initialPhone,
 }) => {
   const { t, language } = useLanguage();
   const { user } = useAuth();
@@ -65,9 +77,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   const currentRestaurant = restaurants.find((r) => r.id === restaurantId);
 
   // Payment Options State
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode>('MPESA');
-  const [depositOption, setDepositOption] = useState<'deposit_50' | 'full_100'>('deposit_50');
-  const [payerPhone, setPayerPhone] = useState(user?.phone || '');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode>(initialMethodCode);
+  const [payerPhone, setPayerPhone] = useState(initialPhone || user?.phone || '');
 
   // Checkout Processing States
   const [isProcessing, setIsProcessing] = useState(false);
@@ -79,10 +90,18 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
   // Auto-fill phone when user changes
   useEffect(() => {
-    if (user?.phone) {
+    if (initialPhone) {
+      setPayerPhone(initialPhone);
+    } else if (user?.phone) {
       setPayerPhone(user.phone);
     }
-  }, [user?.phone]);
+  }, [initialPhone, user?.phone]);
+
+  useEffect(() => {
+    if (initialMethodCode) {
+      setSelectedMethod(initialMethodCode);
+    }
+  }, [initialMethodCode]);
 
   // Real-time status polling & AppState listener during USSD prompt
   useEffect(() => {
@@ -151,38 +170,27 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   if (!visible) return null;
 
   // Calculation breakdown
+  const isCustomMeal = !!customMealRequestId;
   const subtotal = Math.max(0, amountTzs);
   const currentDelivery = isReservation ? 0 : deliveryFee;
   const currentServiceFee = isReservation ? 0 : serviceFee;
-  const totalBill = subtotal + currentDelivery + currentServiceFee;
+  const totalBill = isReservation ? subtotal : (subtotal + currentDelivery + currentServiceFee);
 
-  let payableAmount = totalBill;
-  let remainingBalance = 0;
-  const paymentType: PaymentType = isReservation
-    ? depositOption === 'deposit_50'
+  const payableAmount = totalBill;
+  const remainingBalance = 0;
+  const paymentType: PaymentType = paymentTypeOverride || (
+    isReservation
       ? 'RESERVATION_DEPOSIT_50'
-      : 'RESERVATION_FULL_100'
-    : 'ORDER_FULL';
-
-  if (isReservation) {
-    if (depositOption === 'deposit_50') {
-      payableAmount = Math.round(totalBill * 0.5);
-      remainingBalance = totalBill - payableAmount;
-    } else {
-      payableAmount = totalBill;
-      remainingBalance = 0;
-    }
-  }
+      : isCustomMeal
+        ? 'CUSTOM_MEAL_FULL'
+        : 'ORDER_FULL'
+  );
 
   const paymentMethods: { code: PaymentMethodCode; name: string; icon: string; badge: string; color: string }[] = [
     { code: 'MPESA', name: 'Vodacom M-Pesa', icon: 'phone-portrait', badge: '*150*00#', color: '#e60000' },
     { code: 'AIRTEL_MONEY', name: 'Airtel Money', icon: 'phone-portrait', badge: '*150*60#', color: '#ff0000' },
-    { code: 'MIXX_BY_YAS', name: 'Mixx by Yas (Tigo)', icon: 'phone-portrait', badge: '*150*01#', color: '#002f6c' },
+    { code: 'MIXX_BY_YAS', name: 'Mixx by Yas', icon: 'phone-portrait', badge: '*150*01#', color: '#002f6c' },
     { code: 'HALOPESA', name: 'HaloPesa', icon: 'phone-portrait', badge: '*150*88#', color: '#ff6600' },
-    { code: 'CARD', name: 'Visa / Mastercard', icon: 'card', badge: 'ClickPesa Card', color: '#1a1f71' },
-    ...(!isReservation
-      ? [{ code: 'CASH_ON_DELIVERY' as PaymentMethodCode, name: 'Cash on Delivery', icon: 'cash', badge: 'Pay at Door', color: '#2e7d32' }]
-      : []),
   ];
 
   // 1. Handle Initiate Payment
@@ -197,7 +205,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
         return;
       }
 
-      if (selectedMethod !== 'CARD' && !payerPhone.trim()) {
+      if (!payerPhone.trim()) {
         setGatewayError(
           language === 'sw'
             ? 'Tafadhali weka nambari ya simu ya malipo.'
@@ -206,25 +214,20 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
         return;
       }
 
-      if (selectedMethod === 'CASH_ON_DELIVERY') {
-        setGatewayError(
-          language === 'sw'
-            ? 'Malipo taslimu yatashughulikiwa kama oda ya Cash on Delivery, si malipo ya mtandaoni.'
-            : 'Cash on Delivery must be handled as an order option, not as an online payment.'
-        );
-        return;
-      }
-
       setIsProcessing(true);
       setGatewayError(null);
+
+      const targetIdentifier = orderId || reservationId || customMealRequestId || quoteId || Date.now().toString();
 
       const res = await PaymentApi.createPayment({
         orderId,
         reservationId,
+        customMealRequestId,
+        quoteId,
         methodCode: selectedMethod,
         paymentType,
-        payerPhone,
-        idempotencyKey: `${user.id}:${orderId || reservationId}:${selectedMethod}`,
+        payerPhone: payerPhone.trim(),
+        idempotencyKey: `${user.id}:${targetIdentifier}:${selectedMethod}`,
       });
 
       setInitiationResult(res);
@@ -261,9 +264,9 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
           {/* Header */}
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.headerTag}>🔒 CLICKPESA ONLINE CHECKOUT</Text>
+              <Text style={styles.headerTag}>🔒 SECURE MOBILE MONEY CHECKOUT</Text>
               <Text style={styles.headerTitle}>
-                {title || (isReservation ? (language === 'sw' ? 'Malipo ya Amana ya Meza' : 'Table Reservation Deposit') : (language === 'sw' ? 'Malipo ya Chakula' : 'Online Meal Checkout'))}
+                {title || (isReservation ? (language === 'sw' ? 'Malipo ya Amana ya Meza' : 'Table Reservation Deposit') : isCustomMeal ? (language === 'sw' ? 'Malipo ya Chakula Maalum' : 'Custom Meal Payment') : (language === 'sw' ? 'Malipo ya Chakula' : 'Online Meal Checkout'))}
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={handleModalClose}>
@@ -279,7 +282,11 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                   <Text style={styles.restaurantName}>🍽️ {restaurantName}</Text>
                   <View style={styles.badgePill}>
                     <Text style={styles.badgePillText}>
-                      {isReservation ? `🪑 ${guestCount} ${language === 'sw' ? 'Wageni' : 'Guests'}` : '🍲 Advance Order'}
+                      {isReservation
+                        ? `🪑 ${guestCount} ${language === 'sw' ? 'Wageni' : 'Guests'}`
+                        : isCustomMeal
+                        ? '🍲 Custom Meal'
+                        : '🍲 Advance Order'}
                     </Text>
                   </View>
                 </View>
@@ -290,10 +297,26 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 <View style={styles.divider} />
 
                 {/* Price Line Items */}
-                <View style={styles.priceRow}>
-                  <Text style={styles.priceLabel}>{isReservation ? (language === 'sw' ? 'Makadirio ya Chakula:' : 'Estimated Bill Subtotal:') : (language === 'sw' ? 'Jumla ya Chakula:' : 'Food Subtotal:')}</Text>
-                  <Text style={styles.priceVal}>TZS {subtotal.toLocaleString()}</Text>
-                </View>
+                {isReservation ? (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>
+                      {language === 'sw' ? 'Amana ya Meza Inayotakiwa Sasa:' : 'Reservation Deposit Due Now:'}
+                    </Text>
+                    <Text style={styles.priceVal}>TZS {subtotal.toLocaleString()}</Text>
+                  </View>
+                ) : isCustomMeal ? (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>
+                      {language === 'sw' ? 'Bei ya Chakula Maalum:' : 'Custom Meal Agreed Price:'}
+                    </Text>
+                    <Text style={styles.priceVal}>TZS {subtotal.toLocaleString()}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>{language === 'sw' ? 'Jumla ya Chakula:' : 'Food Subtotal:'}</Text>
+                    <Text style={styles.priceVal}>TZS {subtotal.toLocaleString()}</Text>
+                  </View>
+                )}
 
                 {!isReservation && currentDelivery > 0 && (
                   <View style={styles.priceRow}>
@@ -302,7 +325,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                   </View>
                 )}
 
-                {!isReservation && (
+                {!isReservation && currentServiceFee > 0 && (
                   <View style={styles.priceRow}>
                     <Text style={styles.priceLabel}>{language === 'sw' ? 'Ada ya Huduma (Platform):' : 'Service / Platform Fee:'}</Text>
                     <Text style={styles.priceVal}>TZS {currentServiceFee.toLocaleString()}</Text>
@@ -310,74 +333,25 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 )}
 
                 <View style={[styles.priceRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: '#e0e0e0' }]}>
-                  <Text style={styles.totalLabel}>{language === 'sw' ? 'Jumla Kuu:' : 'Total Bill:'}</Text>
+                  <Text style={styles.totalLabel}>
+                    {isReservation
+                      ? (language === 'sw' ? 'Amana Inayolipwa Sasa:' : 'Deposit Due Now:')
+                      : (language === 'sw' ? 'Jumla Kuu:' : 'Total Bill:')}
+                  </Text>
                   <Text style={styles.totalVal}>TZS {totalBill.toLocaleString()}</Text>
                 </View>
               </View>
 
-              {/* 2. TABLE RESERVATION 50% DEPOSIT SELECTOR */}
+              {/* 2. TABLE RESERVATION NOTICE */}
               {isReservation && (
                 <View style={styles.depositSection}>
-                  <Text style={styles.sectionHeading}>
-                    {language === 'sw' ? 'Chaguo la Malipo ya Meza:' : 'Reservation Payment Option:'}
-                  </Text>
-                  <View style={styles.depositOptionRow}>
-                    <TouchableOpacity
-                      style={[styles.depositPill, depositOption === 'deposit_50' && styles.depositPillActive]}
-                      onPress={() => setDepositOption('deposit_50')}
-                      activeOpacity={0.85}
-                    >
-                      <View style={styles.depositPillHeader}>
-                        <Ionicons
-                          name={depositOption === 'deposit_50' ? 'radio-button-on' : 'radio-button-off'}
-                          size={16}
-                          color={depositOption === 'deposit_50' ? '#113a26' : Colors.muted}
-                        />
-                        <Text style={[styles.depositPillTitle, depositOption === 'deposit_50' && styles.depositPillTitleActive]}>
-                          50% Deposit (Amana)
-                        </Text>
-                      </View>
-                      <Text style={styles.depositPillAmount}>
-                        TZS {Math.round(totalBill * 0.5).toLocaleString()}
-                      </Text>
-                      <Text style={styles.depositPillSub}>
-                        {language === 'sw' ? 'Kiwango cha chini cha kuhifadhi meza' : 'Minimum required to lock table'}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.depositPill, depositOption === 'full_100' && styles.depositPillActive]}
-                      onPress={() => setDepositOption('full_100')}
-                      activeOpacity={0.85}
-                    >
-                      <View style={styles.depositPillHeader}>
-                        <Ionicons
-                          name={depositOption === 'full_100' ? 'radio-button-on' : 'radio-button-off'}
-                          size={16}
-                          color={depositOption === 'full_100' ? '#113a26' : Colors.muted}
-                        />
-                        <Text style={[styles.depositPillTitle, depositOption === 'full_100' && styles.depositPillTitleActive]}>
-                          100% Full Bill
-                        </Text>
-                      </View>
-                      <Text style={styles.depositPillAmount}>
-                        TZS {totalBill.toLocaleString()}
-                      </Text>
-                      <Text style={styles.depositPillSub}>
-                        {language === 'sw' ? 'Lipa bili yote mapema' : 'Pay complete bill in advance'}
-                      </Text>
-                    </TouchableOpacity>
+                  <View style={styles.balanceNoticeBox}>
+                    <Text style={styles.balanceNoticeText}>
+                      💡 {language === 'sw'
+                        ? `Unalipa amana ya uhakika ya TZS ${payableAmount.toLocaleString()} sasa ili kufunga meza. Baki yoyote ya mlo italipwa mgahawani.`
+                        : `You are paying an authoritative reservation deposit of TZS ${payableAmount.toLocaleString()} now to secure your table.`}
+                    </Text>
                   </View>
-
-                  {depositOption === 'deposit_50' && (
-                    <View style={styles.balanceNoticeBox}>
-                      <Text style={styles.balanceNoticeText}>
-                        💡 {language === 'sw'
-                          ? `Unalipa amana ya TZS ${payableAmount.toLocaleString()} sasa. Baki ya TZS ${remainingBalance.toLocaleString()} utalipa mgahawani baada ya mlo.`
-                          : `You pay TZS ${payableAmount.toLocaleString()} deposit now. Remaining balance of TZS ${remainingBalance.toLocaleString()} will be settled at the restaurant.`}
-                      </Text>
-                    </View>
-                  )}
                 </View>
               )}
 
@@ -407,10 +381,10 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 </View>
               )}
 
-              {/* 3. PAYMENT METHOD SELECTOR (TANZANIA MOBILE MONEY & CARD) */}
+              {/* 3. PAYMENT METHOD SELECTOR (TANZANIA MOBILE MONEY) */}
               <View style={styles.methodsSection}>
                 <Text style={styles.sectionHeading}>
-                  {language === 'sw' ? 'Chagua Njia ya Malipo (ClickPesa):' : 'Select Payment Method (ClickPesa):'}
+                  {language === 'sw' ? 'Chagua Njia ya Malipo:' : 'Select Payment Method:'}
                 </Text>
 
                 <View style={styles.methodsGrid}>
@@ -445,9 +419,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               </View>
 
               {/* 4. PAYER PHONE INPUT */}
-              {selectedMethod !== 'CARD' && selectedMethod !== 'CASH_ON_DELIVERY' && (
-                <View style={styles.phoneSection}>
-                  <Text style={styles.sectionHeading}>
+              <View style={styles.phoneSection}>
+                <Text style={styles.sectionHeading}>
                     {language === 'sw' ? 'Nambari ya Simu ya Malipo (Tanzania):' : 'Mobile Money Phone Number:'}
                   </Text>
                   <View style={styles.phoneInputWrap}>
@@ -466,7 +439,6 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                       : 'You will receive a USSD push notification on your phone to confirm your PIN.'}
                   </Text>
                 </View>
-              )}
 
               {/* 5. PAY BUTTON */}
               <TouchableOpacity
@@ -482,7 +454,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                     <Ionicons name="lock-closed" size={18} color="#ffffff" />
                     <Text style={styles.payBtnText}>
                       {language === 'sw'
-                        ? `Lipa TZS ${payableAmount.toLocaleString()} ${selectedMethod === 'CASH_ON_DELIVERY' ? 'kwa Fedha Taslimu' : 'Sasa'} →`
+                        ? `Lipa TZS ${payableAmount.toLocaleString()} Sasa →`
                         : `Pay TZS ${payableAmount.toLocaleString()} via ${(paymentMethods.find((m) => m.code === selectedMethod)?.name || selectedMethod)} →`}
                     </Text>
                   </>

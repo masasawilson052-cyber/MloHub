@@ -254,6 +254,210 @@ async function runDemoReadinessAudit() {
       : 'ApplicationRepository permitted submission of empty application.'
   );
 
+  // 13. P0A: Standard Order Creation Authority & Single-Branch Cart
+  const orderRepoContent = fs.readFileSync(path.join(__dirname, '..', 'repositories/orders.repository.ts'), 'utf8');
+  const cartContextContent = fs.readFileSync(path.join(__dirname, '..', 'context/CartContext.tsx'), 'utf8');
+  const p0aPassed =
+    orderRepoContent.includes('create_order_secure') &&
+    orderRepoContent.includes('!order.branchId') &&
+    cartContextContent.includes('branchId') &&
+    cartContextContent.includes('isDifferentBranch');
+
+  recordCheck(
+    'P0A-ORDER-AUTH',
+    'Standard Orders Require Branch ID & Single-Branch Cart Invariant',
+    'Order Authority',
+    p0aPassed,
+    p0aPassed
+      ? 'Orders require branchId, invoke create_order_secure, and enforce single-branch cart.'
+      : 'Order authority invariant failed.'
+  );
+
+  // 14. P0B: Restaurant Queue Payment-Aware Acceptance
+  const incomingOrdersContent = fs.readFileSync(path.join(__dirname, '..', 'components/restaurant/IncomingOrdersPanel.tsx'), 'utf8');
+  const p0bPassed =
+    incomingOrdersContent.includes('Awaiting Payment') &&
+    incomingOrdersContent.includes('disabled={!isPaid}');
+
+  recordCheck(
+    'P0B-QUEUE-PAYMENT',
+    'Restaurant Order Queue Is Payment-Aware',
+    'Operational Authority',
+    p0bPassed,
+    p0bPassed
+      ? 'Unpaid pending orders show Awaiting Payment and cannot be accepted until paid.'
+      : 'Restaurant queue permits accepting unpaid orders.'
+  );
+
+  // 15. P0C & P0D: PaymentCheckoutModal Channels & Exact Reservation Deposit
+  const paymentModalContent = fs.readFileSync(path.join(__dirname, '..', 'components/PaymentCheckoutModal.tsx'), 'utf8');
+  const p0cPassed =
+    !paymentModalContent.includes("'CARD'") &&
+    !paymentModalContent.includes("'CASH_ON_DELIVERY'") &&
+    paymentModalContent.includes('customMealRequestId') &&
+    paymentModalContent.includes('quoteId');
+
+  recordCheck(
+    'P0C-CHECKOUT-MODAL',
+    'Payment Checkout Excludes Unsupported Channels (No CARD/COD)',
+    'Financial Integrity',
+    p0cPassed,
+    p0cPassed
+      ? 'Only mobile money channels supported; CARD and COD purged.'
+      : 'Payment modal contains unintegrated payment methods.'
+  );
+
+  // 16. P0E & P0F: Custom Meal Quote Conversion & Input Cleanup
+  const customTabContent = fs.readFileSync(path.join(__dirname, '..', 'app/(tabs)/custom.tsx'), 'utf8');
+  const p0ePassed =
+    customTabContent.includes('convertCustomMealToOrder') &&
+    customTabContent.includes('PaymentCheckoutModal') &&
+    !customTabContent.includes("useState('15000')") &&
+    !customTabContent.includes("useState('Mikocheni')");
+
+  recordCheck(
+    'P0E-CUSTOM-MEAL',
+    'Custom Meal Quote Conversion and Form Input Truth',
+    'Feature Authority',
+    p0ePassed,
+    p0ePassed
+      ? 'Quotes convert to canonical orders via payment modal; form contains no fake defaults.'
+      : 'Custom meal workflow invariant failed.'
+  );
+
+  // 17. P1: Clean Registration Initial States
+  const regCustomerContent = fs.readFileSync(path.join(__dirname, '..', 'app/auth/register-customer.tsx'), 'utf8');
+  const regRestaurantContent = fs.readFileSync(path.join(__dirname, '..', 'app/auth/register-restaurant.tsx'), 'utf8');
+  const p1Passed =
+    regCustomerContent.includes("useState('')") &&
+    regCustomerContent.includes("agreeTerms, setAgreeTerms] = useState(false)") &&
+    regCustomerContent.includes("dietaryPreferences: []") &&
+    regRestaurantContent.includes("cuisine, setCuisine] = useState('')") &&
+    regRestaurantContent.includes("neighborhood, setNeighborhood] = useState('')");
+
+  recordCheck(
+    'P1-REG-DEFAULTS',
+    'Registration Screens Have Zero Fabricated Initial Defaults',
+    'Data Truthfulness',
+    p1Passed,
+    p1Passed
+      ? 'Customer and restaurant registration start with clean, un-fabricated fields.'
+      : 'Registration screens contain fabricated pre-filled values.'
+  );
+
+  // 18. P2: Notification Preferences Persistence
+  const p2Passed =
+    notifContextContent.includes('NotificationPreferencesRepository.updatePreference') &&
+    notifContextContent.includes('Promise.allSettled');
+
+  recordCheck(
+    'P2-NOTIF-PREFS',
+    'Notification Preferences Persist via Repository with Safe ClearAll',
+    'Data Persistence',
+    p2Passed,
+    p2Passed
+      ? 'Preferences persist to repository and clearAll uses Promise.allSettled.'
+      : 'Notification preferences do not persist or handle partial clear failures.'
+  );
+
+  // 19. P3: Expo Splash Screen Module & Config
+  const packageJsonContent = fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8');
+  const appJsonContent = fs.readFileSync(path.join(__dirname, '..', 'app.json'), 'utf8');
+  const p3Passed =
+    packageJsonContent.includes('expo-splash-screen') &&
+    appJsonContent.includes('expo-splash-screen') &&
+    appJsonContent.includes('splash-icon.png');
+
+  recordCheck(
+    'P3-SPLASH-CONFIG',
+    'Expo Splash Screen Installed and Configured',
+    'Native Configuration',
+    p3Passed,
+    p3Passed
+      ? 'expo-splash-screen installed in package.json and configured in app.json plugins.'
+      : 'Splash screen configuration missing.'
+  );
+
+  // 20. P4: Selected Branch Operations & Honest Fallbacks
+  const p4Passed =
+    settingsContent.includes('selectedBranchId?: string') &&
+    settingsContent.includes('Address not configured') &&
+    !settingsContent.includes('Dar es Salaam, Tanzania');
+
+  recordCheck(
+    'P4-BRANCH-OPS',
+    'Restaurant Settings Target Selected Branch and Honest Addresses',
+    'Operational Honesty',
+    p4Passed,
+    p4Passed
+      ? 'Settings target selected branch with honest "Address not configured" fallback.'
+      : 'Restaurant settings hardcode default branch or generic Dar es Salaam address.'
+  );
+
+  // 21. P6: Custom Meal Quote Fulfillment Mode Truth
+  const p6Passed =
+    portalContent.includes('targetInv?.request?.fulfillmentMode') &&
+    portalContent.includes('submitStructuredQuote');
+
+  recordCheck(
+    'P6-QUOTE-FULFILLMENT',
+    'Custom Meal Quotes Respect Request Fulfillment Mode',
+    'Feature Truthfulness',
+    p6Passed,
+    p6Passed
+      ? 'Kitchen quotes preserve the customer requested fulfillment mode (Pickup vs Delivery).'
+      : 'Kitchen quotes force RESTAURANT_DELIVERY arbitrarily.'
+  );
+
+  // 22. P8: Dead Fake Admin Handlers Purged
+  const adminIndexContent = fs.readFileSync(path.join(__dirname, '..', 'app/admin/index.tsx'), 'utf8');
+  const p8Passed =
+    !adminIndexContent.includes('handleSendBroadcast') &&
+    !adminIndexContent.includes('handleToggleSuspendUser');
+
+  recordCheck(
+    'P8-ADMIN-HANDLERS',
+    'Dead Fake Handlers Purged from Admin Portal',
+    'Code Truthfulness',
+    p8Passed,
+    p8Passed
+      ? 'Zero simulated or dead broadcast/suspension handlers in admin portal.'
+      : 'Dead fake handlers remain in admin portal.'
+  );
+
+  // 23. P9: Partner Workspace Failure Fails Closed
+  const p9Passed =
+    partnerContent.includes('return; // Fail closed') &&
+    partnerContent.includes('Workspace Access Error');
+
+  recordCheck(
+    'P9-PARTNER-FAIL-CLOSED',
+    'Partner Route Fails Closed on Workspace Switch Failure',
+    'Workspace Isolation',
+    p9Passed,
+    p9Passed
+      ? 'Partner route halts navigation and presents error on workspace switch failure.'
+      : 'Partner route navigates despite workspace switch failure.'
+  );
+
+  // 24. P10: Internal Engineering Jargon Purged from Visible Portals
+  const sidebarContent = fs.readFileSync(path.join(__dirname, '..', 'components/restaurant/RestaurantSidebar.tsx'), 'utf8');
+  const platformAnalyticsContent = fs.readFileSync(path.join(__dirname, '..', 'components/admin/PlatformAnalytics.tsx'), 'utf8');
+  const p10Passed =
+    !sidebarContent.includes('Stage 3 RLS Protected') &&
+    sidebarContent.includes('Secure restaurant workspace') &&
+    !platformAnalyticsContent.includes('scheduled for Pack 4');
+
+  recordCheck(
+    'P10-JARGON-REMOVAL',
+    'Internal Engineering Jargon Purged from UI Components',
+    'User Experience Truthfulness',
+    p10Passed,
+    p10Passed
+      ? 'Zero internal stage/pack labels in visible restaurant and admin interfaces.'
+      : 'Internal engineering jargon detected in UI components.'
+  );
+
   // Print Summary
   console.log('\n============================================================');
   console.log('📊 DEMO READINESS AUDIT SUMMARY');

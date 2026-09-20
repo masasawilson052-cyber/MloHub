@@ -77,7 +77,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="map-outline" size={20} color="#0284c7" />
-          <Text style={styles.cardTitle}>Pilot Delivery Coverage Zones (Dar es Salaam)</Text>
+          <Text style={styles.cardTitle}>Pilot Delivery Coverage Zones (Dar es Salaam) — PLANNING REFERENCE (NOT LIVE COVERAGE)</Text>
         </View>
 
         <View style={styles.zonesList}>

@@ -22,12 +22,15 @@ import { Typography } from '../../theme/typography';
 import { Button } from '../ui/Button';
 import { PriceText } from '../ui/PriceText';
 import { Badge } from '../ui/Badge';
-import { PaymentMethodCode } from '../../db/types';
+import { PaymentMethodCode, PaymentTransactionEntity } from '../../db/types';
+import { Order } from '../../types/domain';
+import { PaymentCheckoutModal } from '../PaymentCheckoutModal';
 
 export interface OrderReviewModalProps {
   visible: boolean;
   onClose: () => void;
   onOrderConfirmed: (orderId: string) => void;
+  isVerifiedRestaurant?: boolean;
 }
 
 type CheckoutStep = 'REVIEW' | 'PROCESSING' | 'CONFIRMED' | 'FAILED';
@@ -36,14 +39,17 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   visible,
   onClose,
   onOrderConfirmed,
+  isVerifiedRestaurant = false,
 }) => {
   const { user } = useAuth();
   const {
     items,
     restaurantId,
     restaurantName,
+    branchId,
     clearCart,
     getOrderQuote,
+    pricingDisclaimer,
     totalItems,
   } = useCart();
 
@@ -52,6 +58,8 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   const [deliveryAddress, setDeliveryAddress] = useState(user?.location || '');
   const [payerPhone, setPayerPhone] = useState(user?.phone || '');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode>('MPESA');
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [confirmedOrderId, setConfirmedOrderId] = useState<string>('');
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string>('');
 
@@ -70,11 +78,20 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
   if (!visible) return null;
 
-  const handlePlaceOrder = async () => {
+  const handleProceedToPayment = async () => {
     if (!user?.id) {
       Alert.alert(
         'Sign In Required',
         'Please sign in or register to place your order.'
+      );
+      return;
+    }
+
+    const effectiveBranchId = branchId || (items.length > 0 ? items[0].branchId : null);
+    if (!effectiveBranchId) {
+      Alert.alert(
+        'Branch Selection Required',
+        'Please select a specific restaurant branch before continuing to checkout.'
       );
       return;
     }
@@ -90,7 +107,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     if (!payerPhone.trim()) {
       Alert.alert(
         'Phone Number Required',
-        'Please enter a contact phone number for delivery and payment.'
+        'Please enter a contact phone number for mobile money payment.'
       );
       return;
     }
@@ -101,8 +118,9 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
       const order = await OrderService.submitStandardMenuOrder({
         userId: user.id,
         customerName: user.fullName,
-        customerPhone: payerPhone,
+        customerPhone: payerPhone.trim(),
         restaurantId: restaurantId || '',
+        branchId: effectiveBranchId,
         items: items.map((it) => ({
           menuItemId: it.dishId,
           name: it.dishName,
@@ -111,14 +129,15 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           totalPriceTzs: it.priceTzs * it.quantity,
         })),
         diningOption: fulfillment,
-        deliveryAddress: fulfillment === 'Delivery' ? deliveryAddress : undefined,
+        deliveryAddress: fulfillment === 'Delivery' ? deliveryAddress.trim() : undefined,
         specialInstructions: items.map((it) => it.notes).filter(Boolean).join('; ') || undefined,
       });
 
+      setCreatedOrder(order);
       setConfirmedOrderId(order.id);
       setConfirmedOrderNumber(order.orderNumber || order.id);
-      clearCart();
-      setStep('CONFIRMED');
+      setStep('REVIEW');
+      setShowPaymentModal(true);
     } catch (err: any) {
       console.error('Failed to submit standard menu order:', err);
       setStep('REVIEW');
@@ -126,9 +145,24 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     }
   };
 
+  const handlePaymentSuccess = (payment: PaymentTransactionEntity) => {
+    setShowPaymentModal(false);
+    clearCart();
+    setStep('CONFIRMED');
+  };
+
+  const handlePaymentClose = () => {
+    setShowPaymentModal(false);
+    Alert.alert(
+      'Payment Incomplete',
+      'Payment was not completed. Your order has been registered as PENDING and you can retry payment anytime from your order history.'
+    );
+  };
+
   const handleFinish = () => {
     onOrderConfirmed(confirmedOrderId);
     setStep('REVIEW');
+    setCreatedOrder(null);
     onClose();
   };
 
@@ -169,8 +203,10 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               {/* Restaurant Banner */}
               <View style={styles.sectionCard}>
                 <Text style={styles.sectionLabel}>Restaurant</Text>
-                <Text style={styles.restaurantName}>{restaurantName || 'Mama Amina Biryani'}</Text>
-                <Badge label="Verified Kitchen" variant="success" size="sm" style={styles.verifiedBadge} />
+                <Text style={styles.restaurantName}>{restaurantName || 'Restaurant'}</Text>
+                {isVerifiedRestaurant ? (
+                  <Badge label="Verified Kitchen" variant="success" size="sm" style={styles.verifiedBadge} />
+                ) : null}
               </View>
 
               {/* Fulfillment Option */}
@@ -228,12 +264,12 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
               {/* Payment Method */}
               <View style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>Payment Method (Sandbox / Demo)</Text>
+                <Text style={styles.sectionLabel}>Payment Method (Mobile Money)</Text>
                 <View style={styles.paymentMethodsGrid}>
                   {[
-                    { id: 'MPESA', label: 'M-Pesa', emoji: '🟢' },
-                    { id: 'TIGO_PESA', label: 'Tigo Pesa', emoji: '🔵' },
+                    { id: 'MPESA', label: 'Vodacom M-Pesa', emoji: '🟢' },
                     { id: 'AIRTEL_MONEY', label: 'Airtel Money', emoji: '🔴' },
+                    { id: 'MIXX_BY_YAS', label: 'Mixx by Yas', emoji: '🔵' },
                     { id: 'HALOPESA', label: 'HaloPesa', emoji: '🟠' },
                   ].map((pm) => (
                     <TouchableOpacity
@@ -275,11 +311,11 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               {/* Bill Breakdown */}
               <View style={styles.billCard}>
                 <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Subtotal</Text>
+                  <Text style={styles.billLabel}>Estimated Subtotal</Text>
                   <PriceText amountTzs={currentQuote.subtotalTzs} size="sm" />
                 </View>
                 <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Delivery Fee</Text>
+                  <Text style={styles.billLabel}>Estimated Delivery Fee</Text>
                   <PriceText amountTzs={currentQuote.deliveryFeeTzs} size="sm" />
                 </View>
                 <View style={styles.billRow}>
@@ -287,13 +323,16 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                   <PriceText amountTzs={currentQuote.serviceFeeTzs} size="sm" />
                 </View>
                 <View style={[styles.billRow, styles.billTotalRow]}>
-                  <Text style={styles.billTotalLabel}>Total</Text>
+                  <Text style={styles.billTotalLabel}>Estimated Total</Text>
                   <PriceText
                     amountTzs={currentQuote.totalTzs}
                     size="lg"
                     color={Colors.primaryDark}
                   />
                 </View>
+                <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 6, textAlign: 'center' }}>
+                  {pricingDisclaimer || 'Estimate — final total is revalidated by the restaurant branch.'}
+                </Text>
               </View>
             </ScrollView>
           )}
@@ -301,9 +340,9 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           {step === 'PROCESSING' && (
             <View style={styles.processingContainer}>
               <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.processingTitle}>Placing Your Order...</Text>
+              <Text style={styles.processingTitle}>Creating Order...</Text>
               <Text style={styles.processingSub}>
-                Connecting to {restaurantName}'s kitchen display
+                Securing order with {restaurantName || 'the kitchen'}
               </Text>
             </View>
           )}
@@ -313,13 +352,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               <View style={styles.successIconCircle}>
                 <Ionicons name="checkmark-sharp" size={40} color={Colors.success} />
               </View>
-              <Text style={styles.confirmedTitle}>Order Received! ✓</Text>
+              <Text style={styles.confirmedTitle}>Payment Confirmed! ✓</Text>
               <Text style={styles.confirmedRestaurant}>{restaurantName || 'Restaurant'}</Text>
               <View style={styles.orderIdPill}>
                 <Text style={styles.orderIdText}>Order #{confirmedOrderNumber || confirmedOrderId}</Text>
               </View>
               <Text style={styles.confirmedMessage}>
-                Your order has been transmitted directly to the kitchen display. Kitchen confirmation pending (~2 mins).
+                Your order is awaiting restaurant acceptance.
               </Text>
             </View>
           )}
@@ -328,8 +367,8 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           <View style={styles.footer}>
             {step === 'REVIEW' && (
               <Button
-                title={`Confirm & Place Order (${totalItems} items)`}
-                onPress={handlePlaceOrder}
+                title={`Continue to Secure Payment (${totalItems} items)`}
+                onPress={handleProceedToPayment}
                 variant="primary"
                 size="lg"
                 fullWidth={true}
@@ -357,6 +396,22 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           </View>
         </View>
       </View>
+
+      {createdOrder && (
+        <PaymentCheckoutModal
+          visible={showPaymentModal}
+          onClose={handlePaymentClose}
+          onPaymentSuccess={handlePaymentSuccess}
+          restaurantName={restaurantName || 'Restaurant'}
+          restaurantId={createdOrder.restaurantId}
+          orderId={createdOrder.id}
+          amountTzs={createdOrder.subtotalTzs}
+          deliveryFee={createdOrder.deliveryFeeTzs}
+          serviceFee={createdOrder.serviceFeeTzs}
+          initialMethodCode={selectedMethod}
+          initialPhone={payerPhone}
+        />
+      )}
     </Modal>
   );
 };
