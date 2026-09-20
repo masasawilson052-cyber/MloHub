@@ -263,7 +263,7 @@ export default function CustomMealScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.eyebrow}>
-            {language === 'sw' ? 'MIPANGO YA CHAKULA MAALUM (PACK 4A)' : 'BESPOKE CHEF DINING (PACK 4A)'}
+            {language === 'sw' ? 'MIPANGO YA CHAKULA MAALUM' : 'BESPOKE CHEF DINING'}
           </Text>
           <Text style={styles.title}>
             {language === 'sw' ? 'Omba Mlo Maalum' : 'Request a Custom Meal'}

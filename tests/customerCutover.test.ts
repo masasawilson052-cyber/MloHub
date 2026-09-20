@@ -31,6 +31,7 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
     index: path.resolve(__dirname, '../app/(tabs)/index.tsx'),
     explore: path.resolve(__dirname, '../app/(tabs)/explore.tsx'),
     bookings: path.resolve(__dirname, '../app/(tabs)/bookings.tsx'),
+    orders: path.resolve(__dirname, '../app/(tabs)/orders.tsx'),
     custom: path.resolve(__dirname, '../app/(tabs)/custom.tsx'),
     profile: path.resolve(__dirname, '../app/(tabs)/profile.tsx'),
     restaurantDetail: path.resolve(__dirname, '../app/restaurant/[id].tsx'),
@@ -48,6 +49,7 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
     index: fs.readFileSync(files.index, 'utf8'),
     explore: fs.readFileSync(files.explore, 'utf8'),
     bookings: fs.readFileSync(files.bookings, 'utf8'),
+    orders: fs.readFileSync(files.orders, 'utf8'),
     custom: fs.readFileSync(files.custom, 'utf8'),
     profile: fs.readFileSync(files.profile, 'utf8'),
     restaurantDetail: fs.readFileSync(files.restaurantDetail, 'utf8'),
@@ -99,8 +101,8 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
     'Criterion C2: bookings.tsx does not use RESTAURANTS.slice'
   );
   assert(
-    sources.bookings.includes('filteredOrders') && sources.bookings.includes('filteredReservations'),
-    'Criterion C3: bookings.tsx filters real customOrders and reservations'
+    sources.bookings.includes('filteredReservations'),
+    'Criterion C3: bookings.tsx filters real reservations with status segmentation'
   );
   assert(
     sources.bookings.includes('cancelReservation'),
@@ -283,21 +285,20 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
   );
 
   assert(
-    sources.bookings.includes('orders,') &&
+    sources.orders.includes('OrderRepository') &&
     sources.bookings.includes('useMloHubDB()'),
-    'Criterion L5: bookings.tsx consumes standard orders from useMloHubDB()'
+    'Criterion L5: Dedicated orders.tsx consumes OrderRepository and bookings.tsx consumes useMloHubDB()'
   );
 
   assert(
-    sources.bookings.includes("'CUSTOM_MEALS'") &&
-    sources.bookings.includes('filteredCustomOrders'),
-    'Criterion L6: bookings.tsx cleanly separates standard orders and custom meal requests'
+    sources.orders.includes('SegmentedControl') &&
+    sources.bookings.includes('filteredReservations'),
+    'Criterion L6: orders.tsx segments active/past orders and bookings.tsx segments reservation statuses'
   );
 
   assert(
-    sources.bookings.includes('<OrderTrackingTimeline') &&
-    sources.bookings.includes('estimatedPrepMinutes'),
-    'Criterion L7: bookings.tsx embeds OrderTrackingTimeline with preparation minutes'
+    sources.orders.includes('estimatedPrepMinutes'),
+    'Criterion L7: orders.tsx embeds preparation minutes and kitchen progression'
   );
 
   assert(

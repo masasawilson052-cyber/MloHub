@@ -26,6 +26,7 @@ import { Price } from '../../components/ui/Price';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatTzs } from '../../utils/formatters';
+import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
 
 const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
@@ -413,52 +414,17 @@ export default function OrdersScreen() {
                   <Text style={styles.timelineTitle}>
                     {language === 'sw' ? 'Hali ya Jikoni' : 'Kitchen Status Progression'}
                   </Text>
-                  <View style={styles.timelineSteps}>
-                    {[
-                      { key: 'PENDING', labelEn: 'Order Received', labelSw: 'Imepokelewa' },
-                      { key: 'ACCEPTED', labelEn: 'Accepted by Kitchen', labelSw: 'Imekubaliwa' },
-                      { key: 'PREPARING', labelEn: 'Cooking in Progress', labelSw: 'Inapikwa' },
-                      { key: 'READY', labelEn: 'Ready for Handover', labelSw: 'Tayari' },
-                      { key: 'COMPLETED', labelEn: 'Completed', labelSw: 'Imekamilika' },
-                    ].map((step, idx) => {
-                      const stepIndices: Record<string, number> = {
-                        PENDING: 0,
-                        ACCEPTED: 1,
-                        PREPARING: 2,
-                        READY: 3,
-                        COMPLETED: 4,
-                      };
-                      const currentIdx = stepIndices[selectedOrder.status] ?? (selectedOrder.status === 'CANCELLED' ? -1 : 0);
-                      const isDone = currentIdx >= idx;
-                      const isCurrent = currentIdx === idx;
-
-                      return (
-                        <View key={step.key} style={styles.timelineStepRow}>
-                          <View
-                            style={[
-                              styles.timelineDot,
-                              isDone && styles.timelineDotDone,
-                              isCurrent && styles.timelineDotCurrent,
-                            ]}
-                          >
-                            <Ionicons
-                              name={isDone ? 'checkmark' : 'ellipse'}
-                              size={10}
-                              color={isDone ? '#FFFFFF' : Colors.muted}
-                            />
-                          </View>
-                          <Text
-                            style={[
-                              styles.timelineStepText,
-                              isCurrent && styles.timelineStepTextCurrent,
-                            ]}
-                          >
-                            {language === 'sw' ? step.labelSw : step.labelEn}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
+                  {selectedOrder.estimatedPrepMinutes ? (
+                    <Text style={{ fontSize: 12, color: '#64748B', marginBottom: Spacing.sm }}>
+                      {language === 'sw'
+                        ? `Muda wa maandalizi: takriban dakika ${selectedOrder.estimatedPrepMinutes}`
+                        : `Estimated preparation: ~${selectedOrder.estimatedPrepMinutes} mins`}
+                    </Text>
+                  ) : null}
+                  <OrderTrackingTimeline
+                    status={selectedOrder.status}
+                    estimatedMinutes={selectedOrder.estimatedPrepMinutes}
+                  />
                 </View>
 
                 {/* Detailed Breakdown */}

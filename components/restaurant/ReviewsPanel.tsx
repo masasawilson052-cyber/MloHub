@@ -82,31 +82,33 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
           </Text>
         </View>
 
-        <View style={styles.dimensionsCol}>
-          <View style={styles.dimensionRow}>
-            <Text style={styles.dimensionLabel}>Food Quality</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '96%' }]} />
+        {reviews.length > 0 ? (
+          <View style={styles.dimensionsCol}>
+            <View style={styles.dimensionRow}>
+              <Text style={styles.dimensionLabel}>Food Quality</Text>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${Math.min(100, Math.round((averageRating / 5) * 100))}%` }]} />
+              </View>
+              <Text style={styles.dimensionScore}>{averageRating.toFixed(1)}</Text>
             </View>
-            <Text style={styles.dimensionScore}>4.8</Text>
-          </View>
 
-          <View style={styles.dimensionRow}>
-            <Text style={styles.dimensionLabel}>Value for Money</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '92%' }]} />
+            <View style={styles.dimensionRow}>
+              <Text style={styles.dimensionLabel}>Value for Money</Text>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${Math.min(100, Math.round((averageRating / 5) * 96))}%` }]} />
+              </View>
+              <Text style={styles.dimensionScore}>{averageRating.toFixed(1)}</Text>
             </View>
-            <Text style={styles.dimensionScore}>4.6</Text>
-          </View>
 
-          <View style={styles.dimensionRow}>
-            <Text style={styles.dimensionLabel}>Kitchen Speed</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '90%' }]} />
+            <View style={styles.dimensionRow}>
+              <Text style={styles.dimensionLabel}>Kitchen Speed</Text>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${Math.min(100, Math.round((averageRating / 5) * 94))}%` }]} />
+              </View>
+              <Text style={styles.dimensionScore}>{averageRating.toFixed(1)}</Text>
             </View>
-            <Text style={styles.dimensionScore}>4.5</Text>
           </View>
-        </View>
+        ) : null}
       </View>
 
       {/* Reviews List */}

@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
@@ -21,11 +21,11 @@ import { hasAdminAccess } from '../../db/types';
 import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { AccountSettingsModal } from '../../components/profile/AccountSettingsModal';
 import { PreferencesModal } from '../../components/profile/PreferencesModal';
-import { FavoritesModal } from '../../components/profile/FavoritesModal';
 import { LanguageModal } from '../../components/LanguageModal';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ showLanguage?: string }>();
   const { t, language, setLanguage } = useLanguage();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
@@ -37,8 +37,7 @@ export default function ProfileScreen() {
   // Modal States
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
-  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
-  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(params.showLanguage === 'true');
 
   // Profile data
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -150,21 +149,21 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuRow}
-            onPress={() => setIsFavoritesModalOpen(true)}
+          <View
+            style={[styles.menuRow, { opacity: 0.65 }]}
             accessible={true}
-            accessibilityRole="button"
           >
             <View style={styles.rowIconCircle}>
-              <Ionicons name="heart-outline" size={20} color={Colors.error} />
+              <Ionicons name="heart-outline" size={20} color={Colors.muted} />
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>Saved Favorites</Text>
-              <Text style={styles.rowSubtitle}>{favorites.length} restaurants saved</Text>
+              <Text style={styles.rowSubtitle}>Deferred • Coming in future update</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-          </TouchableOpacity>
+            <View style={styles.deferredBadge}>
+              <Text style={styles.deferredBadgeText}>Deferred</Text>
+            </View>
+          </View>
 
           <TouchableOpacity
             style={styles.menuRow}
@@ -298,7 +297,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>About MloHub</Text>
-              <Text style={styles.rowSubtitle}>Version 1.0.0 (Stage 5 Investor Build)</Text>
+              <Text style={styles.rowSubtitle}>Version 1.0.0 (Official Build)</Text>
             </View>
           </View>
         </View>
@@ -335,15 +334,6 @@ export default function ProfileScreen() {
         onClose={() => setIsPreferencesModalOpen(false)}
         initialPreferences={preferences}
         onSave={handleSavePreferences}
-      />
-
-      {/* Favorites Modal */}
-      <FavoritesModal
-        visible={isFavoritesModalOpen}
-        onClose={() => setIsFavoritesModalOpen(false)}
-        favoriteIds={favorites}
-        onRemoveFavorite={toggleFavorite}
-        restaurants={restaurants}
       />
 
       {/* Language Modal */}
@@ -435,5 +425,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: Colors.error,
+  },
+  deferredBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.full,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  deferredBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.muted,
   },
 });

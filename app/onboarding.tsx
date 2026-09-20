@@ -10,7 +10,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useLanguage } from '../context/LanguageContext';
@@ -25,12 +25,14 @@ const SLIDE_IMAGES = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ slide?: string }>();
   const { language } = useLanguage();
   const { setOnboardingCompleted } = useMloHubDB();
   const { width, height } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const initialSlide = params.slide ? Math.min(2, Math.max(0, parseInt(params.slide, 10))) : 0;
+  const [currentSlide, setCurrentSlide] = useState(initialSlide);
 
   const slides = [
     {
@@ -118,50 +120,6 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-
-        {/* Slide 2 Floating Preview Overlays */}
-        {currentSlide === 1 && (
-          <View style={styles.slide2Overlays} pointerEvents="none">
-            <View style={styles.searchPillFloating}>
-              <Ionicons name="search" size={14} color="#718096" />
-              <Text style={styles.searchPillText}>Chicken Biryani</Text>
-            </View>
-
-            <View style={styles.bestMatchCard}>
-              <Text style={styles.bestMatchEyebrow}>Best Match</Text>
-              <View style={styles.bestMatchRow}>
-                <Ionicons name="star" size={14} color="#D97706" />
-                <Text style={styles.bestMatchValue}>4.8 (120+)</Text>
-              </View>
-              <View style={styles.bestMatchRow}>
-                <Ionicons name="location" size={14} color="#D97706" />
-                <Text style={styles.bestMatchValue}>2.3 km</Text>
-              </View>
-              <View style={styles.bestMatchRow}>
-                <Ionicons name="pricetag" size={14} color="#D97706" />
-                <Text style={styles.bestMatchValue}>TZS 12,000</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Slide 3 Floating Service Badges */}
-        {currentSlide === 2 && (
-          <View style={styles.slide3Badges} pointerEvents="none">
-            <View style={styles.serviceChipWhite}>
-              <Ionicons name="radio-button-on" size={14} color="#FA541C" />
-              <Text style={styles.serviceChipText}>Order</Text>
-            </View>
-            <View style={styles.serviceChipWhite}>
-              <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
-              <Text style={styles.serviceChipText}>Reserve</Text>
-            </View>
-            <View style={styles.serviceChipViolet}>
-              <Ionicons name="sparkles" size={14} color="#6C5CE7" />
-              <Text style={[styles.serviceChipText, { color: '#6C5CE7' }]}>Custom Meals</Text>
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Bottom Content Sheet (Ivory/White with Organic Curved Header) */}

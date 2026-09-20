@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   ScrollView,
   View,
@@ -18,52 +18,24 @@ import { ReservationModal } from '../../components/ReservationModal';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
-import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { PriceText } from '../../components/ui/PriceText';
 
-type ActivityTab = 'ORDERS' | 'CUSTOM_MEALS' | 'RESERVATIONS';
-type StatusFilter = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+type BookingStatusTab = 'UPCOMING' | 'PAST' | 'CANCELLED';
 
 export default function BookingsScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
-  const { orders, reservations, customOrders, restaurants, cancelReservation } = useMloHubDB();
+  const { reservations, restaurants, cancelReservation } = useMloHubDB();
 
-  const [activeTab, setActiveTab] = useState<ActivityTab>('ORDERS');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
+  const [activeTab, setActiveTab] = useState<BookingStatusTab>('UPCOMING');
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-
-  const filteredOrders = orders.filter((o) => {
-    const st = (o.status || '').toUpperCase();
-    if (statusFilter === 'ACTIVE') {
-      return st === 'PENDING' || st === 'ACCEPTED' || st === 'PREPARING' || st === 'READY';
-    } else if (statusFilter === 'COMPLETED') {
-      return st === 'COMPLETED';
-    } else if (statusFilter === 'CANCELLED') {
-      return st === 'CANCELLED' || st === 'REJECTED';
-    }
-    return false;
-  });
-
-  const filteredCustomOrders = customOrders.filter((o) => {
-    const st = (o.status || '').toUpperCase();
-    if (statusFilter === 'ACTIVE') {
-      return st === 'PENDING' || st === 'ACCEPTED' || st === 'PREPARING' || st === 'READY' || st.includes('PENDING');
-    } else if (statusFilter === 'COMPLETED') {
-      return st === 'DELIVERED' || st === 'COMPLETED';
-    } else if (statusFilter === 'CANCELLED') {
-      return st === 'CANCELLED' || st === 'REJECTED';
-    }
-    return false;
-  });
 
   const filteredReservations = reservations.filter((r) => {
     const st = (r.status || '').toLowerCase();
-    if (statusFilter === 'ACTIVE') {
+    if (activeTab === 'UPCOMING') {
       return (
         st === 'pending' ||
         st === 'pending_restaurant_approval' ||
@@ -71,17 +43,13 @@ export default function BookingsScreen() {
         st === 'confirmed' ||
         st === 'seated'
       );
-    } else if (statusFilter === 'COMPLETED') {
+    } else if (activeTab === 'PAST') {
       return st === 'completed';
-    } else if (statusFilter === 'CANCELLED') {
+    } else if (activeTab === 'CANCELLED') {
       return st === 'cancelled' || st === 'rejected' || st === 'no_show' || st === 'expired';
     }
     return false;
   });
-
-  const handleCall = (phone: string) => {
-    Linking.openURL(`tel:${phone}`);
-  };
 
   const handleDirections = (address: string) => {
     const encoded = encodeURIComponent(address + ', Dar es Salaam');
@@ -126,328 +94,152 @@ export default function BookingsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>
-            {language === 'sw' ? 'SHUGHULI ZAKO' : 'CUSTOMER ACTIVITY'}
-          </Text>
           <Text style={styles.title}>
-            {language === 'sw' ? 'Maagizo & Meza' : 'Orders & Reservations'}
+            {language === 'sw' ? 'Nafasi za Meza' : 'Table Bookings'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {language === 'sw'
+              ? 'Dhibiti nafasi zako za meza zilizothibitishwa migahawani'
+              : 'Manage your dining reservations and table bookings'}
           </Text>
         </View>
 
-        {/* Primary Activity Tabs */}
+        {/* Reservation Segmented Control: Upcoming | Past | Cancelled */}
         <View style={styles.segmentedContainer}>
           <TouchableOpacity
-            style={[styles.segmentBtn, activeTab === 'ORDERS' && styles.segmentBtnActive]}
-            onPress={() => setActiveTab('ORDERS')}
+            style={[styles.segmentBtn, activeTab === 'UPCOMING' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('UPCOMING')}
             accessible={true}
             accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'ORDERS' }}
+            accessibilityState={{ selected: activeTab === 'UPCOMING' }}
           >
-            <Ionicons
-              name="fast-food-outline"
-              size={16}
-              color={activeTab === 'ORDERS' ? Colors.white : Colors.textSecondary}
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                activeTab === 'ORDERS' && styles.segmentTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {language === 'sw' ? 'Maagizo' : 'Orders'}
+            <Text style={[styles.segmentText, activeTab === 'UPCOMING' && styles.segmentTextActive]}>
+              {language === 'sw' ? 'Zinazokuja' : 'Upcoming'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.segmentBtn, activeTab === 'CUSTOM_MEALS' && styles.segmentBtnActive]}
-            onPress={() => setActiveTab('CUSTOM_MEALS')}
+            style={[styles.segmentBtn, activeTab === 'PAST' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('PAST')}
             accessible={true}
             accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'CUSTOM_MEALS' }}
+            accessibilityState={{ selected: activeTab === 'PAST' }}
           >
-            <Ionicons
-              name="restaurant-outline"
-              size={16}
-              color={activeTab === 'CUSTOM_MEALS' ? Colors.white : Colors.textSecondary}
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                activeTab === 'CUSTOM_MEALS' && styles.segmentTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {language === 'sw' ? 'Maombi Maalum' : 'Custom Meals'}
+            <Text style={[styles.segmentText, activeTab === 'PAST' && styles.segmentTextActive]}>
+              {language === 'sw' ? 'Zilizopita' : 'Past'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.segmentBtn, activeTab === 'RESERVATIONS' && styles.segmentBtnActive]}
-            onPress={() => setActiveTab('RESERVATIONS')}
+            style={[styles.segmentBtn, activeTab === 'CANCELLED' && styles.segmentBtnActive]}
+            onPress={() => setActiveTab('CANCELLED')}
             accessible={true}
             accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === 'RESERVATIONS' }}
+            accessibilityState={{ selected: activeTab === 'CANCELLED' }}
           >
-            <Ionicons
-              name="calendar-outline"
-              size={16}
-              color={activeTab === 'RESERVATIONS' ? Colors.white : Colors.textSecondary}
-              style={{ marginRight: 4 }}
-            />
-            <Text
-              style={[
-                styles.segmentText,
-                activeTab === 'RESERVATIONS' && styles.segmentTextActive,
-              ]}
-              numberOfLines={1}
-            >
-              {language === 'sw' ? 'Meza' : 'Bookings'}
+            <Text style={[styles.segmentText, activeTab === 'CANCELLED' && styles.segmentTextActive]}>
+              {language === 'sw' ? 'Zilizositishwa' : 'Cancelled'}
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Status Filter Chips */}
-        <View style={styles.statusChipsRow}>
-          {[
-            { id: 'ACTIVE', label: language === 'sw' ? 'Yanayoendelea' : 'Active / Upcoming' },
-            { id: 'COMPLETED', label: language === 'sw' ? 'Yaliyokamilika' : 'Completed' },
-            { id: 'CANCELLED', label: language === 'sw' ? 'Yaliyositishwa' : 'Cancelled' },
-          ].map((f) => {
-            const isSelected = statusFilter === f.id;
-            return (
-              <TouchableOpacity
-                key={f.id}
-                style={[styles.statusChip, isSelected && styles.statusChipActive]}
-                onPress={() => setStatusFilter(f.id as StatusFilter)}
-                accessible={true}
-                accessibilityRole="button"
-              >
-                <Text
-                  style={[
-                    styles.statusChipText,
-                    isSelected && styles.statusChipTextActive,
-                  ]}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* CONTENT: STANDARD RESTAURANT ORDERS */}
-        {activeTab === 'ORDERS' && (
-          <View style={styles.contentSection}>
-            {filteredOrders.map((order) => {
-              const st = (order.status || '').toUpperCase();
-              const isDelivered = st === 'COMPLETED';
-              const isCancelled = st === 'CANCELLED' || st === 'REJECTED';
-              const itemsSummary =
-                order.items && order.items.length > 0
-                  ? order.items.map((i) => `${i.quantity}x ${i.itemNameSnapshot}`).join(', ')
-                  : order.specialInstructions || 'Standard Restaurant Order';
-
-              return (
-                <View key={order.id} style={styles.orderCard}>
-                  <View style={styles.orderCardHeader}>
-                    <View style={styles.orderHeaderLeft}>
-                      <Text style={styles.orderIdText}>#{order.orderNumber || order.id.slice(0, 8)}</Text>
-                      <Text style={styles.orderRestaurantName}>{order.restaurantName || 'Restaurant'}</Text>
-                      <Text style={styles.orderDateText}>{new Date(order.createdAt).toLocaleDateString()}</Text>
-                    </View>
-                    <Badge
-                      label={order.status}
-                      variant={isDelivered ? 'success' : isCancelled ? 'neutral' : 'warning'}
-                      size="sm"
-                    />
-                  </View>
-
-                  <Text style={styles.orderItemsText}>{itemsSummary}</Text>
-                  <View style={styles.fulfillmentRow}>
-                    <Text style={styles.fulfillmentTag}>
-                      {order.fulfillmentType === 'Delivery' ? '🛵 Delivery' : order.fulfillmentType === 'Takeaway' ? '🥡 Takeaway' : '🍽️ Dine-In'}
-                    </Text>
-                    {order.fulfillmentType === 'Delivery' && order.deliveryAddress ? (
-                      <Text style={styles.orderAddressText} numberOfLines={1}>📍 {order.deliveryAddress}</Text>
-                    ) : null}
-                  </View>
-
-                  {/* Realtime Order Tracking Timeline */}
-                  {!isDelivered && !isCancelled && (
-                    <OrderTrackingTimeline
-                      status={order.status}
-                      estimatedMinutes={order.estimatedPrepMinutes}
-                      style={{ marginTop: 12 }}
-                    />
-                  )}
-
-                  <View style={styles.orderFooter}>
-                    <View>
-                      <Text style={styles.totalBillLabel}>Total</Text>
-                      <PriceText amountTzs={order.totalTzs} size="md" color={Colors.primaryDark} />
-                    </View>
-                    <View style={styles.paymentStatusBadge}>
-                      <Text style={styles.paymentStatusText}>
-                        {order.paymentStatus === 'SUCCESS' ? 'PAID' : order.paymentStatus || 'PENDING'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-
-            {filteredOrders.length === 0 && (
-              <EmptyState
-                title={language === 'sw' ? 'Hakuna maagizo' : 'No orders found'}
-                message={
-                  statusFilter === 'ACTIVE'
-                    ? (language === 'sw' ? 'Huna oda ya mgahawa inayoandaliwa sasa.' : "You don't have any restaurant orders in progress right now.")
-                    : (language === 'sw' ? 'Hakuna maagizo yaliyopita kwenye historia yako.' : 'No past completed orders in your history.')
-                }
-                icon="fast-food-outline"
-                actionTitle={language === 'sw' ? 'Agiza Chakula' : 'Order Food'}
-                onAction={() => router.push('/(tabs)/explore')}
-                style={styles.emptyStateContainer}
-              />
-            )}
-          </View>
-        )}
-
-        {/* CONTENT: CUSTOM MEAL REQUESTS */}
-        {activeTab === 'CUSTOM_MEALS' && (
-          <View style={styles.contentSection}>
-            {filteredCustomOrders.map((order) => {
-              const st = (order.status || '').toUpperCase();
-              const isDelivered = st === 'DELIVERED' || st === 'COMPLETED';
-              return (
-                <View key={order.id} style={styles.orderCard}>
-                  <View style={styles.orderCardHeader}>
-                    <View style={styles.orderHeaderLeft}>
-                      <Text style={styles.orderIdText}>#{order.orderNumber || order.id.slice(0, 8)}</Text>
-                      <Text style={styles.orderRestaurantName}>{order.restaurantName || 'Custom Chef Request'}</Text>
-                      <Text style={styles.orderDateText}>{new Date(order.createdAt).toLocaleDateString()}</Text>
-                    </View>
-                    <Badge
-                      label={isDelivered ? 'Delivered' : order.status}
-                      variant={isDelivered ? 'neutral' : 'success'}
-                      size="sm"
-                    />
-                  </View>
-
-                  <Text style={styles.orderItemsText}>{order.dishName || order.specialInstructions || 'Meal Request'}</Text>
-                  {order.deliveryAddress ? (
-                    <Text style={styles.orderAddressText}>📍 {order.deliveryAddress}</Text>
-                  ) : null}
-
-                  <View style={styles.orderFooter}>
-                    <View>
-                      <Text style={styles.totalBillLabel}>Budget</Text>
-                      <PriceText amountTzs={order.budgetTzs || order.quotedPriceTzs || 0} size="md" color={Colors.primaryDark} />
-                    </View>
-                    {order.customerPhone ? (
-                      <TouchableOpacity
-                        style={styles.callSupportBtn}
-                        onPress={() => handleCall(order.customerPhone || '')}
-                        accessible={true}
-                        accessibilityRole="button"
-                      >
-                        <Ionicons name="call-outline" size={16} color={Colors.primary} style={{ marginRight: 4 }} />
-                        <Text style={styles.callSupportText}>Call</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-              );
-            })}
-
-            {filteredCustomOrders.length === 0 && (
-              <EmptyState
-                title={language === 'sw' ? 'Hakuna maombi ya chakula' : 'No custom meal requests'}
-                message={
-                  statusFilter === 'ACTIVE'
-                    ? (language === 'sw' ? 'Huna maombi maalum ya chakula yanayosubiriwa.' : "You don't have any custom meal requests being prepared right now.")
-                    : (language === 'sw' ? 'Hakuna maombi yaliyopita kwenye historia yako.' : 'No past completed custom requests in your history.')
-                }
-                icon="restaurant-outline"
-                actionTitle={language === 'sw' ? 'Omba Chakula Maalum' : 'Request Custom Meal'}
-                onAction={() => router.push('/(tabs)/custom')}
-                style={styles.emptyStateContainer}
-              />
-            )}
-          </View>
-        )}
 
         {/* CONTENT: TABLE RESERVATIONS */}
-        {activeTab === 'RESERVATIONS' && (
-          <View style={styles.contentSection}>
-            {filteredReservations.map((b) => {
-              const st = (b.status || '').toLowerCase();
-              const isConfirmed = st === 'confirmed';
-              const isPending = st === 'pending';
-              const isCompleted = st === 'completed';
-              return (
-                <View key={b.id} style={styles.bookingCard}>
-                  <View style={styles.bookingHeader}>
-                    <View style={styles.emojiBadge}>
-                      <Text style={styles.emoji}>🍽️</Text>
-                    </View>
-                    <View style={styles.bookingInfo}>
-                      <Text style={styles.restaurantName}>{b.restaurantName || 'Restaurant'}</Text>
-                      <Text style={styles.addressText}>{b.specialNotes || b.address || 'Table Reservation'}</Text>
-                    </View>
-                    <Badge
-                      label={isConfirmed ? 'Confirmed' : isPending ? 'Pending' : isCompleted ? 'Completed' : 'Cancelled'}
-                      variant={isConfirmed ? 'success' : isPending ? 'warning' : 'neutral'}
-                      size="sm"
-                    />
-                  </View>
+        <View style={styles.contentSection}>
+          {filteredReservations.map((b) => {
+            const st = (b.status || '').toLowerCase();
+            const isConfirmed = st === 'confirmed';
+            const isPending = st === 'pending' || st === 'pending_restaurant_approval';
+            const isCompleted = st === 'completed';
 
-                  <View style={styles.bookingMeta}>
-                    <Text style={styles.metaLabel}>
-                      {t('timeLabel')}: <Text style={styles.metaVal}>{b.reservationDate} {b.timeSlot}</Text>
-                    </Text>
-                    <Text style={styles.metaLabel}>
-                      {t('partyLabel')}: <Text style={styles.metaVal}>{b.guestsCount} {language === 'sw' ? 'Watu' : 'Guests'}</Text>
-                    </Text>
+            return (
+              <View key={b.id} style={styles.bookingCard}>
+                <View style={styles.bookingHeader}>
+                  <View style={styles.emojiBadge}>
+                    <Ionicons name="restaurant" size={20} color={Colors.primary} />
                   </View>
+                  <View style={styles.bookingInfo}>
+                    <Text style={styles.restaurantName}>{b.restaurantName || 'Restaurant'}</Text>
+                    <Text style={styles.addressText}>{b.specialNotes || b.address || 'Table Reservation'}</Text>
+                  </View>
+                  <Badge
+                    label={isConfirmed ? 'Confirmed' : isPending ? 'Pending' : isCompleted ? 'Completed' : 'Cancelled'}
+                    variant={isConfirmed ? 'success' : isPending ? 'warning' : 'neutral'}
+                    size="sm"
+                  />
+                </View>
 
-                  {/* Actions Row */}
-                  <View style={styles.bookingActionsRow}>
-                    {(isConfirmed || isPending) && (
-                      <TouchableOpacity
-                        style={[styles.actionPillBtn, styles.cancelPillBtn]}
-                        onPress={() => handleCancelBooking(b.id)}
-                      >
-                        <Ionicons name="close-outline" size={14} color={Colors.error} style={{ marginRight: 4 }} />
-                        <Text style={[styles.actionPillText, styles.cancelPillText]}>Cancel</Text>
-                      </TouchableOpacity>
-                    )}
+                <View style={styles.bookingMeta}>
+                  <View style={styles.metaRow}>
+                    <Ionicons name="calendar-outline" size={15} color={Colors.muted} />
+                    <Text style={styles.metaVal}>{b.reservationDate} at {b.timeSlot}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Ionicons name="people-outline" size={15} color={Colors.muted} />
+                    <Text style={styles.metaVal}>{b.guestsCount} {language === 'sw' ? 'Watu' : 'Guests'}</Text>
                   </View>
                 </View>
-              );
-            })}
 
-            {filteredReservations.length === 0 && (
-              <EmptyState
-                title={language === 'sw' ? 'Hakuna nafasi za meza' : 'No reservations found'}
-                message={
-                  statusFilter === 'ACTIVE'
-                    ? (language === 'sw' ? 'Huna nafasi ya meza iliyohifadhiwa kwa sasa.' : "You don't have any active table reservations.")
-                    : (language === 'sw' ? 'Hakuna nafasi za meza zilizopita.' : 'No past reservations in your history.')
+                {/* Actions Row */}
+                <View style={styles.bookingActionsRow}>
+                  {b.address ? (
+                    <TouchableOpacity
+                      style={styles.actionPillBtn}
+                      onPress={() => handleDirections(b.address || '')}
+                    >
+                      <Ionicons name="navigate-outline" size={14} color={Colors.brandInk} style={{ marginRight: 4 }} />
+                      <Text style={styles.actionPillText}>{language === 'sw' ? 'Mwelekeo' : 'Directions'}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {(isConfirmed || isPending) && (
+                    <TouchableOpacity
+                      style={[styles.actionPillBtn, styles.cancelPillBtn]}
+                      onPress={() => handleCancelBooking(b.id)}
+                    >
+                      <Ionicons name="close-outline" size={14} color={Colors.error} style={{ marginRight: 4 }} />
+                      <Text style={[styles.actionPillText, styles.cancelPillText]}>
+                        {language === 'sw' ? 'Sitisha' : 'Cancel'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+
+          {filteredReservations.length === 0 && (
+            <EmptyState
+              title={
+                activeTab === 'UPCOMING'
+                  ? language === 'sw' ? 'Hakuna nafasi inayokuja' : 'No upcoming reservations'
+                  : activeTab === 'PAST'
+                  ? language === 'sw' ? 'Hakuna historia ya meza' : 'No past reservations'
+                  : language === 'sw' ? 'Hakuna meza zilizositishwa' : 'No cancelled reservations'
+              }
+              description={
+                activeTab === 'UPCOMING'
+                  ? language === 'sw'
+                    ? 'Huna nafasi ya meza iliyohifadhiwa. Weka meza kwenye mgahawa unaoupenda sasa.'
+                    : 'Book a table for your next meal, family dinner or special occasion.'
+                  : language === 'sw'
+                  ? 'Historia yako ya meza zilizopita itaonekana hapa.'
+                  : 'Your completed dining table history will be listed here.'
+              }
+              icon="calendar-outline"
+              actionLabel={language === 'sw' ? 'Weka Meza Sasa' : 'Book a Table'}
+              onAction={() => {
+                if (restaurants && restaurants.length > 0) {
+                  setSelectedRestaurant(restaurants[0] as any);
                 }
-                icon="calendar-outline"
-                actionTitle={language === 'sw' ? 'Weka Nafasi' : 'Book a Table'}
-                onAction={() => router.push('/(tabs)/explore')}
-                style={styles.emptyStateContainer}
-              />
-            )}
+              }}
+              style={styles.emptyStateContainer}
+            />
+          )}
 
-            {/* Instant New Booking Section */}
-            <Text style={[styles.sectionHeading, { marginTop: Spacing.xl }]}>
-              {t('bookNearbyHeading')}
+          {/* Book Nearby Restaurants Section */}
+          <View style={styles.nearbySection}>
+            <Text style={styles.sectionHeading}>
+              {language === 'sw' ? 'Weka Meza Kwenye Migahawa Hii' : 'Book a Table Nearby'}
             </Text>
             <View style={styles.restaurantList}>
               {restaurants && restaurants.length > 0 ? (
@@ -455,27 +247,23 @@ export default function BookingsScreen() {
                   <View key={r.id} style={styles.restaurantRow}>
                     <View style={styles.restaurantInfo}>
                       <Text style={styles.rName}>{r.emoji || '🍽️'} {r.name}</Text>
-                      <Text style={styles.rSub}>{r.cuisine} • {r.distance || `${r.distanceKm || 0} km`}</Text>
+                      <Text style={styles.rSub}>{r.cuisine} • {r.distance || 'Dar es Salaam'}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.bookNowBtn}
                       onPress={() => setSelectedRestaurant(r as any)}
-                      activeOpacity={0.8}
+                      activeOpacity={0.85}
                     >
-                      <Text style={styles.bookNowText}>{t('bookTableBtn')}</Text>
+                      <Text style={styles.bookNowText}>
+                        {language === 'sw' ? 'Weka Meza' : 'Book Table'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 ))
-              ) : (
-                <EmptyState
-                  title={language === 'sw' ? 'Hakuna migahawa' : 'No restaurants available'}
-                  message={language === 'sw' ? 'Migahawa itaonekana hapa punde itakapoongezwa.' : 'Restaurants will appear here once added.'}
-                  icon="restaurant-outline"
-                />
-              )}
+              ) : null}
             </View>
           </View>
-        )}
+        </View>
       </ScrollView>
 
       <ReservationModal
@@ -493,188 +281,63 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   scrollContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: 100,
   },
   largeScreenContainer: {
-    maxWidth: 800,
+    maxWidth: 680,
     width: '100%',
     alignSelf: 'center',
   },
   header: {
-    marginBottom: Spacing.md,
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.primary,
-    letterSpacing: 0.5,
+    marginBottom: Spacing.lg,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.textPrimary,
-    marginTop: 2,
+    fontSize: 26,
+    fontWeight: '900',
+    color: Colors.brandInk,
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+  },
+  subtitle: {
+    fontSize: 13,
+    color: Colors.muted,
+    marginTop: 4,
   },
   segmentedContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: Radii.lg,
+    borderRadius: Radii.xl,
     padding: 4,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   segmentBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: Radii.md,
+    alignItems: 'center',
+    borderRadius: Radii.lg,
   },
   segmentBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surface,
+    ...Shadows.sm,
   },
   segmentText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
+    fontWeight: '700',
+    color: Colors.muted,
   },
   segmentTextActive: {
-    color: Colors.white,
-    fontWeight: '700',
-  },
-  statusChipsRow: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    marginBottom: Spacing.lg,
-  },
-  statusChip: {
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  statusChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
-  },
-  statusChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  statusChipTextActive: {
-    color: Colors.primaryDark,
-    fontWeight: '700',
+    color: Colors.brandInk,
+    fontWeight: '800',
   },
   contentSection: {
     gap: Spacing.md,
   },
-  orderCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadows.sm,
-  },
-  orderCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.xs,
-  },
-  orderHeaderLeft: {
-    flex: 1,
-  },
-  orderIdText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  orderRestaurantName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginTop: 2,
-  },
-  orderDateText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  orderItemsText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-    marginTop: Spacing.xs,
-  },
-  orderAddressText: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  fulfillmentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.xs,
-  },
-  fulfillmentTag: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.primaryDark,
-    backgroundColor: Colors.primaryMuted,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: Radii.sm,
-  },
-  paymentStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radii.sm,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  paymentStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  timelineWrapper: {
-    marginVertical: Spacing.md,
-  },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    marginTop: Spacing.xs,
-  },
-  totalBillLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  callSupportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radii.sm,
-  },
-  callSupportText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
   bookingCard: {
     backgroundColor: Colors.surface,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
+    borderRadius: Radii.xl,
+    padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     ...Shadows.sm,
@@ -682,79 +345,93 @@ const styles = StyleSheet.create({
   bookingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   emojiBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Colors.primaryMuted,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.sm,
-  },
-  emoji: {
-    fontSize: 22,
+    marginRight: Spacing.md,
   },
   bookingInfo: {
     flex: 1,
   },
   restaurantName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.brandInk,
   },
   addressText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: Colors.muted,
     marginTop: 2,
   },
   bookingMeta: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: Radii.sm,
-    padding: Spacing.sm,
-    marginBottom: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.borderLight,
+    marginBottom: Spacing.md,
   },
-  metaLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginBottom: 2,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   metaVal: {
+    fontSize: 13,
+    color: Colors.brandInk,
     fontWeight: '600',
-    color: Colors.textPrimary,
   },
   bookingActionsRow: {
     flexDirection: 'row',
-    gap: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
   },
   actionPillBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
     paddingVertical: 6,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    borderRadius: Radii.full,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   actionPillText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+    color: Colors.brandInk,
   },
   cancelPillBtn: {
-    backgroundColor: Colors.errorLight,
+    backgroundColor: '#fee2e2',
+    borderColor: '#fca5a5',
   },
   cancelPillText: {
     color: Colors.error,
   },
   emptyStateContainer: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radii.xl,
+    paddingVertical: Spacing.xxl,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  nearbySection: {
     marginTop: Spacing.xl,
   },
   sectionHeading: {
     fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: Spacing.sm,
+    fontWeight: '800',
+    color: Colors.brandInk,
+    marginBottom: Spacing.md,
   },
   restaurantList: {
     gap: Spacing.sm,
@@ -765,9 +442,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: Colors.surface,
     padding: Spacing.md,
-    borderRadius: Radii.md,
+    borderRadius: Radii.xl,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    ...Shadows.sm,
   },
   restaurantInfo: {
     flex: 1,
@@ -775,22 +453,22 @@ const styles = StyleSheet.create({
   rName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: Colors.brandInk,
   },
   rSub: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: Colors.muted,
     marginTop: 2,
   },
   bookNowBtn: {
     backgroundColor: Colors.primary,
-    paddingVertical: 6,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radii.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: Radii.full,
   },
   bookNowText: {
-    fontSize: 12,
-    fontWeight: '700',
     color: Colors.white,
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
