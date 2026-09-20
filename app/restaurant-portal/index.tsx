@@ -34,6 +34,7 @@ import {
   RestaurantBranch,
   Payment,
   Review,
+  BranchOperationalMode,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
@@ -48,6 +49,8 @@ import {
   RestaurantMemberRepository,
   CustomMealRepository,
   RestaurantCustomMealSettingsRepository,
+  ReviewResponsesRepository,
+  BranchOperationsRepository,
 } from '../../repositories';
 
 import {
@@ -610,7 +613,6 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     const topDishes = Array.from(dishCounts.entries())
       .map(([name, ordersCount]) => ({
         name,
-        searchCount: ordersCount * 4,
         ordersCount,
       }))
       .sort((a, b) => b.ordersCount - a.ordersCount)
@@ -621,15 +623,15 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       .slice(0, 3)
       .map((m) => ({
         dishName: m.name,
-        missedSearchesCount: 12,
         reason: 'Marked unavailable / out of stock',
       }));
 
     return {
-      weeklySearchAppearances: domainOrders.length * 15,
-      searchToRestaurantClicks: domainOrders.length * 3,
+      weeklySearchAppearances: 0,
+      searchToRestaurantClicks: 0,
       menuFreshnessPercentage: verifiedRatio,
       averageOrderValueTzs: aov,
+      topOrderedDishes: topDishes,
       topSearchedDishes: topDishes,
       lostOpportunities: lostOpp,
     };
@@ -878,9 +880,20 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   // Review Handlers
   const handleRespondToReview = useCallback(
     async (reviewId: string, responseText: string) => {
-      Alert.alert('Response Posted', 'Your response to the customer was saved.');
+      const trimmed = responseText?.trim();
+      if (!trimmed) {
+        Alert.alert('Validation Error', 'Response text cannot be empty.');
+        return;
+      }
+      try {
+        await ReviewResponsesRepository.respond(reviewId, trimmed);
+        await loadRestaurantWorkspace();
+        Alert.alert('Response Posted', 'Your response to the customer was saved.');
+      } catch (e: any) {
+        Alert.alert('Response Error', e?.message || 'Failed to submit response.');
+      }
     },
-    []
+    [loadRestaurantWorkspace]
   );
 
   // Staff Handlers with Last-Owner Protection
@@ -889,7 +902,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       if (!runtimeConfig.isDemo) {
         Alert.alert(
           'Staff Invitations Unavailable',
-          'Staff invitations are not available yet. Server-side invitation workflow will be enabled in Pack 4.'
+          'Staff invitations are not enabled in this pilot build.'
         );
         return;
       }
@@ -968,15 +981,27 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const handleUpdateOperatingStatus = useCallback(
     async (status: OperatingOverride) => {
       try {
-        const isOpen = status === 'OPEN';
-        await RestaurantRepository.update(activeRestaurant.id, { isOpen });
+        const mode = status as BranchOperationalMode;
+        if (branches.length > 0) {
+          await Promise.all(
+            branches.map((b) =>
+              BranchOperationsRepository.setBranchOperationalMode(b.id, mode)
+            )
+          );
+        }
+        await RestaurantRepository.update(activeRestaurant.id, { isOpen: status === 'OPEN' });
         await loadRestaurantWorkspace();
-        Alert.alert('Operating Status Updated', `Kitchen is now ${status}.`);
+        Alert.alert(
+          language === 'sw' ? 'Hali Imesasishwa' : 'Operating Status Updated',
+          language === 'sw'
+            ? `Hali ya jikoni sasa ni: ${status}`
+            : `Kitchen operational mode set to: ${status}.`
+        );
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya kufungua.');
       }
     },
-    [activeRestaurant.id, loadRestaurantWorkspace]
+    [activeRestaurant.id, branches, loadRestaurantWorkspace, language]
   );
 
   const handlePublishRestaurant = useCallback(async () => {
@@ -1109,13 +1134,18 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   status: inv.invitation.status === 'QUOTED' ? 'QUOTE_SUBMITTED' : inv.request.status,
                 }))}
                 onSubmitQuote={async (requestId, quote) => {
+                  const targetInv = customMealInvitations.find((inv: any) => inv.request?.id === requestId);
+                  const mealTitle =
+                    targetInv?.request?.dishName ||
+                    targetInv?.request?.title ||
+                    'Custom Meal Preparation';
                   await CustomMealRepository.submitStructuredQuote({
                     requestId,
                     restaurantId: activeRestaurant.id,
                     branchId: selectedBranchId || undefined,
                     items: [
                       {
-                        name: 'Chef Custom Preparation',
+                        name: mealTitle,
                         quantity: 1,
                         unitPriceTzs: quote.priceTzs,
                       },
@@ -1205,7 +1235,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               <StaffManager
                 staffList={staffList}
                 currentUserId={authUser?.id || ''}
-                onInviteStaff={handleInviteStaff}
+                onInviteStaff={runtimeConfig.isDemo ? handleInviteStaff : undefined}
                 onChangeRole={handleChangeStaffRole}
                 onDeactivateStaff={handleDeactivateStaff}
                 language={language as any}

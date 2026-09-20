@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Notification } from '../types/domain';
 
 export class NotificationRepository {
@@ -172,8 +172,7 @@ export class NotificationRepository {
       archived_at: notif.archivedAt,
     };
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('notifications')
       .insert(row)
       .select()

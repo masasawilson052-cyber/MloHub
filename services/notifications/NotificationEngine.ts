@@ -5,7 +5,7 @@ import {
   CommunicationClass,
   NotificationChannel,
 } from '../../types/domain';
-import { supabase, supabaseAdmin, isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { NotificationRepository } from '../../repositories/notifications.repository';
 import { NotificationOutboxRepository } from '../../repositories/notificationOutbox.repository';
 import { NotificationDeliveriesRepository } from '../../repositories/notificationDeliveries.repository';
@@ -100,9 +100,8 @@ export class NotificationEngine {
     if (!isSupabaseConfigured()) return false;
 
     try {
-      const client = supabaseAdmin || supabase;
       if (event.aggregateType === 'ORDER') {
-        const { data: order } = await client
+        const { data: order } = await supabase
           .from('orders')
           .select('status')
           .eq('id', event.aggregateId)
@@ -117,7 +116,7 @@ export class NotificationEngine {
           }
         }
       } else if (event.aggregateType === 'RESERVATION') {
-        const { data: res } = await client
+        const { data: res } = await supabase
           .from('reservations')
           .select('status')
           .eq('id', event.aggregateId)
@@ -468,8 +467,7 @@ export class NotificationEngine {
       return { emitted: false, reason: 'SUPABASE_NOT_CONFIGURED' };
     }
 
-    const client = supabaseAdmin || supabase;
-    const { data: res, error } = await client
+    const { data: res, error } = await supabase
       .from('reservations')
       .select('id, user_id, restaurant_id, party_size, reservation_date, reservation_time, status')
       .eq('id', params.reservationId)

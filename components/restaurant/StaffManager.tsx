@@ -32,7 +32,7 @@ export interface StaffMember {
 export interface StaffManagerProps {
   staffList: StaffMember[];
   currentUserId: string;
-  onInviteStaff: (email: string, role: RestaurantRole, fullName: string) => Promise<void>;
+  onInviteStaff?: (email: string, role: RestaurantRole, fullName: string) => Promise<void>;
   onChangeRole: (membershipId: string, newRole: RestaurantRole) => Promise<void>;
   onDeactivateStaff: (membershipId: string) => Promise<void>;
   language?: 'en' | 'sw';
@@ -112,6 +112,7 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
   };
 
   const handleConfirmInvite = async () => {
+    if (!onInviteStaff) return;
     if (!inviteEmail.trim() || !inviteName.trim()) {
       Alert.alert('Validation', 'Please provide staff full name and email address.');
       return;
@@ -141,12 +142,14 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
           </Text>
         </View>
 
-        <Button
-          title="+ Invite Staff"
-          onPress={() => setInviteModalVisible(true)}
-          variant="primary"
-          size="sm"
-        />
+        {Boolean(onInviteStaff) && (
+          <Button
+            title="+ Invite Staff"
+            onPress={() => setInviteModalVisible(true)}
+            variant="primary"
+            size="sm"
+          />
+        )}
       </View>
 
       {/* Staff List */}

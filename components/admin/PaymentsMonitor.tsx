@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { PaymentTransactionEntity } from '../../db/types';
 import { formatTzs } from '../../config/platformFees';
+import { runtimeConfig } from '../../lib/runtimeConfig';
 
 interface PaymentsMonitorProps {
   payments: PaymentTransactionEntity[];
@@ -75,7 +76,9 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
           </Text>
         </View>
         <View style={styles.simulatedPill}>
-          <Text style={styles.simulatedText}>CLICKPESA: SANDBOX VERIFIED</Text>
+          <Text style={styles.simulatedText}>
+            {runtimeConfig.isProduction ? 'GATEWAY: PRODUCTION' : 'GATEWAY: SANDBOX / PILOT'}
+          </Text>
         </View>
       </View>
 
@@ -89,8 +92,8 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
 
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiValue, { color: '#16a34a' }]}>{formatTzs(successVolume)}</Text>
-          <Text style={styles.kpiLabel}>Settled Volume</Text>
-          <Text style={styles.kpiSub}>{successPayments.length} successful payouts</Text>
+          <Text style={styles.kpiLabel}>Captured Volume</Text>
+          <Text style={styles.kpiSub}>{successPayments.length} successful payments</Text>
         </View>
 
         <View style={styles.kpiCard}>

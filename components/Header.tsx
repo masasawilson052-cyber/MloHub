@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
@@ -23,11 +23,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Brand Logo & Location */}
       <View style={styles.brandRow}>
-        <View style={styles.logoBadge}>
-          <Text style={styles.logoBadgeText}>M</Text>
-        </View>
+        <Image
+          source={require('../assets/icon.png')}
+          style={styles.logoImage}
+          resizeMode="cover"
+        />
         <TouchableOpacity
           style={styles.locationButton}
           onPress={onOpenLocation}
@@ -102,6 +103,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  logoImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
   },
   logoBadge: {
     width: 36,

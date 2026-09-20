@@ -11,7 +11,7 @@ interface AdminSettingsProps {
 export const AdminSettings: React.FC<AdminSettingsProps> = ({
   language = 'en',
 }) => {
-  const [pilotZones, setPilotZones] = useState([
+  const pilotZones = [
     { id: 'mikocheni', name: 'Mikocheni A & B', city: 'Dar es Salaam', active: true },
     { id: 'upanga', name: 'Upanga East & West', city: 'Dar es Salaam', active: true },
     { id: 'masaki', name: 'Masaki & Oysterbay', city: 'Dar es Salaam', active: true },
@@ -19,13 +19,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
     { id: 'sinza', name: 'Sinza & Kijitonyama', city: 'Dar es Salaam', active: true },
     { id: 'kinondoni', name: 'Kinondoni & Mwananyamala', city: 'Dar es Salaam', active: true },
     { id: 'cbd', name: 'Posta / CBD City Center', city: 'Dar es Salaam', active: false },
-  ]);
-
-  const toggleZone = (id: string) => {
-    setPilotZones((prev) =>
-      prev.map((z) => (z.id === id ? { ...z, active: !z.active } : z))
-    );
-  };
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -67,7 +61,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
             <Text style={styles.feeValue}>
               {formatTzs(FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS)}
             </Text>
-            <Text style={styles.feeSub}>Standard intra-zone rider payout</Text>
+            <Text style={styles.feeSub}>Standard intra-zone delivery charge</Text>
           </View>
           <View style={styles.feeItem}>
             <Text style={styles.feeLabel}>Minimum Order Value</Text>
@@ -93,12 +87,11 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
                 <Text style={styles.zoneName}>{zone.name}</Text>
                 <Text style={styles.zoneCity}>{zone.city}</Text>
               </View>
-              <Switch
-                value={zone.active}
-                onValueChange={() => toggleZone(zone.id)}
-                trackColor={{ false: '#cbd5e1', true: '#fed7aa' }}
-                thumbColor={zone.active ? Colors.primary : '#94a3b8'}
-              />
+              <View style={[styles.zoneBadge, zone.active ? styles.zoneBadgeActive : styles.zoneBadgeInactive]}>
+                <Text style={[styles.zoneBadgeText, zone.active ? styles.zoneBadgeTextActive : styles.zoneBadgeTextInactive]}>
+                  {zone.active ? 'Active Pilot Zone' : 'Deferred'}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
@@ -235,6 +228,27 @@ const styles = StyleSheet.create({
   },
   zoneCity: {
     fontSize: 11,
+    color: '#64748b',
+  },
+  zoneBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  zoneBadgeActive: {
+    backgroundColor: '#dcfce7',
+  },
+  zoneBadgeInactive: {
+    backgroundColor: '#f1f5f9',
+  },
+  zoneBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  zoneBadgeTextActive: {
+    color: '#16a34a',
+  },
+  zoneBadgeTextInactive: {
     color: '#64748b',
   },
   policyGrid: {

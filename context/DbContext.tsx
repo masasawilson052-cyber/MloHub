@@ -27,7 +27,6 @@ import { Restaurant, Reservation, Order, CustomMealRequest, Notification } from 
 const allowLocalFallbacks = runtimeConfig.allowLocalDataFallbacks;
 
 const ONBOARDING_PREF_KEY = '@mlohub_onboarding_completed';
-const FAVORITES_PREF_KEY = '@mlohub_client_favorites';
 
 async function getClientPreference(key: string): Promise<string | null> {
   try {
@@ -291,18 +290,10 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         const restaurants = await RestaurantRepository.list();
         setCloudRestaurants((restaurants || []).map(mapDomainRestaurantToEntity));
 
-        // 2. Client preferences for onboarding and favorites
+        // 2. Client preference for onboarding completion
         const onboardingPref = await getClientPreference(ONBOARDING_PREF_KEY);
         if (onboardingPref === 'true') {
           setOnboardingState(true);
-        }
-        const favsPref = await getClientPreference(FAVORITES_PREF_KEY);
-        if (favsPref) {
-          try {
-            setClientFavorites(JSON.parse(favsPref));
-          } catch {
-            setClientFavorites([]);
-          }
         }
 
         // 3. Current Authenticated Supabase User
@@ -504,13 +495,8 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       refreshState();
       return isFav;
     }
-    // Real mode: client preference stored in AsyncStorage
-    const next = clientFavorites.includes(restaurantId)
-      ? clientFavorites.filter((id) => id !== restaurantId)
-      : [...clientFavorites, restaurantId];
-    setClientFavorites(next);
-    await setClientPreference(FAVORITES_PREF_KEY, JSON.stringify(next));
-    return next.includes(restaurantId);
+    // Real mode: Favorites persistence is deferred until canonical backend exists
+    return false;
   };
 
   const createReservation = async (
@@ -694,7 +680,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const activeNotifications = allowLocalFallbacks ? dbState.notifications : cloudNotifications;
   const activePayments = allowLocalFallbacks ? dbState.payments : [];
   const activeUsers = allowLocalFallbacks ? dbState.users : (cloudUser ? [cloudUser] : []);
-  const activeFavorites = allowLocalFallbacks ? dbState.favorites : clientFavorites;
+  const activeFavorites = allowLocalFallbacks ? dbState.favorites : [];
   const activeOnboarding = allowLocalFallbacks ? !!dbState.hasCompletedOnboarding : onboardingState;
 
   // Legacy compatibility shape only; not a production source of truth.

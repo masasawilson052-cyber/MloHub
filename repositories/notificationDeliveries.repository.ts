@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   NotificationDelivery,
   NotificationDeliveryAttempt,
@@ -127,8 +127,7 @@ export class NotificationDeliveriesRepository {
       rendered_body: delivery.renderedBody || null,
     };
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('notification_deliveries')
       .insert(row)
       .select()
@@ -186,8 +185,7 @@ export class NotificationDeliveriesRepository {
   ): Promise<NotificationDelivery[]> {
     if (!isSupabaseConfigured()) return [];
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client.rpc('claim_pending_deliveries_secure', {
+    const { data, error } = await supabase.rpc('claim_pending_deliveries_secure', {
       p_worker_id: workerId,
       p_batch_size: batchSize,
       p_lease_seconds: leaseSeconds,

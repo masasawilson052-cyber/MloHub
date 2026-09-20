@@ -127,12 +127,8 @@ export const supabase = createClient(activeUrl, activeAnonKey, {
   },
 });
 
-const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
-export const supabaseAdmin = serviceRoleKey
-  ? createClient(activeUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    })
-  : supabase;
+// Note: Privileged service_role authority is strictly forbidden in the Expo client bundle.
+// Privileged test and setup operations must use Node-only helpers (e.g. lib/testEnv.ts).
 
 // Auto-refresh tokens when app is active in foreground on native platforms
 try {

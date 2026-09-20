@@ -15,7 +15,7 @@ import { NotificationEntity } from '../../db/types';
 
 interface NotificationsCenterProps {
   notifications: NotificationEntity[];
-  onSendBroadcast: (
+  onSendBroadcast?: (
     title: string,
     message: string,
     audience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS'
@@ -34,6 +34,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   const [isSending, setIsSending] = useState(false);
 
   const handleSend = async () => {
+    if (!onSendBroadcast) return;
     if (!title.trim() || !message.trim()) {
       Alert.alert('Incomplete Form', 'Please provide both title and announcement body.');
       return;
@@ -59,75 +60,87 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           {language === 'sw' ? 'Kituo cha Matangazo na Taarifa' : 'Platform Announcements & Broadcast Center'}
         </Text>
         <Text style={styles.subtitle}>
-          Publish system-wide alerts, holiday updates, or targeted vendor notices.
+          System-wide alerts, operational announcements, and targeted notifications.
         </Text>
       </View>
 
-      {/* Composer Card */}
-      <View style={styles.composerCard}>
-        <Text style={styles.composerTitle}>Compose Platform Broadcast</Text>
+      {/* Broadcast Pilot Notice / Composer */}
+      {onSendBroadcast ? (
+        <View style={styles.composerCard}>
+          <Text style={styles.composerTitle}>Compose Platform Broadcast</Text>
 
-        <View style={styles.audienceRow}>
-          <Text style={styles.audienceLabel}>Target Audience:</Text>
-          <TouchableOpacity
-            style={[styles.audiencePill, audience === 'ALL' && styles.audiencePillActive]}
-            onPress={() => setAudience('ALL')}
-          >
-            <Text style={[styles.audiencePillText, audience === 'ALL' && styles.audiencePillTextActive]}>
-              All Users
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.audiencePill, audience === 'CUSTOMERS' && styles.audiencePillActive]}
-            onPress={() => setAudience('CUSTOMERS')}
-          >
-            <Text style={[styles.audiencePillText, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
-              Customers Only
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.audiencePill, audience === 'RESTAURANTS' && styles.audiencePillActive]}
-            onPress={() => setAudience('RESTAURANTS')}
-          >
-            <Text style={[styles.audiencePillText, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
-              Restaurant Owners
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.audienceRow}>
+            <Text style={styles.audienceLabel}>Target Audience:</Text>
+            <TouchableOpacity
+              style={[styles.audiencePill, audience === 'ALL' && styles.audiencePillActive]}
+              onPress={() => setAudience('ALL')}
+            >
+              <Text style={[styles.audiencePillText, audience === 'ALL' && styles.audiencePillTextActive]}>
+                All Users
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.audiencePill, audience === 'CUSTOMERS' && styles.audiencePillActive]}
+              onPress={() => setAudience('CUSTOMERS')}
+            >
+              <Text style={[styles.audiencePillText, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
+                Customers Only
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.audiencePill, audience === 'RESTAURANTS' && styles.audiencePillActive]}
+              onPress={() => setAudience('RESTAURANTS')}
+            >
+              <Text style={[styles.audiencePillText, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
+                Restaurant Owners
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TextInput
+            style={styles.inputTitle}
+            placeholder="Announcement Title"
+            value={title}
+            onChangeText={setTitle}
+          />
+
+          <TextInput
+            style={styles.inputBody}
+            placeholder="Write the announcement message here..."
+            value={message}
+            onChangeText={setMessage}
+            multiline
+            numberOfLines={4}
+          />
+
+          <View style={styles.composerFooter}>
+            <TouchableOpacity
+              style={styles.sendBtn}
+              onPress={handleSend}
+              disabled={isSending}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons name="megaphone" size={16} color="#ffffff" />
+                  <Text style={styles.sendBtnText}>Dispatch Broadcast</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <TextInput
-          style={styles.inputTitle}
-          placeholder="Announcement Title (e.g. Karibu Sikukuu / Weekend Special)"
-          value={title}
-          onChangeText={setTitle}
-        />
-
-        <TextInput
-          style={styles.inputBody}
-          placeholder="Write the announcement message here..."
-          value={message}
-          onChangeText={setMessage}
-          multiline
-          numberOfLines={4}
-        />
-
-        <View style={styles.composerFooter}>
-          <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={handleSend}
-            disabled={isSending}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="megaphone" size={16} color="#ffffff" />
-                <Text style={styles.sendBtnText}>Dispatch Broadcast</Text>
-              </>
-            )}
-          </TouchableOpacity>
+      ) : (
+        <View style={styles.composerCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+            <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
+            <Text style={styles.composerTitle}>Platform Broadcast Notice</Text>
+          </View>
+          <Text style={[styles.subtitle, { marginTop: Spacing.xs }]}>
+            Platform broadcast composition is not enabled in this pilot console.
+          </Text>
         </View>
-      </View>
+      )}
 
       {/* Recent Dispatches */}
       <View style={styles.historySection}>

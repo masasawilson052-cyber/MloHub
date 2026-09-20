@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   NotificationEventOutbox,
   NotificationEventType,
@@ -88,8 +88,7 @@ export class NotificationOutboxRepository {
   ): Promise<NotificationEventOutbox[]> {
     if (!isSupabaseConfigured()) return [];
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client.rpc('claim_outbox_events_secure', {
+    const { data, error } = await supabase.rpc('claim_outbox_events_secure', {
       p_worker_id: workerId,
       p_batch_size: batchSize,
       p_lease_seconds: leaseSeconds,
@@ -137,8 +136,7 @@ export class NotificationOutboxRepository {
       updatePayload.processed_at = new Date().toISOString();
     }
 
-    const client = supabaseAdmin || supabase;
-    const { error: dbError } = await client
+    const { error: dbError } = await supabase
       .from('notification_event_outbox')
       .update(updatePayload)
       .eq('id', id);

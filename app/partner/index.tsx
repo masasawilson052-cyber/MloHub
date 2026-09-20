@@ -10,32 +10,51 @@ export default function PartnerIndexRoute() {
   const { isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace } = useAuth();
 
   useEffect(() => {
-    if (isAuthLoading) return;
+    let isCancelled = false;
 
-    if (!isAuthenticated) {
-      // 1. Unauthenticated -> Partner Login
-      router.replace('/auth/login?type=restaurant');
-      return;
-    }
+    const resolveAndNavigate = async () => {
+      if (isAuthLoading) return;
 
-    const isRestaurantMember =
-      currentRole === UserRole.RESTAURANT_OWNER ||
-      currentRole === UserRole.RESTAURANT_STAFF ||
-      user?.role === UserRole.RESTAURANT_OWNER ||
-      user?.activeRole === UserRole.RESTAURANT_OWNER ||
-      Boolean((user as any)?.restaurantId);
-
-    if (isRestaurantMember) {
-      // 2. Authenticated restaurant member -> Ensure workspace & go to portal
-      if (activeWorkspace !== 'RESTAURANT_OWNER' && switchWorkspace) {
-        switchWorkspace('RESTAURANT_OWNER');
+      if (!isAuthenticated) {
+        // 1. Unauthenticated -> Partner Login
+        router.replace('/auth/login?type=restaurant');
+        return;
       }
-      router.replace('/restaurant-portal');
-    } else {
-      // 3. Authenticated customer (non-member) -> Restaurant Onboarding Wizard
-      router.replace('/auth/register-restaurant');
-    }
-  }, [isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user]);
+
+      const restaurantId = (user as any)?.restaurantId;
+      const isRestaurantMember =
+        currentRole === UserRole.RESTAURANT_OWNER ||
+        currentRole === UserRole.RESTAURANT_STAFF ||
+        user?.role === UserRole.RESTAURANT_OWNER ||
+        user?.activeRole === UserRole.RESTAURANT_OWNER ||
+        Boolean(restaurantId);
+
+      if (isRestaurantMember) {
+        // 2. Authenticated restaurant member -> Ensure workspace & go to portal
+        if (activeWorkspace !== 'RESTAURANT_OWNER' && switchWorkspace) {
+          try {
+            await switchWorkspace('RESTAURANT_OWNER', restaurantId);
+          } catch (err) {
+            console.warn('[PartnerIndexRoute] Workspace switch error:', err);
+          }
+        }
+        if (!isCancelled) {
+          router.replace('/restaurant-portal');
+        }
+      } else {
+        // 3. Authenticated customer (non-member) -> Restaurant Onboarding Wizard
+        if (!isCancelled) {
+          router.replace('/auth/register-restaurant');
+        }
+      }
+    };
+
+    resolveAndNavigate();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace]);
 
   return (
     <View style={styles.container}>

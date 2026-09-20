@@ -23,6 +23,7 @@ import {
 } from '../../context/NotificationContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { runtimeConfig } from '../../lib/runtimeConfig';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -133,28 +134,30 @@ export default function NotificationsScreen() {
         setSelectedReceiptNotif(notif);
         break;
       case 'rate_restaurant':
-        setRatingStars(5);
-        setReviewComment('');
-        setSelectedRatingNotif(notif);
+        if (notif.restaurantId) {
+          router.push(`/restaurant/${notif.restaurantId}`);
+        } else {
+          router.push('/(tabs)/orders');
+        }
         break;
       case 'view_reservation':
-        setSelectedReservationNotif(notif);
+        router.push('/(tabs)/bookings');
         break;
       case 'view_order':
-        router.push('/(tabs)/profile');
+        router.push('/(tabs)/orders');
         break;
       case 'get_directions':
-        setSelectedReservationNotif(notif);
+        router.push('/(tabs)/bookings');
         break;
       case 'find_restaurant':
         if (notif.restaurantId) {
           router.push(`/restaurant/${notif.restaurantId}`);
         } else {
-          router.push('/(tabs)/explore');
+          router.push('/(tabs)');
         }
         break;
       case 'retry_payment':
-        showToast(language === 'sw' ? 'Mchakato wa malipo umeanza...' : 'Payment retry initiated...');
+        router.push('/(tabs)/orders');
         break;
       default:
         break;
@@ -401,22 +404,24 @@ export default function NotificationsScreen() {
           </View>
         )}
 
-        {/* Real-time Incoming Notification Simulator Button */}
-        <TouchableOpacity
-          style={styles.simBtn}
-          onPress={() => {
-            simulateIncomingNotification();
-            showToast(
-              language === 'sw'
-                ? '⚡ Taarifa mpya imepokelewa kwenye mfumo!'
-                : '⚡ New live notification pushed to device!'
-            );
-          }}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="flash-outline" size={15} color={Colors.primaryDark} />
-          <Text style={styles.simBtnText}>{t('notifSimulateIncoming')}</Text>
-        </TouchableOpacity>
+        {/* Real-time Incoming Notification Simulator Button: Demo Mode Only */}
+        {runtimeConfig.isDemo && (
+          <TouchableOpacity
+            style={styles.simBtn}
+            onPress={() => {
+              simulateIncomingNotification();
+              showToast(
+                language === 'sw'
+                  ? '⚡ Taarifa mpya imepokelewa kwenye mfumo!'
+                  : '⚡ New live notification pushed to device!'
+              );
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="flash-outline" size={15} color={Colors.primaryDark} />
+            <Text style={styles.simBtnText}>{t('notifSimulateIncoming')}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* RECEIPT MODAL */}
@@ -432,29 +437,54 @@ export default function NotificationsScreen() {
               <Ionicons name="checkmark-done" size={28} color={Colors.white} />
             </View>
             <Text style={styles.receiptTitle}>Official Payment Receipt</Text>
-            <Text style={styles.receiptAmount}>
-              TZS {selectedReceiptNotif?.paymentAmount?.toLocaleString() || '25,000'}
-            </Text>
-            <Text style={styles.receiptStatus}>STATUS: VERIFIED & COMPLETED</Text>
 
-            <View style={styles.receiptDetailsBox}>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Merchant / Restaurant</Text>
-                <Text style={styles.receiptVal}>{selectedReceiptNotif?.restaurantName || 'MloHub Merchant'}</Text>
+            {selectedReceiptNotif?.paymentAmount && selectedReceiptNotif?.referenceNumber ? (
+              <>
+                <Text style={styles.receiptAmount}>
+                  TZS {selectedReceiptNotif.paymentAmount.toLocaleString()}
+                </Text>
+                <Text style={styles.receiptStatus}>STATUS: PAYMENT NOTIFIED</Text>
+
+                <View style={styles.receiptDetailsBox}>
+                  {selectedReceiptNotif.restaurantName && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Merchant / Restaurant</Text>
+                      <Text style={styles.receiptVal}>{selectedReceiptNotif.restaurantName}</Text>
+                    </View>
+                  )}
+                  {selectedReceiptNotif.paymentMethod && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Payment Method</Text>
+                      <Text style={styles.receiptVal}>{selectedReceiptNotif.paymentMethod}</Text>
+                    </View>
+                  )}
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Reference Number</Text>
+                    <Text style={styles.receiptValMono}>{selectedReceiptNotif.referenceNumber}</Text>
+                  </View>
+                  {selectedReceiptNotif.createdAt && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Date & Time</Text>
+                      <Text style={styles.receiptVal}>
+                        {new Date(selectedReceiptNotif.createdAt).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </>
+            ) : (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: Colors.subtle, textAlign: 'center', lineHeight: 20 }}>
+                  Receipt details are unavailable for this notification.
+                </Text>
               </View>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Payment Method</Text>
-                <Text style={styles.receiptVal}>{selectedReceiptNotif?.paymentMethod || 'M-Pesa Mobile Money'}</Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Reference Number</Text>
-                <Text style={styles.receiptValMono}>{selectedReceiptNotif?.referenceNumber || 'MP-894291849'}</Text>
-              </View>
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Date & Time</Text>
-                <Text style={styles.receiptVal}>26 Aug 2026, 12:30 PM</Text>
-              </View>
-            </View>
+            )}
 
             <TouchableOpacity
               style={styles.modalPrimaryBtn}

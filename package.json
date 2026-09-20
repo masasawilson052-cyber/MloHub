@@ -10,6 +10,7 @@
     "build": "expo export --platform web",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
+    "demo:audit": "tsx --require ./lib/e2eBootstrap.js scripts/demo-readiness-audit.ts",
     "test": "tsx tests/runAllSuites.ts",
     "security:test": "tsx --require ./lib/e2eBootstrap.js scripts/security-smoke-test.ts",
     "e2e:pack4a": "tsx --require ./lib/e2eBootstrap.js scripts/test-pack4a-custom-meals-e2e.ts",

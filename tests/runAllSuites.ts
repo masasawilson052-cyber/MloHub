@@ -43,6 +43,7 @@ import { runNotificationsCommunicationTestSuite } from './notificationsCommunica
 import { runRestaurantOperationsTestSuite } from './restaurantOperations.test';
 import { runDesignSystemV2Tests } from './designSystemV2.test';
 import { runPack5aCustomerTestSuite } from './pack5aCustomerExperience.test';
+import { runDemoReadinessTestSuite } from './demoReadiness.test';
 
 
 let passed = 0;
@@ -724,6 +725,9 @@ async function runMasterTestSuite() {
   const pack5aCustomerResults = runPack5aCustomerTestSuite();
   passed += pack5aCustomerResults.passed;
   failed += pack5aCustomerResults.failed;
+
+  // Final Demonstration Readiness & Truth Hardening Suite
+  await runDemoReadinessTestSuite(assert);
 
   // Final Results
   console.log('\n================================================================');

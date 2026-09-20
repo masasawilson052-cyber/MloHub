@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react
 import { Restaurant } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
+import { runtimeConfig } from '../lib/runtimeConfig';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -69,15 +70,17 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           </View>
         </View>
 
-        {/* Favorite Heart Button */}
-        <TouchableOpacity
-          style={styles.favBtn}
-          onPress={onToggleFavorite}
-          activeOpacity={0.8}
-          accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Text style={styles.favHeart}>{isFavorite ? '❤️' : '🤍'}</Text>
-        </TouchableOpacity>
+        {/* Favorite Heart Button: Rendered only in deterministic demo/test environment */}
+        {runtimeConfig.allowLocalDataFallbacks && (
+          <TouchableOpacity
+            style={styles.favBtn}
+            onPress={onToggleFavorite}
+            activeOpacity={0.8}
+            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Text style={styles.favHeart}>{isFavorite ? '❤️' : '🤍'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Content Info */}

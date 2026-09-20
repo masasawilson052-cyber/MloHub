@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { runtimeConfig } from '../lib/runtimeConfig';
 import { DataReport, DataReportStatus, DataReportType } from '../types/domain';
 
 // Local test fixtures and offline fallback cache
@@ -80,20 +81,22 @@ export class DataReportsRepository {
     status?: string;
     reportType?: string;
   }): Promise<DataReport[]> {
-    if (isSupabaseConfigured()) {
-      try {
-        let query = supabase.from('data_reports').select('*');
-        if (filter?.restaurantId) query = query.eq('restaurant_id', filter.restaurantId);
-        if (filter?.status && filter.status !== 'ALL') query = query.eq('status', filter.status);
-        if (filter?.reportType && filter.reportType !== 'ALL') query = query.eq('report_type', filter.reportType);
+    if (isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
+      let query = supabase.from('data_reports').select('*');
+      if (filter?.restaurantId) query = query.eq('restaurant_id', filter.restaurantId);
+      if (filter?.status && filter.status !== 'ALL') query = query.eq('status', filter.status);
+      if (filter?.reportType && filter.reportType !== 'ALL') query = query.eq('report_type', filter.reportType);
 
-        const { data, error } = await query.order('created_at', { ascending: false });
-        if (!error && data) {
-          return data.map(this.mapRowToReport);
-        }
-      } catch (err) {
-        console.warn('DataReportsRepository.listAll fallback to local:', err);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) {
+        console.error('DataReportsRepository.listAll error:', error.message);
+        throw new Error(`Failed to fetch data reports: ${error.message}`);
       }
+      return (data || []).map(this.mapRowToReport);
+    }
+
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      return [];
     }
 
     return localReports.filter((r) => {
@@ -105,17 +108,21 @@ export class DataReportsRepository {
   }
 
   public static async getById(id: string): Promise<DataReport | null> {
-    if (isSupabaseConfigured()) {
-      try {
-        const { data, error } = await supabase
-          .from('data_reports')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
-        if (!error && data) return this.mapRowToReport(data);
-      } catch (err) {
-        console.warn('DataReportsRepository.getById fallback to local:', err);
+    if (isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
+      const { data, error } = await supabase
+        .from('data_reports')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) {
+        console.error('DataReportsRepository.getById error:', error.message);
+        throw new Error(`Failed to fetch data report: ${error.message}`);
       }
+      return data ? this.mapRowToReport(data) : null;
+    }
+
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      return null;
     }
 
     return localReports.find((r) => r.id === id) || null;
@@ -129,10 +136,10 @@ export class DataReportsRepository {
       createdAt: new Date().toISOString(),
     };
 
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.from('data_reports').insert({
-          id: newReport.id,
+    if (isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
+      const { data, error } = await supabase
+        .from('data_reports')
+        .insert({
           reporter_user_id: newReport.reporterUserId,
           restaurant_id: newReport.restaurantId,
           branch_id: newReport.branchId,
@@ -141,11 +148,19 @@ export class DataReportsRepository {
           message: newReport.message,
           reported_value: newReport.reportedValue,
           status: newReport.status,
-          created_at: newReport.createdAt,
-        });
-      } catch (err) {
-        console.warn('DataReportsRepository.submit Supabase error:', err);
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('DataReportsRepository.submit error:', error.message);
+        throw new Error(`Failed to submit data report: ${error.message}`);
       }
+      return this.mapRowToReport(data);
+    }
+
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      throw new Error('Local report submission is disabled in production mode.');
     }
 
     localReports.unshift(newReport);
@@ -160,19 +175,28 @@ export class DataReportsRepository {
   ): Promise<DataReport> {
     const reviewedAt = new Date().toISOString();
 
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase
-          .from('data_reports')
-          .update({
-            status,
-            reviewed_by: reviewedBy,
-            reviewed_at: reviewedAt,
-          })
-          .eq('id', id);
-      } catch (err) {
-        console.warn('DataReportsRepository.resolveReport Supabase error:', err);
+    if (isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
+      const { data, error } = await supabase
+        .from('data_reports')
+        .update({
+          status,
+          reviewed_by: reviewedBy,
+          reviewed_at: reviewedAt,
+          notes: resolutionNotes,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('DataReportsRepository.resolveReport error:', error.message);
+        throw new Error(`Failed to resolve data report: ${error.message}`);
       }
+      return this.mapRowToReport(data);
+    }
+
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      throw new Error(`Data report ${id} not found.`);
     }
 
     const idx = localReports.findIndex((r) => r.id === id);

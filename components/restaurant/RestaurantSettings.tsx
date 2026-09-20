@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,8 +20,9 @@ import { Typography } from '../../theme/typography';
 import { RestaurantEntity } from '../../db/types';
 import { Button } from '../ui/Button';
 import { StorageService } from '../../services/StorageService';
+import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
 
-export type OperatingOverride = 'OPEN' | 'BUSY' | 'CLOSING_SOON' | 'TEMPORARILY_CLOSED';
+export type OperatingOverride = 'OPEN' | 'BUSY' | 'PAUSED' | 'CLOSED';
 
 export interface DaySchedule {
   day: string;
@@ -37,6 +38,8 @@ export interface RestaurantSettingsProps {
   onUpdateOperatingStatus: (status: OperatingOverride) => Promise<void>;
   language?: 'en' | 'sw';
 }
+
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const DEFAULT_WEEKLY_SCHEDULE: DaySchedule[] = [
   { day: 'Monday', isOpen: true, openTime: '08:00', closeTime: '22:00' },
@@ -55,24 +58,59 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   onUpdateOperatingStatus,
   language = 'en',
 }) => {
-  const [operatingStatus, setOperatingStatus] = useState<OperatingOverride>('OPEN');
+  const [operatingStatus, setOperatingStatus] = useState<OperatingOverride>(
+    restaurant.isOpen ? 'OPEN' : 'CLOSED'
+  );
   const [name, setName] = useState(restaurant.name || '');
-  const [phone, setPhone] = useState(restaurant.phone || '+255 754 000 111');
-  const [neighborhood, setNeighborhood] = useState(restaurant.neighborhood || 'Mikocheni');
+  const [phone, setPhone] = useState(restaurant.phone || '');
+  const [neighborhood, setNeighborhood] = useState(restaurant.neighborhood || '');
   const [schedule, setSchedule] = useState<DaySchedule[]>(DEFAULT_WEEKLY_SCHEDULE);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Load branch operational status and hours via Pack 4F BranchOperationsRepository
+  useEffect(() => {
+    if (branches.length > 0) {
+      const primaryBranchId = branches[0].id;
+      BranchOperationsRepository.getBranchOperationalStatus(primaryBranchId)
+        .then((st) => {
+          if (st?.mode) {
+            setOperatingStatus(st.mode as OperatingOverride);
+          }
+        })
+        .catch((e) => console.warn('[RestaurantSettings] getBranchOperationalStatus error:', e));
+
+      BranchOperationsRepository.getOperatingHours(primaryBranchId)
+        .then((hours) => {
+          if (hours && hours.length > 0) {
+            const mapped = DAYS_OF_WEEK.map((dayName, dayIdx) => {
+              const h = hours.find((x) => x.dayOfWeek === dayIdx);
+              if (h) {
+                return {
+                  day: dayName,
+                  isOpen: !h.isClosed,
+                  openTime: h.opensAt ? h.opensAt.substring(0, 5) : '08:00',
+                  closeTime: h.closesAt ? h.closesAt.substring(0, 5) : '22:00',
+                };
+              }
+              return {
+                day: dayName,
+                isOpen: true,
+                openTime: '08:00',
+                closeTime: '22:00',
+              };
+            });
+            setSchedule(mapped);
+          }
+        })
+        .catch((e) => console.warn('[RestaurantSettings] getOperatingHours error:', e));
+    }
+  }, [branches]);
 
   // Media state
   const [logoUrl, setLogoUrl] = useState(restaurant.logoUrl || '');
   const [coverImageUrl, setCoverImageUrl] = useState(restaurant.coverImageUrl || '');
   const [foodSpotPhotos, setFoodSpotPhotos] = useState<string[]>(restaurant.foodSpotPhotos || []);
   const [uploadingTarget, setUploadingTarget] = useState<'logo' | 'cover' | 'gallery' | null>(null);
-
-  // Notification Preferences
-  const [notifyOrders, setNotifyOrders] = useState(true);
-  const [notifyReservations, setNotifyReservations] = useState(true);
-  const [notifyReviews, setNotifyReviews] = useState(true);
-  const [notifyVerificationReminders, setNotifyVerificationReminders] = useState(true);
 
   const handleUploadLogo = async () => {
     try {
@@ -223,6 +261,21 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         coverImageUrl,
         foodSpotPhotos,
       });
+
+      if (branches.length > 0) {
+        const primaryBranchId = branches[0].id;
+        const hoursToSave = schedule.map((d, index) => {
+          const dayIndex = DAYS_OF_WEEK.indexOf(d.day);
+          return {
+            dayOfWeek: dayIndex >= 0 ? dayIndex : index,
+            opensAt: d.openTime ? `${d.openTime}:00` : '08:00:00',
+            closesAt: d.closeTime ? `${d.closeTime}:00` : '22:00:00',
+            isClosed: !d.isOpen,
+          };
+        });
+        await BranchOperationsRepository.upsertOperatingHours(primaryBranchId, hoursToSave);
+      }
+
       Alert.alert('Settings Saved', 'Restaurant profile and operational settings saved.');
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to save settings.');
@@ -253,8 +306,8 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
           {[
             { id: 'OPEN', label: 'Open ✓', color: '#15803D', bg: '#DCFCE7' },
             { id: 'BUSY', label: 'Busy (Rush)', color: '#D97706', bg: '#FEF3C7' },
-            { id: 'CLOSING_SOON', label: 'Closing Soon', color: '#B45309', bg: '#FFF7ED' },
-            { id: 'TEMPORARILY_CLOSED', label: 'Paused ✕', color: '#DC2626', bg: '#FEE2E2' },
+            { id: 'PAUSED', label: 'Paused ⏸', color: '#B45309', bg: '#FFF7ED' },
+            { id: 'CLOSED', label: 'Closed ✕', color: '#DC2626', bg: '#FEE2E2' },
           ].map((st) => (
             <TouchableOpacity
               key={st.id}
@@ -523,32 +576,19 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         </View>
       </View>
 
-      {/* 5. Notification Preferences (Task 40) */}
+      {/* 5. Notification Dispatch Policy */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
           <View>
-            <Text style={styles.sectionTitle}>Notification Alerts</Text>
-            <Text style={styles.sectionSub}>Kitchen sound alerts and dispatch notifications</Text>
-          </View>
-        </View>
-
-        <View style={styles.notifRows}>
-          <View style={styles.notifRow}>
-            <Text style={styles.notifLabel}>New incoming customer orders</Text>
-            <Switch value={notifyOrders} onValueChange={setNotifyOrders} />
-          </View>
-          <View style={styles.notifRow}>
-            <Text style={styles.notifLabel}>New table reservations</Text>
-            <Switch value={notifyReservations} onValueChange={setNotifyReservations} />
-          </View>
-          <View style={styles.notifRow}>
-            <Text style={styles.notifLabel}>Customer reviews & ratings</Text>
-            <Switch value={notifyReviews} onValueChange={setNotifyReviews} />
-          </View>
-          <View style={styles.notifRow}>
-            <Text style={styles.notifLabel}>Menu freshness verification reminders</Text>
-            <Switch value={notifyVerificationReminders} onValueChange={setNotifyVerificationReminders} />
+            <Text style={styles.sectionTitle}>
+              {language === 'sw' ? 'Arifa za Jikoni na Uendeshaji' : 'Kitchen & Dispatch Notifications'}
+            </Text>
+            <Text style={styles.sectionSub}>
+              {language === 'sw'
+                ? 'Arifa za maagizo mapya na nafasi za meza zinasimamiwa na mfumo mkuu wa SMS na Push.'
+                : 'Order alerts, reservations, and customer reviews are automatically dispatched to active staff via SMS and Push.'}
+            </Text>
           </View>
         </View>
       </View>

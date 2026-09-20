@@ -14,12 +14,13 @@ import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 
 export interface DiscoveryAnalyticsData {
-  weeklySearchAppearances: number;
-  searchToRestaurantClicks: number;
+  weeklySearchAppearances?: number;
+  searchToRestaurantClicks?: number;
   menuFreshnessPercentage: number;
   averageOrderValueTzs: number;
-  topSearchedDishes: { name: string; searchCount: number; ordersCount: number }[];
-  lostOpportunities: { dishName: string; missedSearchesCount: number; reason: string }[];
+  topOrderedDishes?: { name: string; ordersCount: number }[];
+  topSearchedDishes?: { name: string; searchCount?: number; ordersCount: number }[];
+  lostOpportunities: { dishName: string; missedSearchesCount?: number; reason: string }[];
 }
 
 export interface AnalyticsPanelProps {
@@ -31,20 +32,22 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
   data,
   language = 'en',
 }) => {
+  const topDishes = data.topOrderedDishes || data.topSearchedDishes || [];
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-      {/* Search Appearance Hero Banner */}
+      {/* Telemetry Hero Banner */}
       <View style={styles.heroBanner}>
         <View style={styles.heroLeft}>
-          <Ionicons name="sparkles" size={24} color="#F59E0B" />
-          <View>
+          <Ionicons name="stats-chart" size={24} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>
-              {language === 'sw'
-                ? `Mgahawa wako ulionekana kwenye utafutaji mara ${data.weeklySearchAppearances.toLocaleString()} wiki hii`
-                : `You appeared in ${data.weeklySearchAppearances.toLocaleString()} food searches this week`}
+              {language === 'sw' ? 'Takwimu za Uendeshaji' : 'Operational & Demand Telemetry'}
             </Text>
             <Text style={styles.heroSub}>
-              {data.searchToRestaurantClicks.toLocaleString()} diners clicked through directly to your dish catalog
+              {language === 'sw'
+                ? 'Takwimu halisi za mauzo na upatikanaji wa vyakula kutoka jikoni kwako.'
+                : 'Real-time performance metrics derived directly from your order fulfillment and dish availability.'}
             </Text>
           </View>
         </View>
@@ -67,66 +70,85 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
         </View>
       </View>
 
-      {/* Lost Opportunities Section (Task 32) */}
+      {/* Unavailable Items / Stock Alerts Section */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <Ionicons name="alert-circle-outline" size={20} color="#DC2626" />
           <View>
             <Text style={styles.sectionTitle}>
-              {language === 'sw' ? 'Fursa Zilizopotea (Lost Opportunities)' : 'Lost Customer Opportunities'}
+              {language === 'sw' ? 'Vyakula Visivyopatikana' : 'Unavailable Menu Items'}
             </Text>
             <Text style={styles.sectionSub}>
-              Dishes searched by nearby diners when your kitchen marked them unavailable
+              {language === 'sw'
+                ? 'Vyakula vilivyotiwa alama ya kutopatikana kwa wateja hivi sasa'
+                : 'Dishes currently marked unavailable or out of stock in your active menu'}
             </Text>
           </View>
         </View>
 
         <View style={styles.lostList}>
-          {data.lostOpportunities.map((opp, idx) => (
-            <View key={idx} style={styles.lostRow}>
-              <View style={styles.lostLeft}>
-                <Text style={styles.lostDishName}>{opp.dishName}</Text>
-                <Text style={styles.lostReason}>Status: {opp.reason}</Text>
+          {data.lostOpportunities.length === 0 ? (
+            <Text style={[styles.lostReason, { paddingVertical: Spacing.sm }]}>
+              {language === 'sw'
+                ? 'Vyakula vyote vinapatikana kwa sasa.'
+                : 'All menu dishes are currently active and available to diners.'}
+            </Text>
+          ) : (
+            data.lostOpportunities.map((opp, idx) => (
+              <View key={idx} style={styles.lostRow}>
+                <View style={styles.lostLeft}>
+                  <Text style={styles.lostDishName}>{opp.dishName}</Text>
+                  <Text style={styles.lostReason}>{opp.reason}</Text>
+                </View>
+                <View style={styles.lostBadge}>
+                  <Text style={styles.lostBadgeText}>
+                    {opp.missedSearchesCount ? `${opp.missedSearchesCount} missed` : 'Out of stock'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.lostBadge}>
-                <Text style={styles.lostBadgeText}>
-                  {opp.missedSearchesCount} searches missed
-                </Text>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </View>
 
-      {/* Top Searched Dishes Breakdown */}
+      {/* Top Ordered Dishes Breakdown */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <Ionicons name="trending-up-outline" size={20} color={Colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>
-              {language === 'sw' ? 'Vyakula Vinavyotafutwa Zaidi' : 'Top Searched Dishes'}
+              {language === 'sw' ? 'Vyakula Vinavyoagizwa Zaidi' : 'Top Ordered Dishes'}
             </Text>
             <Text style={styles.sectionSub}>
-              Most requested culinary keywords leading to your kitchen
+              {language === 'sw'
+                ? 'Vyakula maarufu kulingana na idadi ya maagizo yaliyothibitishwa'
+                : 'Most frequently ordered items based on fulfilled customer orders'}
             </Text>
           </View>
         </View>
 
         <View style={styles.topDishesList}>
-          {data.topSearchedDishes.map((d, index) => (
-            <View key={index} style={styles.topDishRow}>
-              <View style={styles.rankPill}>
-                <Text style={styles.rankText}>#{index + 1}</Text>
+          {topDishes.length === 0 ? (
+            <Text style={[styles.lostReason, { paddingVertical: Spacing.sm }]}>
+              {language === 'sw'
+                ? 'Bado hakuna maagizo ya vyakula yaliyorekodiwa.'
+                : 'No dish orders recorded yet.'}
+            </Text>
+          ) : (
+            topDishes.map((d, index) => (
+              <View key={index} style={styles.topDishRow}>
+                <View style={styles.rankPill}>
+                  <Text style={styles.rankText}>#{index + 1}</Text>
+                </View>
+                <View style={styles.dishNameCol}>
+                  <Text style={styles.dishNameText}>{d.name}</Text>
+                </View>
+                <View style={styles.orderConversionBadge}>
+                  <Text style={styles.orderConversionText}>{d.ordersCount} orders</Text>
+                </View>
               </View>
-              <View style={styles.dishNameCol}>
-                <Text style={styles.dishNameText}>{d.name}</Text>
-                <Text style={styles.dishSearchSub}>{d.searchCount} customer searches</Text>
-              </View>
-              <View style={styles.orderConversionBadge}>
-                <Text style={styles.orderConversionText}>{d.ordersCount} orders</Text>
-              </View>
-            </View>
-          ))}
+            ))
+          )}
         </View>
       </View>
     </ScrollView>

@@ -10,9 +10,9 @@ export class ApplicationRepository {
       ownerName: row.owner_name,
       ownerPhone: row.owner_phone,
       ownerEmail: row.owner_email,
-      cuisineType: row.cuisine_type || 'Swahili',
-      neighborhood: row.neighborhood || 'Mikocheni',
-      address: row.address || 'Dar es Salaam',
+      cuisineType: row.cuisine_type || '',
+      neighborhood: row.neighborhood || '',
+      address: row.address || '',
       businessType: row.business_type,
       hasTinOrLicense: row.has_tin_or_license ?? false,
       tinNumber: row.tin_number,
@@ -83,6 +83,16 @@ export class ApplicationRepository {
   }
 
   public static async submit(app: Partial<RestaurantApplication>): Promise<RestaurantApplication> {
+    if (!app.businessName?.trim()) {
+      throw new Error('Business name is required.');
+    }
+    if (!app.ownerName?.trim()) {
+      throw new Error('Owner name is required.');
+    }
+    if (!app.ownerPhone?.trim()) {
+      throw new Error('Owner phone number is required.');
+    }
+
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase client is not configured.');
     }
@@ -100,17 +110,17 @@ export class ApplicationRepository {
     const row = {
       id: app.id || `app_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       applicant_user_id: applicantUserId,
-      business_name: app.businessName,
-      owner_name: app.ownerName,
-      owner_phone: app.ownerPhone,
-      owner_email: app.ownerEmail,
-      cuisine_type: app.cuisineType || 'Swahili',
-      neighborhood: app.neighborhood || 'Mikocheni',
-      address: app.address || 'Dar es Salaam',
+      business_name: app.businessName.trim(),
+      owner_name: app.ownerName.trim(),
+      owner_phone: app.ownerPhone.trim(),
+      owner_email: app.ownerEmail?.trim() || null,
+      cuisine_type: app.cuisineType?.trim() || null,
+      neighborhood: app.neighborhood?.trim() || null,
+      address: app.address?.trim() || null,
       has_tin_or_license: app.hasTinOrLicense ?? false,
-      tin_number: app.tinNumber,
+      tin_number: app.tinNumber?.trim() || null,
       status: 'PENDING',
-      notes: app.notes,
+      notes: app.notes?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 

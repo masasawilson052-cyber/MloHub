@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { MenuRepository } from '../../repositories';
+import { runtimeConfig } from '../../lib/runtimeConfig';
 import {
   ScrollView,
   View,
@@ -219,20 +220,24 @@ export default function RestaurantDetailScreen() {
           {restaurant.name}
         </Text>
 
-        <TouchableOpacity
-          style={styles.favBtn}
-          onPress={() => toggleFavorite(restaurant.id)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-        >
-          <Ionicons
-            name={isFavorite ? 'heart' : 'heart-outline'}
-            size={24}
-            color={isFavorite ? Colors.error : Colors.textPrimary}
-          />
-        </TouchableOpacity>
+        {runtimeConfig.allowLocalDataFallbacks ? (
+          <TouchableOpacity
+            style={styles.favBtn}
+            onPress={() => toggleFavorite(restaurant.id)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={24}
+              color={isFavorite ? Colors.error : Colors.textPrimary}
+            />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.favBtn} />
+        )}
       </View>
 
       <ScrollView

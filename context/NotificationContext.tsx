@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
+import { runtimeConfig } from '../lib/runtimeConfig';
+import { NotificationRepository } from '../repositories/notifications.repository';
+import { useAuth } from './AuthContext';
 
 export type NotificationType =
   | 'reservation_confirmed'
@@ -236,14 +239,51 @@ const INITIAL_NOTIFICATIONS: Notification[] = [
   },
 ];
 
+function mapDomainNotificationToContext(dn: any): Notification {
+  const payload = dn.payload || {};
+  const cat = (dn.category || 'ORDER').toLowerCase();
+  const mappedCategory: 'reservation' | 'order' | 'payment' | 'offer' =
+    cat === 'reservation' ? 'reservation' : cat === 'payment' ? 'payment' : cat === 'offer' ? 'offer' : 'order';
+
+  return {
+    id: dn.id,
+    userId: dn.userId,
+    type: (dn.type?.toLowerCase() || 'order') as NotificationType,
+    category: mappedCategory,
+    titleEn: dn.titleEn || 'Notification',
+    titleSw: dn.titleSw || 'Taarifa',
+    messageEn: dn.messageEn || '',
+    messageSw: dn.messageSw || '',
+    isRead: dn.isRead ?? false,
+    createdAt: dn.createdAt,
+    timeAgoEn: 'Just now',
+    timeAgoSw: 'Hivi punde',
+    restaurantName: payload.restaurant_name || payload.restaurantName,
+    restaurantId: dn.restaurantId || payload.restaurant_id || payload.restaurantId,
+    reservationDate: payload.reservation_date || payload.reservationDate,
+    reservationTime: payload.reservation_time || payload.reservationTime,
+    guests: payload.party_size ? `${payload.party_size} Guests` : undefined,
+    address: payload.address,
+    cancellationReasonEn: payload.cancellation_reason_en || payload.rejectionReason,
+    cancellationReasonSw: payload.cancellation_reason_sw,
+    dishName: payload.dish_name || payload.dishName,
+    price: payload.amount_tzs || payload.priceTzs,
+    paymentAmount: payload.payment_amount || payload.amountTzs,
+    paymentMethod: payload.payment_method || payload.paymentMethod,
+    referenceNumber: payload.reference_number || payload.providerReference,
+    actionType: dn.actionType || (mappedCategory === 'reservation' ? 'view_reservation' : mappedCategory === 'payment' ? 'view_receipt' : 'view_order'),
+  };
+}
+
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   preferences: NotificationPreferences;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  deleteNotification: (id: string) => void;
-  clearAll: () => void;
+  refreshNotifications: () => Promise<void>;
+  markAsRead: (id: string) => Promise<void> | void;
+  markAllAsRead: () => Promise<void> | void;
+  deleteNotification: (id: string) => Promise<void> | void;
+  clearAll: () => Promise<void> | void;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => void;
   updatePreference: <K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]) => void;
   simulateIncomingNotification: () => void;
@@ -252,30 +292,93 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [notifications, setNotifications] = useState<Notification[]>(INITIAL_NOTIFICATIONS);
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>(() =>
+    runtimeConfig.allowLocalDataFallbacks ? INITIAL_NOTIFICATIONS : []
+  );
   const [preferences, setPreferences] = useState<NotificationPreferences>(INITIAL_PREFERENCES);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!runtimeConfig.allowLocalDataFallbacks) {
+      if (user?.id) {
+        try {
+          const list = await NotificationRepository.listForUser(user.id);
+          setNotifications((list || []).map(mapDomainNotificationToContext));
+        } catch (e) {
+          console.warn('[NotificationContext] Failed to load canonical notifications:', e);
+        }
+      } else {
+        setNotifications([]);
+      }
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
-    );
+  const markAsRead = async (id: string) => {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      return;
+    }
+    try {
+      await NotificationRepository.markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch (e) {
+      console.warn('[NotificationContext] markAsRead error:', e);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  const markAllAsRead = async () => {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      return;
+    }
+    if (user?.id) {
+      try {
+        await NotificationRepository.markAllAsRead(user.id);
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      } catch (e) {
+        console.warn('[NotificationContext] markAllAsRead error:', e);
+      }
+    }
   };
 
-  const deleteNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const deleteNotification = async (id: string) => {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      return;
+    }
+    try {
+      await NotificationRepository.archiveNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    } catch (e) {
+      console.warn('[NotificationContext] deleteNotification error:', e);
+    }
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
+    if (runtimeConfig.allowLocalDataFallbacks) {
+      setNotifications([]);
+      return;
+    }
+    for (const notif of notifications) {
+      try {
+        await NotificationRepository.archiveNotification(notif.id);
+      } catch {}
+    }
     setNotifications([]);
   };
 
   const addNotification = (notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'> & { id?: string }) => {
+    if (!runtimeConfig.allowLocalDataFallbacks) return;
     const notifId = notificationData.id || `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setNotifications((prev) => {
       if (prev.some((n) => n.id === notifId)) {
@@ -300,67 +403,29 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   useEffect(() => {
     // 1. Listen for real-time order updates across the platform
-    const unsubOrders = RealtimeEventEngine.subscribe('orders:*', (payload) => {
-      const order = payload?.data?.order;
-      const eventType = payload?.eventType;
-      if (!order) return;
-
-      let titleEn = `Order Update: #${order.orderNumber || order.id}`;
-      let titleSw = `Taarifa ya Oda: #${order.orderNumber || order.id}`;
-      let messageEn = order.statusMessageEn || `Order status is now ${order.status}`;
-      let messageSw = order.statusMessageSw || `Hali ya oda ni ${order.status}`;
-
-      if (eventType === 'NEW_ORDER_PLACED') {
-        titleEn = `New Order Placed: #${order.orderNumber || order.id}`;
-        titleSw = `Oda Mpya Imepokelewa: #${order.orderNumber || order.id}`;
-      } else if (eventType === 'ORDER_CONFIRMED') {
-        titleEn = `Order Confirmed: #${order.orderNumber || order.id}`;
-        titleSw = `Oda Imethibitishwa: #${order.orderNumber || order.id}`;
+    const unsubOrders = RealtimeEventEngine.subscribe('orders:*', () => {
+      if (!runtimeConfig.allowLocalDataFallbacks) {
+        refreshNotifications();
       }
-
-      addNotification({
-        userId: payload.customerId || order.userId || 'user-1',
-        type: 'custom_meal_ready',
-        category: 'order',
-        titleEn,
-        titleSw,
-        messageEn,
-        messageSw,
-        timeAgoEn: 'Just now',
-        timeAgoSw: 'Sasa hivi',
-        restaurantName: order.restaurantName,
-        restaurantId: order.targetRestaurantId,
-        dishName: order.dishName,
-        actionType: 'view_order',
-      });
     });
 
     // 2. Listen for platform announcements
-    const unsubAnnouncements = RealtimeEventEngine.subscribe('announcements:broadcast', (payload) => {
-      const title = payload?.data?.title || payload?.title || 'Tangazo Rasmi la MloHub';
-      const message = payload?.data?.message || payload?.message || 'Kuna taarifa mpya kutoka kwa uongozi.';
-      addNotification({
-        userId: 'all',
-        type: 'promotion',
-        category: 'offer',
-        titleEn: title,
-        titleSw: title,
-        messageEn: message,
-        messageSw: message,
-        timeAgoEn: 'Just now',
-        timeAgoSw: 'Sasa hivi',
-        actionType: 'view_order',
-      });
+    const unsubAnnouncements = RealtimeEventEngine.subscribe('announcements:broadcast', () => {
+      if (!runtimeConfig.allowLocalDataFallbacks) {
+        refreshNotifications();
+      }
     });
 
     return () => {
       unsubOrders();
       unsubAnnouncements();
     };
-  }, []);
+  }, [refreshNotifications]);
 
-  // Simulator helper for testing real-time updates
+  // Simulator helper for testing real-time updates (strictly demo / test only)
   const simulateIncomingNotification = () => {
+    if (!runtimeConfig.isDemo) return;
+
     const simTypes: Omit<Notification, 'id' | 'createdAt' | 'isRead'>[] = [
       {
         userId: 'user-1',
@@ -368,12 +433,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         category: 'order',
         titleEn: 'Your Custom Meal Is Ready!',
         titleSw: 'Mlo Wako Maalum Uko Tayari!',
-        messageEn: 'Chef Juma at Spice Bowl has finished cooking your Coconut Fish Curry. It is packed hot for pickup!',
-        messageSw: 'Mpishi Juma wa Spice Bowl amemaliza kupika Samaki wako wa Nazi. Umefungwa ukiwa wa moto tayari!',
+        messageEn: 'Chef at restaurant has finished cooking your custom meal. It is ready!',
+        messageSw: 'Mpishi amemaliza kuandaa mlo wako maalum. Uko tayari!',
         timeAgoEn: 'Just now',
         timeAgoSw: 'Sasa hivi',
-        restaurantName: 'Spice Bowl',
-        dishName: 'Swahili Coconut Fish Curry',
+        restaurantName: 'Demo Kitchen',
+        dishName: 'Custom Dish',
         actionType: 'view_order',
       },
       {
@@ -382,31 +447,15 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         category: 'reservation',
         titleEn: 'Table Reservation Confirmed',
         titleSw: 'Nafasi ya Meza Imethibitishwa',
-        messageEn: 'Kariakoo Spices has confirmed your table reservation for 8:00 PM tonight.',
-        messageSw: 'Kariakoo Spices wamethibitisha nafasi yako ya meza kwa saa 2:00 Usiku leo.',
+        messageEn: 'Your table reservation has been confirmed.',
+        messageSw: 'Nafasi yako ya meza imethibitishwa.',
         timeAgoEn: 'Just now',
         timeAgoSw: 'Sasa hivi',
-        restaurantName: 'Kariakoo Spices',
+        restaurantName: 'Demo Restaurant',
         reservationTime: '08:00 PM',
-        guests: '3 Guests',
-        address: 'Msimbazi St, Kariakoo',
+        guests: '2 Guests',
+        address: 'Dar es Salaam',
         actionType: 'view_reservation',
-      },
-      {
-        userId: 'user-1',
-        type: 'payment_success',
-        category: 'payment',
-        titleEn: 'Payment Received',
-        titleSw: 'Malipo Yamepokelewa',
-        messageEn: 'Payment of TZS 18,000 was confirmed for Order #MLO-9912 via Tigo Pesa.',
-        messageSw: 'Malipo ya TZS 18,000 yamethibitishwa kwa Agizo #MLO-9912 kupitia Tigo Pesa.',
-        timeAgoEn: 'Just now',
-        timeAgoSw: 'Sasa hivi',
-        restaurantName: 'Samaki Corner',
-        paymentAmount: 18000,
-        paymentMethod: 'Tigo Pesa (Tigo)',
-        referenceNumber: `TP-${Math.floor(10000000 + Math.random() * 90000000)}`,
-        actionType: 'view_receipt',
       },
     ];
 
@@ -420,6 +469,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         notifications,
         unreadCount,
         preferences,
+        refreshNotifications,
         markAsRead,
         markAllAsRead,
         deleteNotification,

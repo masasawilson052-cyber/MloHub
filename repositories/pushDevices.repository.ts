@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { PushDevice, PushDeviceToken } from '../types/domain';
 
 export class PushDevicesRepository {
@@ -84,8 +84,7 @@ export class PushDevicesRepository {
   public static async getActiveTokensForUser(userId: string): Promise<PushDeviceToken[]> {
     if (!isSupabaseConfigured()) return [];
 
-    const client = supabaseAdmin || supabase;
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('push_device_tokens')
       .select('*')
       .eq('user_id', userId)

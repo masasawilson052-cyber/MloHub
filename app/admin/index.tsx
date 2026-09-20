@@ -700,7 +700,6 @@ export default function AdminPortalScreen() {
           {activeTab === 'USERS' && (
             <UsersManager
               users={allUsers}
-              onToggleSuspendUser={handleToggleSuspendUser}
               language={language}
             />
           )}
@@ -719,7 +718,6 @@ export default function AdminPortalScreen() {
           {activeTab === 'NOTIFICATIONS' && (
             <NotificationsCenter
               notifications={notifications}
-              onSendBroadcast={handleSendBroadcast}
               language={language}
             />
           )}
@@ -758,9 +756,9 @@ export default function AdminPortalScreen() {
             <View style={styles.credCard}>
               <View style={styles.credHeader}>
                 <Ionicons name="checkmark-circle" size={40} color="#16a34a" />
-                <Text style={styles.credTitle}>Vendor Activated Successfully!</Text>
+                <Text style={styles.credTitle}>Restaurant Application Approved</Text>
                 <Text style={styles.credSubtitle}>
-                  "{createdVendorModal.businessName}" is now active on MloHub.
+                  "{createdVendorModal.businessName}" has been approved.
                 </Text>
               </View>
 
@@ -771,31 +769,29 @@ export default function AdminPortalScreen() {
                 <Text style={styles.credLabel}>Login Phone Number:</Text>
                 <Text style={styles.credValue}>{createdVendorModal.ownerPhone}</Text>
 
-                <Text style={styles.credLabel}>Activation Method:</Text>
+                <Text style={styles.credLabel}>Status & Visibility:</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Ionicons
-                    name={createdVendorModal.activationDispatched ? "shield-checkmark" : "time-outline"}
+                    name="information-circle"
                     size={16}
-                    color={createdVendorModal.activationDispatched ? "#16a34a" : "#d97706"}
+                    color="#0284c7"
                   />
                   <Text
                     style={{
                       fontSize: 14,
                       fontWeight: '700',
-                      color: createdVendorModal.activationDispatched ? '#16a34a' : '#d97706',
+                      color: '#0284c7',
                     }}
                   >
-                    {createdVendorModal.activationDispatched
-                      ? 'SMS Activation Invitation Dispatched'
-                      : 'Restaurant approved. Activation delivery is pending.'}
+                    Approved (Unpublished until setup is completed)
                   </Text>
                 </View>
               </View>
 
               <Text style={styles.credNote}>
                 {createdVendorModal.activationDispatched
-                  ? `A secure carrier SMS with a one-time cryptographic activation OTP has been dispatched to ${createdVendorModal.ownerPhone}. The owner will verify their phone and set their own private password.`
-                  : `The restaurant application has been approved and activated in PostgreSQL. Secure SMS delivery to ${createdVendorModal.ownerPhone} is queued.`}
+                  ? `A secure carrier SMS with a one-time cryptographic activation OTP has been dispatched to ${createdVendorModal.ownerPhone}. The restaurant remains unpublished until setup is completed.`
+                  : `The restaurant application has been approved. The restaurant remains unpublished until initial menu and operating setup is completed. Secure SMS delivery to ${createdVendorModal.ownerPhone} is queued.`}
               </Text>
 
               <TouchableOpacity

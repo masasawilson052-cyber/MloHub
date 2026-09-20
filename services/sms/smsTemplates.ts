@@ -100,9 +100,9 @@ export class SmsTemplates {
 
   public static orderOutForDelivery(params: OrderTemplateParams, language: SmsLanguage = 'sw'): string {
     if (language === 'sw') {
-      return `Oda #${params.orderNumber} iko njiani! Dereva wetu anaileta kuelekea kwako sasa.`;
+      return `Oda #${params.orderNumber} iko njiani! Mgahawa wako umeweka oda yako kuwa njiani kuletwa kwako.`;
     }
-    return `Order #${params.orderNumber} is on the way! Our courier is heading to your address now.`;
+    return `Order #${params.orderNumber} is on the way! Your restaurant has marked your order as on the way for delivery.`;
   }
 
   public static orderDelivered(params: OrderTemplateParams, language: SmsLanguage = 'sw'): string {

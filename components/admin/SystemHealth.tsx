@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { runtimeConfig } from '../../lib/runtimeConfig';
-import { SmsFactory } from '../../services/sms/SmsFactory';
 
 interface SystemHealthProps {
   language?: 'en' | 'sw';
@@ -14,17 +13,35 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
   language = 'en',
 }) => {
   const isCloud = isSupabaseConfigured();
-  const smsGateway = SmsFactory.getGateway();
-  const smsStatusText =
-    smsGateway.name === 'SANDBOX'
-      ? 'SANDBOX (SIMULATED)'
-      : `${smsGateway.name} (CONFIGURED / NOT LIVE TESTED)`;
+  const [probeStatus, setProbeStatus] = useState<'CHECKING' | 'CONNECTED' | 'UNREACHABLE' | 'CONFIGURED_UNVERIFIED'>(
+    isCloud ? 'CHECKING' : 'CONFIGURED_UNVERIFIED'
+  );
 
-  const dbStatus = isCloud
-    ? 'CONNECTED (LIVE)'
-    : runtimeConfig.allowLocalDataFallbacks
-    ? 'OFFLINE MOCK (TEST/DEMO ONLY)'
-    : 'DISCONNECTED';
+  useEffect(() => {
+    let isMounted = true;
+    if (isCloud) {
+      (async () => {
+        try {
+          const { error } = await supabase.from('profiles').select('id').limit(1);
+          if (!isMounted) return;
+          if (error) {
+            if (error.message?.includes('FetchError') || error.message?.includes('Network') || error.message?.includes('Failed to fetch')) {
+              setProbeStatus('UNREACHABLE');
+            } else {
+              setProbeStatus('CONNECTED');
+            }
+          } else {
+            setProbeStatus('CONNECTED');
+          }
+        } catch {
+          if (isMounted) setProbeStatus('UNREACHABLE');
+        }
+      })();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isCloud]);
 
   const services = [
     {
@@ -52,12 +69,14 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
         ? 'OFFLINE MOCK (TEST/DEMO ONLY)'
         : 'DISCONNECTED',
       isHealthy: false, // Fail closed: presence of URL/key does not guarantee live PostgreSQL reachability
-      description: isCloud
-        ? 'Supabase URL and anon key are configured; health has not been verified against a live database query.'
+      description: probeStatus === 'CONNECTED'
+        ? 'Supabase database endpoint is responsive and verified via live probe.'
+        : isCloud
+        ? 'Supabase URL and anon key are configured; live reachability is unverified.'
         : runtimeConfig.allowLocalDataFallbacks
         ? 'Running in deterministic mock mode strictly isolated for TEST/DEMO.'
         : `CRITICAL: Supabase unconfigured in ${runtimeConfig.environmentLabel}. Local fallback is forbidden.`,
-      badgeColor: isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
+      badgeColor: probeStatus === 'CONNECTED' ? '#10b981' : isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
     },
     {
       name: 'Realtime WebSockets',
@@ -74,15 +93,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
     {
       name: 'SMS Gateway Provider',
       type: 'Telecom Adapter',
-      status: smsGateway.name === 'SANDBOX'
-        ? (runtimeConfig.isDemo ? 'SANDBOX (SIMULATED)' : 'SANDBOX (NON-PRODUCTION)')
-        : `${smsGateway.name} (CONFIGURED; HEALTH UNVERIFIED)`,
-      isHealthy: smsGateway.name === 'SANDBOX' && runtimeConfig.isDemo,
-      description:
-        smsGateway.name === 'SANDBOX'
-          ? 'Sandbox telecom adapter active. Deterministic delivery logging to sms_logs without carrier API charges.'
-          : `${smsGateway.name} gateway configured; live transmission has not been verified with carrier probe.`,
-      badgeColor: smsGateway.name === 'SANDBOX' ? '#0284c7' : '#f59e0b',
+      status: 'SMS delivery adapter: server-side configuration',
+      isHealthy: false,
+      description: 'Live carrier health not verified. Provider credentials reside strictly on server workers and are never inspected by the Expo client.',
+      badgeColor: '#f59e0b',
     },
     {
       name: 'Payment Processing Gateway',
@@ -150,22 +164,28 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
       <View style={styles.overallBanner}>
         <View style={styles.bannerIconWrapper}>
           <Ionicons
-            name={isCloud ? "shield-checkmark" : "information-circle-outline"}
+            name={probeStatus === 'CONNECTED' ? "shield-checkmark" : isCloud ? "warning-outline" : "information-circle-outline"}
             size={28}
-            color={isCloud ? "#10b981" : "#f59e0b"}
+            color={probeStatus === 'CONNECTED' ? "#10b981" : "#f59e0b"}
           />
         </View>
         <View style={styles.bannerText}>
           <Text style={styles.bannerTitle}>
-            {isCloud
+            {probeStatus === 'CONNECTED'
               ? 'Infrastructure Status: Backend Connected'
+              : probeStatus === 'UNREACHABLE'
+              ? 'Infrastructure Status: Backend Unreachable'
+              : isCloud
+              ? 'Infrastructure Status: Backend Configured — Live Health Unverified'
               : runtimeConfig.isDemo
               ? 'Infrastructure Status: Demo Showcase Active'
               : 'Infrastructure Status: Unavailable / Not Verified'}
           </Text>
           <Text style={styles.bannerSubtitle}>
-            {isCloud
-              ? 'Supabase database and Row Level Security active. External gateway connectivity is measured per adapter.'
+            {probeStatus === 'CONNECTED'
+              ? 'Supabase database and Row Level Security active. Live connection verified.'
+              : isCloud
+              ? 'Supabase URL and anon key configured. Live database connection has not been verified.'
               : runtimeConfig.isDemo
               ? 'Demo environment running with sandbox fixtures.'
               : 'Backend unconfigured or disconnected. Live telemetry unavailable.'}

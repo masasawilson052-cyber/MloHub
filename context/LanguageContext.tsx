@@ -10,6 +10,7 @@ export interface Translations {
   tabCustom: string;
   tabBookings: string;
   tabAccount: string;
+  tabProfile: string;
 
   // Header
   selectArea: string;
@@ -217,6 +218,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tabCustom: 'Custom',
     tabBookings: 'Bookings',
     tabAccount: 'Account',
+    tabProfile: 'Profile',
 
     // Header
     selectArea: 'Select Area',
@@ -422,6 +424,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     tabCustom: 'Mlo Maalum',
     tabBookings: 'Nafasi',
     tabAccount: 'Akaunti',
+    tabProfile: 'Wasifu',
 
     // Header
     selectArea: 'Chagua Eneo',
