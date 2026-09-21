@@ -231,8 +231,8 @@ export default function RegisterRestaurantScreen() {
               </Text>
               <Text style={styles.introSub}>
                 {language === 'sw'
-                  ? 'Wafikie maelfu ya wateja wa Dar es Salaam wanaotafuta vyakula halisi vya asili na migahawa ya kisasa.'
-                  : 'Reach thousands of diners in Dar es Salaam discovering local food spots, home kitchens, and restaurants.'}
+                  ? 'Unganisha mgahawa wako na wateja wa Dar es Salaam wanaotafuta vyakula halisi kupitia mfumo wa MloHub.'
+                  : 'Connect your food spot with diners in Dar es Salaam discovering local food spots, home kitchens, and restaurants.'}
               </Text>
             </View>
           </View>
@@ -304,7 +304,11 @@ export default function RegisterRestaurantScreen() {
           />
           {errors.ownerFullName && <Text style={styles.fieldError}>{errors.ownerFullName}</Text>}
 
-          <Text style={styles.inputLabel}>Namba ya Simu ya Mmiliki & Malipo (M-Pesa / Tigo Pesa) *</Text>
+          <Text style={styles.inputLabel}>
+            {language === 'sw'
+              ? 'Namba ya Simu ya Mawasiliano (M-Pesa / Mixx by Yas / Airtel Money) *'
+              : 'Contact Phone Number (M-Pesa / Mixx by Yas / Airtel Money) *'}
+          </Text>
           <TextInput
             style={[styles.input, errors.ownerPhone && styles.inputError]}
             value={ownerPhone}
@@ -348,8 +352,8 @@ export default function RegisterRestaurantScreen() {
             <Ionicons name="information-circle-outline" size={15} color="#0f766e" />
             <Text style={styles.verifiedBadgeText}>
               {language === 'sw'
-                ? 'Nambari itatumika kupokea arifa za oda na malipo ya biashara.'
-                : 'Phone number will be used for order dispatch alerts and merchant payouts.'}
+                ? 'Nambari itatumika kupokea arifa za oda na kumbukumbu za malipo ya biashara.'
+                : 'Phone number will be used for order dispatch alerts and settlement records.'}
             </Text>
           </View>
         </View>
@@ -392,7 +396,9 @@ export default function RegisterRestaurantScreen() {
 
         {/* 4. FORMAL DOCS (OPTIONAL) */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>4. Uthibitisho wa Kibiashara (Hiari)</Text>
+          <Text style={styles.sectionTitle}>
+            {language === 'sw' ? '4. Taarifa za Uthibitisho wa Kibiashara (Hiari)' : '4. Business Verification Details (Optional)'}
+          </Text>
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setHasTinOrLicense(!hasTinOrLicense)}

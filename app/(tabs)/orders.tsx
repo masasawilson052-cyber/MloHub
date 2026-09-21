@@ -19,6 +19,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { OrderRepository } from '../../repositories/orders.repository';
 import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
+import { RealtimeService } from '../../services/RealtimeService';
 import { Order, OrderStatus } from '../../types/domain';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Status } from '../../components/ui/Status';
@@ -72,7 +73,14 @@ export default function OrdersScreen() {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
-    const unsubscribe = RealtimeEventEngine.subscribe(
+    const unsubRealtime = RealtimeService.subscribeToCustomerOrders(
+      user.id,
+      () => {
+        fetchOrders();
+      }
+    );
+
+    const unsubLocal = RealtimeEventEngine.subscribe(
       `orders:customer:${user.id}`,
       () => {
         fetchOrders();
@@ -80,7 +88,8 @@ export default function OrdersScreen() {
     );
 
     return () => {
-      unsubscribe();
+      unsubRealtime();
+      unsubLocal();
     };
   }, [isAuthenticated, user?.id, fetchOrders]);
 

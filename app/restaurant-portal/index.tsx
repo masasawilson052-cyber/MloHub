@@ -7,6 +7,7 @@ import {
   Alert,
   useWindowDimensions,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -416,8 +417,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     });
 
     const unsubscribeOrders = RealtimeEventEngine.subscribe('orders:*', handleRealtimeEvent);
-    const unsubscribeRestaurant = RealtimeEventEngine.subscribe(`orders:restaurant:${activeRestaurant.id}`, handleRealtimeEvent);
-    const unsubscribeMenu = RealtimeEventEngine.subscribe('menu:updated', handleRealtimeEvent);
+    const unsubscribeRestaurant = RealtimeService.subscribeToRestaurantOrders(activeRestaurant.id, () => handleRealtimeEvent());
+    const unsubscribeMenu = RealtimeService.subscribeToMenu(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeReservations = RealtimeService.subscribeToReservations(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeCustomMeals = RealtimeService.subscribeToCustomMeals(activeRestaurant.id, () => handleRealtimeEvent());
 
@@ -975,14 +976,30 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     [activeRestaurant.id, loadRestaurantWorkspace]
   );
 
+  const hasActiveBranch = branches.some((b) => b.isActive);
+  const hasValidMenuItem = menuItems.some(
+    (m: any) => ((m.basePrice && m.basePrice > 0) || (m.priceTzs && m.priceTzs > 0)) && (m.isAvailable ?? true)
+  );
+  const hasConfiguredHours = branches.some(
+    (b: any) => b.openingHours && Object.keys(b.openingHours).length > 0
+  );
+  const isPublishPrerequisitesMet = hasActiveBranch && hasValidMenuItem;
+  const canPublish = isPublishPrerequisitesMet;
+
   const handleUpdateOperatingStatus = useCallback(
     async (status: OperatingOverride) => {
+      if (!selectedBranchId) {
+        Alert.alert(
+          language === 'sw' ? 'Chagua Tawi' : 'Select Branch',
+          language === 'sw'
+            ? 'Tafadhali chagua au sajili tawi kwanza kabla ya kubadili hali ya uendeshaji.'
+            : 'Select a branch before changing operating status.'
+        );
+        return;
+      }
       try {
         const mode = status as BranchOperationalMode;
-        const targetBranchId = selectedBranchId || branches[0]?.id;
-        if (targetBranchId) {
-          await BranchOperationsRepository.setBranchOperationalMode(targetBranchId, mode);
-        }
+        await BranchOperationsRepository.setBranchOperationalMode(selectedBranchId, mode);
         await loadRestaurantWorkspace();
         Alert.alert(
           language === 'sw' ? 'Hali Imesasishwa' : 'Operating Status Updated',
@@ -994,10 +1011,28 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya kufungua.');
       }
     },
-    [selectedBranchId, branches, loadRestaurantWorkspace, language]
+    [selectedBranchId, loadRestaurantWorkspace, language]
   );
 
   const handlePublishRestaurant = useCallback(async () => {
+    if (!hasActiveBranch) {
+      Alert.alert(
+        language === 'sw' ? 'Tawi Linahitajika' : 'Active Branch Required',
+        language === 'sw'
+          ? 'Mgahawa lazima uwe na angalau tawi 1 hai kabla ya kuzinduliwa.'
+          : 'Your restaurant must have at least one active branch before publishing.'
+      );
+      return;
+    }
+    if (!hasValidMenuItem) {
+      Alert.alert(
+        language === 'sw' ? 'Chakula Kinahitajika' : 'Valid Menu Item Required',
+        language === 'sw'
+          ? 'Mgahawa lazima uwe na angalau chakula 1 chenye bei halali kabla ya kuzinduliwa.'
+          : 'Your restaurant must have at least one available menu item with price > 0 before publishing.'
+      );
+      return;
+    }
     try {
       await RestaurantRepository.publishRestaurant(activeRestaurant.id);
       await loadRestaurantWorkspace();
@@ -1013,7 +1048,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         err.message || 'Prerequisites not met. Please ensure you have added a branch and a menu item with price.'
       );
     }
-  }, [activeRestaurant.id, loadRestaurantWorkspace, language]);
+  }, [activeRestaurant.id, hasActiveBranch, hasValidMenuItem, loadRestaurantWorkspace, language]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -1039,14 +1074,17 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                 {language === 'sw' ? 'Usajili Haujakamilika / Mgahawa Haujazinduliwa' : 'Setup Incomplete / Unpublished'}
               </Text>
               <Text style={styles.publishBannerSub}>
-                {language === 'sw'
-                  ? 'Ili mgahawa uonekane kwa wateja, unahitaji kuwa na angalau tawi 1 hai na chakula 1 chenye bei.'
-                  : 'To make your restaurant discoverable to diners, add at least 1 branch and 1 menu item with pricing.'}
+                {!hasActiveBranch
+                  ? (language === 'sw' ? '⚠️ Hatua ya lazima: Ongeza angalau tawi 1 hai kwenye Mipangilio kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 active branch in Settings before publishing.')
+                  : !hasValidMenuItem
+                  ? (language === 'sw' ? '⚠️ Hatua ya lazima: Weka angalau chakula 1 chenye bei > 0 kwenye Menyu kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 menu item with price > 0 before publishing.')
+                  : (language === 'sw' ? 'Vigezo vyote vimekamilika! Bonyeza hapa kulia kuzindua mgahawa.' : 'All prerequisites met! Click on the right to publish your restaurant.')}
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.publishActionBtn}
+              style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: '#94a3b8' }]}
               onPress={handlePublishRestaurant}
+              disabled={!isPublishPrerequisitesMet}
               activeOpacity={0.85}
             >
               <Text style={styles.publishActionBtnText}>
@@ -1090,14 +1128,85 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
           {/* Tab Views */}
           <View style={styles.tabContentArea}>
             {activeTab === 'overview' && (
-              <DashboardOverview
-                restaurantName={activeRestaurant.name}
-                metrics={metrics}
-                alerts={alerts}
-                onNavigateTab={setActiveTab}
-                onQuickVerifyMenu={handleVerifyFullMenu}
-                language={language as any}
-              />
+              <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                {/* 5-Point Setup Checklist Card (Task 26) */}
+                <View style={styles.setupCard}>
+                  <View style={styles.setupCardHeader}>
+                    <Text style={styles.setupCardTitle}>
+                      {language === 'sw' ? 'Hatua za Usanidi wa Mgahawa' : 'Restaurant Setup Progress'}
+                    </Text>
+                    <Text style={styles.setupCardStepText}>
+                      {[true, hasActiveBranch, hasConfiguredHours, hasValidMenuItem, activeRestaurant.isPublished].filter(Boolean).length} / 5 {language === 'sw' ? 'zimekamilika' : 'completed'}
+                    </Text>
+                  </View>
+                  <View style={styles.setupChecklist}>
+                    <View style={styles.setupItem}>
+                      <Ionicons name="checkmark-circle" size={18} color="#16a34a" />
+                      <Text style={styles.setupItemTextDone}>
+                        {language === 'sw' ? 'Ombi la mgahawa limeidhinishwa na msimamizi' : 'Application approved by platform admin'}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.setupItem}
+                      onPress={() => setActiveTab('settings')}
+                    >
+                      <Ionicons
+                        name={hasActiveBranch ? "checkmark-circle" : "ellipse-outline"}
+                        size={18}
+                        color={hasActiveBranch ? "#16a34a" : "#94a3b8"}
+                      />
+                      <Text style={[styles.setupItemText, hasActiveBranch && styles.setupItemTextDone]}>
+                        {language === 'sw' ? 'Ongeza angalau tawi 1 la biashara' : 'Add at least one operating branch'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.setupItem}
+                      onPress={() => setActiveTab('settings')}
+                    >
+                      <Ionicons
+                        name={hasConfiguredHours ? "checkmark-circle" : "ellipse-outline"}
+                        size={18}
+                        color={hasConfiguredHours ? "#16a34a" : "#94a3b8"}
+                      />
+                      <Text style={[styles.setupItemText, hasConfiguredHours && styles.setupItemTextDone]}>
+                        {language === 'sw' ? 'Sanidi masaa ya kazi ya tawi' : 'Configure branch operating hours'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.setupItem}
+                      onPress={() => setActiveTab('menu')}
+                    >
+                      <Ionicons
+                        name={hasValidMenuItem ? "checkmark-circle" : "ellipse-outline"}
+                        size={18}
+                        color={hasValidMenuItem ? "#16a34a" : "#94a3b8"}
+                      />
+                      <Text style={[styles.setupItemText, hasValidMenuItem && styles.setupItemTextDone]}>
+                        {language === 'sw' ? 'Weka angalau chakula 1 chenye bei halali kwenye menyu' : 'Add at least one menu item with valid price'}
+                      </Text>
+                    </TouchableOpacity>
+                    <View style={styles.setupItem}>
+                      <Ionicons
+                        name={activeRestaurant.isPublished ? "checkmark-circle" : "ellipse-outline"}
+                        size={18}
+                        color={activeRestaurant.isPublished ? "#16a34a" : "#94a3b8"}
+                      />
+                      <Text style={[styles.setupItemText, activeRestaurant.isPublished && styles.setupItemTextDone]}>
+                        {language === 'sw' ? 'Tayari kuzindua / Mgahawa umezinduliwa mtandaoni' : 'Ready to publish / Live online'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <DashboardOverview
+                  restaurantName={activeRestaurant.name}
+                  metrics={metrics}
+                  alerts={alerts}
+                  onNavigateTab={setActiveTab}
+                  onQuickVerifyMenu={handleVerifyFullMenu}
+                  language={language as any}
+                />
+              </ScrollView>
             )}
 
             {activeTab === 'orders' && (
@@ -1143,7 +1252,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         unitPriceTzs: quote.priceTzs,
                       },
                     ],
-                    deliveryFeeTzs: 0,
+                    deliveryFeeTzs: quote.deliveryFeeTzs || 0,
                     estimatedPrepMinutes: quote.prepMinutes,
                     promisedReadyAt: new Date(Date.now() + quote.prepMinutes * 60 * 1000).toISOString(),
                     fulfillmentMode: (targetInv?.request?.fulfillmentMode as any) || 'PICKUP',
@@ -1242,6 +1351,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                 selectedBranchId={selectedBranchId}
                 onSaveProfile={handleSaveProfile}
                 onUpdateOperatingStatus={handleUpdateOperatingStatus}
+                onBranchUpdated={loadRestaurantWorkspace}
                 language={language as any}
               />
             )}
@@ -1390,5 +1500,50 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  setupCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.sm,
+  },
+  setupCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  setupCardTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: Colors.brandInk,
+  },
+  setupCardStepText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  setupChecklist: {
+    gap: 8,
+  },
+  setupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  setupItemText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  setupItemTextDone: {
+    fontSize: 12,
+    color: Colors.brandInk,
+    fontWeight: '600',
   },
 });

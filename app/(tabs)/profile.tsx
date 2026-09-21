@@ -286,7 +286,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>Privacy & Data Protection</Text>
-              <Text style={styles.rowSubtitle}>Zero-leak security policy</Text>
+              <Text style={styles.rowSubtitle}>Manage your privacy and account security</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
           </TouchableOpacity>

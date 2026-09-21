@@ -292,6 +292,8 @@ export type PaymentStatus =
   | 'PROCESSING'
   | 'AWAITING_PAYMENT'
   | 'PAID'
+  | 'SUCCESS'
+  | 'CAPTURED'
   | 'FAILED'
   | 'CANCELLED'
   | 'REFUND_PENDING'

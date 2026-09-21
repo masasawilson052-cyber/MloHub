@@ -74,7 +74,7 @@ export const DishCard: React.FC<DishCardProps> = ({
       onPress={handleCardPress}
       activeOpacity={0.88}
       accessibilityRole="button"
-      accessibilityLabel={`${dish.dishName} at ${dish.restaurantName}, ${formatTzs(dish.priceTzs)}, ${formatDistance(dish.distanceKm)} away`}
+      accessibilityLabel={`${dish.dishName} at ${dish.restaurantName}, ${formatTzs(dish.priceTzs)}${dish.distanceKm != null ? `, ${formatDistance(dish.distanceKm)} away` : ''}`}
     >
       {/* Visual / Image Section */}
       <View style={styles.imageContainer}>
@@ -137,9 +137,11 @@ export const DishCard: React.FC<DishCardProps> = ({
         </View>
 
         {/* Distance Tag on Image Bottom */}
-        <View style={styles.distanceTag}>
-          <Text style={styles.distanceText}>📍 {formatDistance(dish.distanceKm)}</Text>
-        </View>
+        {dish.distanceKm != null ? (
+          <View style={styles.distanceTag}>
+            <Text style={styles.distanceText}>📍 {formatDistance(dish.distanceKm)}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Content Section */}
@@ -165,10 +167,14 @@ export const DishCard: React.FC<DishCardProps> = ({
           <Text style={styles.restaurantName} numberOfLines={1}>
             {dish.restaurantName}
           </Text>
-          <Text style={styles.dotSeparator}>•</Text>
-          <Text style={styles.neighborhood} numberOfLines={1}>
-            {dish.neighborhood}
-          </Text>
+          {dish.neighborhood ? (
+            <>
+              <Text style={styles.dotSeparator}>•</Text>
+              <Text style={styles.neighborhood} numberOfLines={1}>
+                {dish.neighborhood}
+              </Text>
+            </>
+          ) : null}
         </View>
 
         {/* Footer: Rating, Reviews & Compare Action */}
@@ -202,7 +208,7 @@ export const DishCard: React.FC<DishCardProps> = ({
               </TouchableOpacity>
             ) : null}
 
-            {isAvailable ? (
+            {isAvailable && Boolean(dish.branchId) ? (
               <TouchableOpacity
                 style={[styles.addOrderBtn, isDishInCart && styles.addOrderBtnInCart]}
                 onPress={() =>

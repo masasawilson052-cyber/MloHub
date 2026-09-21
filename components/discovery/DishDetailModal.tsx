@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -52,6 +52,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   const totalPrice = dish.priceNum * quantity;
 
   const handleAddToCart = () => {
+    if (!dish.branchId) return;
     for (let i = 0; i < quantity; i++) {
       addToCart({
         dishId: dish.id,
@@ -163,15 +164,18 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </View>
 
             <TouchableOpacity
-              style={styles.addCartBtn}
+              style={[styles.addCartBtn, !Boolean(dish.branchId) && { opacity: 0.5, backgroundColor: Colors.subtle }]}
               onPress={handleAddToCart}
+              disabled={!Boolean(dish.branchId)}
               activeOpacity={0.88}
               accessible={true}
               accessibilityRole="button"
-              accessibilityLabel="Add to cart"
+              accessibilityLabel={!Boolean(dish.branchId) ? "Branch unavailable" : "Add to cart"}
             >
               <Text style={styles.addCartText}>
-                {language === 'sw' ? `Ongeza • ${formatTzs(totalPrice)}` : `Add to Cart • ${formatTzs(totalPrice)}`}
+                {!Boolean(dish.branchId)
+                  ? (language === 'sw' ? 'Tawi Halipatikani' : 'Branch Unavailable')
+                  : (language === 'sw' ? `Ongeza • ${formatTzs(totalPrice)}` : `Add to Cart • ${formatTzs(totalPrice)}`)}
               </Text>
             </TouchableOpacity>
           </View>

@@ -26,9 +26,21 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const filtered = payments.filter((pay) => {
-    const isSuccess = pay.status === 'PAID' || pay.status === 'success';
-    const isPending = pay.status === 'PENDING' || pay.status === 'pending' || pay.status === 'AWAITING_PAYMENT';
-    const isFailed = pay.status === 'FAILED' || pay.status === 'failed';
+    const isSuccess =
+      pay.status === 'PAID' ||
+      pay.status === 'success' ||
+      pay.status === 'SUCCESS' ||
+      pay.status === 'CAPTURED';
+    const isPending =
+      pay.status === 'PENDING' ||
+      pay.status === 'pending' ||
+      pay.status === 'AWAITING_PAYMENT' ||
+      pay.status === 'PROCESSING';
+    const isFailed =
+      pay.status === 'FAILED' ||
+      pay.status === 'failed' ||
+      pay.status === 'CANCELLED' ||
+      pay.status === 'REFUNDED';
 
     if (statusFilter === 'SUCCESS' && !isSuccess) return false;
     if (statusFilter === 'PENDING' && !isPending) return false;
@@ -47,10 +59,28 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
   });
 
   const totalVolume = payments.reduce((acc, p) => acc + (p.amountTzs || 0), 0);
-  const successPayments = payments.filter((p) => p.status === 'PAID' || p.status === 'success');
+  const successPayments = payments.filter(
+    (p) =>
+      p.status === 'PAID' ||
+      p.status === 'success' ||
+      p.status === 'SUCCESS' ||
+      p.status === 'CAPTURED'
+  );
   const successVolume = successPayments.reduce((acc, p) => acc + (p.amountTzs || 0), 0);
-  const pendingCount = payments.filter((p) => p.status === 'PENDING' || p.status === 'pending' || p.status === 'AWAITING_PAYMENT').length;
-  const failedCount = payments.filter((p) => p.status === 'FAILED' || p.status === 'failed').length;
+  const pendingCount = payments.filter(
+    (p) =>
+      p.status === 'PENDING' ||
+      p.status === 'pending' ||
+      p.status === 'AWAITING_PAYMENT' ||
+      p.status === 'PROCESSING'
+  ).length;
+  const failedCount = payments.filter(
+    (p) =>
+      p.status === 'FAILED' ||
+      p.status === 'failed' ||
+      p.status === 'CANCELLED' ||
+      p.status === 'REFUNDED'
+  ).length;
 
   return (
     <View style={styles.container}>
@@ -168,8 +198,16 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
         ) : (
           <View style={styles.cardsGrid}>
             {filtered.map((pay) => {
-              const isPaid = pay.status === 'PAID' || pay.status === 'success';
-              const isFailed = pay.status === 'FAILED' || pay.status === 'failed';
+              const isPaid =
+                pay.status === 'PAID' ||
+                pay.status === 'success' ||
+                pay.status === 'SUCCESS' ||
+                pay.status === 'CAPTURED';
+              const isFailed =
+                pay.status === 'FAILED' ||
+                pay.status === 'failed' ||
+                pay.status === 'CANCELLED' ||
+                pay.status === 'REFUNDED';
 
               return (
                 <View key={pay.id} style={styles.card}>

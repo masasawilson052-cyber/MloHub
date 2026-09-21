@@ -42,7 +42,8 @@ export default function CompareScreen() {
   const bestMetrics = useMemo(() => {
     if (dishes.length === 0) return { minPrice: 0, minDistance: 0, maxRating: 0 };
     const minPrice = Math.min(...dishes.map((d) => d.priceTzs));
-    const minDistance = Math.min(...dishes.map((d) => d.distanceKm));
+    const validDistances = dishes.map((d) => d.distanceKm).filter((dist): dist is number => dist != null);
+    const minDistance = validDistances.length > 0 ? Math.min(...validDistances) : 0;
     const maxRating = Math.max(...dishes.map((d) => d.restaurantRating));
     return { minPrice, minDistance, maxRating };
   }, [dishes]);

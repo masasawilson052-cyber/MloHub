@@ -90,7 +90,7 @@ export class DiscoveryService {
     const res = await DiscoveryRepository.searchDishes({
       latitude: location?.latitude,
       longitude: location?.longitude,
-      neighborhood: location?.neighborhood || 'Mikocheni',
+      neighborhood: location?.neighborhood || undefined,
       sortBy: 'RECOMMENDED',
       availableOnly: true,
       limit: 6,
@@ -109,7 +109,7 @@ export class DiscoveryService {
     const res = await DiscoveryRepository.searchDishes({
       latitude: location?.latitude,
       longitude: location?.longitude,
-      neighborhood: location?.neighborhood || 'Mikocheni',
+      neighborhood: location?.neighborhood || undefined,
       sortBy: 'HIGHEST_RATED',
       availableOnly: true,
       limit: 6,

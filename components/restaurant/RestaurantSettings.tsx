@@ -21,6 +21,8 @@ import { RestaurantEntity } from '../../db/types';
 import { Button } from '../ui/Button';
 import { StorageService } from '../../services/StorageService';
 import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
+import { BranchManager } from './BranchManager';
+import { RestaurantBranch } from '../../types/domain';
 
 export type OperatingOverride = 'OPEN' | 'BUSY' | 'PAUSED' | 'CLOSED';
 
@@ -33,16 +35,17 @@ export interface DaySchedule {
 
 export interface RestaurantSettingsProps {
   restaurant: RestaurantEntity;
-  branches: { id: string; name: string; address?: string; phone?: string; isActive: boolean }[];
+  branches: RestaurantBranch[] | any[];
   selectedBranchId?: string;
   onSaveProfile: (updates: Partial<RestaurantEntity>) => Promise<void>;
   onUpdateOperatingStatus: (status: OperatingOverride) => Promise<void>;
+  onBranchUpdated?: () => Promise<void> | void;
   language?: 'en' | 'sw';
 }
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-const DEFAULT_WEEKLY_SCHEDULE: DaySchedule[] = [
+const getStandardOperatingSchedule = (): DaySchedule[] => [
   { day: 'Monday', isOpen: true, openTime: '08:00', closeTime: '22:00' },
   { day: 'Tuesday', isOpen: true, openTime: '08:00', closeTime: '22:00' },
   { day: 'Wednesday', isOpen: true, openTime: '08:00', closeTime: '22:00' },
@@ -58,56 +61,70 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   selectedBranchId,
   onSaveProfile,
   onUpdateOperatingStatus,
+  onBranchUpdated,
   language = 'en',
 }) => {
-  const activeBranch = branches.find((b) => b.id === selectedBranchId) || branches[0];
+  const activeBranch = branches.find(b => b.id === selectedBranchId) || null;
   const activeBranchId = activeBranch?.id;
 
+  const [hasConfiguredHours, setHasConfiguredHours] = useState(false);
   const [operatingStatus, setOperatingStatus] = useState<OperatingOverride>(
     restaurant.isOpen ? 'OPEN' : 'CLOSED'
   );
   const [name, setName] = useState(restaurant.name || '');
   const [phone, setPhone] = useState(restaurant.phone || '');
   const [neighborhood, setNeighborhood] = useState(restaurant.neighborhood || '');
-  const [schedule, setSchedule] = useState<DaySchedule[]>(DEFAULT_WEEKLY_SCHEDULE);
+  const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Load branch operational status and hours via BranchOperationsRepository
   useEffect(() => {
-    if (activeBranchId) {
-      BranchOperationsRepository.getBranchOperationalStatus(activeBranchId)
-        .then((st) => {
-          if (st?.mode) {
-            setOperatingStatus(st.mode as OperatingOverride);
-          }
-        })
-        .catch((e) => console.warn('[RestaurantSettings] getBranchOperationalStatus error:', e));
+    if (!activeBranchId) {
+      setHasConfiguredHours(false);
+      setSchedule([]);
+      return;
+    }
 
-      BranchOperationsRepository.getOperatingHours(activeBranchId)
-        .then((hours) => {
-          if (hours && hours.length > 0) {
-            const mapped = DAYS_OF_WEEK.map((dayName, dayIdx) => {
-              const h = hours.find((x) => x.dayOfWeek === dayIdx);
-              if (h) {
-                return {
-                  day: dayName,
-                  isOpen: !h.isClosed,
-                  openTime: h.opensAt ? h.opensAt.substring(0, 5) : '08:00',
-                  closeTime: h.closesAt ? h.closesAt.substring(0, 5) : '22:00',
-                };
-              }
+    BranchOperationsRepository.getBranchOperationalStatus(activeBranchId)
+      .then((st) => {
+        if (st?.mode) {
+          setOperatingStatus(st.mode as OperatingOverride);
+        }
+      })
+      .catch((e) => console.warn('[RestaurantSettings] getBranchOperationalStatus error:', e));
+
+    BranchOperationsRepository.getOperatingHours(activeBranchId)
+      .then((hours) => {
+        if (hours && hours.length > 0) {
+          setHasConfiguredHours(true);
+          const mapped = DAYS_OF_WEEK.map((dayName, dayIdx) => {
+            const h = hours.find((x) => x.dayOfWeek === dayIdx);
+            if (h) {
               return {
                 day: dayName,
-                isOpen: false,
-                openTime: '08:00',
-                closeTime: '22:00',
+                isOpen: !h.isClosed,
+                openTime: h.opensAt ? h.opensAt.substring(0, 5) : '08:00',
+                closeTime: h.closesAt ? h.closesAt.substring(0, 5) : '22:00',
               };
-            });
-            setSchedule(mapped);
-          }
-        })
-        .catch((e) => console.warn('[RestaurantSettings] getOperatingHours error:', e));
-    }
+            }
+            return {
+              day: dayName,
+              isOpen: false,
+              openTime: '08:00',
+              closeTime: '22:00',
+            };
+          });
+          setSchedule(mapped);
+        } else {
+          setHasConfiguredHours(false);
+          setSchedule([]);
+        }
+      })
+      .catch((e) => {
+        console.warn('[RestaurantSettings] getOperatingHours error:', e);
+        setHasConfiguredHours(false);
+        setSchedule([]);
+      });
   }, [activeBranchId]);
 
   // Media state
@@ -515,68 +532,87 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         )}
       </View>
 
-      {/* 3. Opening Hours Schedule Editor (Task 38) */}
+      {/* 3. Branch Management (Task 37 & P0 Closure) */}
+      <BranchManager
+        restaurantId={restaurant.id}
+        branches={branches}
+        onBranchUpdated={onBranchUpdated || (() => {})}
+        language={language}
+      />
+
+      {/* 4. Opening Hours Schedule Editor (Task 38) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Ionicons name="time-outline" size={20} color={Colors.primary} />
           <View>
-            <Text style={styles.sectionTitle}>Weekly Opening Hours</Text>
-            <Text style={styles.sectionSub}>Daily operation schedule for discovery & order dispatch</Text>
+            <Text style={styles.sectionTitle}>
+              {language === 'sw' ? 'Masaa ya Kazi ya Kila Wiki' : 'Weekly Opening Hours'}
+            </Text>
+            <Text style={styles.sectionSub}>
+              {activeBranch
+                ? (language === 'sw' ? `Ratiba ya tawi: ${activeBranch.name} (${activeBranch.address || 'Address not configured'})` : `Schedule for branch: ${activeBranch.name} (${activeBranch.address || 'Address not configured'})`)
+                : (language === 'sw' ? 'Chagua tawi ili kusanidi masaa' : 'Select a branch to configure hours')}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.scheduleList}>
-          {schedule.map((item, idx) => (
-            <View key={item.day} style={styles.dayRow}>
-              <View style={styles.dayLeft}>
-                <Switch
-                  value={item.isOpen}
-                  onValueChange={() => toggleDayOpen(idx)}
-                  trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
-                  thumbColor={item.isOpen ? Colors.primary : '#94A3B8'}
-                />
-                <Text style={[styles.dayText, !item.isOpen && styles.dayTextClosed]}>
-                  {item.day}
-                </Text>
-              </View>
-
-              {item.isOpen ? (
-                <View style={styles.hoursRow}>
-                  <Text style={styles.hoursText}>{item.openTime} — {item.closeTime}</Text>
-                </View>
-              ) : (
-                <View style={styles.closedPill}>
-                  <Text style={styles.closedPillText}>Closed</Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* 4. Branch Management (Task 37) */}
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="business-outline" size={20} color={Colors.primary} />
-          <View>
-            <Text style={styles.sectionTitle}>Branches & Locations ({branches.length})</Text>
-            <Text style={styles.sectionSub}>Manage multi-branch operations and pricing zones</Text>
+        {!activeBranch ? (
+          <View style={{ padding: Spacing.md, backgroundColor: '#f8fafc', borderRadius: Radii.md, alignItems: 'center' }}>
+            <Ionicons name="information-circle-outline" size={24} color={Colors.primary} style={{ marginBottom: 4 }} />
+            <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center' }}>
+              {language === 'sw'
+                ? 'Tafadhali chagua au sajili tawi hapo juu ili kusanidi ratiba ya masaa ya kazi.'
+                : 'Please select or add an operating branch above to configure working hours.'}
+            </Text>
           </View>
-        </View>
+        ) : !hasConfiguredHours && schedule.length === 0 ? (
+          <View style={{ padding: Spacing.md, backgroundColor: '#f8fafc', borderRadius: Radii.md, alignItems: 'center' }}>
+            <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginBottom: Spacing.sm }}>
+              {language === 'sw'
+                ? 'Hakuna masaa ya kazi yaliyowekwa kwenye hifadhidata kwa tawi hili.'
+                : 'No operating hours are currently configured for this branch.'}
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radii.md }}
+              onPress={() => {
+                setSchedule(getStandardOperatingSchedule());
+                setHasConfiguredHours(true);
+              }}
+            >
+              <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 12 }}>
+                {language === 'sw' ? 'Weka Ratiba ya Kawaida' : 'Set Standard Hours'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.scheduleList}>
+            {schedule.map((item, idx) => (
+              <View key={item.day} style={styles.dayRow}>
+                <View style={styles.dayLeft}>
+                  <Switch
+                    value={item.isOpen}
+                    onValueChange={() => toggleDayOpen(idx)}
+                    trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
+                    thumbColor={item.isOpen ? Colors.primary : '#94A3B8'}
+                  />
+                  <Text style={[styles.dayText, !item.isOpen && styles.dayTextClosed]}>
+                    {item.day}
+                  </Text>
+                </View>
 
-        <View style={styles.branchList}>
-          {branches.map((b) => (
-            <View key={b.id} style={styles.branchRow}>
-              <View>
-                <Text style={styles.branchName}>{b.name}</Text>
-                <Text style={styles.branchAddress}>{b.address || 'Address not configured'}</Text>
+                {item.isOpen ? (
+                  <View style={styles.hoursRow}>
+                    <Text style={styles.hoursText}>{item.openTime} — {item.closeTime}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.closedPill}>
+                    <Text style={styles.closedPillText}>Closed</Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.branchActiveBadge}>
-                <Text style={styles.branchActiveText}>{b.isActive ? 'Active ✓' : 'Inactive'}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </View>
 
       {/* 5. Notification Dispatch Policy */}

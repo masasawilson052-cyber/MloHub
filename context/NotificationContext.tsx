@@ -5,6 +5,7 @@ import { NotificationRepository } from '../repositories/notifications.repository
 import { NotificationPreferencesRepository } from '../repositories/notificationPreferences.repository';
 import { NotificationChannel } from '../types/domain';
 import { useAuth } from './AuthContext';
+import { RealtimeService } from '../services/RealtimeService';
 
 export type NotificationType =
   | 'reservation_confirmed'
@@ -487,11 +488,19 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[NotificationContext] Failed to persist preference to database, reverting:', err);
         setPreferences(prevPreferences);
+        throw err;
       }
     }
   };
 
   useEffect(() => {
+    let unsubRealtimeUser: (() => void) | undefined;
+    if (user?.id) {
+      unsubRealtimeUser = RealtimeService.subscribeToNotifications(user.id, () => {
+        refreshNotifications();
+      });
+    }
+
     // 1. Listen for real-time order updates across the platform
     const unsubOrders = RealtimeEventEngine.subscribe('orders:*', () => {
       if (!runtimeConfig.allowLocalDataFallbacks) {
@@ -507,10 +516,11 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     });
 
     return () => {
+      unsubRealtimeUser?.();
       unsubOrders();
       unsubAnnouncements();
     };
-  }, [refreshNotifications]);
+  }, [user?.id, refreshNotifications]);
 
   // Simulator helper for testing real-time updates (strictly demo / test only)
   const simulateIncomingNotification = () => {

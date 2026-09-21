@@ -113,15 +113,21 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
 
         {/* Distance & Prep Time & Neighborhood */}
         <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>📍</Text>
-            <Text style={styles.metaText}>{restaurant.neighborhood || restaurant.distance}</Text>
-          </View>
-          <Text style={styles.metaDot}>•</Text>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaIcon}>⏱</Text>
-            <Text style={styles.metaText}>{restaurant.time}</Text>
-          </View>
+          {(restaurant.neighborhood || restaurant.distance) ? (
+            <View style={styles.metaItem}>
+              <Text style={styles.metaIcon}>📍</Text>
+              <Text style={styles.metaText}>{restaurant.neighborhood || restaurant.distance}</Text>
+            </View>
+          ) : null}
+          {restaurant.time ? (
+            <>
+              {(restaurant.neighborhood || restaurant.distance) ? <Text style={styles.metaDot}>•</Text> : null}
+              <View style={styles.metaItem}>
+                <Text style={styles.metaIcon}>⏱</Text>
+                <Text style={styles.metaText}>{restaurant.time}</Text>
+              </View>
+            </>
+          ) : null}
           {restaurant.supportsOrderAhead && (
             <>
               <Text style={styles.metaDot}>•</Text>
@@ -135,9 +141,11 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         </View>
 
         {/* Specialty highlight */}
-        <Text style={styles.specialty} numberOfLines={2}>
-          ✨ {restaurant.specialty}
-        </Text>
+        {restaurant.specialty ? (
+          <Text style={styles.specialty} numberOfLines={2}>
+            ✨ {restaurant.specialty}
+          </Text>
+        ) : null}
 
         {/* Footer with Price and CTAs */}
         <View style={styles.footerRow}>

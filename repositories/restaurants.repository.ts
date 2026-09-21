@@ -11,7 +11,7 @@ export class RestaurantRepository {
       ownerId: row.owner_id,
       name: row.name,
       slug: row.slug,
-      cuisine: row.cuisine || 'Local',
+      cuisine: row.cuisine || '',
       description: row.description,
       sellerTier: row.seller_tier || 'BASIC_SELLER',
       rating: row.rating == null ? 0 : Number(row.rating),

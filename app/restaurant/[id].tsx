@@ -310,7 +310,9 @@ export default function RestaurantDetailScreen() {
           </View>
 
           <Text style={styles.name}>{restaurant.name}</Text>
-          <Text style={styles.cuisine}>{restaurant.cuisine} • {restaurant.address}</Text>
+          <Text style={styles.cuisine}>
+            {[restaurant.cuisine, restaurant.address].filter(Boolean).join(' • ')}
+          </Text>
 
           {/* Quick Metrics */}
           <View style={styles.metricsRow}>
@@ -340,13 +342,17 @@ export default function RestaurantDetailScreen() {
                 </View>
               </>
             ) : null}
-            <Text style={styles.divider}>|</Text>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricVal}>📍 {restaurant.distance || 'Dar es Salaam'}</Text>
-              <Text style={styles.metricSub}>
-                {restaurant.neighborhood || (language === 'sw' ? 'Eneo' : 'Location')}
-              </Text>
-            </View>
+            {(restaurant.distance || restaurant.neighborhood) ? (
+              <>
+                <Text style={styles.divider}>|</Text>
+                <View style={styles.metricItem}>
+                  <Text style={styles.metricVal}>📍 {restaurant.distance || restaurant.neighborhood}</Text>
+                  <Text style={styles.metricSub}>
+                    {restaurant.neighborhood || (language === 'sw' ? 'Eneo' : 'Location')}
+                  </Text>
+                </View>
+              </>
+            ) : null}
           </View>
 
           {/* Action CTAs */}

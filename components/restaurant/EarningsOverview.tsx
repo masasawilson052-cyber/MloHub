@@ -103,9 +103,9 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
         <View style={styles.payoutNoticeLeft}>
           <Ionicons name="information-circle-outline" size={20} color={Colors.primaryDark} />
           <View>
-            <Text style={styles.payoutNoticeTitle}>Automated Mobile Money Payouts</Text>
+            <Text style={styles.payoutNoticeTitle}>Restaurant Earnings & Settlement Records</Text>
             <Text style={styles.payoutNoticeSub}>
-              Payout disbursements are processed via ClickPesa/Selcom directly to your verified Lipa / Till account. Recorded transactions display real customer payment status.
+              Disbursements are settled based on reconciled customer order payments. Recorded transactions display verified payment and escrow status; payouts depend on partner provider clearance.
             </Text>
           </View>
         </View>

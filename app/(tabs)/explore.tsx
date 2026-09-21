@@ -19,6 +19,7 @@ import { DiscoveryFilters } from '../../components/discovery/DiscoveryFilters';
 import { NoResultsView } from '../../components/discovery/NoResultsView';
 import { GoogleMapView } from '../../components/GoogleMapView';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { DiscoveryService } from '../../services/DiscoveryService';
 import { DishDiscoveryResult, DiscoveryQuery, DiscoverySort } from '../../types/discovery';
@@ -27,6 +28,7 @@ import { useMloHubDB } from '../../context/DbContext';
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const params = useLocalSearchParams<{
     q?: string;
     budget?: string;
@@ -46,13 +48,15 @@ export default function ExploreScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeSort, setActiveSort] = useState<DiscoverySort>('RECOMMENDED');
 
+  const initialNeighborhood = params.neighborhood || profile?.location || user?.location || undefined;
+
   // Filter State
   const [filters, setFilters] = useState<DiscoveryQuery>({
     query: params.q || '',
     maxPriceTzs: params.budget ? Number(params.budget) : undefined,
     maxDistanceKm: params.dist ? Number(params.dist) : 5,
     openNow: params.openNow === 'true',
-    neighborhood: params.neighborhood || 'Mikocheni',
+    neighborhood: initialNeighborhood,
     availableOnly: true,
   });
 

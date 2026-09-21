@@ -26,10 +26,14 @@ export default function NotificationSettingsScreen() {
 
   const [savedToast, setSavedToast] = useState(false);
 
-  const handleToggle = (key: any, val: boolean) => {
-    updatePreference(key, val);
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2500);
+  const handleToggle = async (key: any, val: boolean) => {
+    try {
+      await updatePreference(key, val);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2500);
+    } catch (err) {
+      console.warn('[NotificationSettings] handleToggle error:', err);
+    }
   };
 
   return (
@@ -216,8 +220,8 @@ export default function NotificationSettingsScreen() {
               </Text>
               <Text style={styles.settingSub}>
                 {language === 'sw'
-                  ? 'Mapendekezo ya maeneo mapya ya chakula ndani ya mtaa wako'
-                  : 'Curated dining recommendations based on your favorite cuisines'}
+                  ? 'Mapendekezo ya maeneo mapya yaliyothibitishwa ndani ya mtaa wako'
+                  : 'Discover verified dining spots in your neighborhood as new branches go live'}
               </Text>
             </View>
             <Switch

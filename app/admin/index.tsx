@@ -23,6 +23,9 @@ import {
   AuditLogEntity,
   NotificationEntity,
   PaymentTransactionEntity,
+  PaymentMethodCode,
+  PaymentGatewayProvider,
+  PaymentType,
 } from '../../db/types';
 import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
 import { RealtimeService } from '../../services/RealtimeService';
@@ -160,28 +163,58 @@ export default function AdminPortalScreen() {
 
       setRawPayments(payments);
 
-      // Map payments to presentation entity
+      // Map payments to presentation entity cleanly without unsafe casts
       setPaymentsList(
-        payments.map((p) => ({
-          id: p.id,
-          userId: p.customerId,
-          orderId: p.orderId,
-          reservationId: p.reservationId,
-          restaurantId: p.restaurantId,
-          restaurantName: '',
-          provider: (p.provider as any) || 'Mobile Money',
-          providerReference: p.externalReference || p.id,
-          amountTzs: p.amountTzs,
-          currency: 'TZS',
-          paymentMethod: p.paymentMethod || 'Mobile Money',
-          methodCode: 'MOBILE_MONEY' as any,
-          status: (p.status === 'SUCCESS' ? 'success' : p.status === 'FAILED' ? 'failed' : 'pending') as any,
-          paymentType: 'ORDER_PAYMENT' as any,
-          payerPhone: p.phoneNumber,
-          paidAt: p.paidAt,
-          refundedAt: p.refundedAt,
-          createdAt: p.createdAt,
-        }))
+        payments.map((p) => {
+          let mappedStatus: PaymentTransactionEntity['status'] = 'PENDING';
+          if (p.status === 'SUCCESS' || (p.status as string) === 'CAPTURED' || (p.status as string) === 'PAID') {
+            mappedStatus = 'PAID';
+          } else if (p.status === 'FAILED') {
+            mappedStatus = 'FAILED';
+          } else if (p.status === 'CANCELLED') {
+            mappedStatus = 'CANCELLED';
+          } else if (p.status === 'REFUNDED') {
+            mappedStatus = 'REFUNDED';
+          } else if (p.status === 'PROCESSING') {
+            mappedStatus = 'PROCESSING';
+          }
+
+          let methodCode: PaymentMethodCode = 'MPESA';
+          const lowerMethod = (p.paymentMethod || '').toLowerCase();
+          if (lowerMethod.includes('airtel')) methodCode = 'AIRTEL_MONEY';
+          else if (lowerMethod.includes('yas') || lowerMethod.includes('tigo')) methodCode = 'MIXX_BY_YAS';
+          else if (lowerMethod.includes('halo')) methodCode = 'HALOPESA';
+          else if (lowerMethod.includes('card')) methodCode = 'CARD';
+          else if (lowerMethod.includes('cash')) methodCode = 'CASH_ON_DELIVERY';
+
+          let provider: PaymentGatewayProvider = 'CLICKPESA';
+          const lowerProv = (p.provider || '').toLowerCase();
+          if (lowerProv.includes('selcom')) provider = 'SELCOM';
+          else if (lowerProv.includes('pesapal')) provider = 'PESAPAL';
+
+          const paymentType: PaymentType = p.reservationId ? 'RESERVATION_FULL_100' : 'ORDER_FULL';
+
+          return {
+            id: p.id,
+            userId: p.customerId,
+            orderId: p.orderId,
+            reservationId: p.reservationId,
+            restaurantId: p.restaurantId,
+            restaurantName: '',
+            provider,
+            providerReference: p.externalReference || p.id,
+            amountTzs: p.amountTzs,
+            currency: 'TZS',
+            paymentMethod: p.paymentMethod || 'Mobile Money',
+            methodCode,
+            status: mappedStatus,
+            paymentType,
+            payerPhone: p.phoneNumber,
+            paidAt: p.paidAt,
+            refundedAt: p.refundedAt,
+            createdAt: p.createdAt,
+          };
+        })
       );
 
       setStandardOrders(orders);
@@ -748,6 +781,9 @@ export default function AdminPortalScreen() {
                 <Text style={styles.credLabel}>Login Phone Number:</Text>
                 <Text style={styles.credValue}>{createdVendorModal.ownerPhone}</Text>
 
+                <Text style={styles.credLabel}>Application / Restaurant ID:</Text>
+                <Text style={styles.credValue}>{createdVendorModal.restaurantId}</Text>
+
                 <Text style={styles.credLabel}>Status & Visibility:</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                   <Ionicons
@@ -768,9 +804,7 @@ export default function AdminPortalScreen() {
               </View>
 
               <Text style={styles.credNote}>
-                {createdVendorModal.activationDispatched
-                  ? `A secure carrier SMS with a one-time cryptographic activation OTP has been dispatched to ${createdVendorModal.ownerPhone}. The restaurant remains unpublished until setup is completed.`
-                  : `The restaurant application has been approved. The restaurant remains unpublished until initial menu and operating setup is completed. Secure SMS delivery to ${createdVendorModal.ownerPhone} is queued.`}
+                SMS dispatch notice: An SMS notification with activation instructions has been queued for {createdVendorModal.ownerPhone}. The restaurant workspace is approved and remains unpublished until initial branch and menu setup is completed.
               </Text>
 
               <TouchableOpacity

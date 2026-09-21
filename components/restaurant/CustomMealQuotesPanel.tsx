@@ -23,7 +23,7 @@ import { Badge } from '../ui/Badge';
 
 export interface CustomMealQuotesPanelProps {
   requests: CustomMealRequest[];
-  onSubmitQuote: (requestId: string, quote: { priceTzs: number; prepMinutes: number; message?: string }) => Promise<void>;
+  onSubmitQuote: (requestId: string, quote: { priceTzs: number; prepMinutes: number; deliveryFeeTzs?: number; message?: string }) => Promise<void>;
   onWithdrawQuote: (requestId: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
@@ -36,6 +36,7 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
 }) => {
   const [quotingRequest, setQuotingRequest] = useState<CustomMealRequest | null>(null);
   const [quotedPrice, setQuotedPrice] = useState('15000');
+  const [quotedDeliveryFee, setQuotedDeliveryFee] = useState('3000');
   const [quotedPrepMins, setQuotedPrepMins] = useState('35');
   const [quotedMessage, setQuotedMessage] = useState('We can prepare this fresh for you with authentic spices.');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,12 +44,15 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
   const handleOpenQuote = (req: CustomMealRequest) => {
     setQuotingRequest(req);
     setQuotedPrice(String(req.budgetTzs || 15000));
+    setQuotedDeliveryFee('3000');
   };
 
   const handleSendQuote = async () => {
     if (!quotingRequest) return;
     const priceNum = parseInt(quotedPrice.replace(/[^0-9]/g, ''), 10);
     const prepNum = parseInt(quotedPrepMins, 10) || 30;
+    const isDelivery = quotingRequest.fulfillmentMode === 'RESTAURANT_DELIVERY';
+    const deliveryFeeNum = isDelivery ? parseInt(quotedDeliveryFee.replace(/[^0-9]/g, ''), 10) || 0 : 0;
 
     if (isNaN(priceNum) || priceNum <= 0) {
       Alert.alert('Validation', 'Please enter a valid quoted price.');
@@ -60,6 +64,7 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
       await onSubmitQuote(quotingRequest.id, {
         priceTzs: priceNum,
         prepMinutes: prepNum,
+        deliveryFeeTzs: deliveryFeeNum,
         message: quotedMessage.trim() || undefined,
       });
       setQuotingRequest(null);
@@ -177,6 +182,19 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
                 keyboardType="numeric"
               />
             </View>
+
+            {quotingRequest?.fulfillmentMode === 'RESTAURANT_DELIVERY' && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>Merchant Delivery Fee (TZS) *</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={quotedDeliveryFee}
+                  onChangeText={setQuotedDeliveryFee}
+                  keyboardType="numeric"
+                  placeholder="e.g. 3000"
+                />
+              </View>
+            )}
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Estimated Prep Time (Minutes) *</Text>

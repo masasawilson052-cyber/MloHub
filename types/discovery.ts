@@ -64,7 +64,7 @@ export interface DishDiscoveryResult {
   priceTzs: number;
   basePriceTzs?: number;
   currency: 'TZS';
-  distanceKm: number;
+  distanceKm?: number;
 
   // Reputation & Operation
   restaurantRating: number;

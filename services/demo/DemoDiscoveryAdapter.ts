@@ -150,7 +150,7 @@ export class DemoDiscoveryAdapter {
       if (query.maxPriceTzs && d.priceTzs > query.maxPriceTzs) return false;
       if (query.minRating && d.restaurantRating < query.minRating) return false;
       if (query.openNow && d.isOpenNow !== true) return false;
-      if (query.maxDistanceKm && d.distanceKm > query.maxDistanceKm) return false;
+      if (query.maxDistanceKm && (d.distanceKm == null || d.distanceKm > query.maxDistanceKm)) return false;
 
       if (query.neighborhood && query.neighborhood !== 'All') {
         const target = query.neighborhood.toLowerCase();
@@ -170,7 +170,7 @@ export class DemoDiscoveryAdapter {
     // Apply sorting
     const sortBy = query.sortBy || 'RECOMMENDED';
     results.sort((a, b) => {
-      if (sortBy === 'NEAREST') return a.distanceKm - b.distanceKm;
+      if (sortBy === 'NEAREST') return (a.distanceKm ?? 999) - (b.distanceKm ?? 999);
       if (sortBy === 'CHEAPEST') return a.priceTzs - b.priceTzs;
       if (sortBy === 'HIGHEST_RATED') return b.restaurantRating - a.restaurantRating;
       if (sortBy === 'FRESHEST') return b.freshnessScore - a.freshnessScore;

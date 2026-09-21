@@ -22,6 +22,7 @@ import { ServiceCard } from '../../components/ServiceCard';
 import { Restaurant } from '../../types/domain';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
 import { DiscoveryService } from '../../services/DiscoveryService';
@@ -35,6 +36,7 @@ import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 export default function HomeScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const { user, profile } = useAuth();
   const { restaurants: dbRestaurants, favorites, toggleFavorite, loading } = useMloHubDB();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
@@ -52,8 +54,15 @@ export default function HomeScreen() {
   const [comparedDishes, setComparedDishes] = useState<DishDiscoveryResult[]>([]);
 
   // Location
-  const [currentLocation, setCurrentLocation] = useState('Mikocheni');
+  const profileLocation = profile?.location || user?.location || '';
+  const [currentLocation, setCurrentLocation] = useState(profileLocation);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (profileLocation && !currentLocation) {
+      setCurrentLocation(profileLocation);
+    }
+  }, [profileLocation]);
 
   // Reservation Modal
   const [selectedReserveRestaurant, setSelectedReserveRestaurant] = useState<Restaurant | null>(null);
@@ -253,10 +262,12 @@ export default function HomeScreen() {
               {language === 'sw' ? 'INAYOPENDWA ZAIDI' : 'POPULAR DISHES NEARBY'}
             </Text>
             <Text style={styles.sectionTitle}>
-              {language === 'sw' ? `Vyakula Maarufu ${currentLocation}` : `Popular in ${currentLocation}`}
+              {language === 'sw'
+                ? (currentLocation ? `Vyakula Maarufu ${currentLocation}` : 'Vyakula Maarufu')
+                : (currentLocation ? `Popular in ${currentLocation}` : 'Popular Dishes')}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/explore', params: { neighborhood: currentLocation } })}>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/explore', params: { neighborhood: currentLocation || undefined } })}>
             <Text style={styles.seeAllText}>{language === 'sw' ? 'Ona Zaidi →' : 'See All →'}</Text>
           </TouchableOpacity>
         </View>
@@ -277,18 +288,20 @@ export default function HomeScreen() {
           ))
         ) : (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyCardText}>No dishes found near {currentLocation}.</Text>
+            <Text style={styles.emptyCardText}>
+              {currentLocation ? `No dishes found near ${currentLocation}.` : 'No dishes found.'}
+            </Text>
           </View>
         )}
 
         {/* CUSTOM MEAL FEATURE BANNER */}
         <CustomMealBanner onStartRequest={() => router.push('/(tabs)/custom')} />
 
-        {/* SECTION 2: RECOMMENDED FOR YOU */}
+        {/* SECTION 2: MORE DISHES NEARBY */}
         <View style={styles.sectionHeader}>
           <View>
             <Text style={styles.sectionEyebrow}>
-              {language === 'sw' ? 'KWA AJILI YAKO' : 'RECOMMENDED FOR YOU'}
+              {language === 'sw' ? 'VYAKULA VINGINE KARIBU' : 'MORE DISHES NEARBY'}
             </Text>
             <Text style={styles.sectionTitle}>
               {language === 'sw' ? 'Chakula Chenye Ubora wa Juu' : 'Top Quality & Freshness'}

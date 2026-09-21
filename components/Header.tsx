@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Ionicons name="location" size={14} color={Colors.primary} style={{ marginRight: 3 }} />
           <Text style={styles.locationMain} numberOfLines={1}>
-            {location.split(',')[0]}
+            {location ? location.split(',')[0] : (language === 'sw' ? 'Chagua Eneo' : 'Select Area')}
           </Text>
           <Ionicons name="chevron-down" size={13} color={Colors.brandInk} style={{ marginLeft: 2 }} />
         </TouchableOpacity>

@@ -60,15 +60,15 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
   const [nameSw, setNameSw] = useState(item?.nameSw || '');
   const [descEn, setDescEn] = useState(item?.descriptionEn || item?.description || '');
   const [descSw, setDescSw] = useState(item?.descriptionSw || '');
-  const [categoryId, setCategoryId] = useState(item?.categoryId || (categories[0]?.id || ''));
-  const [basePriceTzs, setBasePriceTzs] = useState(String(item?.basePrice || item?.priceTzs || '10000'));
-  const [prepTime, setPrepTime] = useState(String(item?.preparationMinutes || '20'));
+  const initialPrice = item?.basePrice ?? item?.priceTzs;
+  const [basePriceTzs, setBasePriceTzs] = useState(initialPrice ? String(initialPrice) : '');
+  const [prepTime, setPrepTime] = useState(item?.preparationMinutes ? String(item.preparationMinutes) : '');
   const [photoUrl, setPhotoUrl] = useState(item?.photoUrl || item?.imageUrl || '');
   const [previewUri, setPreviewUri] = useState<string | null>(item?.photoUrl || item?.imageUrl || null);
   const [pendingImage, setPendingImage] = useState<PickedImageResult | null>(null);
   const [isPhotoRemoved, setIsPhotoRemoved] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [dietaryTags, setDietaryTags] = useState<string[]>(item?.dietaryTags || ['Halal']);
+  const [dietaryTags, setDietaryTags] = useState<string[]>(item?.dietaryTags || []);
   const [spiceLevel, setSpiceLevel] = useState<'Mild' | 'Medium' | 'Hot' | 'Very Hot'>(
     (item?.spiceLevel as any) || 'Mild'
   );

@@ -44,6 +44,7 @@ import { runRestaurantOperationsTestSuite } from './restaurantOperations.test';
 import { runDesignSystemV2Tests } from './designSystemV2.test';
 import { runPack5aCustomerTestSuite } from './pack5aCustomerExperience.test';
 import { runDemoReadinessTestSuite } from './demoReadiness.test';
+import { runRestaurantDemoLifecycleTestSuite } from './restaurantDemoLifecycle.test';
 
 
 let passed = 0;
@@ -728,6 +729,11 @@ async function runMasterTestSuite() {
 
   // Final Demonstration Readiness & Truth Hardening Suite
   await runDemoReadinessTestSuite(assert);
+
+  // 20-Step End-to-End Restaurant Demo Lifecycle Suite
+  const lifecycleResults = await runRestaurantDemoLifecycleTestSuite();
+  passed += lifecycleResults.passedCount;
+  failed += lifecycleResults.failedCount;
 
   // Final Results
   console.log('\n================================================================');

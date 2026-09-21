@@ -11,16 +11,6 @@ interface AdminSettingsProps {
 export const AdminSettings: React.FC<AdminSettingsProps> = ({
   language = 'en',
 }) => {
-  const pilotZones = [
-    { id: 'mikocheni', name: 'Mikocheni A & B', city: 'Dar es Salaam', active: true },
-    { id: 'upanga', name: 'Upanga East & West', city: 'Dar es Salaam', active: true },
-    { id: 'masaki', name: 'Masaki & Oysterbay', city: 'Dar es Salaam', active: true },
-    { id: 'kariakoo', name: 'Kariakoo Commercial Hub', city: 'Dar es Salaam', active: true },
-    { id: 'sinza', name: 'Sinza & Kijitonyama', city: 'Dar es Salaam', active: true },
-    { id: 'kinondoni', name: 'Kinondoni & Mwananyamala', city: 'Dar es Salaam', active: true },
-    { id: 'cbd', name: 'Posta / CBD City Center', city: 'Dar es Salaam', active: false },
-  ];
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
@@ -29,7 +19,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
           {language === 'sw' ? 'Mipangilio ya Mfumo' : 'Platform Operations Settings & Policy'}
         </Text>
         <Text style={styles.subtitle}>
-          Authoritative financial fee structure, active pilot delivery zones, and catalog freshness rules.
+          Authoritative financial fee structure, branch operating authority, and catalog freshness rules.
         </Text>
       </View>
 
@@ -40,7 +30,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
           <Text style={styles.cardTitle}>Centralized Financial Fee Authority</Text>
         </View>
         <Text style={styles.cardNotice}>
-          Fee parameters are locked to <Text style={styles.codeText}>config/platformFees.ts</Text> and server-side RPCs. They cannot be tampered with by individual frontend clients.
+          Fee parameters are enforced by server-side RPCs (<Text style={styles.codeText}>create_order_secure</Text>). Delivery fees are calculated dynamically based on branch operational radius, not hardcoded central fees.
         </Text>
 
         <View style={styles.feeGrid}>
@@ -54,14 +44,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
           <View style={styles.feeItem}>
             <Text style={styles.feeLabel}>Customer Service Fee</Text>
             <Text style={styles.feeValue}>{formatTzs(FINANCIAL_CONFIG.SERVICE_FEE_TZS)}</Text>
-            <Text style={styles.feeSub}>Fixed per completed order</Text>
-          </View>
-          <View style={styles.feeItem}>
-            <Text style={styles.feeLabel}>Base Delivery Fee</Text>
-            <Text style={styles.feeValue}>
-              {formatTzs(FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS)}
-            </Text>
-            <Text style={styles.feeSub}>Standard intra-zone delivery charge</Text>
+            <Text style={styles.feeSub}>Fixed platform service charge</Text>
           </View>
           <View style={styles.feeItem}>
             <Text style={styles.feeLabel}>Minimum Order Value</Text>
@@ -73,28 +56,15 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({
         </View>
       </View>
 
-      {/* Pilot Coverage Zones */}
+      {/* Dynamic Branch Delivery Authority */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="map-outline" size={20} color="#0284c7" />
-          <Text style={styles.cardTitle}>Pilot Delivery Coverage Zones (Dar es Salaam) — PLANNING REFERENCE (NOT LIVE COVERAGE)</Text>
+          <Text style={styles.cardTitle}>Dynamic Branch Delivery Authority</Text>
         </View>
-
-        <View style={styles.zonesList}>
-          {pilotZones.map((zone) => (
-            <View key={zone.id} style={styles.zoneRow}>
-              <View>
-                <Text style={styles.zoneName}>{zone.name}</Text>
-                <Text style={styles.zoneCity}>{zone.city}</Text>
-              </View>
-              <View style={[styles.zoneBadge, zone.active ? styles.zoneBadgeActive : styles.zoneBadgeInactive]}>
-                <Text style={[styles.zoneBadgeText, zone.active ? styles.zoneBadgeTextActive : styles.zoneBadgeTextInactive]}>
-                  {zone.active ? 'Active Pilot Zone' : 'Deferred'}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        <Text style={styles.cardNotice}>
+          Operating locations, delivery zones, and fulfillment availability are governed strictly by active restaurant branches registered in PostgreSQL (<Text style={styles.codeText}>restaurant_branches</Text>). Static city zone lists have been deprecated in favor of verified branch GPS coordinates and wards.
+        </Text>
       </View>
 
       {/* Freshness Policy Rules */}
