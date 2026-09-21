@@ -3,6 +3,26 @@ import { RestaurantRole } from '../types/auth';
 import { StaffMember } from '../components/restaurant/StaffManager';
 
 export class RestaurantMemberRepository {
+  public static async acceptInvitation(token: string): Promise<{
+    restaurantId: string;
+    membershipId: string;
+    role: RestaurantRole;
+  }> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+    const { data, error } = await supabase.rpc('accept_restaurant_invitation_secure', {
+      p_invitation_token: token,
+    });
+    if (error) throw new Error(`Failed to accept staff invitation: ${error.message}`);
+    if (!data?.success) throw new Error(data?.message || 'Invitation acceptance failed.');
+    return {
+      restaurantId: data.restaurant_id,
+      membershipId: data.membership_id,
+      role: data.role as RestaurantRole,
+    };
+  }
+
   /**
    * List staff members strictly for the authorized restaurant tenant
    */

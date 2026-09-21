@@ -15,14 +15,14 @@ This report provides definitive proof of engineering closure, schema validation,
 ### Verification Summary
 | Verification Gate | Command | Result | Details |
 | :--- | :--- | :--- | :--- |
-| **TypeScript Typecheck** | `npm.cmd run typecheck` | **PASSED (0 errors)** | `tsc --noEmit` clean across all modules |
-| **Full Invariant & Unit Suites** | `npm.cmd test` | **PASSED (1605/1605)** | 100% pass across core, Pack 3, 4A-4F, 5A suites |
+| **Application TypeScript Typecheck** | `npm.cmd run typecheck` | **PASSED (0 errors)** | Root `tsconfig.json` covers application TypeScript; Edge Functions and SQL require separate validation |
+| **Full Invariant & Unit Suites** | `npm.cmd test` | **PASSED (1605/1605 at last recorded run)** | Core, Pack 3, 4A-4F, and 5A suites |
 | **Demo Invariant Audit** | `npm.cmd run demo:audit` | **PASSED (54/54)** | 100% demo readiness score |
 | **Workflow Contract Suite** | `node tests/workflowHandoffs.cjs` | **PASSED (5/5)** | Full lifecycle state transitions verified |
 | **Payment Provider Contract** | `node tests/productionPayments.cjs` | **PASSED (13/13)** | ClickPesa checksum, webhook & security verified |
-| **Production Schema Preflight** | `npm.cmd run production:check` | **PASSED (14/14 tables)** | HTTP 200 for all required tables on hosted instance |
-| **Production Web Export** | `npm.cmd run production:build` | **PASSED (29 routes)** | Clean Metro export to `dist-production` |
-| **Desktop Web App Sync** | Node sync script | **PASSED** | Synced to `C:\Users\hp\OneDrive\Desktop\MloHub_Web_App` |
+| **Production Schema Preflight** | `npm.cmd run production:check` | **ENVIRONMENT-DEPENDENT** | Hosted verification must be run against the intended project; this pass does not deploy or reset hosted Supabase |
+| **Production Web Export** | `cmd.exe /d /c npm run build` | **PASSED (29 routes at last recorded run)** | Expo web export completed locally |
+| **Desktop Web App Sync** | N/A | **NOT RUN** | No deployment or external desktop sync is part of this source-hardening pass |
 
 ---
 
@@ -66,10 +66,10 @@ This report provides definitive proof of engineering closure, schema validation,
 ### 2.4 Operational Refund Queue Implemented
 - **Defect Symptom**: `supabase/functions/request-refund/index.ts` returned an unconditional HTTP 501 stub (`MANUAL_REFUND_REQUIRED`).
 - **Remediation**:
-  - Replaced stub with an authenticated administrative refund handler that:
+  - The final handler is a single authenticated administrative refund handler that:
     1. Authenticates caller JWT and verifies administrative permissions via profile inspection.
     2. Validates payment status (`PAID` or `CAPTURED`) and verifies remaining refundable balance.
-    3. Records an auditable record in `public.refunds` with reason and initiating admin ID.
+    3. Delegates creation to the canonical `request_refund_admin_secure` RPC, which records `public.refund_requests` with reason and initiating admin ID.
     4. Logs an entry in `public.audit_logs` for governance tracking.
     5. Queues the refund for merchant reconciliation without falsely simulating an automated bank payout.
 
@@ -116,10 +116,11 @@ Live payment execution and cellular SMS delivery cannot proceed without external
   supabase secrets set SMS_OTP_PEPPER="<strong_random_secret>"
   ```
 
-### 3. Apply Migration 06 on Hosted Supabase
-- [ ] Open Supabase SQL Editor for project `rrebkpeumvqffuwtqvje`.
-- [ ] Run the contents of `supabase/migrations/20260921000006_custom_meal_privacy_and_direct_write_guards.sql`.
-- [ ] This enables table `public.custom_meal_delivery_details`, RPC `get_custom_meal_delivery_details`, and direct-write protection triggers.
+### 3. Apply the complete migration chain on the target environment
+- [ ] Validate the ordered files in `supabase/migrations/` against a disposable local Supabase/Postgres database first.
+- [ ] Apply migrations through the latest file, including `20260921000006_custom_meal_privacy_and_direct_write_guards.sql`, `20260921000007_transaction_integrity_hardening.sql`, and `20260921000008_gap_closure.sql`.
+- [ ] Do not apply only migration 00006: 00007/00008 contain the payment gate, delivery-zone authority, secure invitations, canonical refund authority, and analytics closure.
+- [ ] This source pass does not deploy hosted migrations.
 
 ### 4. Supabase Auth Redirect URLs
 - [ ] In Supabase Dashboard → Authentication → URL Configuration:

@@ -54,17 +54,14 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     else if (daysSince > 14) status = 'AGING';
     else if (daysSince > 7) status = 'RECENT';
 
-    // Use actual menu item count — 0 if no menu items have been added yet.
-    // This keeps freshness percentages honest: a restaurant with no menu has 0 verified dishes.
+    // Use the authoritative active menu-item count; freshness is restaurant-level
+    // catalog recency because this screen does not have per-item verification data.
     const menuCount = menuCounts[r.id] ?? 0;
-    const verifiedDishCount = Math.round(menuCount * (status === 'FRESH' ? 1.0 : status === 'RECENT' ? 0.9 : status === 'AGING' ? 0.6 : 0.2));
-
     return {
       restaurant: r,
       daysSince,
       status,
       menuCount,
-      verifiedDishCount,
     };
   });
 
@@ -79,9 +76,9 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     return true;
   });
 
-  const totalDishes = classifiedRestaurants.reduce((acc, c) => acc + c.menuCount, 0);
-  const totalVerifiedDishes = classifiedRestaurants.reduce((acc, c) => acc + c.verifiedDishCount, 0);
-  const platformFreshnessPct = totalDishes > 0 ? Math.round((totalVerifiedDishes / totalDishes) * 100) : 100;
+  const freshCatalogPct = classifiedRestaurants.length > 0
+    ? Math.round((classifiedRestaurants.filter((c) => c.status === 'FRESH' || c.status === 'RECENT').length / classifiedRestaurants.length) * 100)
+    : 0;
 
   const handleSendReminder = async (restaurantId: string, restaurantName: string) => {
     try {
@@ -103,22 +100,22 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
           {language === 'sw' ? 'Kituo cha Ubora na Uthibitisho wa Bei' : 'Catalog Verification & Freshness Center'}
         </Text>
         <Text style={styles.subtitle}>
-          Monitors when menu prices and dish availability were last verified by restaurant managers.
+          Monitors when each restaurant catalog was last updated.
         </Text>
       </View>
 
       {/* Freshness Health KPIs */}
       <View style={styles.kpiRow}>
         <View style={styles.kpiCard}>
-          <Text style={styles.kpiNumber}>{platformFreshnessPct}%</Text>
-          <Text style={styles.kpiLabel}>Platform Freshness Score</Text>
-          <Text style={styles.kpiSub}>Dishes confirmed &lt; 14 days</Text>
+          <Text style={styles.kpiNumber}>{freshCatalogPct}%</Text>
+          <Text style={styles.kpiLabel}>Catalogs Updated &lt; 14 Days</Text>
+          <Text style={styles.kpiSub}>Restaurant-level catalog recency</Text>
         </View>
 
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiNumber, { color: '#16a34a' }]}>{freshCount}</Text>
           <Text style={styles.kpiLabel}>Fresh Spots (&lt; 7 Days)</Text>
-          <Text style={styles.kpiSub}>Recently verified</Text>
+          <Text style={styles.kpiSub}>Catalog updated recently</Text>
         </View>
 
         <View style={styles.kpiCard}>
@@ -202,9 +199,9 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
                   </Text>
                 </View>
                 <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Verified Dishes:</Text>
+                    <Text style={styles.metricLabel}>Dishes Listed:</Text>
                   <Text style={styles.metricValue}>
-                    {item.verifiedDishCount} / {item.menuCount} dishes
+                    {item.menuCount} dishes
                   </Text>
                 </View>
               </View>

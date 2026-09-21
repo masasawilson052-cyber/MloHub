@@ -33,7 +33,8 @@
     "production:build": "node scripts/build-production.cjs",
     "production:check": "node scripts/production-preflight.cjs",
     "production:preview": "node scripts/serve-demo.cjs dist-production",
-    "test:production": "node tests/productionPayments.cjs"
+    "test:production": "node tests/productionPayments.cjs",
+    "test:final-hardening": "tsx tests/finalBlockerClosure.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

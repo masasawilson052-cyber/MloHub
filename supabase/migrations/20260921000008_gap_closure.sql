@@ -11,9 +11,31 @@
 
 -- ----------------------------------------------------------------------------
 -- ----------------------------------------------------------------------------
--- 0. invite_restaurant_member_secure
+-- 0. Secure, single-use staff invitations
 --    (moved from 00007 to guarantee post-commit enum boundary)
 -- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.staff_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    restaurant_id VARCHAR(80) NOT NULL REFERENCES public.restaurants(id) ON DELETE CASCADE,
+    membership_id VARCHAR(80) REFERENCES public.restaurant_members(id) ON DELETE SET NULL,
+    invited_email TEXT NOT NULL,
+    invited_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    role restaurant_member_role_enum NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    accepted_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    created_by UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_invites_active_email
+    ON public.staff_invitations(restaurant_id, lower(invited_email))
+    WHERE accepted_at IS NULL AND revoked_at IS NULL;
+
+ALTER TABLE public.staff_invitations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.staff_invitations FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.invite_restaurant_member_secure(
     p_restaurant_id     VARCHAR(80),
     p_email             TEXT,
@@ -29,8 +51,12 @@ DECLARE
     v_actor UUID := auth.uid();
     v_invitee_profile RECORD;
     v_existing_member RECORD;
-    v_membership_id UUID := gen_random_uuid();
+    v_actor_role TEXT;
+    v_is_admin BOOLEAN := FALSE;
+    v_membership_id VARCHAR(80);
+    v_invitation_id UUID;
     v_invitation_token TEXT := encode(gen_random_bytes(24), 'hex');
+    v_invitation_token_hash TEXT;
     v_invitation_key TEXT := 'staff_invite_' || p_restaurant_id || '_' || md5(lower(trim(p_email)));
     v_existing_event RECORD;
 BEGIN
@@ -38,20 +64,37 @@ BEGIN
         RAISE EXCEPTION '401 Unauthorized: Authentication required.';
     END IF;
 
-    IF NOT EXISTS (
-        SELECT 1 FROM public.restaurant_members
-        WHERE restaurant_id = p_restaurant_id
-          AND user_id = v_actor
-          AND is_active = TRUE
-          AND role IN ('OWNER', 'MANAGER')
-    ) THEN
-        IF NOT EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE id = v_actor
-              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
-        ) THEN
-            RAISE EXCEPTION '403 Forbidden: Only restaurant owners/managers may invite staff members.';
-        END IF;
+    SELECT rm.role::TEXT INTO v_actor_role
+    FROM public.restaurant_members rm
+    WHERE rm.restaurant_id = p_restaurant_id
+      AND rm.user_id = v_actor
+      AND rm.is_active = TRUE
+    LIMIT 1;
+
+    SELECT EXISTS (
+        SELECT 1 FROM public.profiles
+        WHERE id = v_actor
+          AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+    ) INTO v_is_admin;
+
+    IF v_actor_role IS NULL AND NOT v_is_admin THEN
+        RAISE EXCEPTION '403 Forbidden: You are not an active member of this restaurant.';
+    END IF;
+
+    IF p_role NOT IN ('OWNER','MANAGER','CHEF','STAFF') THEN
+        RAISE EXCEPTION '400 Bad Request: Invalid staff role "%".', p_role;
+    END IF;
+
+    IF p_role = 'OWNER' AND NOT (v_is_admin OR v_actor_role = 'OWNER') THEN
+        RAISE EXCEPTION '403 Forbidden: Only an existing OWNER or platform administrator may invite an OWNER.';
+    END IF;
+
+    IF v_actor_role = 'MANAGER' AND p_role NOT IN ('CHEF','STAFF') THEN
+        RAISE EXCEPTION '403 Forbidden: MANAGER may invite only CHEF or STAFF members.';
+    END IF;
+
+    IF NOT v_is_admin AND v_actor_role NOT IN ('OWNER', 'MANAGER') THEN
+        RAISE EXCEPTION '403 Forbidden: Only restaurant owners, managers, or platform administrators may invite staff members.';
     END IF;
 
     SELECT payload INTO v_existing_event
@@ -70,10 +113,6 @@ BEGIN
         );
     END IF;
 
-    IF p_role NOT IN ('OWNER','MANAGER','KITCHEN_STAFF','CASHIER','STAFF') THEN
-        RAISE EXCEPTION '400 Bad Request: Invalid staff role "%". Allowed: OWNER, MANAGER, KITCHEN_STAFF, CASHIER, STAFF.', p_role;
-    END IF;
-
     SELECT id, full_name INTO v_invitee_profile
     FROM public.profiles
     WHERE email = lower(trim(p_email))
@@ -90,22 +129,33 @@ BEGIN
         END IF;
     END IF;
 
-    INSERT INTO public.restaurant_members (
+    v_invitation_token_hash := encode(digest(v_invitation_token, 'sha256'), 'hex');
+
+    IF v_invitee_profile.id IS NOT NULL THEN
+        v_membership_id := 'mem_' || substr(md5(random()::text || clock_timestamp()::text), 1, 16);
+        INSERT INTO public.restaurant_members (
         id, restaurant_id, user_id, role, is_active, created_at, updated_at
-    )
-    VALUES (
-        v_membership_id, p_restaurant_id, v_invitee_profile.id,
-        p_role, FALSE, NOW(), NOW()
-    )
+        ) VALUES (
+            v_membership_id, p_restaurant_id, v_invitee_profile.id,
+            p_role::restaurant_member_role_enum, FALSE, NOW(), NOW()
+        )
         ON CONFLICT DO NOTHING
         RETURNING id INTO v_membership_id;
 
-        IF v_membership_id IS NULL AND v_invitee_profile.id IS NOT NULL THEN
-                SELECT id INTO v_membership_id
-                FROM public.restaurant_members
-                WHERE restaurant_id = p_restaurant_id
-                    AND user_id = v_invitee_profile.id;
+        IF v_membership_id IS NULL THEN
+            SELECT id INTO v_membership_id FROM public.restaurant_members
+            WHERE restaurant_id = p_restaurant_id AND user_id = v_invitee_profile.id;
         END IF;
+    END IF;
+
+    INSERT INTO public.staff_invitations (
+        restaurant_id, membership_id, invited_email, invited_user_id, role,
+        token_hash, expires_at, created_by
+    ) VALUES (
+        p_restaurant_id, v_membership_id, lower(trim(p_email)), v_invitee_profile.id,
+        p_role::restaurant_member_role_enum, v_invitation_token_hash,
+        timezone('utc'::text, now()) + INTERVAL '7 days', v_actor
+    ) RETURNING id INTO v_invitation_id;
 
     PERFORM public.emit_notification_event(
         'STAFF_INVITATION'::notification_event_type_enum,
@@ -113,11 +163,14 @@ BEGIN
         p_restaurant_id,
         jsonb_build_object(
             'restaurant_id',     p_restaurant_id,
+            'restaurant_name',   (SELECT name FROM public.restaurants WHERE id = p_restaurant_id),
             'invited_email',     lower(trim(p_email)),
             'invited_full_name', COALESCE(p_invited_full_name, v_invitee_profile.full_name, 'Team Member'),
             'role',              p_role,
             'membership_id',     v_membership_id,
-            'invitation_token',  v_invitation_token,
+            'invitation_id',    v_invitation_id,
+            'invited_user_id',  v_invitee_profile.id,
+            'invitation_token', v_invitation_token,
             'invited_by',        v_actor
         ),
         v_invitation_key
@@ -136,6 +189,7 @@ BEGIN
     RETURN jsonb_build_object(
         'success',       true,
         'membership_id', v_membership_id,
+        'invitation_id', v_invitation_id,
         'invited_email', lower(trim(p_email)),
         'role',          p_role,
         'status',        'PENDING_ACCEPTANCE',
@@ -144,11 +198,100 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) TO authenticated;
 
 COMMENT ON FUNCTION public.invite_restaurant_member_secure IS
 'Staff invitation RPC. Defined in 00008 to guarantee the STAFF_INVITATION enum '
 'value added in 00007 is fully committed before use. Notification queued via outbox.';
+
+CREATE OR REPLACE FUNCTION public.accept_restaurant_invitation_secure(
+    p_invitation_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_actor UUID := auth.uid();
+    v_invitation RECORD;
+    v_profile RECORD;
+    v_membership_id VARCHAR(80);
+BEGIN
+    IF v_actor IS NULL THEN
+        RAISE EXCEPTION '401 Unauthorized: Authentication required.';
+    END IF;
+    IF p_invitation_token IS NULL OR length(trim(p_invitation_token)) < 32 THEN
+        RAISE EXCEPTION '400 Bad Request: Invalid invitation token.';
+    END IF;
+
+    SELECT * INTO v_invitation
+    FROM public.staff_invitations
+    WHERE token_hash = encode(digest(trim(p_invitation_token), 'sha256'), 'hex')
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '404 Not Found: Invitation does not exist.';
+    END IF;
+    IF v_invitation.accepted_at IS NOT NULL OR v_invitation.revoked_at IS NOT NULL THEN
+        RAISE EXCEPTION '409 Conflict: Invitation has already been consumed.';
+    END IF;
+    IF v_invitation.expires_at <= timezone('utc'::text, now()) THEN
+        RAISE EXCEPTION '410 Gone: Invitation has expired.';
+    END IF;
+
+    SELECT id, email INTO v_profile
+    FROM public.profiles
+    WHERE id = v_actor;
+    IF NOT FOUND OR lower(v_profile.email) <> lower(v_invitation.invited_email) THEN
+        RAISE EXCEPTION '403 Forbidden: Invitation email does not match the authenticated user.';
+    END IF;
+    IF v_invitation.invited_user_id IS NOT NULL AND v_invitation.invited_user_id <> v_actor THEN
+        RAISE EXCEPTION '403 Forbidden: Invitation was issued to another user.';
+    END IF;
+
+    IF v_invitation.membership_id IS NULL THEN
+        v_membership_id := 'mem_' || substr(md5(random()::text || clock_timestamp()::text), 1, 16);
+        INSERT INTO public.restaurant_members (
+            id, restaurant_id, user_id, role, is_active, is_primary_owner, created_at, updated_at
+        ) VALUES (
+            v_membership_id, v_invitation.restaurant_id, v_actor,
+            v_invitation.role, TRUE, v_invitation.role = 'OWNER', NOW(), NOW()
+        );
+        UPDATE public.staff_invitations SET membership_id = v_membership_id WHERE id = v_invitation.id;
+    ELSE
+        UPDATE public.restaurant_members
+        SET user_id = v_actor, is_active = TRUE, updated_at = NOW()
+        WHERE id = v_invitation.membership_id;
+        v_membership_id := v_invitation.membership_id;
+    END IF;
+
+    UPDATE public.staff_invitations
+    SET accepted_at = timezone('utc'::text, now())
+    WHERE id = v_invitation.id;
+
+    INSERT INTO public.audit_logs (admin_user_id, action, target_type, target_id, details)
+    VALUES (
+        v_actor, 'ACCEPT_RESTAURANT_INVITATION', 'RESTAURANT', v_invitation.restaurant_id,
+        jsonb_build_object('invitation_id', v_invitation.id, 'membership_id', v_membership_id)
+    );
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'restaurant_id', v_invitation.restaurant_id,
+        'membership_id', v_membership_id,
+        'role', v_invitation.role,
+        'status', 'ACTIVE'
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.accept_restaurant_invitation_secure(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.accept_restaurant_invitation_secure(TEXT) TO authenticated;
+
+COMMENT ON FUNCTION public.accept_restaurant_invitation_secure IS
+'Consumes a hashed, single-use, expiring invitation only for the matching authenticated email.';
 
 
 -- ----------------------------------------------------------------------------
@@ -381,6 +524,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+REVOKE ALL ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) TO authenticated;
 
 COMMENT ON FUNCTION public.create_order_secure IS
@@ -409,6 +553,10 @@ DECLARE
     v_key TEXT := 'auto_refund_cancel_' || p_order_id;
     v_refund_id UUID;
 BEGIN
+    IF auth.uid() IS NULL OR p_actor_user_id IS DISTINCT FROM auth.uid() THEN
+        RAISE EXCEPTION '403 Forbidden: This refund helper is internal-only.';
+    END IF;
+
     SELECT p.id, p.amount_tzs, p.user_id, p.restaurant_id
     INTO v_payment
     FROM public.payments p
@@ -467,7 +615,7 @@ EXCEPTION WHEN unique_violation THEN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.request_refund_restaurant_cancel_secure(VARCHAR, UUID, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.request_refund_restaurant_cancel_secure(VARCHAR, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
 
 COMMENT ON FUNCTION public.request_refund_restaurant_cancel_secure IS
 'Single idempotent refund authority for restaurant cancellation of paid orders.';
@@ -489,12 +637,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_actor UUID := COALESCE(p_actor_user_id, auth.uid());
+    v_actor UUID := auth.uid();
     v_order RECORD;
     v_refund_id UUID;
 BEGIN
     IF v_actor IS NULL THEN
         RAISE EXCEPTION '401 Unauthorized: Authentication required.';
+    END IF;
+    IF p_actor_user_id IS NOT NULL AND p_actor_user_id IS DISTINCT FROM v_actor THEN
+        RAISE EXCEPTION '403 Forbidden: Actor identity must match the authenticated user.';
     END IF;
 
     SELECT o.*, r.owner_user_id
@@ -546,7 +697,7 @@ BEGIN
 
     -- PAYMENT GATE: PENDING to ACCEPTED requires captured payment
     IF v_order.status = 'PENDING' AND p_next_status = 'ACCEPTED' THEN
-        SELECT id INTO v_paid_payment
+                PERFORM 1
         FROM public.payments
         WHERE order_id = p_order_id
           AND status IN ('SUCCESS','CAPTURED','PAID')
@@ -610,6 +761,7 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) TO authenticated;
 
 COMMENT ON FUNCTION public.transition_restaurant_order IS
@@ -743,6 +895,7 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.request_refund_admin_secure(VARCHAR, BIGINT, VARCHAR, TEXT, TEXT, UUID, JSONB) FROM PUBLIC, anon, authenticated;
 -- Only service_role may call this -- edge function uses service role key
 GRANT EXECUTE ON FUNCTION public.request_refund_admin_secure(VARCHAR, BIGINT, VARCHAR, TEXT, TEXT, UUID, JSONB) TO service_role;
 
@@ -776,6 +929,7 @@ AS $$
     GROUP BY mi.restaurant_id;
 $$;
 
+REVOKE ALL ON FUNCTION public.get_restaurant_menu_counts() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_restaurant_menu_counts() TO authenticated;
 
 COMMENT ON FUNCTION public.get_restaurant_menu_counts IS
@@ -828,6 +982,7 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.track_search_event(TEXT, TEXT, TEXT, INTEGER, TEXT, JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.track_search_event(TEXT, TEXT, TEXT, INTEGER, TEXT, JSONB) TO authenticated, anon;
 
 COMMENT ON FUNCTION public.track_search_event IS

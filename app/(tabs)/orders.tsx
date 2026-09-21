@@ -37,6 +37,15 @@ import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTi
 const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
 
+export const canRetryOrderPayment = (order: Order): boolean => {
+  const terminalOrder = order.status === 'CANCELLED' || order.status === 'REJECTED' || order.status === 'COMPLETED';
+  const retryablePayment = order.paymentStatus === 'PENDING' ||
+    order.paymentStatus === 'PROCESSING' ||
+    order.paymentStatus === 'FAILED' ||
+    order.paymentStatus === 'CANCELLED';
+  return !terminalOrder && retryablePayment;
+};
+
 export default function OrdersScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
@@ -52,6 +61,7 @@ export default function OrdersScreen() {
   const [refundStatuses, setRefundStatuses] = useState<Record<string, string>>({});
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, { eligible: boolean; existingReviewId?: string }>>({});
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
 
@@ -66,6 +76,16 @@ export default function OrdersScreen() {
     try {
       const customerOrders = await OrderRepository.listOrdersForCustomer(user.id);
       setOrders(customerOrders);
+      const completedOrders = customerOrders.filter((order) => order.status === 'COMPLETED');
+      const eligibilityEntries = await Promise.all(completedOrders.map(async (order) => {
+        try {
+          const eligibility = await ReviewRepository.getEligibility('ORDER', order.id);
+          return [order.id, { eligible: eligibility.eligible, existingReviewId: eligibility.existingReviewId }] as const;
+        } catch {
+          return [order.id, { eligible: false }] as const;
+        }
+      }));
+      setReviewEligibility(Object.fromEntries(eligibilityEntries));
       const refunds = await RefundsRepository.listByCustomer(user.id);
       setRefundStatuses(refunds.reduce<Record<string, string>>((result, refund) => {
         if (refund.orderId && !result[refund.orderId]) result[refund.orderId] = refund.status;
@@ -582,7 +602,7 @@ export default function OrdersScreen() {
               </ScrollView>
 
               <View style={styles.modalFooter}>
-                {selectedOrder.paymentStatus !== 'SUCCESS' && selectedOrder.paymentStatus !== 'REFUNDED' && (
+                {canRetryOrderPayment(selectedOrder) && (
                   <Button
                     title={selectedOrder.paymentStatus === 'FAILED' ? 'Retry Payment' : 'Complete Payment'}
                     onPress={() => retryPayment(selectedOrder)}
@@ -594,7 +614,7 @@ export default function OrdersScreen() {
                     style={{ marginBottom: Spacing.sm }}
                   />
                 )}
-                {selectedOrder.status === 'COMPLETED' && (
+                {selectedOrder.status === 'COMPLETED' && reviewEligibility[selectedOrder.id]?.eligible === true && !reviewEligibility[selectedOrder.id]?.existingReviewId && (
                   <Button
                     title="Rate & Review"
                     onPress={() => { setReviewOrder(selectedOrder); setSelectedOrder(null); }}
