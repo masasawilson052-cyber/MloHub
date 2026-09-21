@@ -483,142 +483,17 @@ COMMENT ON TABLE public.platform_announcements IS
 
 
 -- ──────────────────────────────────────────────────────────────────────────────
--- 4. Staff invitation RPC (server-authoritative, no privileged client key usage)
+-- 4. Staff invitation RPC — MOVED TO 20260921000008_gap_closure.sql
 -- ──────────────────────────────────────────────────────────────────────────────
--- Adds a pending (is_active = false) membership record for the given email.
--- A separate notification/email delivery system picks up pending records.
--- The invited user activates the membership on first login.
+-- The invite_restaurant_member_secure function references STAFF_INVITATION
+-- which was added to notification_event_type_enum in section 0 of this migration.
+-- To guarantee the enum value is fully committed before it is referenced in the
+-- function body (defensive guard for strict transaction-boundary enforcement),
+-- the function is defined in the subsequent forward migration 00008.
+--
+-- This file intentionally does NOT define invite_restaurant_member_secure.
+-- See 20260921000008_gap_closure.sql.
 
-CREATE OR REPLACE FUNCTION public.invite_restaurant_member_secure(
-    p_restaurant_id     VARCHAR(80),
-    p_email             TEXT,
-    p_role              VARCHAR(30),
-    p_invited_full_name TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_actor UUID := auth.uid();
-    v_invitee_profile RECORD;
-    v_existing_member RECORD;
-    v_membership_id UUID := gen_random_uuid();
-    v_invitation_token TEXT := encode(gen_random_bytes(24), 'hex');
-BEGIN
-    -- 1. Authentication
-    IF v_actor IS NULL THEN
-        RAISE EXCEPTION '401 Unauthorized: Authentication required.';
-    END IF;
 
-    -- 2. Actor must be OWNER or MANAGER of the restaurant
-    IF NOT EXISTS (
-        SELECT 1 FROM public.restaurant_members
-        WHERE restaurant_id = p_restaurant_id
-          AND user_id = v_actor
-          AND is_active = TRUE
-          AND role IN ('OWNER', 'MANAGER')
-    ) THEN
-        -- Allow ADMIN/SUPER_ADMIN too
-        IF NOT EXISTS (
-            SELECT 1 FROM public.profiles
-            WHERE id = v_actor AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
-        ) THEN
-            RAISE EXCEPTION '403 Forbidden: Only restaurant owners/managers may invite staff members.';
-        END IF;
-    END IF;
 
-    -- 3. Validate role
-    IF p_role NOT IN ('OWNER','MANAGER','KITCHEN_STAFF','CASHIER','STAFF') THEN
-        RAISE EXCEPTION '400 Bad Request: Invalid staff role "%". Allowed: OWNER, MANAGER, KITCHEN_STAFF, CASHIER, STAFF.', p_role;
-    END IF;
 
-    -- 4. Check if user already exists in profiles
-    SELECT id, full_name INTO v_invitee_profile
-    FROM public.profiles
-    WHERE email = lower(trim(p_email))
-    LIMIT 1;
-
-    -- 5. Check for duplicate active membership
-    IF v_invitee_profile.id IS NOT NULL THEN
-        SELECT id, role, is_active INTO v_existing_member
-        FROM public.restaurant_members
-        WHERE restaurant_id = p_restaurant_id
-          AND user_id = v_invitee_profile.id;
-
-        IF FOUND AND v_existing_member.is_active = TRUE THEN
-            RAISE EXCEPTION '409 Conflict: User % is already an active member of this restaurant with role %.', p_email, v_existing_member.role;
-        END IF;
-    END IF;
-
-    -- 6. Insert membership invitation record (is_active = false until accepted)
-    INSERT INTO public.restaurant_members (
-        id,
-        restaurant_id,
-        user_id,
-        role,
-        is_active,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        v_membership_id,
-        p_restaurant_id,
-        COALESCE(v_invitee_profile.id, NULL),  -- NULL if user doesn't exist yet
-        p_role,
-        FALSE,   -- Inactive until the invited user accepts
-        NOW(),
-        NOW()
-    )
-    ON CONFLICT DO NOTHING;
-
-    -- 7. Queue notification for the invitation via canonical outbox helper
-    PERFORM public.emit_notification_event(
-        'STAFF_INVITATION'::notification_event_type_enum,
-        'RESTAURANT',
-        p_restaurant_id,
-        jsonb_build_object(
-            'restaurant_id', p_restaurant_id,
-            'invited_email', lower(trim(p_email)),
-            'invited_full_name', COALESCE(p_invited_full_name, v_invitee_profile.full_name, 'Team Member'),
-            'role', p_role,
-            'membership_id', v_membership_id,
-            'invitation_token', v_invitation_token,
-            'invited_by', v_actor
-        ),
-        'staff_invite_' || v_membership_id
-    );
-
-    -- 8. Audit
-    INSERT INTO public.audit_logs (
-        admin_user_id, action, target_type, target_id, details
-    ) VALUES (
-        v_actor,
-        'INVITE_RESTAURANT_STAFF',
-        'RESTAURANT',
-        p_restaurant_id,
-        jsonb_build_object(
-            'invited_email', lower(trim(p_email)),
-            'role', p_role,
-            'membership_id', v_membership_id
-        )
-    );
-
-    RETURN jsonb_build_object(
-        'success',       true,
-        'membership_id', v_membership_id,
-        'invited_email', lower(trim(p_email)),
-        'role',          p_role,
-        'status',        'PENDING_ACCEPTANCE',
-        'message',       'Invitation queued. The invitee will receive an email/SMS to join the restaurant.'
-    );
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) TO authenticated;
-
-COMMENT ON FUNCTION public.invite_restaurant_member_secure IS
-'Creates a pending restaurant membership invitation. The invited user activates '
-'it on first login. An email/SMS is queued in notification_event_outbox for delivery '
-'by the notification dispatcher (requires external SMTP/SMS credentials).';
