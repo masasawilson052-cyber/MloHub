@@ -253,6 +253,7 @@ export interface Order {
   restaurantId: string;
   restaurantName?: string;
   branchId?: string;
+  deliveryZoneId?: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   subtotalTzs: number;

@@ -10,13 +10,8 @@
 
 
 -- ----------------------------------------------------------------------------
--- 0. Safety re-guard: ensure STAFF_INVITATION exists (idempotent no-op if present)
 -- ----------------------------------------------------------------------------
-ALTER TYPE public.notification_event_type_enum ADD VALUE IF NOT EXISTS 'STAFF_INVITATION';
-
-
--- ----------------------------------------------------------------------------
--- 1. invite_restaurant_member_secure
+-- 0. invite_restaurant_member_secure
 --    (moved from 00007 to guarantee post-commit enum boundary)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.invite_restaurant_member_secure(
@@ -36,6 +31,8 @@ DECLARE
     v_existing_member RECORD;
     v_membership_id UUID := gen_random_uuid();
     v_invitation_token TEXT := encode(gen_random_bytes(24), 'hex');
+    v_invitation_key TEXT := 'staff_invite_' || p_restaurant_id || '_' || md5(lower(trim(p_email)));
+    v_existing_event RECORD;
 BEGIN
     IF v_actor IS NULL THEN
         RAISE EXCEPTION '401 Unauthorized: Authentication required.';
@@ -55,6 +52,22 @@ BEGIN
         ) THEN
             RAISE EXCEPTION '403 Forbidden: Only restaurant owners/managers may invite staff members.';
         END IF;
+    END IF;
+
+    SELECT payload INTO v_existing_event
+    FROM public.notification_event_outbox
+    WHERE idempotency_key = v_invitation_key;
+
+    IF FOUND THEN
+        RETURN jsonb_build_object(
+            'success', true,
+            'membership_id', v_existing_event.payload->>'membership_id',
+            'invited_email', lower(trim(p_email)),
+            'role', v_existing_event.payload->>'role',
+            'status', 'PENDING_ACCEPTANCE',
+            'idempotent', true,
+            'message', 'Invitation already queued for this restaurant and email.'
+        );
     END IF;
 
     IF p_role NOT IN ('OWNER','MANAGER','KITCHEN_STAFF','CASHIER','STAFF') THEN
@@ -84,7 +97,15 @@ BEGIN
         v_membership_id, p_restaurant_id, v_invitee_profile.id,
         p_role, FALSE, NOW(), NOW()
     )
-    ON CONFLICT DO NOTHING;
+        ON CONFLICT DO NOTHING
+        RETURNING id INTO v_membership_id;
+
+        IF v_membership_id IS NULL AND v_invitee_profile.id IS NOT NULL THEN
+                SELECT id INTO v_membership_id
+                FROM public.restaurant_members
+                WHERE restaurant_id = p_restaurant_id
+                    AND user_id = v_invitee_profile.id;
+        END IF;
 
     PERFORM public.emit_notification_event(
         'STAFF_INVITATION'::notification_event_type_enum,
@@ -99,7 +120,7 @@ BEGIN
             'invitation_token',  v_invitation_token,
             'invited_by',        v_actor
         ),
-        'staff_invite_' || v_membership_id
+        v_invitation_key
     );
 
     INSERT INTO public.audit_logs (admin_user_id, action, target_type, target_id, details)
@@ -131,7 +152,7 @@ COMMENT ON FUNCTION public.invite_restaurant_member_secure IS
 
 
 -- ----------------------------------------------------------------------------
--- 2. create_order_secure -- HARD REJECT when delivery zone not provided
+-- 1. create_order_secure -- HARD REJECT when delivery zone not provided
 --    Replaces the 00007 version which silently fell back to cheapest zone.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.create_order_secure(
@@ -367,9 +388,93 @@ COMMENT ON FUNCTION public.create_order_secure IS
 '(DELIVERY_ZONE_REQUIRED raised if omitted). Zone validated against branch. '
 'Pickup/Dine-In: no zone validation, delivery_fee = 0.';
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_refund_requests_idempotency_key
+    ON public.refund_requests (idempotency_key)
+    WHERE idempotency_key IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.request_refund_restaurant_cancel_secure(
+    p_order_id            VARCHAR(80),
+    p_actor_user_id       UUID,
+    p_reason_detail       TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_payment RECORD;
+    v_refund RECORD;
+    v_refund_status TEXT;
+    v_key TEXT := 'auto_refund_cancel_' || p_order_id;
+    v_refund_id UUID;
+BEGIN
+    SELECT p.id, p.amount_tzs, p.user_id, p.restaurant_id
+    INTO v_payment
+    FROM public.payments p
+    WHERE p.order_id = p_order_id
+      AND p.status IN ('SUCCESS', 'CAPTURED', 'PAID')
+    ORDER BY p.created_at ASC
+    LIMIT 1
+    FOR SHARE;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', true, 'refunded', false);
+    END IF;
+
+    SELECT id, status INTO v_refund
+    FROM public.refund_requests
+    WHERE idempotency_key = v_key
+    FOR UPDATE;
+
+    IF FOUND THEN
+        RETURN jsonb_build_object(
+            'success', true, 'refunded', true,
+            'refund_request_id', v_refund.id,
+            'status', v_refund.status,
+            'idempotent', true
+        );
+    END IF;
+
+    INSERT INTO public.refund_requests (
+        payment_id, order_id, customer_user_id, restaurant_id,
+        requested_amount_tzs, reason_code, reason_detail, status,
+        requested_by, idempotency_key, affected_items
+    ) VALUES (
+        v_payment.id, p_order_id, v_payment.user_id, v_payment.restaurant_id,
+        v_payment.amount_tzs, 'RESTAURANT_CANCELLED',
+        COALESCE(NULLIF(trim(p_reason_detail), ''), 'Order cancelled by restaurant'),
+        'REQUESTED', p_actor_user_id, v_key, '[]'::jsonb
+    )
+    RETURNING id, status INTO v_refund_id, v_refund_status;
+
+    RETURN jsonb_build_object(
+        'success', true, 'refunded', true,
+        'refund_request_id', v_refund_id,
+        'status', v_refund_status,
+        'idempotent', false
+    );
+EXCEPTION WHEN unique_violation THEN
+    SELECT id, status INTO v_refund
+    FROM public.refund_requests
+    WHERE idempotency_key = v_key;
+    RETURN jsonb_build_object(
+        'success', true, 'refunded', true,
+        'refund_request_id', v_refund.id,
+        'status', v_refund.status,
+        'idempotent', true
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.request_refund_restaurant_cancel_secure(VARCHAR, UUID, TEXT) TO authenticated;
+
+COMMENT ON FUNCTION public.request_refund_restaurant_cancel_secure IS
+'Single idempotent refund authority for restaurant cancellation of paid orders.';
+
 
 -- ----------------------------------------------------------------------------
--- 3. transition_restaurant_order -- atomic paid-order cancellation refund
+-- 2. transition_restaurant_order -- atomic paid-order cancellation refund
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.transition_restaurant_order(
     p_order_id               VARCHAR(80),
@@ -386,10 +491,7 @@ AS $$
 DECLARE
     v_actor UUID := COALESCE(p_actor_user_id, auth.uid());
     v_order RECORD;
-    v_paid_payment RECORD;
     v_refund_id UUID;
-    v_idempotency_key TEXT;
-    v_inserted_refund BOOLEAN := false;
 BEGIN
     IF v_actor IS NULL THEN
         RAISE EXCEPTION '401 Unauthorized: Authentication required.';
@@ -457,60 +559,16 @@ BEGIN
 
     -- CANCELLATION REFUND GATE: if paid, atomically create refund request
     IF p_next_status = 'CANCELLED' THEN
-        SELECT id, amount_tzs INTO v_paid_payment
-        FROM public.payments
-        WHERE order_id = p_order_id
-          AND status IN ('SUCCESS','CAPTURED','PAID')
-        LIMIT 1;
+        SELECT (public.request_refund_restaurant_cancel_secure(
+            p_order_id, v_actor, p_cancellation_reason
+        )->>'refund_request_id')::UUID INTO v_refund_id;
 
-        IF FOUND THEN
-            v_idempotency_key := 'auto_refund_cancel_' || p_order_id;
-
-            INSERT INTO public.refund_requests (
-                payment_id,
-                order_id,
-                customer_user_id,
-                restaurant_id,
-                requested_amount_tzs,
-                reason_code,
-                reason_detail,
-                status,
-                requested_by,
-                idempotency_key,
-                affected_items
-            )
-            SELECT
-                v_paid_payment.id,
-                p_order_id,
-                v_order.customer_id,
-                v_order.restaurant_id,
-                v_paid_payment.amount_tzs,
-                'RESTAURANT_CANCELLED',
-                COALESCE(p_cancellation_reason, 'Order cancelled by restaurant'),
-                'REQUESTED',
-                v_actor,
-                v_idempotency_key,
-                '[]'::jsonb
-            WHERE NOT EXISTS (
-                SELECT 1 FROM public.refund_requests
-                WHERE idempotency_key = v_idempotency_key
-            )
-            RETURNING id INTO v_refund_id;
-
-            v_inserted_refund := v_refund_id IS NOT NULL;
-
-            -- On duplicate, fetch existing
-            IF NOT v_inserted_refund THEN
-                SELECT id INTO v_refund_id
-                FROM public.refund_requests
-                WHERE idempotency_key = v_idempotency_key;
-            END IF;
-
-            -- If still NULL, block the cancellation to prevent silent refund loss
-            IF v_refund_id IS NULL THEN
-                RAISE EXCEPTION '500 Internal Error: Could not create or verify refund request for paid order %. '
-                                'Cancellation aborted to prevent silent refund loss.', p_order_id;
-            END IF;
+        IF EXISTS (
+            SELECT 1 FROM public.payments
+            WHERE order_id = p_order_id
+              AND status IN ('SUCCESS', 'CAPTURED', 'PAID')
+        ) AND v_refund_id IS NULL THEN
+            RAISE EXCEPTION '500 Internal Error: Could not create or verify refund request for paid order %. Cancellation aborted.', p_order_id;
         END IF;
     END IF;
 

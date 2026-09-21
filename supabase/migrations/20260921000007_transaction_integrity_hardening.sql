@@ -25,9 +25,7 @@
 -- ──────────────────────────────────────────────────────────────────────────────
 -- 0. Extend notification_event_type_enum with STAFF_INVITATION value
 -- ──────────────────────────────────────────────────────────────────────────────
-DO $$ BEGIN
-    ALTER TYPE public.notification_event_type_enum ADD VALUE IF NOT EXISTS 'STAFF_INVITATION';
-EXCEPTION WHEN others THEN NULL; END $$;
+ALTER TYPE public.notification_event_type_enum ADD VALUE IF NOT EXISTS 'STAFF_INVITATION';
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- 1. Replace transition_restaurant_order with payment-gated version
@@ -264,19 +262,7 @@ BEGIN
             END IF;
             v_delivery_fee := v_zone.fee_tzs;
         ELSE
-            -- No zone specified: attempt to find any active zone for this branch
-            -- (legacy path — not ideal but backward-compatible for pickup-only flows)
-            SELECT * INTO v_zone
-            FROM public.branch_delivery_zones
-            WHERE branch_id = p_branch_id AND is_active = TRUE
-            ORDER BY fee_tzs ASC
-            LIMIT 1;
-
-            IF FOUND THEN
-                v_delivery_fee := v_zone.fee_tzs;
-            ELSE
-                v_delivery_fee := COALESCE(v_branch.base_delivery_fee_tzs, 0);
-            END IF;
+            RAISE EXCEPTION 'DELIVERY_ZONE_REQUIRED: Delivery orders require an explicit delivery_zone_id.';
         END IF;
     ELSE
         v_delivery_fee := 0;

@@ -11,6 +11,8 @@ import { DiscoveryQuery, DishDiscoveryResult, SearchAutocompleteSuggestion } fro
 import { expandSearchTerms } from '../config/foodSynonyms';
 import { SupplyGapService } from './SupplyGapService';
 
+const SEARCH_SESSION_ID = `search_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
 const POPULAR_SEARCH_KEYWORDS = [
   'Chicken Biryani',
   'Chipsi Kuku',
@@ -57,14 +59,15 @@ export class DiscoveryService {
     // Record privacy-coarsened search event if search query was provided
     if (rawQ) {
       try {
-        SupplyGapService.recordSearch({
+        const event = SupplyGapService.recordSearch({
           query: rawQ,
-          sessionId: 'session_active',
+          sessionId: SEARCH_SESSION_ID,
           rawLatitude: query.latitude,
           rawLongitude: query.longitude,
           cuisineCategory: query.cuisineTypes?.[0],
           resultsCount: results.length,
         });
+        await SupplyGapService.persistSearchEvent(event);
       } catch (err) {
         // Telemetry failure should never break user search
         console.warn('[DiscoveryService] Telemetry recording error:', err);

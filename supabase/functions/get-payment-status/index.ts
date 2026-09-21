@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
 
 const jsonHeaders = {
   ...corsHeaders,
@@ -59,11 +60,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Payment status recovery is not configured.');
+    }
 
     const userClient = createClient(
       supabaseUrl,
-      anonKey,
+      anonKey || serviceRoleKey,
       {
         global: {
           headers: {
@@ -96,10 +101,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const {
-      data: payment,
-      error,
-    } = await userClient
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+    const { data: payment, error } = await adminClient
       .from('payments')
       .select('*')
       .eq('id', paymentId)
@@ -114,6 +117,59 @@ Deno.serve(async (req: Request) => {
         }),
         {
           status: 404,
+          headers: jsonHeaders,
+        }
+      );
+    }
+
+    if (payment.status === 'PENDING' || payment.status === 'PROCESSING') {
+      const gateway = PaymentGatewayFactory.getGateway(String(payment.provider || 'clickpesa').toLowerCase() as any);
+      const providerStatus = await gateway.queryStatus(
+        payment.provider_reference || '',
+        payment.merchant_reference || ''
+      );
+
+      if (providerStatus.status === 'PAID') {
+        if (providerStatus.amountTzs !== Number(payment.amount_tzs)) {
+          return new Response(JSON.stringify({ success: false, error: 'PAYMENT_AMOUNT_MISMATCH' }), {
+            status: 409,
+            headers: jsonHeaders,
+          });
+        }
+
+        const { error: confirmError } = await adminClient.rpc('confirm_payment_webhook_rpc', {
+          p_merchant_reference: payment.merchant_reference,
+          p_gateway_reference: providerStatus.gatewayReference,
+          p_provider: String(payment.provider || 'clickpesa').toLowerCase(),
+          p_collected_amount: providerStatus.amountTzs,
+          p_event_id: `recovery_${payment.id}_${providerStatus.gatewayReference}`,
+          p_raw_payload: {
+            source: 'get-payment-status',
+            provider: payment.provider,
+            provider_status: providerStatus.rawResponse,
+          },
+        });
+
+        if (confirmError) throw confirmError;
+      } else if (providerStatus.status === 'FAILED' || providerStatus.status === 'CANCELLED') {
+        const { error: updateError } = await adminClient
+          .from('payments')
+          .update({ status: providerStatus.status, updated_at: new Date().toISOString() })
+          .eq('id', payment.id)
+          .in('status', ['PENDING', 'PROCESSING']);
+        if (updateError) throw updateError;
+      }
+
+      const { data: reconciledPayment, error: reconciledError } = await adminClient
+        .from('payments')
+        .select('*')
+        .eq('id', payment.id)
+        .single();
+      if (reconciledError) throw reconciledError;
+      return new Response(
+        JSON.stringify({ success: true, payment: reconciledPayment, reconciled: true }),
+        {
+          status: 200,
           headers: jsonHeaders,
         }
       );

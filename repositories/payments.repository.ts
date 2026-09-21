@@ -2,6 +2,33 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Payment, PaymentStatus } from '../types/domain';
 
 export class PaymentRepository {
+  public static async createForOrder(params: {
+    orderId: string;
+    methodCode: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA';
+    payerPhone: string;
+    idempotencyKey: string;
+  }): Promise<{ success: boolean; paymentId?: string; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { data, error } = await supabase.functions.invoke('create-payment', {
+      body: {
+        orderId: params.orderId,
+        methodCode: params.methodCode,
+        payerPhone: params.payerPhone,
+        idempotencyKey: params.idempotencyKey,
+      },
+    });
+
+    if (error) throw new Error(`Failed to start payment: ${error.message}`);
+    return {
+      success: data?.success === true,
+      paymentId: data?.paymentId,
+      error: data?.success === true ? undefined : data?.error || 'Payment was not accepted.',
+    };
+  }
+
   private static mapRowToPayment(row: any): Payment {
     return {
       id: row.id,

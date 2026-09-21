@@ -75,6 +75,7 @@ export class OrderRepository {
           };
         }),
         p_fulfillment_type: order.fulfillmentType || 'Delivery',
+        p_delivery_zone_id: order.fulfillmentType === 'Delivery' ? (order.deliveryZoneId || null) : null,
         p_delivery_address: order.fulfillmentType === 'Delivery' ? (order.deliveryAddress?.trim() || null) : null,
         p_special_instructions: order.specialInstructions?.trim() || null,
       };

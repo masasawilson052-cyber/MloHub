@@ -14,6 +14,7 @@ import {
   ConversionFunnelReport,
 } from '../types/analytics';
 import { coarsenLocation, normalizeSearchQuery } from '../utils/geoPrivacy';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 class SupplyGapServiceClass {
   private searchEvents: SearchAnalyticsEvent[] = [];
@@ -21,6 +22,23 @@ class SupplyGapServiceClass {
   private funnelEvents: FunnelEvent[] = [];
   // Tracks session's last search query and timestamp for refinement detection
   private sessionLastSearch: Map<string, { query: string; timestamp: number }> = new Map();
+
+  public async persistSearchEvent(event: SearchAnalyticsEvent): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase.rpc('track_search_event', {
+      p_session_id: event.sessionId,
+      p_event_id: event.id,
+      p_query: event.normalizedQuery,
+      p_result_count: event.resultsCount,
+      p_ward_name: event.wardName || null,
+      p_metadata: {
+        cuisine_category: event.cuisineCategory || null,
+        is_refinement: event.isRefinement,
+        previous_query: event.previousQuery || null,
+      },
+    });
+    if (error) throw error;
+  }
 
   /**
    * Records a customer search with privacy coarsening (zero GPS retained).

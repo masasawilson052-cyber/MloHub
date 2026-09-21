@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantEntity } from '../../db/types';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 interface VerificationCenterProps {
   restaurants: RestaurantEntity[];
@@ -24,6 +25,23 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
 }) => {
   const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE'>('ALL');
   const [notifiedRestId, setNotifiedRestId] = useState<string | null>(null);
+  const [menuCounts, setMenuCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let active = true;
+    const loadMenuCounts = async () => {
+      if (!isSupabaseConfigured()) return;
+      const { data, error } = await supabase.rpc('get_restaurant_menu_counts');
+      if (!error && active) {
+        setMenuCounts((data || []).reduce((result: Record<string, number>, row: { restaurant_id: string; active_menu_count: number }) => {
+          result[row.restaurant_id] = Number(row.active_menu_count || 0);
+          return result;
+        }, {}));
+      }
+    };
+    loadMenuCounts();
+    return () => { active = false; };
+  }, [restaurants]);
 
   // Compute freshness classification for each restaurant
   const classifiedRestaurants = restaurants.map((r) => {
@@ -38,7 +56,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
 
     // Use actual menu item count — 0 if no menu items have been added yet.
     // This keeps freshness percentages honest: a restaurant with no menu has 0 verified dishes.
-    const menuCount = r.menu?.length ?? 0;
+    const menuCount = menuCounts[r.id] ?? 0;
     const verifiedDishCount = Math.round(menuCount * (status === 'FRESH' ? 1.0 : status === 'RECENT' ? 0.9 : status === 'AGING' ? 0.6 : 0.2));
 
     return {

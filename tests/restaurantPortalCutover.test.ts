@@ -289,18 +289,12 @@ export async function runRestaurantPortalCutoverTests(): Promise<{ passed: numbe
     'Criterion I: No fake usr-* member ID is generated in membership repository'
   );
 
-  // J. Unsupported staff invitation fails honestly in non-demo mode
-  let inviteErrorOccurred = false;
-  try {
-    await RestaurantMemberRepository.inviteMember('rest-test', 'test@staff.com', 'STAFF');
-  } catch (err: any) {
-    if (err?.message?.includes('Staff invitations are not available yet')) {
-      inviteErrorOccurred = true;
-    }
-  }
+  // J. Staff invitations use the secure server authority and do not fabricate client credentials
   record(
-    inviteErrorOccurred,
-    'Criterion J: Unsupported staff invitation fails honestly with clear message'
+    memberRepoContent.includes("rpc('invite_restaurant_member_secure'") &&
+    !memberRepoContent.includes('auth.admin') &&
+    !memberRepoContent.includes('service_role'),
+    'Criterion J: Staff invitation uses the secure server authority'
   );
 
   // K. Tenant filtering remains enforced on role updates and deactivation

@@ -19,6 +19,7 @@ import {
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { ReportCategory } from '../../types/trust';
 import { DataReportsRepository } from '../../repositories/dataReports.repository';
+import { useAuth } from '../../context/AuthContext';
 
 interface ReportDiscrepancyModalProps {
   visible: boolean;
@@ -42,9 +43,10 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
   dishId,
   dishName,
   listedPrice,
-  userId = 'usr-cust-anon',
+  userId,
   onSuccess,
 }) => {
+  const { user } = useAuth();
   const [category, setCategory] = useState<ReportCategory>('PRICE_DISCREPANCY');
   const [reportedPrice, setReportedPrice] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -78,8 +80,12 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
     };
 
     try {
+      const authenticatedUserId = user?.id || userId;
+      if (!authenticatedUserId) {
+        throw new Error('Sign in before submitting a discrepancy report.');
+      }
       await DataReportsRepository.submit({
-        reporterUserId: userId,
+        reporterUserId: authenticatedUserId,
         reporterName: undefined,
         restaurantId,
         restaurantName,

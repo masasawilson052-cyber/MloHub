@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  Alert,
+  TextInput,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +20,9 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { OrderRepository } from '../../repositories/orders.repository';
+import { PaymentRepository } from '../../repositories/payments.repository';
+import { RefundsRepository } from '../../repositories/refunds.repository';
+import { ReviewRepository } from '../../repositories/reviews.repository';
 import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
 import { RealtimeService } from '../../services/RealtimeService';
 import { Order, OrderStatus } from '../../types/domain';
@@ -44,6 +49,11 @@ export default function OrdersScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [refundStatuses, setRefundStatuses] = useState<Record<string, string>>({});
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [reviewOrder, setReviewOrder] = useState<Order | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const fetchOrders = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -56,6 +66,11 @@ export default function OrdersScreen() {
     try {
       const customerOrders = await OrderRepository.listOrdersForCustomer(user.id);
       setOrders(customerOrders);
+      const refunds = await RefundsRepository.listByCustomer(user.id);
+      setRefundStatuses(refunds.reduce<Record<string, string>>((result, refund) => {
+        if (refund.orderId && !result[refund.orderId]) result[refund.orderId] = refund.status;
+        return result;
+      }, {}));
     } catch (err) {
       console.warn('Could not load orders:', err);
       setOrders([]);
@@ -96,6 +111,52 @@ export default function OrdersScreen() {
   const onRefresh = () => {
     setIsRefreshing(true);
     fetchOrders();
+  };
+
+  const retryPayment = async (order: Order) => {
+    if (!user?.phone) {
+      Alert.alert('Phone number required', 'Add a mobile-money phone number to your profile before paying.');
+      return;
+    }
+    setIsActionLoading(true);
+    try {
+      const result = await PaymentRepository.createForOrder({
+        orderId: order.id,
+        methodCode: 'MPESA',
+        payerPhone: user.phone,
+        idempotencyKey: `order_payment_${order.id}`,
+      });
+      Alert.alert(
+        result.success ? 'Payment started' : 'Payment failed',
+        result.success ? 'Check your phone and approve the mobile-money request.' : (result.error || 'Could not start payment.')
+      );
+      if (result.success) await fetchOrders();
+    } catch (error: any) {
+      Alert.alert('Payment failed', error?.message || 'Could not start payment.');
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const submitReview = async () => {
+    if (!reviewOrder) return;
+    setIsActionLoading(true);
+    try {
+      await ReviewRepository.submitVerifiedReview({
+        sourceType: 'ORDER',
+        sourceId: reviewOrder.id,
+        overallRating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+      });
+      Alert.alert('Review submitted', 'Thank you for reviewing your verified order.');
+      setReviewOrder(null);
+      setReviewComment('');
+      setReviewRating(5);
+    } catch (error: any) {
+      Alert.alert('Review failed', error?.message || 'This order is not currently eligible for review.');
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   const activeOrders = orders.filter((o) =>
@@ -355,6 +416,11 @@ export default function OrdersScreen() {
                       {language === 'sw' ? 'Jumla ya Malipo' : 'Total Amount'}
                     </Text>
                     <Price amountTzs={order.totalTzs} size="md" />
+                    {refundStatuses[order.id] ? (
+                      <Text style={styles.refundStatusText}>
+                        {language === 'sw' ? 'Marejesho' : 'Refund'}: {refundStatuses[order.id]}
+                      </Text>
+                    ) : null}
                   </View>
 
                   <View style={styles.cardActionsRow}>
@@ -516,6 +582,28 @@ export default function OrdersScreen() {
               </ScrollView>
 
               <View style={styles.modalFooter}>
+                {selectedOrder.paymentStatus !== 'SUCCESS' && selectedOrder.paymentStatus !== 'REFUNDED' && (
+                  <Button
+                    title={selectedOrder.paymentStatus === 'FAILED' ? 'Retry Payment' : 'Complete Payment'}
+                    onPress={() => retryPayment(selectedOrder)}
+                    variant="outline"
+                    size="md"
+                    fullWidth={true}
+                    disabled={isActionLoading}
+                    loading={isActionLoading}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
+                {selectedOrder.status === 'COMPLETED' && (
+                  <Button
+                    title="Rate & Review"
+                    onPress={() => { setReviewOrder(selectedOrder); setSelectedOrder(null); }}
+                    variant="outline"
+                    size="md"
+                    fullWidth={true}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
                 <Button
                   title={language === 'sw' ? 'Funga' : 'Close Receipt'}
                   onPress={() => setSelectedOrder(null)}
@@ -524,6 +612,38 @@ export default function OrdersScreen() {
                   fullWidth={true}
                 />
               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {reviewOrder && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setReviewOrder(null)}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalSheet, isLargeScreen && styles.largeModalSheet]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Rate & Review</Text>
+                <TouchableOpacity onPress={() => setReviewOrder(null)}>
+                  <Ionicons name="close" size={22} color={Colors.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.reviewPrompt}>{reviewOrder.restaurantName || 'Restaurant'}</Text>
+              <View style={styles.ratingRow}>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <TouchableOpacity key={rating} onPress={() => setReviewRating(rating)}>
+                    <Ionicons name={rating <= reviewRating ? 'star' : 'star-outline'} size={30} color="#D97706" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                value={reviewComment}
+                onChangeText={setReviewComment}
+                placeholder="Share your experience"
+                multiline
+                style={styles.reviewInput}
+                maxLength={1000}
+              />
+              <Button title="Submit Review" onPress={submitReview} variant="primary" size="md" fullWidth disabled={isActionLoading} loading={isActionLoading} />
             </View>
           </View>
         </Modal>
@@ -687,6 +807,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
   },
+  refundStatusText: {
+    fontSize: 11,
+    color: '#0F766E',
+    marginTop: 4,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+  },
   cardActionsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -718,6 +845,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  reviewPrompt: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#142033',
+    marginBottom: Spacing.md,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  reviewInput: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderColor: '#E2DED4',
+    borderRadius: Radii.md,
+    padding: Spacing.md,
+    textAlignVertical: 'top',
+    color: '#142033',
+    marginBottom: Spacing.md,
   },
   unauthContainer: {
     flex: 1,
