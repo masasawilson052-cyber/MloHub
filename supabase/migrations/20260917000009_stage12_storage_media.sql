@@ -80,7 +80,7 @@ ON CONFLICT (id) DO UPDATE SET
     allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
 
 -- Ensure is_admin safely supports service_role execution in addition to profiles
-CREATE OR REPLACE FUNCTION public.is_admin(p_user_id UUID DEFAULT auth.uid())
+CREATE OR REPLACE FUNCTION public.is_admin(p_user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
     IF (auth.jwt() ->> 'role') = 'service_role' THEN

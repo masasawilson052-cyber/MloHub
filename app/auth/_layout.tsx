@@ -16,6 +16,7 @@ export default function AuthLayout() {
       <Stack.Screen name="register-customer" options={{ headerShown: false }} />
       <Stack.Screen name="register-restaurant" options={{ headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
     </Stack>
   );
 }

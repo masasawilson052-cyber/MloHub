@@ -17,6 +17,7 @@ export class RealtimeServiceImpl {
   private statusListeners: Set<(status: RealtimeConnectionStatus) => void> = new Set();
   private listenersByTopic: Map<string, Map<string, RealtimeEventHandler<any>>> = new Map();
   private activeSupabaseChannels: Map<string, any> = new Map();
+  private tableConfigs = new Map<string, { table: string; filter?: string; schema?: string }>();
   private resyncCallbacks: Map<string, () => Promise<void> | void> = new Map();
 
   // Auth context tracking
@@ -24,6 +25,9 @@ export class RealtimeServiceImpl {
   private currentRestaurantId: string | null = null;
 
   constructor() {
+    // Static web export must not create sockets or reconnect timers.
+    const isNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+    if (isSupabaseConfigured() && typeof window === 'undefined' && !isNative) return;
     this.initConnection();
   }
 
@@ -160,6 +164,10 @@ export class RealtimeServiceImpl {
     for (const topic of Array.from(this.listenersByTopic.keys())) {
       if (topic.startsWith(prefix)) {
         this.listenersByTopic.delete(topic);
+        this.tableConfigs.delete(topic);
+        this.resyncCallbacks.delete(topic);
+        this.tableConfigs.delete(topic);
+        this.resyncCallbacks.delete(topic);
         const channel = this.activeSupabaseChannels.get(topic);
         if (channel) {
           channel.unsubscribe();
@@ -209,6 +217,8 @@ export class RealtimeServiceImpl {
     }
     this.listenersByTopic.get(topic)!.set(subId, handler);
 
+    if (tableConfig) this.tableConfigs.set(topic, tableConfig);
+
     // Setup cloud channel if connected to Supabase
     if (isSupabaseConfigured() && tableConfig && !this.activeSupabaseChannels.has(topic)) {
       this.setupSupabaseChannel(topic, tableConfig);
@@ -221,6 +231,7 @@ export class RealtimeServiceImpl {
         topicMap.delete(subId);
         if (topicMap.size === 0) {
           this.listenersByTopic.delete(topic);
+          this.tableConfigs.delete(topic);
           const channel = this.activeSupabaseChannels.get(topic);
           if (channel) {
             channel.unsubscribe();
@@ -285,7 +296,7 @@ export class RealtimeServiceImpl {
       canonicalEvent = 'MENU_ITEM_UPDATED';
     } else if (payload.table === 'reservations') {
       canonicalEvent = payload.eventType === 'INSERT' ? 'RESERVATION_CREATED' : 'RESERVATION_CONFIRMED';
-    } else if (payload.table === 'custom_meal_requests') {
+    } else if (payload.table === 'custom_meal_requests' || payload.table === 'custom_meal_invitations') {
       canonicalEvent = 'CUSTOM_MEAL_CREATED';
     } else if (payload.table === 'restaurant_quotes') {
       canonicalEvent = 'CUSTOM_MEAL_QUOTE_CREATED';
@@ -304,9 +315,12 @@ export class RealtimeServiceImpl {
   private rebindActiveSubscriptions() {
     for (const [topic, listeners] of this.listenersByTopic.entries()) {
       if (listeners.size > 0 && !this.activeSupabaseChannels.has(topic)) {
-        if (topic.startsWith('orders:customer:')) {
+        const savedConfig = this.tableConfigs.get(topic);
+        if (savedConfig) {
+          this.setupSupabaseChannel(topic, savedConfig);
+        } else if (topic.startsWith('orders:customer:')) {
           const customerId = topic.split(':')[2];
-          this.setupSupabaseChannel(topic, { table: 'orders', filter: `customer_id=eq.${customerId}` });
+          this.setupSupabaseChannel(topic, { table: 'orders', filter: `user_id=eq.${customerId}` });
         } else if (topic.startsWith('orders:restaurant:')) {
           const restaurantId = topic.split(':')[2];
           this.setupSupabaseChannel(topic, { table: 'orders', filter: `restaurant_id=eq.${restaurantId}` });
@@ -397,7 +411,7 @@ export class RealtimeServiceImpl {
     return this.subscribe(
       `orders:customer:${customerId}`,
       handler,
-      { table: 'orders', filter: `customer_id=eq.${customerId}` }
+      { table: 'orders', filter: `user_id=eq.${customerId}` }
     );
   }
 
@@ -429,7 +443,7 @@ export class RealtimeServiceImpl {
     return this.subscribe(
       `custom_meals:restaurant:${restaurantId}`,
       handler,
-      { table: 'custom_meal_requests', filter: `target_restaurant_id=eq.${restaurantId}` }
+      { table: 'custom_meal_invitations', filter: `restaurant_id=eq.${restaurantId}` }
     );
   }
 
@@ -437,6 +451,7 @@ export class RealtimeServiceImpl {
     this.activeSupabaseChannels.forEach((ch) => ch.unsubscribe());
     this.activeSupabaseChannels.clear();
     this.listenersByTopic.clear();
+    this.tableConfigs.clear();
     this.resyncCallbacks.clear();
     this.statusListeners.clear();
     this.setConnectionState('LIVE');

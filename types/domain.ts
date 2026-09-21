@@ -144,6 +144,8 @@ export interface RestaurantApplication {
   notes?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  /** Populated after approval — the ID of the restaurant record created by the server RPC. */
+  restaurantId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -59,6 +59,7 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   try {
     const { phone, purpose = 'CUSTOMER_VERIFICATION', language = 'sw' } = await req.json();
 
@@ -94,7 +95,10 @@ serve(async (req: Request) => {
       );
     }
     // @ts-ignore
-    const smsProvider = (Deno.env.get('SMS_PROVIDER') || 'sandbox').toLowerCase();
+    const smsProvider = (Deno.env.get('SMS_PROVIDER') || '').toLowerCase();
+    if (!['beem', 'nextsms'].includes(smsProvider)) throw new Error('A real SMS_PROVIDER (beem or nextsms) must be configured.');
+    if (smsProvider === 'beem' && (!Deno.env.get('BEEM_API_KEY') || !Deno.env.get('BEEM_SECRET_KEY'))) throw new Error('SMS credentials are missing.');
+    if (smsProvider === 'nextsms' && (!Deno.env.get('NEXTSMS_USERNAME') || !Deno.env.get('NEXTSMS_PASSWORD'))) throw new Error('SMS credentials are missing.');
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -160,7 +164,7 @@ serve(async (req: Request) => {
     }
 
     // 6. Deliver via configured SMS Gateway
-    let messageId = `msg_sandbox_${Date.now()}`;
+    let messageId = '';
     let deliveryStatus = 'SENT';
 
     const smsText =
@@ -187,7 +191,8 @@ serve(async (req: Request) => {
           body: JSON.stringify({ from: senderId, to: norm.carrierDigits, text: smsText }),
         });
         const d = await res.json().catch(() => ({}));
-        if (d?.messages?.[0]?.messageId) messageId = d.messages[0].messageId;
+        if (!res.ok || d?.messages?.[0]?.status?.groupId !== 1 || !d?.messages?.[0]?.messageId) throw new Error('SMS provider rejected the request. Please retry later.');
+        messageId = d.messages[0].messageId;
       }
     } else if (smsProvider === 'beem') {
       // @ts-ignore
@@ -214,10 +219,12 @@ serve(async (req: Request) => {
           }),
         });
         const d = await res.json().catch(() => ({}));
-        if (d?.request_id || d?.message_id) messageId = d.request_id || d.message_id;
+        if (!res.ok || !(d?.code === 100 || d?.successful === true || d?.data?.valid > 0) || !(d?.request_id || d?.message_id)) throw new Error('SMS provider rejected the request. Please retry later.');
+        messageId = String(d.request_id || d.message_id);
       }
     }
 
+    if (!messageId) throw new Error('SMS was not accepted by the provider.');
     // 7. Log to sms_logs
     await supabase.from('sms_logs').insert({
       id: `sms_log_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,

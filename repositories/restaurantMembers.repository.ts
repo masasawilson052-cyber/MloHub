@@ -1,7 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { RestaurantRole } from '../types/auth';
 import { StaffMember } from '../components/restaurant/StaffManager';
-import { runtimeConfig } from '../lib/runtimeConfig';
 
 export class RestaurantMemberRepository {
   /**
@@ -83,8 +82,9 @@ export class RestaurantMemberRepository {
   }
 
   /**
-   * Staff invitation is disabled in client code pending secure server workflow in Pack 4.
-   * Does not use privileged keys, administrator endpoints, or synthetic accounts.
+   * Invite a staff member to the restaurant via server-authoritative RPC.
+   * Creates a pending membership record and queues an email/SMS invitation.
+   * Full delivery requires external SMTP/SMS credentials to be configured.
    */
   public static async inviteMember(
     restaurantId: string,
@@ -92,18 +92,34 @@ export class RestaurantMemberRepository {
     role: RestaurantRole,
     fullName?: string
   ): Promise<StaffMember> {
-    if (!runtimeConfig.isDemo) {
-      throw new Error('Staff invitations are not available yet in this pilot build.');
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured. Cannot send staff invitations.');
     }
 
-    // Isolated test/demo mode fixture only
+    const { data, error } = await supabase.rpc('invite_restaurant_member_secure', {
+      p_restaurant_id: restaurantId,
+      p_email: email.trim().toLowerCase(),
+      p_role: role,
+      p_invited_full_name: fullName || null,
+    });
+
+    if (error) {
+      console.error(`RestaurantMemberRepository.inviteMember error:`, error.message);
+      throw new Error(`Failed to send staff invitation: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.message || 'Invitation failed for an unknown reason.');
+    }
+
+    // Return a representative pending staff member record
     return {
-      id: `mem_demo_${Date.now()}`,
-      userId: `demo_user_${Date.now()}`,
-      fullName: fullName || 'Demo Staff',
+      id: data.membership_id,
+      userId: '',
+      fullName: fullName || email,
       email: email.trim().toLowerCase(),
       role,
-      isActive: true,
+      isActive: false,  // Inactive until the invitee accepts
       joinedAt: new Date().toISOString(),
     };
   }

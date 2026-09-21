@@ -9,6 +9,7 @@ import { LanguageProvider } from '../context/LanguageContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { CartProvider } from '../context/CartContext';
 import { UserRole } from '../db/types';
+import { ConnectionNotice } from '../components/ConnectionNotice';
 
 function RootNavigationLayout() {
   const router = useRouter();
@@ -21,10 +22,15 @@ function RootNavigationLayout() {
 
     const inOnboarding = segments[0] === 'onboarding';
     const inAuth = segments[0] === 'auth';
+    // Recovery and activation links must survive onboarding and signed-in redirects.
+    if (inAuth && ((segments as readonly string[])[1] === 'reset-password' || (segments as readonly string[])[1] === 'activate-restaurant')) return;
+    // These screens manage their own success/error navigation; do not interrupt
+    // admin login or a restaurant application when auth state changes.
+    if (inAuth && ['login', 'register-restaurant'].includes((segments as readonly string[])[1])) return;
     const inRestaurantPortal = segments[0] === 'restaurant-portal';
     const inTabs = segments[0] === '(tabs)';
 
-    if (!hasCompletedOnboarding && !inOnboarding) {
+    if (!hasCompletedOnboarding && !inOnboarding && !isAuthenticated && !inRestaurantPortal && segments[0] !== 'admin') {
       router.replace('/onboarding');
       return;
     }
@@ -58,6 +64,7 @@ function RootNavigationLayout() {
   return (
     <>
       <StatusBar style="dark" />
+      <ConnectionNotice />
       <Stack
         screenOptions={{
           headerShown: false,

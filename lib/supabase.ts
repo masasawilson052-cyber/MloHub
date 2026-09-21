@@ -2,8 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { runtimeConfig } from './runtimeConfig';
 
-const rawUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
-const rawAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+// Demo mode is isolated even if a developer has real credentials in .env.local.
+const rawUrl = runtimeConfig.isDemo ? '' : (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+const rawAnonKey = runtimeConfig.isDemo ? '' : (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
 const PLACEHOLDER_URL_PATTERNS = [
   'your-project',
@@ -36,6 +37,14 @@ export const isSupabaseConfigured = (): boolean => {
   const lowerKey = rawAnonKey.toLowerCase();
   if (PLACEHOLDER_KEY_PATTERNS.some((pattern) => lowerKey.includes(pattern))) return false;
   if (rawAnonKey.length < 20) return false;
+  // Public builds must never accept a privileged Supabase secret.
+  if (rawAnonKey.startsWith('sb_secret_')) return false;
+  try {
+    if (rawAnonKey.startsWith('eyJ')) {
+      const payload = JSON.parse(atob(rawAnonKey.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload.role !== 'anon') return false;
+    }
+  } catch { return false; }
 
   return true;
 };
@@ -123,7 +132,7 @@ export const supabase = createClient(activeUrl, activeAnonKey, {
     storage: isomorphicStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: typeof window !== 'undefined',
   },
 });
 
@@ -148,4 +157,3 @@ try {
 } catch {
   // Graceful no-op in headless test or web environments
 }
-

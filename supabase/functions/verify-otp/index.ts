@@ -41,6 +41,7 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   try {
     const { phone, otp } = await req.json();
 
@@ -124,10 +125,12 @@ serve(async (req: Request) => {
     }
 
     // Increment attempt count
-    await supabase
+    const { data: claimed, error: claimError } = await supabase
       .from('otp_challenges')
       .update({ attempts_count: challenge.attempts_count + 1 })
-      .eq('id', challenge.id);
+      .eq('id', challenge.id).eq('attempts_count', challenge.attempts_count)
+      .eq('is_verified', false).is('invalidated_at', null).select('id');
+    if (claimError || !claimed?.length) throw new Error('Verification changed. Please retry.');
 
     // Compute expected hash and compare in constant time
     const expectedHash = await hmacSha256(`${otp.trim()}:${normPhone}`, pepper);
@@ -149,17 +152,18 @@ serve(async (req: Request) => {
     }
 
     // Mark challenge verified
-    await supabase
-      .from('otp_challenges')
-      .update({ is_verified: true })
-      .eq('id', challenge.id);
+    const { data: verified, error: verifiedError } = await supabase
+      .from('otp_challenges').update({ is_verified: true })
+      .eq('id', challenge.id).eq('is_verified', false).is('invalidated_at', null).select('id');
+    if (verifiedError || !verified?.length) throw new Error('This verification has already been used or replaced.');
 
     // Update profiles with phone_verified_at
     const nowIso = new Date().toISOString();
-    await supabase
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({ is_phone_verified: true, phone_verified_at: nowIso })
       .eq('phone', normPhone);
+    if (profileError) throw new Error('Phone verification could not be saved. Please contact support.');
 
     return new Response(
       JSON.stringify({

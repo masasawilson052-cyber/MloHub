@@ -24,9 +24,10 @@ import { runtimeConfig } from '../../lib/runtimeConfig';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ type?: string }>();
+  const params = useLocalSearchParams<{ type?: string; returnTo?: string }>();
   const { language } = useLanguage();
-  const { login, isAuthLoading } = useAuth();
+  const { login, logout, isAuthLoading } = useAuth();
+  const isAdminLogin = params.type === 'admin';
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
@@ -38,9 +39,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (params.type === 'restaurant') {
-      setIsRestaurantLogin(true);
-    }
+    setIsRestaurantLogin(params.type === 'restaurant');
   }, [params.type]);
 
   const handleLogin = async () => {
@@ -68,6 +67,14 @@ export default function LoginScreen() {
         rememberMe: true,
       });
 
+      if (isAdminLogin && !hasAdminAccess(res.user)) {
+        await logout();
+        throw new Error('This account does not have administrator access. Use an authorized administrator account.');
+      }
+      if (params.returnTo === 'restaurant-registration' && !isAdminLogin) {
+        router.replace('/auth/register-restaurant');
+        return;
+      }
       const role = res.user.activeRole || res.user.role;
       if (hasAdminAccess(res.user)) {
         router.replace('/admin');
@@ -102,7 +109,7 @@ export default function LoginScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isRestaurantLogin ? 'Restaurant Partner Login' : 'Customer Sign In'}
+          {isAdminLogin ? 'Administrator Sign In' : isRestaurantLogin ? 'Restaurant Partner Login' : 'Customer Sign In'}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -125,7 +132,7 @@ export default function LoginScreen() {
             {language === 'sw' ? 'Karibu Tena' : 'Welcome Back'}
           </Text>
           <Text style={styles.welcomeSub}>
-            {isRestaurantLogin
+            {isAdminLogin ? 'Review restaurant applications and manage MloHub. Authorized administrators only.' : isRestaurantLogin
               ? language === 'sw'
                 ? 'Dhibiti mgahawa wako na pokea maagizo ya wateja.'
                 : 'Access your kitchen display and manage live orders.'
@@ -243,7 +250,7 @@ export default function LoginScreen() {
         </View>
 
         {/* Create Account Link */}
-        <View style={styles.registerRow}>
+        {!isAdminLogin && <View style={styles.registerRow}>
           <Text style={styles.registerPrompt}>
             {language === 'sw' ? 'Huna akaunti bado?' : "Don't have an account?"}{' '}
           </Text>
@@ -258,12 +265,12 @@ export default function LoginScreen() {
               {language === 'sw' ? 'Jiunge Hapa' : 'Sign Up'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </View>}
 
         {/* Discrete Portal Switcher */}
         <TouchableOpacity
           style={styles.switchPortalBtn}
-          onPress={() => setIsRestaurantLogin(!isRestaurantLogin)}
+          onPress={() => { setIsRestaurantLogin(!isRestaurantLogin); router.setParams({ type: isRestaurantLogin ? 'customer' : 'restaurant' }); }}
         >
           <Ionicons
             name={isRestaurantLogin ? 'person-outline' : 'restaurant-outline'}

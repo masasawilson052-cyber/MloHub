@@ -3,7 +3,7 @@
  * Provides predictable mobile money testing for investor demos, unit tests, and local dev.
  */
 
-import { PaymentGateway } from './PaymentGateway';
+import { PaymentGateway } from './PaymentGateway.ts';
 import {
   InitiateUssdPushRequest,
   InitiateUssdPushResponse,
@@ -13,8 +13,8 @@ import {
   RefundGatewayResponse,
   PaymentProvider,
   getCarrierDetails,
-} from './paymentTypes';
-import { ClickPesaGateway } from './ClickPesaGateway';
+} from './paymentTypes.ts';
+import { ClickPesaGateway } from './ClickPesaGateway.ts';
 
 export class SandboxPaymentGateway implements PaymentGateway {
   public readonly provider: PaymentProvider = 'sandbox';
@@ -84,10 +84,7 @@ export class SandboxPaymentGateway implements PaymentGateway {
   ): Promise<WebhookVerificationResult> {
     const signature = headers['x-clickpesa-signature'] || headers['clickpesa-signature'] || '';
     const expected = await ClickPesaGateway.computeHmacSha256(SandboxPaymentGateway.SANDBOX_WEBHOOK_SECRET, rawBody);
-    const isValid =
-      (Boolean(signature) && signature.toLowerCase() === expected.toLowerCase()) ||
-      signature === SandboxPaymentGateway.SANDBOX_WEBHOOK_SECRET ||
-      signature === 'mlohub_cp_sec_993847291048_prod';
+    const isValid = Boolean(signature) && signature.toLowerCase() === expected.toLowerCase();
 
     let parsed: any = {};
     try {

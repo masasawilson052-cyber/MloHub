@@ -11,7 +11,7 @@ import {
   RefundGatewayRequest,
   RefundGatewayResponse,
   PaymentProvider,
-} from './paymentTypes';
+} from './paymentTypes.ts';
 
 export interface PaymentGateway {
   /**

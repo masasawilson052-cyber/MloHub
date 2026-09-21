@@ -198,7 +198,7 @@ export class MenuRepository {
     }
 
     const priceTzs = item.priceTzs ?? item.basePrice;
-    if (priceTzs === undefined || priceTzs === null || isNaN(priceTzs)) {
+    if (!Number.isSafeInteger(priceTzs) || Number(priceTzs) <= 0) {
       throw new Error('Menu item price is required.');
     }
 
@@ -261,11 +261,14 @@ export class MenuRepository {
     } else if (updates.basePrice !== undefined) {
       payload.price_tzs = updates.basePrice;
     }
+    if (payload.price_tzs !== undefined && (!Number.isSafeInteger(payload.price_tzs) || payload.price_tzs <= 0)) {
+      throw new Error('Price must be a positive whole number of TZS.');
+    }
     if (updates.categoryId !== undefined) {
       payload.category_id = updates.categoryId;
     }
     if (updates.photoUrl !== undefined || updates.imageUrl !== undefined) {
-      payload.photo_url = updates.photoUrl || updates.imageUrl;
+      payload.photo_url = (updates.photoUrl ?? updates.imageUrl) || null;
     }
     if (updates.stockQuantity !== undefined) {
       payload.stock_quantity = updates.stockQuantity;
@@ -552,4 +555,3 @@ export class MenuRepository {
     }));
   }
 }
-

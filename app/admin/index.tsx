@@ -113,7 +113,7 @@ export default function AdminPortalScreen() {
     setLoadError(null);
     try {
       const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests] = await Promise.all([
-        ApplicationRepository.listAll(),
+        ApplicationRepository.listAll().then((apps) => { setApplications(apps); return apps; }),
         DataReportsRepository.listAll(),
         AuditLogRepository.listAll(),
         ProfileAdminRepository.listAll(),
@@ -163,6 +163,12 @@ export default function AdminPortalScreen() {
 
       setRawPayments(payments);
 
+      // Build a restaurant name lookup from the already-loaded restaurant list
+      const restaurantNameMap: Record<string, string> = {};
+      (rests || []).forEach((r: any) => {
+        if (r.id) restaurantNameMap[r.id] = r.name || r.businessName || '';
+      });
+
       // Map payments to presentation entity cleanly without unsafe casts
       setPaymentsList(
         payments.map((p) => {
@@ -200,7 +206,8 @@ export default function AdminPortalScreen() {
             orderId: p.orderId,
             reservationId: p.reservationId,
             restaurantId: p.restaurantId,
-            restaurantName: '',
+            // Resolve restaurant name from the loaded restaurant index
+            restaurantName: (p.restaurantId && restaurantNameMap[p.restaurantId]) || p.restaurantId || '',
             provider,
             providerReference: p.externalReference || p.id,
             amountTzs: p.amountTzs,
@@ -219,6 +226,7 @@ export default function AdminPortalScreen() {
 
       setStandardOrders(orders);
       setRestaurants(rests as any);
+
     } catch (err: any) {
       console.error('Error loading admin platform data:', err);
       setLoadError(err?.message || 'Failed to load authoritative platform data.');
@@ -235,9 +243,9 @@ export default function AdminPortalScreen() {
       const unsubOrders = RealtimeEventEngine.subscribe('orders:*', () => {
         loadPlatformData();
       });
-      const unsubRestaurants = RealtimeEventEngine.subscribe('restaurants:updates', () => {
-        loadPlatformData();
-      });
+      const unsubRestaurants = RealtimeService.subscribe('admin:applications', () => {
+        ApplicationRepository.listAll().then(setApplications).catch((error) => setLoadError(error.message));
+      }, { table: 'restaurant_applications' });
       const unsubAdminOrders = RealtimeService.subscribe('orders:admin', () => {
         loadPlatformData();
       });
@@ -316,7 +324,8 @@ export default function AdminPortalScreen() {
       businessName: updated.businessName,
       ownerName: updated.ownerName,
       ownerPhone: updated.ownerPhone,
-      restaurantId: updated.id,
+      // Use the server-returned restaurant ID, not the application ID
+      restaurantId: updated.restaurantId || updated.id,
       activationDispatched: false, // Truthful: delivery is pending server dispatch
     });
     await loadPlatformData();
@@ -485,6 +494,36 @@ export default function AdminPortalScreen() {
     } catch {
       router.replace('/(tabs)');
     }
+  };
+
+  // 11. Send Platform Announcement Broadcast
+  const handleSendBroadcast = async (
+    title: string,
+    message: string,
+    audience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS'
+  ) => {
+    if (!activeUser?.id) {
+      throw new Error('Authenticated administrator is required to send broadcasts.');
+    }
+    const { supabase: sbClient, isSupabaseConfigured } = await import('../../lib/supabase');
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured. Cannot dispatch broadcast.');
+    }
+    const { error } = await sbClient.from('platform_announcements').insert({
+      title_en: title,
+      body_en: message,
+      target_audience: audience,
+      priority: 'NORMAL',
+      sent_at: new Date().toISOString(),
+      is_active: true,
+      created_by: activeUser.id,
+    });
+    if (error) {
+      console.error('handleSendBroadcast error:', error.message);
+      throw new Error(`Failed to dispatch announcement: ${error.message}`);
+    }
+    // Refresh platform data so notification counts update
+    await loadPlatformData();
   };
 
   // --- STATS & ATTENTION CENTER COMPUTATION (AUTHORITATIVE) ---
@@ -730,6 +769,7 @@ export default function AdminPortalScreen() {
           {activeTab === 'NOTIFICATIONS' && (
             <NotificationsCenter
               notifications={notifications}
+              onSendBroadcast={handleSendBroadcast}
               language={language}
             />
           )}

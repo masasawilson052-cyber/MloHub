@@ -97,15 +97,10 @@ export class ApplicationRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    let applicantUserId = app.applicantUserId;
-    if (!applicantUserId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      applicantUserId = user?.id;
-    }
-
-    if (!applicantUserId) {
-      throw new Error('Authenticated user session required to submit restaurant application.');
-    }
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error('Confirm your email and sign in before submitting the application.');
+    if (app.applicantUserId && app.applicantUserId !== user.id) throw new Error('Application identity does not match your signed-in account.');
+    const applicantUserId = user.id;
 
     const row = {
       id: app.id || `app_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -149,16 +144,18 @@ export class ApplicationRepository {
     }
 
     if (status === 'APPROVED') {
-      const { error: rpcError } = await supabase.rpc('approve_restaurant_application', {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('approve_restaurant_application', {
         p_application_id: id,
       });
       if (rpcError) {
         console.error('approve_restaurant_application RPC error:', rpcError.message);
         throw new Error(`Failed to approve application via server RPC: ${rpcError.message}`);
       }
+      const restaurantId: string | undefined = rpcData?.restaurant_id ?? undefined;
       const app = await this.getById(id);
       if (!app) throw new Error('Application approved but could not be re-fetched.');
-      return app;
+      // Attach the server-generated restaurant ID so callers can reference the new restaurant
+      return { ...app, restaurantId };
     }
 
     if (status === 'REJECTED') {

@@ -492,46 +492,36 @@ export class CustomMealRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    const id = request.id || `req_${Date.now()}`;
-    const orderNumber = request.orderNumber || `MLO-${Date.now().toString().slice(-4)}`;
-
-    const row = {
-      id,
-      order_number: orderNumber,
-      user_id: request.customerId,
-      dish_name: request.dishName || request.title || 'Custom Meal',
-      title: request.title || request.dishName || 'Custom Meal',
-      special_instructions: request.specialInstructions || request.description || '',
-      budget_tzs: request.budgetTzs || request.budgetMinTzs || 15000,
-      budget_min_tzs: request.budgetMinTzs || request.budgetTzs || 15000,
-      budget_max_tzs: request.budgetMaxTzs || request.budgetTzs || 25000,
-      servings_count: request.servingsCount || request.servings || '1 Person',
-      dining_option: request.diningOption || 'Delivery',
-      fulfillment_mode: request.fulfillmentMode || 'RESTAURANT_DELIVERY',
-      delivery_location: request.deliveryLocation || request.location,
-      customer_area: request.customerArea || request.deliveryLocation || request.location || 'Dar es Salaam',
-      preferred_time: request.preferredTime || request.desiredDate,
-      desired_at: request.desiredAt || new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-      quote_deadline: request.quoteDeadline || new Date(Date.now() + 12 * 3600 * 1000).toISOString(),
-      expires_at: request.expiresAt || new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
-      status: request.status || 'PENDING',
-      status_message_en: request.statusMessageEn || 'Order submitted. Awaiting chef bids.',
-      status_message_sw: request.statusMessageSw || 'Agizo limetumwa. Inasubiri ofa za wapishi.',
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from('custom_meal_requests')
-      .insert(row)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('CustomMealRepository.createRequest error:', error.message);
-      throw new Error(`Failed to create custom meal request: ${error.message}`);
-    }
-
-    return this.mapRowToRequest(data);
+    const title = (request.dishName || request.title || '').trim();
+    const servings = Number(request.servingsCount || request.servings);
+    const budget = request.budgetMinTzs ?? request.budgetTzs;
+    const desiredAt = request.desiredAt;
+    const desiredMs = desiredAt ? Date.parse(desiredAt) : NaN;
+    const now = Date.now();
+    if (!title) throw new Error('Enter the food you want to request.');
+    if (!Number.isSafeInteger(servings) || servings < 1) throw new Error('Enter a valid number of servings.');
+    if (!Number.isSafeInteger(budget) || (budget as number) < 5000) throw new Error('Enter a budget of at least TZS 5,000.');
+    if (!Number.isFinite(desiredMs) || desiredMs <= now + 30 * 60 * 1000) throw new Error('Choose a meal time more than 30 minutes from now.');
+    if (!request.customerArea?.trim()) throw new Error('Enter your delivery area.');
+    const quoteDeadline = request.quoteDeadline || new Date(now + Math.min(12 * 3600 * 1000, (desiredMs - now) / 2)).toISOString();
+    const result = await this.createStructuredRequest({
+      title, description: request.specialInstructions || request.description || '',
+      occasion: request.occasion || 'PERSONAL', servings,
+      cuisineType: request.cuisineType || '', budgetType: request.budgetType || 'FIXED',
+      budgetMinTzs: budget, budgetMaxTzs: request.budgetMaxTzs ?? budget,
+      spiceLevel: request.spiceLevel || 'MEDIUM',
+      dietaryTags: request.dietaryTags || [], allergens: request.allergens || [],
+      ingredientsRequested: request.ingredientsRequested || [], ingredientsToAvoid: request.ingredientsToAvoid || [],
+      desiredAt: desiredAt!, quoteDeadline,
+      fulfillmentMode: request.fulfillmentMode || 'RESTAURANT_DELIVERY',
+      customerArea: request.customerArea.trim(), landmark: request.landmark,
+      exactDeliveryAddress: request.exactDeliveryAddress,
+      exactDeliveryPhone: request.exactDeliveryPhone, referenceImages: request.referenceImages || [],
+    });
+    if (!result?.id) throw new Error('The server did not return a request reference.');
+    const saved = await this.getRequestById(result.id);
+    if (!saved) throw new Error('Request was saved but could not be loaded. Refresh your requests before submitting again.');
+    return saved;
   }
 
   public static async listOpenRequests(): Promise<CustomMealRequest[]> {
@@ -675,5 +665,33 @@ export class CustomMealRepository {
     }
 
     return true;
+  }
+
+  /**
+   * Authoritative retrieval of protected customer delivery details.
+   * Only accessible to the customer owner, platform administrator, or accepted kitchen.
+   */
+  public static async getDeliveryDetails(requestId: string): Promise<{
+    exactDeliveryAddress?: string;
+    exactDeliveryPhone?: string;
+    landmark?: string;
+  } | null> {
+    if (!isSupabaseConfigured()) {
+      return null;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('get_custom_meal_delivery_details', {
+        p_request_id: requestId,
+      });
+      if (error || !data) return null;
+      return {
+        exactDeliveryAddress: data.exact_delivery_address || undefined,
+        exactDeliveryPhone: data.exact_delivery_phone || undefined,
+        landmark: data.landmark || undefined,
+      };
+    } catch {
+      return null;
+    }
   }
 }

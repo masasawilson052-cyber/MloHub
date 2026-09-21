@@ -1,372 +1,85 @@
-/**
- * ClickPesa Mobile Money Gateway Implementation
- * Official Tanzanian payment provider integration (M-Pesa, Airtel Money, Mixx by Yas, HaloPesa)
- *
- * Official API Specification:
- * - Auth: POST /v1/auth/token (Headers: client-id, api-key)
- * - USSD Push: POST /v1/ussd-push (Bearer token, body: amount, currency: 'TZS', orderReference, phoneNumber)
- * - Status Check: GET /v1/ussd-push/{paymentId}
- * - Webhook Signature: HMAC-SHA256 in 'x-clickpesa-signature' or 'clickpesa-signature' header
- */
-
-import { PaymentGateway } from './PaymentGateway';
-import {
-  InitiateUssdPushRequest,
-  InitiateUssdPushResponse,
-  WebhookVerificationResult,
-  StatusQueryResponse,
-  RefundGatewayRequest,
-  RefundGatewayResponse,
-  PaymentProvider,
-  getCarrierDetails,
-} from './paymentTypes';
-
-export interface ClickPesaConfig {
-  baseUrl?: string;
-  clientId?: string;
-  apiKey?: string;
-  webhookSecret?: string;
-}
-
+import type { PaymentGateway } from './PaymentGateway.ts';
+import { readPaymentEnvironment } from './environment.ts';
+import { getCarrierDetails } from './paymentTypes.ts';
+import type { InitiateUssdPushRequest, InitiateUssdPushResponse, WebhookVerificationResult, StatusQueryResponse, RefundGatewayRequest, RefundGatewayResponse, PaymentStatus } from './paymentTypes.ts';
+// Documented contract: https://docs.clickpesa.com/home/checksum and /home/webhooks
+export interface ClickPesaConfig { baseUrl?:string; clientId?:string; apiKey?:string; checksumKey?:string; webhookSecret?:string }
 export class ClickPesaGateway implements PaymentGateway {
-  public readonly provider: PaymentProvider = 'clickpesa';
-
-  private readonly baseUrl: string;
-  private readonly clientId: string;
-  private readonly apiKey: string;
-  private readonly webhookSecret: string;
-
-  private cachedToken: string | null = null;
-  private tokenExpiresAt: number = 0;
-
-  constructor(config?: ClickPesaConfig) {
-    this.baseUrl = (config?.baseUrl || process.env.CLICKPESA_BASE_URL || 'https://sandbox.clickpesa.com/v1').replace(/\/$/, '');
-    this.clientId = config?.clientId || process.env.CLICKPESA_CLIENT_ID || '';
-    this.apiKey = config?.apiKey || process.env.CLICKPESA_API_KEY || '';
-    this.webhookSecret = config?.webhookSecret || process.env.CLICKPESA_WEBHOOK_SECRET || '';
-  }
-
-  /**
-   * Universal HMAC-SHA256 hex digest generator (Node.js & Web Crypto API compatible)
-   */
-  public static async computeHmacSha256(key: string, message: string): Promise<string> {
-    if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
-      const enc = new TextEncoder();
-      const cryptoKey = await globalThis.crypto.subtle.importKey(
-        'raw',
-        enc.encode(key),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-      );
-      const signature = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, enc.encode(message));
-      return Array.from(new Uint8Array(signature))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-    }
-
-    try {
-      // Fallback for Node.js environments
-      const cryptoMod = 'crypto';
-      const nodeCrypto: any = await import(cryptoMod as any);
-      return nodeCrypto.createHmac('sha256', key).update(message).digest('hex');
-    } catch {
-      // Fallback pseudo-hash for offline tests if crypto module is unavailable
-      let hash = 0;
-      const combined = `${key}:${message}`;
-      for (let i = 0; i < combined.length; i++) {
-        hash = (hash << 5) - hash + combined.charCodeAt(i);
-        hash |= 0;
-      }
-      return Math.abs(hash).toString(16).padStart(64, '0');
-    }
-  }
-
-  /**
-   * Fetch or return cached bearer token from ClickPesa Auth
-   */
-  public async getAccessToken(): Promise<string> {
-    const now = Date.now();
-    if (this.cachedToken && this.tokenExpiresAt > now + 60000) {
-      return this.cachedToken;
-    }
-
-    if (!this.clientId || !this.apiKey) {
-      throw new Error('ClickPesa credentials missing: CLICKPESA_CLIENT_ID and CLICKPESA_API_KEY must be configured.');
-    }
-
-    const response = await fetch(`${this.baseUrl}/auth/token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'client-id': this.clientId,
-        'api-key': this.apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`ClickPesa auth token generation failed [${response.status}]: ${errText}`);
-    }
-
-    const data = await response.json();
-    const token = data.token || data.access_token || data.jwt;
-    if (!token) {
-      throw new Error('ClickPesa auth token response did not contain access token');
-    }
-
-    this.cachedToken = token;
-    // Cache for 50 minutes (ClickPesa tokens typically valid for 1 hour)
-    this.tokenExpiresAt = now + 50 * 60 * 1000;
-    return token;
-  }
-
-  /**
-   * Format phone number to ClickPesa required 255XXXXXXXXX format
-   */
-  private formatPhoneForClickPesa(phone: string): string {
-    const cleaned = phone.replace(/[^0-9]/g, '');
-    if (cleaned.startsWith('255') && cleaned.length === 12) {
-      return cleaned;
-    }
-    if (cleaned.startsWith('0') && cleaned.length === 10) {
-      return '255' + cleaned.substring(1);
-    }
-    if (cleaned.length === 9) {
-      return '255' + cleaned;
-    }
-    return cleaned;
-  }
-
-  /**
-   * Initiate USSD Push collection
-   */
-  public async initiateUssdPush(request: InitiateUssdPushRequest): Promise<InitiateUssdPushResponse> {
-    const token = await this.getAccessToken();
-    const formattedPhone = this.formatPhoneForClickPesa(request.phoneNumber);
-    const carrier = getCarrierDetails(request.methodCode);
-
-    const payload = {
-      amount: String(request.amount),
-      currency: 'TZS',
-      orderReference: request.orderReference.substring(0, 20),
-      phoneNumber: formattedPhone,
-      description: request.description || `MloHub Order ${request.orderReference}`,
-    };
-
-    const response = await fetch(`${this.baseUrl}/ussd-push`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const responseData = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return {
-        success: false,
-        provider: this.provider,
-        gatewayReference: '',
-        merchantReference: request.orderReference,
-        status: 'FAILED',
-        amountTzs: request.amount,
-        carrierName: carrier.name,
-        ussdCode: carrier.ussd,
-        carrierPromptText: '',
-        expiresAt: new Date(Date.now() + 120000).toISOString(),
-        rawResponse: responseData,
-        error: responseData.message || responseData.error || `HTTP ${response.status}`,
-      };
-    }
-
-    const gatewayReference = responseData.paymentId || responseData.id || responseData.transactionId || `CP-${Date.now()}`;
-    const expiresAt = new Date(Date.now() + 120000).toISOString(); // 2-minute USSD prompt window
-    const promptMessage = `Ombi la malipo la TZS ${request.amount.toLocaleString()} limetumwa kwenye simu yako. Weka PIN yako ya ${carrier.name} kukamilisha.`;
-
-    return {
-      success: true,
-      provider: this.provider,
-      gatewayReference,
-      merchantReference: request.orderReference,
-      status: 'PENDING',
-      amountTzs: request.amount,
-      carrierName: carrier.name,
-      ussdCode: carrier.ussd,
-      carrierPromptText: promptMessage,
-      expiresAt,
-      rawResponse: responseData,
-    };
-  }
-
-  /**
-   * Cryptographically verify ClickPesa Webhook signature and parse payload
-   */
-  public async verifyWebhook(
-    rawBody: string,
-    headers: Record<string, string | undefined>
-  ): Promise<WebhookVerificationResult> {
-    const signature =
-      headers['x-clickpesa-signature'] ||
-      headers['clickpesa-signature'] ||
-      headers['x-signature'] ||
-      '';
-
-    let expectedSignature = '';
-    if (this.webhookSecret) {
-      expectedSignature = await ClickPesaGateway.computeHmacSha256(this.webhookSecret, rawBody);
-    }
-
-    // Timing-safe verification check
-    const isSignatureValid =
-      Boolean(this.webhookSecret) &&
-      Boolean(signature) &&
-      signature.toLowerCase() === expectedSignature.toLowerCase();
-
-    let parsed: any = {};
-    try {
-      parsed = JSON.parse(rawBody);
-    } catch (e: any) {
-      return {
-        isValid: false,
-        provider: this.provider,
-        eventId: `err_${Date.now()}`,
-        merchantReference: '',
-        gatewayReference: '',
-        status: 'FAILED',
-        amountTzs: 0,
-        currency: 'TZS',
-        timestamp: new Date().toISOString(),
-        payerPhone: '',
-        rawPayload: null,
-        error: `JSON parse error: ${e.message}`,
-      };
-    }
-
-    const eventId = parsed.eventId || parsed.id || `cp_evt_${Date.now()}`;
-    const merchantReference = parsed.orderReference || parsed.merchantReference || parsed.reference || '';
-    const gatewayReference = parsed.paymentId || parsed.transactionId || parsed.id || '';
-    const amountTzs = Number(parsed.amount || parsed.collectedAmount || 0);
-    const currency = parsed.currency || 'TZS';
-    const payerPhone = parsed.phoneNumber || parsed.payerPhone || '';
-    const timestamp = parsed.timestamp || parsed.createdAt || new Date().toISOString();
-
-    const rawStatus = (parsed.status || parsed.eventType || '').toUpperCase();
-    let status: any = 'FAILED';
-    if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETED' || rawStatus === 'PAYMENT.SUCCESS') {
-      status = 'PAID';
-    } else if (rawStatus === 'PENDING' || rawStatus === 'PROCESSING') {
-      status = 'PROCESSING';
-    } else if (rawStatus === 'CANCELLED' || rawStatus === 'PAYMENT.CANCELLED') {
-      status = 'CANCELLED';
-    }
-
-    return {
-      isValid: isSignatureValid,
-      provider: this.provider,
-      eventId,
-      merchantReference,
-      gatewayReference,
-      status,
-      amountTzs,
-      currency,
-      timestamp,
-      payerPhone,
-      rawPayload: parsed,
-      error: !isSignatureValid ? 'Invalid HMAC-SHA256 signature' : undefined,
-    };
-  }
-
-  /**
-   * Query status of an existing ClickPesa transaction
-   */
-  public async queryStatus(gatewayReference: string, merchantReference?: string): Promise<StatusQueryResponse> {
-    const token = await this.getAccessToken();
-
-    const response = await fetch(`${this.baseUrl}/ussd-push/${gatewayReference}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return {
-        success: false,
-        status: 'PENDING',
-        amountTzs: 0,
-        gatewayReference,
-        merchantReference: merchantReference || '',
-        failureReason: data.message || `HTTP ${response.status}`,
-        rawResponse: data,
-      };
-    }
-
-    const rawStatus = (data.status || '').toUpperCase();
-    let status: any = 'PENDING';
-    if (rawStatus === 'SUCCESS' || rawStatus === 'COMPLETED') {
-      status = 'PAID';
-    } else if (rawStatus === 'FAILED' || rawStatus === 'REJECTED') {
-      status = 'FAILED';
-    } else if (rawStatus === 'CANCELLED') {
-      status = 'CANCELLED';
-    }
-
-    return {
-      success: true,
-      status,
-      amountTzs: Number(data.amount || 0),
-      gatewayReference,
-      merchantReference: data.orderReference || merchantReference || '',
-      paidAt: data.completedAt || data.updatedAt,
-      rawResponse: data,
-    };
-  }
-
-  /**
-   * Process refund via ClickPesa payout / refund API
-   */
-  public async refund(request: RefundGatewayRequest): Promise<RefundGatewayResponse> {
-    const token = await this.getAccessToken();
-
-    const response = await fetch(`${this.baseUrl}/refunds`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        paymentId: request.gatewayReference,
-        amount: String(request.amountTzs),
-        reason: request.reason,
-        reference: `REF-${request.merchantReference}`,
-      }),
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      return {
-        success: false,
-        refundReference: '',
-        amountTzs: request.amountTzs,
-        status: 'FAILED',
-        message: data.message || `Refund failed with HTTP ${response.status}`,
-        rawResponse: data,
-      };
-    }
-
-    return {
-      success: true,
-      refundReference: data.refundId || data.id || `CP-REF-${Date.now()}`,
-      amountTzs: request.amountTzs,
-      status: 'REFUNDED',
-      message: 'Refund successfully dispatched via ClickPesa',
-      rawResponse: data,
-    };
-  }
+ readonly provider='clickpesa' as const;
+ private readonly baseUrl:string;
+ private readonly clientId:string;
+ private readonly apiKey:string;
+ private readonly checksumKey:string;
+ private cachedToken=''; private tokenExpiresAt=0;
+ constructor(config:ClickPesaConfig={}) {
+  this.baseUrl=(config.baseUrl||readPaymentEnvironment('CLICKPESA_BASE_URL')||'https://api.clickpesa.com/third-parties').replace(/\/$/,'');
+  this.clientId=config.clientId||readPaymentEnvironment('CLICKPESA_CLIENT_ID')||'';
+  this.apiKey=config.apiKey||readPaymentEnvironment('CLICKPESA_API_KEY')||'';
+  this.checksumKey=config.checksumKey||config.webhookSecret||readPaymentEnvironment('CLICKPESA_CHECKSUM_KEY')||'';
+ }
+ private assertConfigured() {
+  if(this.baseUrl!=='https://api.clickpesa.com/third-parties')throw new Error('CLICKPESA_BASE_URL must be https://api.clickpesa.com/third-parties.');
+  if(!this.clientId||!this.apiKey||!this.checksumKey)throw new Error('Configure ClickPesa client ID, API key, and checksum key on the server.');
+ }
+ static async computeHmacSha256(key:string,message:string):Promise<string>{
+  if(!globalThis.crypto?.subtle)throw new Error('A cryptographic HMAC implementation is required.');
+  const encoder=new TextEncoder();const imported=await crypto.subtle.importKey('raw',encoder.encode(key),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',imported,encoder.encode(message))),b=>b.toString(16).padStart(2,'0')).join('');
+ }
+ static canonicalize(value:any):any {
+  if(value===null||typeof value!=='object')return value;
+  if(Array.isArray(value))return value.map(v=>this.canonicalize(v));
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,this.canonicalize(value[key])]));
+ }
+ static checksum(key:string,payload:Record<string,unknown>){return this.computeHmacSha256(key,JSON.stringify(this.canonicalize(payload)));}
+ private static equalHex(a:string,b:string){if(!/^[a-f0-9]{64}$/i.test(a)||a.length!==b.length)return false;let result=0;for(let i=0;i<a.length;i++)result|=a.toLowerCase().charCodeAt(i)^b.toLowerCase().charCodeAt(i);return result===0;}
+ private static status(raw:unknown):PaymentStatus {switch(String(raw).toUpperCase()){case 'SUCCESS':case 'SETTLED':return 'PAID';case 'FAILED':return 'FAILED';case 'CANCELLED':return 'CANCELLED';case 'PROCESSING':return 'PROCESSING';default:return 'PENDING';}}
+ async getAccessToken():Promise<string>{
+  this.assertConfigured();if(this.cachedToken&&Date.now()<this.tokenExpiresAt)return this.cachedToken;
+  const response=await fetch(`${this.baseUrl}/generate-token`,{method:'POST',headers:{'client-id':this.clientId,'api-key':this.apiKey},signal:AbortSignal.timeout(15000)});
+  if(!response.ok)throw new Error(`ClickPesa authorization failed (${response.status}).`);
+  const data=await response.json();if(data.success!==true||typeof data.token!=='string'||!data.token.trim())throw new Error('Invalid ClickPesa authorization response.');
+  this.cachedToken=data.token.startsWith('Bearer ')?data.token:`Bearer ${data.token}`;this.tokenExpiresAt=Date.now()+50*60*1000;return this.cachedToken;
+ }
+ async initiateUssdPush(request:InitiateUssdPushRequest):Promise<InitiateUssdPushResponse>{
+  this.assertConfigured();
+  if(!Number.isSafeInteger(request.amount)||request.amount<=0||request.currency!=='TZS')throw new Error('A positive whole TZS amount is required.');
+  if(!/^[a-z0-9]{1,20}$/i.test(request.orderReference))throw new Error('Use a unique alphanumeric payment reference of at most 20 characters.');
+  if(!['MPESA','AIRTEL_MONEY','MIXX_BY_YAS','HALOPESA'].includes(request.methodCode))throw new Error('USSD collection supports mobile money only.');
+  let phone=request.phoneNumber.replace(/[^0-9]/g,'');if(/^0[67]\d{8}$/.test(phone))phone='255'+phone.slice(1);
+  if(!/^255[67]\d{8}$/.test(phone))throw new Error('Enter a valid Tanzanian mobile-money phone number.');
+  const payload={amount:String(request.amount),currency:'TZS',orderReference:request.orderReference,phoneNumber:phone};
+  const checksum=await ClickPesaGateway.checksum(this.checksumKey,payload);
+  const response=await fetch(`${this.baseUrl}/payments/initiate-ussd-push-request`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:await this.getAccessToken()},body:JSON.stringify({...payload,checksum}),signal:AbortSignal.timeout(25000)});
+  const data=await response.json().catch(()=>({}));
+  const valid=response.ok&&typeof data.id==='string'&&data.id.length>0&&data.orderReference===request.orderReference&&['PROCESSING','SUCCESS','SETTLED'].includes(data.status);
+  const carrier=getCarrierDetails(request.methodCode);
+  return {success:valid,provider:this.provider,gatewayReference:valid?data.id:'',merchantReference:request.orderReference,status:valid?'PENDING':'FAILED',amountTzs:request.amount,carrierName:carrier.name,ussdCode:carrier.ussd,carrierPromptText:valid?'Check your phone for the mobile-money prompt. Payment is confirmed only after the provider verifies it.':'',expiresAt:new Date(Date.now()+120000).toISOString(),rawResponse:data,error:valid?undefined:`ClickPesa did not accept the payment request (${response.status}).`};
+ }
+ async verifyWebhook(rawBody:string,_headers:Record<string,string|undefined>):Promise<WebhookVerificationResult>{
+  const result:WebhookVerificationResult={isValid:false,provider:this.provider,eventId:'',merchantReference:'',gatewayReference:'',status:'FAILED',amountTzs:0,currency:'',timestamp:'',payerPhone:'',rawPayload:null,error:'Invalid ClickPesa callback.'};
+  let payload:any;try{payload=JSON.parse(rawBody);}catch{return result;}
+  if(!payload||typeof payload!=='object'||!this.checksumKey||typeof payload.checksum!=='string'||(payload.checksumMethod&&payload.checksumMethod!=='canonical'))return result;
+  const unsigned={...payload};delete unsigned.checksum;delete unsigned.checksumMethod;
+  if(!ClickPesaGateway.equalHex(payload.checksum,await ClickPesaGateway.checksum(this.checksumKey,unsigned)))return result;
+  const data=payload.data;
+  if(!['PAYMENT RECEIVED','PAYMENT FAILED'].includes(payload.event)||!data||typeof data.id!=='string'||typeof data.orderReference!=='string'||!data.orderReference||data.clientId!==this.clientId)return result;
+  const status=ClickPesaGateway.status(data.status),amount=Number(data.collectedAmount),currency=data.collectedCurrency;
+  if(payload.event==='PAYMENT RECEIVED'&&(status!=='PAID'||currency!=='TZS'||!Number.isSafeInteger(amount)||amount<=0))return result;
+  if(payload.event==='PAYMENT FAILED'&&status!=='FAILED')return result;
+  const eventId='cp_'+(await ClickPesaGateway.computeHmacSha256(this.checksumKey,`${data.id}:${data.orderReference}:${data.status}`)).slice(0,40);
+  return {...result,isValid:true,eventId,merchantReference:data.orderReference,gatewayReference:data.id,status,amountTzs:Number.isFinite(amount)?amount:0,currency:currency||'',timestamp:data.updatedAt||data.createdAt||'',payerPhone:data.paymentPhoneNumber||'',rawPayload:payload,error:undefined};
+ }
+ async queryStatus(gatewayReference:string,merchantReference?:string):Promise<StatusQueryResponse>{
+  if(!merchantReference)throw new Error('Merchant reference is required to query ClickPesa.');
+  const response=await fetch(`${this.baseUrl}/payments/${encodeURIComponent(merchantReference)}`,{headers:{Authorization:await this.getAccessToken()},signal:AbortSignal.timeout(15000)});
+  const data=await response.json().catch(()=>null);const rows=Array.isArray(data)?data:[];
+  const item=rows.find((p:any)=>p.orderReference===merchantReference&&(!gatewayReference||p.id===gatewayReference)&&p.clientId===this.clientId);
+  const amount=Number(item?.collectedAmount),status=ClickPesaGateway.status(item?.status);
+  const success=response.ok&&Boolean(item)&&(status!=='PAID'||(item.collectedCurrency==='TZS'&&Number.isSafeInteger(amount)&&amount>0));
+  return {success,status:success?status:'PENDING',amountTzs:success&&Number.isFinite(amount)?amount:0,gatewayReference:item?.id||gatewayReference,merchantReference,paidAt:status==='PAID'?item?.updatedAt:undefined,rawResponse:data,failureReason:success?undefined:'No matching verified ClickPesa payment was returned.'};
+ }
+ async refund(request:RefundGatewayRequest):Promise<RefundGatewayResponse>{
+  return {success:false,refundReference:'',amountTzs:request.amountTzs,status:'FAILED',message:'Automated collection refunds are not enabled. Process and reconcile through the merchant provider workflow; no funds were sent by this request.'};
+ }
 }

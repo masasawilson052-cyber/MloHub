@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { ReportCategory } from '../../types/trust';
-import { TrustService } from '../../services/TrustService';
+import { DataReportsRepository } from '../../repositories/dataReports.repository';
 
 interface ReportDiscrepancyModalProps {
   visible: boolean;
@@ -67,24 +67,31 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
 
     const numericPrice = reportedPrice ? parseFloat(reportedPrice.replace(/[^0-9.]/g, '')) : undefined;
 
+    // Map ReportCategory to DataReportType understood by DataReportsRepository
+    const reportTypeMap: Record<ReportCategory, string> = {
+      PRICE_DISCREPANCY: 'WRONG_PRICE',
+      OUT_OF_STOCK: 'ITEM_UNAVAILABLE',
+      DISH_NOT_ON_MENU: 'ITEM_UNAVAILABLE',
+      CLOSED_DURING_OPEN_HOURS: 'WRONG_HOURS',
+      WRONG_LOCATION: 'WRONG_LOCATION',
+      OTHER: 'OTHER',
+    };
+
     try {
-      const res = TrustService.submitDiscrepancyReport({
+      await DataReportsRepository.submit({
+        reporterUserId: userId,
+        reporterName: undefined,
         restaurantId,
+        restaurantName,
         branchId,
         menuItemId: dishId,
-        dishName,
-        listedPrice,
-        reportedPrice: numericPrice,
-        category,
-        description: description.trim() || undefined,
-        userId,
+        menuItemName: dishName,
+        reportType: reportTypeMap[category] as any,
+        message: description.trim() || `Customer reported: ${category.replace(/_/g, ' ').toLowerCase()}`,
+        reportedValue: numericPrice != null ? `TZS ${numericPrice.toLocaleString()}` : category,
+        catalogValue: listedPrice != null ? `TZS ${listedPrice.toLocaleString()}` : undefined,
+        status: 'OPEN',
       });
-
-      if (!res.success) {
-        setFeedback({ isError: true, message: res.error || 'Could not submit report.' });
-        setSubmitting(false);
-        return;
-      }
 
       setFeedback({
         isError: false,

@@ -1,3 +1,5 @@
+import { ClickPesaGateway } from '../supabase/functions/_shared/payments/ClickPesaGateway';
+import { SandboxPaymentGateway } from '../supabase/functions/_shared/payments/SandboxPaymentGateway';
 /**
  * ============================================================================
  * MLOHUB MASTER E2E & SECURITY TEST SUITE (18 SCENARIOS)
@@ -373,7 +375,7 @@ async function runMasterTestSuite() {
   // SCENARIO 13: Webhook HMAC Cryptographic Signature Verification
   // ---------------------------------------------------------------------------
   console.log('\nScenario 13: Webhook Cryptographic Signature Verification');
-  const webhookSecret = 'mlohub_cp_sec_993847291048_prod';
+
 
   // Bad signature attempt
   const badWebhook = await PaymentGatewayService.processWebhook(
@@ -394,7 +396,7 @@ async function runMasterTestSuite() {
   assert(badWebhook.success === false, 'Webhook rejected on invalid cryptographic signature');
 
   // Good signature processing
-  const goodWebhook = await PaymentGatewayService.processWebhook(
+  const goodWebhook = await processSignedTestWebhook(
     {
       eventId: 'evt-test-good',
       eventType: 'payment.success',
@@ -406,8 +408,7 @@ async function runMasterTestSuite() {
       payerPhone: '+255754123456',
       channel: 'MPESA',
       timestamp: new Date().toISOString(),
-    },
-    webhookSecret
+    }
   );
   assert(goodWebhook.success === true, 'Webhook accepted and verified successfully');
   assert(goodWebhook.payment?.status === 'PAID', 'Payment transaction marked as PAID');
@@ -416,7 +417,7 @@ async function runMasterTestSuite() {
   // SCENARIO 14: Webhook Idempotency (Prevent Duplicate Double Payouts)
   // ---------------------------------------------------------------------------
   console.log('\nScenario 14: Idempotent Webhook Processing (Duplicate Defense)');
-  const duplicateWebhook = await PaymentGatewayService.processWebhook(
+  const duplicateWebhook = await processSignedTestWebhook(
     {
       eventId: 'evt-test-duplicate',
       eventType: 'payment.success',
@@ -428,8 +429,7 @@ async function runMasterTestSuite() {
       payerPhone: '+255754123456',
       channel: 'MPESA',
       timestamp: new Date().toISOString(),
-    },
-    webhookSecret
+    }
   );
   assert(duplicateWebhook.success === true, 'Duplicate webhook handled safely');
   assert(duplicateWebhook.message.includes('idempotent'), 'Idempotency detected and acknowledged without reprocessing');
@@ -749,3 +749,8 @@ runMasterTestSuite().catch((e) => {
   console.error('Fatal test error:', e);
   process.exit(1);
 });
+
+async function processSignedTestWebhook(payload: Parameters<typeof PaymentGatewayService.processWebhook>[0]) {
+ const signature = await ClickPesaGateway.computeHmacSha256(SandboxPaymentGateway.SANDBOX_WEBHOOK_SECRET, JSON.stringify(payload));
+ return PaymentGatewayService.processWebhook(payload, signature);
+}

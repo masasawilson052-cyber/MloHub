@@ -286,6 +286,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [branchPrices, setBranchPrices] = useState<{ branchId: string; menuItemId: string; priceTzs: number }[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('LIVE');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [requestLoadError, setRequestLoadError] = useState<string | null>(null);
 
   // 2. Determine User Role for this Restaurant - STRICT: Derived ONLY from public.restaurant_members!
   const userMembership = useMemo(() => {
@@ -361,7 +362,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         PaymentRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
         ReviewRepository.listForRestaurant(activeRestaurant.id).catch(() => []),
         RestaurantMemberRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
-        CustomMealRepository.listInvitedRequestsForRestaurant(activeRestaurant.id).catch(() => []),
+        CustomMealRepository.listInvitedRequestsForRestaurant(activeRestaurant.id).then((items) => { setRequestLoadError(null); return items; }).catch((error) => { setRequestLoadError(error.message || 'Could not load food requests. Refresh to retry.'); return null; }),
       ]);
 
       if (fetchedRest) {
@@ -378,7 +379,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       setPayments(fetchedPayments);
       setReviews(fetchedReviews);
       setStaffList(fetchedStaff);
-      setCustomMealInvitations(fetchedCustomMeals);
+      if (fetchedCustomMeals) setCustomMealInvitations(fetchedCustomMeals);
 
       if (selectedBranchId || fetchedBranches.length > 0) {
         const branchToQuery = selectedBranchId || fetchedBranches[0].id;
@@ -797,6 +798,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         setEditingItem(null);
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuhifadhi chakula.');
+        throw e;
       }
     },
     [activeRestaurant.id, editingItem, loadRestaurantWorkspace]
@@ -897,17 +899,10 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   // Staff Handlers with Last-Owner Protection
   const handleInviteStaff = useCallback(
     async (email: string, role: RestaurantRole, fullName: string) => {
-      if (!runtimeConfig.isDemo) {
-        Alert.alert(
-          'Staff Invitations Unavailable',
-          'Staff invitations are not enabled in this pilot build.'
-        );
-        return;
-      }
       try {
         await RestaurantMemberRepository.inviteMember(activeRestaurant.id, email, role, fullName);
         await loadRestaurantWorkspace();
-        Alert.alert('Staff Invited', `Invitation sent to ${email} as ${role}.`);
+        Alert.alert('Mwaliko Umetumwa', `Mwaliko umetumwa kwa ${email} kama ${role}.`);
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kualika mfanyakazi.');
       }
@@ -971,6 +966,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         Alert.alert('Profile Saved', 'Restaurant profile details updated.');
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuhifadhi maelezo.');
+        throw e;
       }
     },
     [activeRestaurant.id, loadRestaurantWorkspace]
@@ -1230,6 +1226,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
             )}
 
             {activeTab === 'custom-meals' && (
+              <View>
+              {requestLoadError && <Text accessibilityRole="alert" style={{ color: '#b91c1c', padding: 12 }}>{requestLoadError}</Text>}
               <CustomMealQuotesPanel
                 requests={customMealInvitations.map((inv: any) => ({
                   ...inv.request,
@@ -1274,6 +1272,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                 }}
                 language={language as any}
               />
+              </View>
             )}
 
             {activeTab === 'menu' && (
@@ -1361,6 +1360,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
       {/* Root Modals */}
       <MenuItemEditor
+        key={`${editingItem?.id || 'new'}-${isEditorVisible}`}
         visible={isEditorVisible}
         item={editingItem}
         restaurantId={activeRestaurant.id}

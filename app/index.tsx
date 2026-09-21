@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
-import { UserRole } from '../db/types';
+import { UserRole, hasAdminAccess } from '../db/types';
 import AuthLandingScreen from './auth/index';
 
 export default function RootIndex() {
@@ -10,6 +10,10 @@ export default function RootIndex() {
   // Customer-First Architecture: Unauthenticated users land directly on Discovery ((tabs))
   if (!isAuthenticated) {
     return <Redirect href="/(tabs)" />;
+  }
+
+  if (hasAdminAccess(user) && activeWorkspace === 'MLOHUB_ADMIN') {
+    return <Redirect href="/admin" />;
   }
 
   const isRestaurant =

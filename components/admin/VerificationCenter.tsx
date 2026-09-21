@@ -36,7 +36,9 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     else if (daysSince > 14) status = 'AGING';
     else if (daysSince > 7) status = 'RECENT';
 
-    const menuCount = r.menu?.length || 1;
+    // Use actual menu item count — 0 if no menu items have been added yet.
+    // This keeps freshness percentages honest: a restaurant with no menu has 0 verified dishes.
+    const menuCount = r.menu?.length ?? 0;
     const verifiedDishCount = Math.round(menuCount * (status === 'FRESH' ? 1.0 : status === 'RECENT' ? 0.9 : status === 'AGING' ? 0.6 : 0.2));
 
     return {

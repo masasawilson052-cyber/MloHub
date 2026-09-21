@@ -24,18 +24,19 @@ export default function ForgotPasswordScreen() {
   const isLargeScreen = width > 768;
 
   const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!emailOrPhone.trim()) return;
+    setErrorMsg('');
     setIsSubmitting(true);
     try {
       await resetPassword(emailOrPhone.trim());
       setSubmitted(true);
-    } catch {
-      // Intentionally show generic success to prevent email enumeration
-      setSubmitted(true);
+    } catch (error: any) {
+      setErrorMsg(error?.message || 'Recovery is unavailable. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -65,12 +66,12 @@ export default function ForgotPasswordScreen() {
             </Text>
             <Text style={styles.cardSub}>
               {language === 'sw'
-                ? 'Weka barua pepe yako au namba ya simu. Tutakutumia kiungo cha kubadilisha nenosiri.'
-                : 'Enter your registered email address or phone number and we will send you password reset instructions.'}
+                ? 'Weka barua pepe yako. Tutakutumia kiungo cha kubadilisha nenosiri.'
+                : 'Enter your registered email address and we will send you password reset instructions.'}
             </Text>
 
             <View style={styles.fieldBox}>
-              <Text style={styles.fieldLabel}>Email or Phone Number</Text>
+              <Text style={styles.fieldLabel}>Email address</Text>
               <TextInput
                 style={styles.input}
                 value={emailOrPhone}
@@ -81,6 +82,7 @@ export default function ForgotPasswordScreen() {
               />
             </View>
 
+            {!!errorMsg && <Text accessibilityRole="alert" style={{ color: '#b42318', marginBottom: 12 }}>{errorMsg}</Text>}
             <TouchableOpacity
               style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
               onPress={handleSubmit}

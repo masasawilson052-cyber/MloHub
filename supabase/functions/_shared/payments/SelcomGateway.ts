@@ -1,9 +1,10 @@
+import { readPaymentEnvironment } from './environment.ts';
 /**
  * Selcom Mobile Money Gateway Implementation (Secondary / Future Architecture)
  * Tanzanian secondary gateway provider for mobile money and card collections.
  */
 
-import { PaymentGateway } from './PaymentGateway';
+import { PaymentGateway } from './PaymentGateway.ts';
 import {
   InitiateUssdPushRequest,
   InitiateUssdPushResponse,
@@ -13,8 +14,8 @@ import {
   RefundGatewayResponse,
   PaymentProvider,
   getCarrierDetails,
-} from './paymentTypes';
-import { ClickPesaGateway } from './ClickPesaGateway';
+} from './paymentTypes.ts';
+import { ClickPesaGateway } from './ClickPesaGateway.ts';
 
 export interface SelcomConfig {
   baseUrl?: string;
@@ -32,10 +33,10 @@ export class SelcomGateway implements PaymentGateway {
   private readonly apiSecret: string;
 
   constructor(config?: SelcomConfig) {
-    this.baseUrl = (config?.baseUrl || process.env.SELCOM_BASE_URL || 'https://sandbox.selcom.net/v1').replace(/\/$/, '');
-    this.vendorId = config?.vendorId || process.env.SELCOM_VENDOR_ID || '';
-    this.apiKey = config?.apiKey || process.env.SELCOM_API_KEY || '';
-    this.apiSecret = config?.apiSecret || process.env.SELCOM_API_SECRET || '';
+    this.baseUrl = (config?.baseUrl || readPaymentEnvironment('SELCOM_BASE_URL') || 'https://sandbox.selcom.net/v1').replace(/\/$/, '');
+    this.vendorId = config?.vendorId || readPaymentEnvironment('SELCOM_VENDOR_ID') || '';
+    this.apiKey = config?.apiKey || readPaymentEnvironment('SELCOM_API_KEY') || '';
+    this.apiSecret = config?.apiSecret || readPaymentEnvironment('SELCOM_API_SECRET') || '';
   }
 
   /**
@@ -231,11 +232,11 @@ export class SelcomGateway implements PaymentGateway {
 
   public async refund(request: RefundGatewayRequest): Promise<RefundGatewayResponse> {
     return {
-      success: true,
-      refundReference: `SEL-REF-${Date.now()}`,
+      success: false,
+      refundReference: '',
       amountTzs: request.amountTzs,
-      status: 'REFUNDED',
-      message: 'Selcom simulated refund completed',
+      status: 'FAILED',
+      message: 'Automated Selcom refunds are not implemented. No money has been refunded.',
     };
   }
 }

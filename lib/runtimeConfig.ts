@@ -58,7 +58,7 @@ function detectRuntimeMode(): RuntimeMode {
 
   // 2. Explicit EXPO_PUBLIC_APP_ENV if valid
   const rawExpoEnv =
-    typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_APP_ENV
+    typeof process !== 'undefined' && process.env.EXPO_PUBLIC_APP_ENV
       ? String(process.env.EXPO_PUBLIC_APP_ENV).trim().toLowerCase()
       : undefined;
 
@@ -167,4 +167,3 @@ export const runtimeConfig: RuntimeConfig = {
     return testingOverrides?.environmentLabel ?? resolveEnvironmentLabel(this.mode);
   },
 };
-

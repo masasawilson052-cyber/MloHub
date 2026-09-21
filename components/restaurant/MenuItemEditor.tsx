@@ -73,6 +73,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
     (item?.spiceLevel as any) || 'Mild'
   );
   const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+  const [categoryId, setCategoryId] = useState(item?.categoryId || '');
 
   // Branch overrides state
   const [localBranchPrices, setLocalBranchPrices] = useState<{ [branchId: string]: string }>(() => {
@@ -122,13 +123,25 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
       setErrorMsg('Please enter dish name (English).');
       return;
     }
-    const parsedBase = parseInt(basePriceTzs.replace(/[^0-9]/g, ''), 10);
-    if (isNaN(parsedBase) || parsedBase <= 0) {
+    const parsedBase = Number(basePriceTzs.trim().replace(/,/g, ''));
+    if (!Number.isSafeInteger(parsedBase) || parsedBase <= 0) {
       setErrorMsg('Please enter a valid base price in TZS.');
       return;
     }
 
+    if (pendingImage && !restaurantId) {
+      setErrorMsg('Select a restaurant before uploading a photo.');
+      return;
+    }
+    const invalidOverride = Object.values(localBranchPrices).some(value =>
+      value.trim() !== '' && (!Number.isSafeInteger(Number(value.replace(/,/g, ''))) || Number(value.replace(/,/g, '')) <= 0)
+    );
+    if (invalidOverride) {
+      setErrorMsg('Branch prices must be positive whole amounts in TZS.');
+      return;
+    }
     let uploadedMedia: MediaUploadResult | null = null;
+    const targetItemId = item?.id || generateUuid();
     const oldPhotoUrl = item?.photoUrl || item?.imageUrl;
     let finalPhotoUrl = isPhotoRemoved ? '' : (photoUrl.trim() || undefined);
 
@@ -139,7 +152,6 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
       // Upload newly picked photo if present
       if (pendingImage && restaurantId) {
         setUploadStatus(language === 'sw' ? 'Inapakia picha kwenye wingu...' : 'Uploading image to cloud storage...');
-        const targetItemId = item?.id || generateUuid();
         uploadedMedia = await StorageService.uploadMenuItemPhoto({
           restaurantId,
           menuItemId: targetItemId,
@@ -152,7 +164,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
       setUploadStatus(language === 'sw' ? 'Inahifadhi mabadiliko...' : 'Saving menu changes...');
 
       const partialItem: Partial<MenuItem> = {
-        id: item?.id,
+        id: targetItemId,
         name: nameEn.trim(),
         nameEn: nameEn.trim(),
         nameSw: nameSw.trim() || undefined,
@@ -162,8 +174,8 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
         categoryId: categoryId || undefined,
         basePrice: parsedBase,
         priceTzs: parsedBase,
-        photoUrl: finalPhotoUrl || undefined,
-        imageUrl: finalPhotoUrl || undefined,
+        photoUrl: isPhotoRemoved ? '' : finalPhotoUrl,
+        imageUrl: isPhotoRemoved ? '' : finalPhotoUrl,
         preparationMinutes: parseInt(prepTime, 10) || 20,
         dietaryTags,
         spiceLevel,
@@ -174,7 +186,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
         branchId: b.id,
         branchName: b.name,
         customPriceTzs: localBranchPrices[b.id]
-          ? parseInt(localBranchPrices[b.id].replace(/[^0-9]/g, ''), 10)
+          ? Number(localBranchPrices[b.id].replace(/,/g, ''))
           : undefined,
       }));
 
@@ -182,15 +194,15 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
 
       // Safe replacement: delete previous owned media only after DB persistence succeeds
       if ((pendingImage || isPhotoRemoved) && oldPhotoUrl) {
-        await StorageService.deleteMedia(oldPhotoUrl);
+        // Persistence already succeeded. Cleanup failure must not undo the new image.
+        await StorageService.deleteMedia(oldPhotoUrl).catch(() => undefined);
       }
 
       onClose();
     } catch (err: any) {
       // Orphan cleanup: if DB save failed after new upload, delete newly uploaded object
-      if (uploadedMedia) {
-        await StorageService.cleanupOrphan(uploadedMedia.storagePath);
-      }
+      // The save may have committed before a network timeout. Never delete a
+      // potentially referenced upload here; reconcile unused objects server-side.
       setErrorMsg(err?.message || 'Failed to save menu item.');
     } finally {
       setIsSaving(false);

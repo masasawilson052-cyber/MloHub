@@ -1,3 +1,4 @@
+import { directionsUrl } from '../../utils/directions';
 import React, { useState, useMemo, useEffect } from 'react';
 import { MenuRepository } from '../../repositories';
 import { BranchRepository } from '../../repositories/branches.repository';
@@ -213,16 +214,7 @@ export default function RestaurantDetailScreen() {
   }
 
   const handleOpenGoogleMaps = () => {
-    const lat = restaurant.lat;
-    const lng = restaurant.lng;
-    const label = encodeURIComponent(restaurant.name + ', Dar es Salaam');
-    const url = Platform.select({
-      ios: `maps:0,0?q=${label}@${lat},${lng}`,
-      android: `geo:0,0?q=${lat},${lng}(${label})`,
-      default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${label}`,
-    });
-
-    Linking.openURL(url || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+    Linking.openURL(directionsUrl(restaurant)).catch(() => undefined);
   };
 
   return (

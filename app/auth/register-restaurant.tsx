@@ -17,7 +17,8 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ApplicationRepository } from '../../repositories/applications.repository';
-import { RealtimeEventEngine } from '../../db/realtime/eventEngine';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+const DRAFT_KEY = 'mlohub.restaurant-application-draft.v1';
 
 export default function RegisterRestaurantScreen() {
   const router = useRouter();
@@ -43,6 +44,20 @@ export default function RegisterRestaurantScreen() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(DRAFT_KEY).then((raw) => {
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (Date.now() - draft.savedAt > 24 * 3600 * 1000) { AsyncStorage.removeItem(DRAFT_KEY); return; }
+      if (authUser && draft.ownerEmail.toLowerCase() !== authUser.email.toLowerCase()) return;
+      setBusinessName(draft.businessName || ''); setOwnerFullName(draft.ownerFullName || '');
+      setOwnerPhone(draft.ownerPhone || ''); setOwnerEmail(draft.ownerEmail || '');
+      setCuisine(draft.cuisine || ''); setNeighborhood(draft.neighborhood || ''); setAddress(draft.address || '');
+      setHasTinOrLicense(!!draft.hasTinOrLicense); setTinNumber(draft.tinNumber || ''); setNotes(draft.notes || '');
+      setConfirmationPending(!authUser && !!draft.confirmationPending);
+    }).catch(() => setErrors({ form: 'Your saved draft could not be loaded. Please enter the application details.' }));
+  }, []);
 
   // Sync with authUser when available
   useEffect(() => {
@@ -85,9 +100,15 @@ export default function RegisterRestaurantScreen() {
   };
 
   const handleSubmit = async () => {
+    if (confirmationPending && !authUser) {
+      setErrors({ form: 'Confirm your email, then use Sign In Here below to return to this application.' });
+      return;
+    }
     if (!validate()) return;
     setIsSubmitting(true);
     try {
+      const draft = { businessName, ownerFullName, ownerPhone, ownerEmail, cuisine, neighborhood, address, hasTinOrLicense, tinNumber, notes, savedAt: Date.now(), confirmationPending: false };
+      await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
       let currentUserId = authUser?.id;
 
       // If user is not authenticated yet, register account in Supabase
@@ -99,7 +120,13 @@ export default function RegisterRestaurantScreen() {
           phone: ownerPhone.trim(),
           location: neighborhood.trim(),
         });
-        currentUserId = signupRes.user?.id;
+        if (!signupRes.session) {
+          await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, confirmationPending: true }));
+          setConfirmationPending(true);
+          setErrors({ form: 'Check your email to confirm the account, then use Sign In Here below. Your application draft is saved; it has not yet been sent to the administrator.' });
+          return;
+        }
+        currentUserId = signupRes.session.user.id;
       }
 
       if (!currentUserId) {
@@ -124,15 +151,8 @@ export default function RegisterRestaurantScreen() {
       setApplicationId(app.id);
       setIsSubmitted(true);
 
-      // Broadcast to Admin and all connected peers
-      try {
-        RealtimeEventEngine.publish('restaurants:updates', {
-          action: 'APPLICATION_SUBMITTED',
-          application: app,
-        });
-      } catch (err) {
-        console.warn('Realtime publish error:', err);
-      }
+      await AsyncStorage.removeItem(DRAFT_KEY);
+
     } catch (e: any) {
       setErrors({ form: e?.message || 'Failed to submit application. Please try again.' });
     } finally {
@@ -162,7 +182,7 @@ export default function RegisterRestaurantScreen() {
 
             <View style={styles.appRefBox}>
               <Text style={styles.appRefLabel}>Application Reference:</Text>
-              <Text style={styles.appRefCode}>{applicationId || 'MLO-APP-2026'}</Text>
+              <Text style={styles.appRefCode}>{applicationId}</Text>
             </View>
 
             <View style={styles.nextStepsBox}>
@@ -450,7 +470,7 @@ export default function RegisterRestaurantScreen() {
           <Text style={styles.loginLinkMuted}>
             {language === 'sw' ? 'Tayari una akaunti ya mgahawa?' : 'Already have an activated account?'}
           </Text>
-          <TouchableOpacity onPress={() => router.push('/auth/login')}>
+          <TouchableOpacity onPress={() => router.push('/auth/login?returnTo=restaurant-registration')}>
             <Text style={styles.loginLinkBold}>
               {language === 'sw' ? ' Ingia Hapa' : ' Sign In Here'}
             </Text>

@@ -66,7 +66,7 @@ export class RestaurantRepository {
 
     let query = supabase.from('restaurants').select('*');
 
-    if (filters?.publishedOnly !== false) {
+    if (filters?.publishedOnly === true) {
       query = query.eq('is_published', true);
     }
     if (filters?.verifiedOnly) {

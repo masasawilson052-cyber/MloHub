@@ -12,6 +12,11 @@
     "lint": "tsc --noEmit",
     "demo:audit": "tsx --require ./lib/e2eBootstrap.js scripts/demo-readiness-audit.ts",
     "test": "tsx tests/runAllSuites.ts",
+    "test:repairs": "tsx tests/finalRepairBehavior.test.ts",
+    "preview": "node scripts/serve-demo.cjs",
+    "demo:build": "node scripts/build-offline-demo.cjs",
+    "demo:preview": "node scripts/serve-demo.cjs dist-offline",
+    "test:offline": "tsx tests/offlineDemo.test.ts",
     "security:test": "tsx --require ./lib/e2eBootstrap.js scripts/security-smoke-test.ts",
     "e2e:pack4a": "tsx --require ./lib/e2eBootstrap.js scripts/test-pack4a-custom-meals-e2e.ts",
     "e2e:pack4b": "tsx scripts/test-pack4b-reservation-capacity-e2e.ts",
@@ -24,7 +29,11 @@
     "e2e:auth": "tsx --require ./lib/e2eBootstrap.js tests/realAuthSessions.test.ts",
     "e2e:all": "npm run e2e:stage3 && npm run e2e:orders && npm run e2e:auth && npm run e2e:pack4a && npm run e2e:pack4b && npm run e2e:pack4c && npm run e2e:pack4d && npm run e2e:pack4e && npm run e2e:pack4f",
     "export:web": "npx expo export --platform web",
-    "export:android": "npx expo export --platform android"
+    "export:android": "npx expo export --platform android",
+    "production:build": "node scripts/build-production.cjs",
+    "production:check": "node scripts/production-preflight.cjs",
+    "production:preview": "node scripts/serve-demo.cjs dist-production",
+    "test:production": "node tests/productionPayments.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",

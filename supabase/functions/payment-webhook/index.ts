@@ -76,62 +76,17 @@ Deno.serve(async (req: Request) => {
       serviceRoleKey
     );
 
-    if (
-      verification.status !== 'PAID'
-    ) {
-      const {
-        data: payment,
-      } = await adminClient
-        .from('payments')
-        .select('id')
-        .eq(
-          'merchant_reference',
-          verification.merchantReference
-        )
-        .maybeSingle();
-
-      if (payment) {
-        const dbStatus =
-          verification.status === 'CANCELLED'
-            ? 'CANCELLED'
-            : verification.status === 'FAILED'
-            ? 'FAILED'
-            : 'PENDING';
-
-        await adminClient
-          .from('payments')
-          .update({
-            status: dbStatus,
-            failed_at:
-              dbStatus === 'FAILED'
-                ? new Date().toISOString()
-                : null,
-          })
-          .eq('id', payment.id);
-
-        await adminClient
-          .from('payment_events')
-          .insert({
-            payment_id: payment.id,
-            event_id: verification.eventId,
-            event_type: `PAYMENT_${dbStatus}`,
-            provider: verification.provider,
-            status: dbStatus,
-            amount_tzs: verification.amountTzs,
-            merchant_reference:
-              verification.merchantReference,
-            provider_reference:
-              verification.gatewayReference,
-            raw_payload: verification.rawPayload,
-            actor_type: 'GATEWAY_WEBHOOK',
-          });
-      }
-
-      return response(200, {
-        success: true,
-        processed: true,
-        status: verification.status,
-      });
+    const {data: payment, error: lookupError} = await adminClient.from('payments').select('*').eq('merchant_reference', verification.merchantReference).maybeSingle();
+    if (lookupError) return response(503, {success:false,error:'PAYMENT_LOOKUP_FAILED'});
+    if (!payment) return response(404, {success:false,error:'PAYMENT_NOT_FOUND'});
+    if (String(payment.provider).toLowerCase() !== verification.provider || (payment.provider_reference && payment.provider_reference !== verification.gatewayReference)) return response(409,{success:false,error:'PAYMENT_REFERENCE_MISMATCH'});
+    if (verification.status === 'PAID' && (verification.currency !== 'TZS' || Number(payment.amount_tzs) !== verification.amountTzs)) return response(409,{success:false,error:'PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH'});
+    if (verification.status !== 'PAID') {
+      // A delayed failure callback must never reverse a confirmed payment.
+      if (payment.status !== 'PENDING') return response(200,{success:true,ignored:true});
+      const {error: updateError} = await adminClient.from('payments').update({status:'FAILED',failed_at:new Date().toISOString()}).eq('id',payment.id).eq('status','PENDING');
+      if(updateError) return response(503,{success:false,error:'PAYMENT_UPDATE_FAILED'});
+      return response(200,{success:true,processed:true,status:'FAILED'});
     }
 
     const {
@@ -163,6 +118,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (result?.success === false) return response(409, {success:false,error:result.error || 'PAYMENT_REJECTED'});
     return response(200, {
       success: true,
       result,

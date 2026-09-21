@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
@@ -159,12 +160,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userFullName = profileRow?.full_name || sbUser.user_metadata?.full_name || splitEmail(userEmail);
       const userPhone = profileRow?.phone || sbUser.user_metadata?.phone || '';
       const rawRole = profileRow?.role || 'CUSTOMER';
-      const resolvedRole: UserRole = (UserRole as any)[rawRole] || UserRole.CUSTOMER;
+      const resolvedRole: UserRole = (UserRole as any)[rawRole] || (rawRole as UserRole) || UserRole.CUSTOMER;
       const roles: UserRole[] = Array.isArray(profileRow?.roles) && profileRow.roles.length > 0
-        ? profileRow.roles.map((r: string) => (UserRole as any)[r] || UserRole.CUSTOMER)
+        ? profileRow.roles.map((r: string) => (UserRole as any)[r] || (r as UserRole))
         : [resolvedRole];
+      if (!roles.includes(resolvedRole)) {
+        roles.push(resolvedRole);
+      }
+      const isAdminUser = resolvedRole === UserRole.ADMIN || resolvedRole === UserRole.SUPER_ADMIN ||
+        roles.includes(UserRole.ADMIN) || roles.includes(UserRole.SUPER_ADMIN);
       const accountType: AccountType = profileRow?.account_type || (
-        resolvedRole === UserRole.ADMIN || resolvedRole === UserRole.SUPER_ADMIN ? 'ADMIN'
+        isAdminUser ? 'ADMIN'
         : resolvedRole === UserRole.RESTAURANT_OWNER || resolvedRole === UserRole.RESTAURANT_STAFF ? 'RESTAURANT'
         : 'CUSTOMER'
       );
@@ -388,13 +394,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initializeAuth();
 
     // Supabase Realtime Auth Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Never await Supabase calls inside its auth lock.
+      setTimeout(() => {
+        if (!isMounted) return;
       if (!isMounted) return;
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        await applyAuthState(newSession);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+        void applyAuthState(newSession);
       } else if (event === 'SIGNED_OUT') {
-        await applyAuthState(null);
+        void applyAuthState(null);
       }
+      }, 0);
     });
 
     return () => {
@@ -497,24 +507,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const resetPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
-        if (error) {
-          console.warn('[AuthContext] Reset password notice:', error.message);
-        }
-      }
-      return {
-        success: true,
-        message: 'If an account exists for this email, password reset instructions have been sent.',
-      };
-    } catch (err: any) {
-      return {
-        success: true,
-        message: 'If an account exists for this email, password reset instructions have been sent.',
-      };
-    }
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Enter a valid email address.');
+    if (!isSupabaseConfigured()) throw new Error('Password recovery needs a connected account service.');
+    const configuredRedirect = process.env.EXPO_PUBLIC_AUTH_RESET_REDIRECT_URL?.trim();
+    const redirectTo = configuredRedirect || (
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin + '/auth/reset-password'
+        : Linking.createURL('auth/reset-password')
+    );
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
+    if (error) throw new Error('Recovery is temporarily unavailable. Please try again later.');
+    return { success: true, message: 'If the account exists, check its email for a recovery link.' };
   };
 
   const refreshProfile = async (): Promise<void> => {
@@ -584,7 +588,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         const roleToUse = freshProfile?.role || UserRole.CUSTOMER;
-        const activeWs = (roleToUse === UserRole.ADMIN || roleToUse === UserRole.SUPER_ADMIN)
+        const profileRoles = freshProfile?.roles || [roleToUse];
+        const isAdminSession = roleToUse === UserRole.ADMIN || roleToUse === UserRole.SUPER_ADMIN ||
+          profileRoles.includes(UserRole.ADMIN) || profileRoles.includes(UserRole.SUPER_ADMIN);
+        const activeWs = isAdminSession
           ? 'MLOHUB_ADMIN'
           : (roleToUse === UserRole.RESTAURANT_OWNER || roleToUse === UserRole.RESTAURANT_STAFF)
           ? 'RESTAURANT_OWNER'

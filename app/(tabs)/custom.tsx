@@ -24,6 +24,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
 import { CartDrawer } from '../../components/cart/CartDrawer';
 import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
+import { RealtimeService } from '../../services/RealtimeService';
 import { CustomMealRepository } from '../../repositories/customMeals.repository';
 import { PaymentCheckoutModal } from '../../components/PaymentCheckoutModal';
 import { PaymentTransactionEntity } from '../../db/types';
@@ -152,6 +153,15 @@ export default function CustomMealScreen() {
     loadUserRequests();
   }, [loadUserRequests]);
 
+  useEffect(() => {
+    if (!activeRequestId) return;
+    const refresh = () => { loadUserRequests(); };
+    const quotesOff = RealtimeService.subscribe('customer:quotes:' + activeRequestId, refresh, { table: 'restaurant_quotes', filter: 'request_id=eq.' + activeRequestId });
+    const requestOff = RealtimeService.subscribe('customer:request:' + activeRequestId, refresh, { table: 'custom_meal_requests', filter: 'id=eq.' + activeRequestId });
+    const resyncOff = RealtimeService.registerResyncCallback('custom-request:' + activeRequestId, loadUserRequests);
+    return () => { quotesOff(); requestOff(); resyncOff(); };
+  }, [activeRequestId, loadUserRequests]);
+
   const toggleDietary = (item: string) => {
     setSelectedDietary((prev) =>
       prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]
@@ -206,12 +216,12 @@ export default function CustomMealScreen() {
 
     const cleanBudget = budgetTzs.replace(/[^0-9]/g, '');
     const budgetNum = parseInt(cleanBudget, 10);
-    if (!cleanBudget || isNaN(budgetNum) || budgetNum <= 0) {
+    if (!cleanBudget || isNaN(budgetNum) || budgetNum < 5000) {
       Alert.alert(
         language === 'sw' ? 'Bajeti Inahitajika' : 'Budget Required',
         language === 'sw'
           ? 'Tafadhali ingiza makadirio halisi ya bajeti ya chakula chako.'
-          : 'Please enter a valid budget amount for your meal request.'
+          : 'Please enter a budget of at least TZS 5,000.'
       );
       return;
     }
@@ -251,10 +261,10 @@ export default function CustomMealScreen() {
       setQuotes(qList);
 
       Alert.alert(
-        language === 'sw' ? 'Ombi Limetumwa!' : 'Custom Request Dispatched!',
+        language === 'sw' ? 'Ombi Limehifadhiwa' : 'Request Saved',
         language === 'sw'
-          ? `Ombi lako (${created.orderNumber || created.id}) limepelekwa kwa jikoni zilizoidhinishwa katika eneo lako. Utapokea ofa za bei muda mfupi ujao.`
-          : `Your request (${created.orderNumber || created.id}) has been matched and dispatched to qualified local kitchens. Quotes will appear here.`
+          ? `${created.orderNumber || created.id}: ${created.statusMessageSw || 'Ombi limehifadhiwa. Angalia hali yake hapa.'}`
+          : `${created.orderNumber || created.id}: ${created.statusMessageEn || 'Saved. Check this screen for updates.'}`
       );
     } catch (e: any) {
       Alert.alert('Hitilafu', e?.message || 'Imeshindikana kutuma ombi la chakula.');

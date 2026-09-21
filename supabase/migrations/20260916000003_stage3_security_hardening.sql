@@ -26,7 +26,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ----------------------------------------------------------------------------
 
 -- Check if user is Admin or Super Admin
-CREATE OR REPLACE FUNCTION public.is_admin(p_user_id UUID DEFAULT auth.uid())
+CREATE OR REPLACE FUNCTION public.is_admin(p_user_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
     IF p_user_id IS NULL THEN
