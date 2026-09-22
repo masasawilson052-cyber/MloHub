@@ -64,3 +64,15 @@ npx expo start
 - Scan the QR code displayed in your terminal.
 - Press `i` to launch in iOS Simulator (if installed on Mac).
 - Press `a` to launch in Android Emulator (if installed).
+
+## ?? Live MloHub Platforms
+
+### Customer Platform
+https://mlohub.expo.app/
+
+### Restaurant Portal
+https://mlohub.expo.app/restaurant-portal/
+
+### Admin Portal
+https://mlohub.expo.app/admin/
+
