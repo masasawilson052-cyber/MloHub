@@ -288,6 +288,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('LIVE');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestLoadError, setRequestLoadError] = useState<string | null>(null);
+  const [hasConfiguredHoursState, setHasConfiguredHoursState] = useState(false);
 
   // 2. Determine User Role for this Restaurant - STRICT: Derived ONLY from public.restaurant_members!
   const userMembership = useMemo(() => {
@@ -387,6 +388,22 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         const prices = await MenuRepository.listBranchPrices(branchToQuery).catch(() => []);
         setBranchPrices(prices);
       }
+
+      // Check whether operating hours are configured (either on branch entity or in branch_operating_hours)
+      let branchHoursConfigured = fetchedBranches.some(
+        (b: any) => b.openingHours && Object.keys(b.openingHours).length > 0
+      );
+      if (!branchHoursConfigured && fetchedBranches.length > 0) {
+        try {
+          const hoursResults = await Promise.all(
+            fetchedBranches.map((b) => BranchOperationsRepository.getOperatingHours(b.id).catch(() => []))
+          );
+          branchHoursConfigured = hoursResults.some((h) => h && h.length > 0);
+        } catch {
+          // ignore
+        }
+      }
+      setHasConfiguredHoursState(branchHoursConfigured);
     } catch (err) {
       console.warn('[RestaurantPortal] Error loading workspace:', err);
     }
@@ -985,9 +1002,9 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const hasValidMenuItem = menuItems.some(
     (m: any) => ((m.basePrice && m.basePrice > 0) || (m.priceTzs && m.priceTzs > 0)) && (m.isAvailable ?? true)
   );
-  const hasConfiguredHours = branches.some(
-    (b: any) => b.openingHours && Object.keys(b.openingHours).length > 0
-  );
+  const hasConfiguredHours =
+    hasConfiguredHoursState ||
+    branches.some((b: any) => b.openingHours && Object.keys(b.openingHours).length > 0);
   const isPublishPrerequisitesMet = hasActiveBranch && hasValidMenuItem;
   const canPublish = isPublishPrerequisitesMet;
 

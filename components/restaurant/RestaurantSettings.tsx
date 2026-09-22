@@ -21,6 +21,7 @@ import { RestaurantEntity } from '../../db/types';
 import { Button } from '../ui/Button';
 import { StorageService } from '../../services/StorageService';
 import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
+import { BranchRepository } from '../../repositories/branches.repository';
 import { BranchManager } from './BranchManager';
 import { RestaurantBranch } from '../../types/domain';
 
@@ -294,6 +295,23 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
           };
         });
         await BranchOperationsRepository.upsertOperatingHours(activeBranchId, hoursToSave);
+
+        // Also sync to branch entity so restaurant_branches.opening_hours is populated
+        const hoursObj: Record<string, string> = {};
+        schedule.forEach((s) => {
+          if (s.isOpen) {
+            hoursObj[s.day.toLowerCase()] = `${s.openTime}-${s.closeTime}`;
+          }
+        });
+        await BranchRepository.update(activeBranchId, { openingHours: hoursObj }).catch((e) =>
+          console.warn('[RestaurantSettings] BranchRepository.update hours error:', e)
+        );
+
+        setHasConfiguredHours(true);
+      }
+
+      if (onBranchUpdated) {
+        await onBranchUpdated();
       }
 
       Alert.alert('Settings Saved', 'Restaurant profile and operational settings saved.');
