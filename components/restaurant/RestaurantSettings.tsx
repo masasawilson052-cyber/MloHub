@@ -77,6 +77,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   const [neighborhood, setNeighborhood] = useState(restaurant.neighborhood || '');
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingHours, setIsSavingHours] = useState(false);
 
   // Load branch operational status and hours via BranchOperationsRepository
   useEffect(() => {
@@ -319,6 +320,63 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       Alert.alert('Error', err?.message || 'Failed to save settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveHoursOnly = async () => {
+    if (!activeBranchId) {
+      Alert.alert(
+        language === 'sw' ? 'Tawi Linahitajika' : 'Branch Required',
+        language === 'sw'
+          ? 'Tafadhali chagua au sajili tawi kwanza kabla ya kuhifadhi masaa.'
+          : 'Please select or add a branch before saving hours.'
+      );
+      return;
+    }
+
+    try {
+      setIsSavingHours(true);
+      const scheduleToSave = schedule.length > 0 ? schedule : getStandardOperatingSchedule();
+      const hoursToSave = scheduleToSave.map((d, index) => {
+        const dayIndex = DAYS_OF_WEEK.indexOf(d.day);
+        return {
+          dayOfWeek: dayIndex >= 0 ? dayIndex : index,
+          opensAt: d.openTime ? `${d.openTime}:00` : '08:00:00',
+          closesAt: d.closeTime ? `${d.closeTime}:00` : '22:00:00',
+          isClosed: !d.isOpen,
+        };
+      });
+      await BranchOperationsRepository.upsertOperatingHours(activeBranchId, hoursToSave);
+
+      const hoursObj: Record<string, string> = {};
+      scheduleToSave.forEach((s) => {
+        if (s.isOpen) {
+          hoursObj[s.day.toLowerCase()] = `${s.openTime}-${s.closeTime}`;
+        }
+      });
+      await BranchRepository.update(activeBranchId, { openingHours: hoursObj }).catch((e) =>
+        console.warn('[RestaurantSettings] BranchRepository.update hours error:', e)
+      );
+
+      if (schedule.length === 0) {
+        setSchedule(scheduleToSave);
+      }
+      setHasConfiguredHours(true);
+
+      if (onBranchUpdated) {
+        await onBranchUpdated();
+      }
+
+      Alert.alert(
+        language === 'sw' ? 'Masaa Yamehifadhiwa!' : 'Hours Saved!',
+        language === 'sw'
+          ? 'Masaa ya kazi ya tawi yamehifadhiwa kikamilifu. Hatua ya 3 sasa imekamilika!'
+          : 'Branch operating hours saved successfully. Step 3 is now complete!'
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to save hours.');
+    } finally {
+      setIsSavingHours(false);
     }
   };
 
@@ -629,6 +687,23 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 )}
               </View>
             ))}
+
+            <TouchableOpacity
+              style={[styles.saveHoursBtn, isSavingHours && { opacity: 0.7 }]}
+              onPress={handleSaveHoursOnly}
+              disabled={isSavingHours}
+            >
+              {isSavingHours ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+              )}
+              <Text style={styles.saveHoursBtnText}>
+                {isSavingHours
+                  ? (language === 'sw' ? 'Inahifadhi Masaa...' : 'Saving Hours...')
+                  : (language === 'sw' ? 'Hifadhi Masaa ya Kazi ya Tawi' : 'Save Branch Operating Hours')}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -780,6 +855,22 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     color: Colors.error,
     fontWeight: '700',
+  },
+  saveHoursBtn: {
+    backgroundColor: '#16a34a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radii.md,
+    marginTop: Spacing.sm,
+  },
+  saveHoursBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   branchList: {
     gap: 8,
