@@ -36,3 +36,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 node_modules
+
+# Production/local secrets
+.env
+.env.*
+!.env.example
+dist/
+dist-*/
+*.zip
+ANTIGRAVITY_RECOVERY_STATUS*.txt
