@@ -37,6 +37,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   useEffect(() => {
     setIsRestaurantLogin(params.type === 'restaurant');
@@ -166,17 +168,19 @@ export default function LoginScreen() {
             <Text style={styles.label}>
               {language === 'sw' ? 'Barua Pepe au Namba ya Simu' : 'Email or Phone Number'}
             </Text>
-            <View style={styles.inputWrap}>
+            <View style={[styles.inputWrap, isEmailFocused && styles.inputWrapFocused]}>
               <Ionicons
                 name={emailOrPhone.includes('@') ? 'mail-outline' : 'call-outline'}
                 size={18}
-                color={Colors.muted}
+                color={isEmailFocused ? Colors.primary : Colors.muted}
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 value={emailOrPhone}
                 onChangeText={setEmailOrPhone}
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
                 placeholder={language === 'sw' ? 'frank.mlaki@mlohub.tz au 0754...' : 'name@example.com or +255...'}
                 placeholderTextColor={Colors.subtle}
                 keyboardType="email-address"
@@ -190,12 +194,19 @@ export default function LoginScreen() {
             <Text style={styles.label}>
               {language === 'sw' ? 'Nenosiri' : 'Password'}
             </Text>
-            <View style={styles.inputWrap}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.muted} style={styles.inputIcon} />
+            <View style={[styles.inputWrap, isPasswordFocused && styles.inputWrapFocused]}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={18}
+                color={isPasswordFocused ? Colors.primary : Colors.muted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => setIsPasswordFocused(true)}
+                onBlur={() => setIsPasswordFocused(false)}
                 placeholder="••••••••"
                 placeholderTextColor={Colors.subtle}
                 secureTextEntry={!showPassword}
@@ -209,7 +220,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={18}
-                  color={Colors.muted}
+                  color={isPasswordFocused ? Colors.primary : Colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -240,23 +251,27 @@ export default function LoginScreen() {
             style={styles.signInBtn}
           />
 
-          {/* Or Divider & Guest Exploration */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>{language === 'sw' ? 'au' : 'or'}</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {/* Or Divider & Guest Exploration - ONLY for Diner/Customer Login */}
+          {!isRestaurantLogin && !isAdminLogin && (
+            <>
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>{language === 'sw' ? 'au' : 'or'}</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          <TouchableOpacity
-            style={styles.guestBtn}
-            onPress={() => router.replace('/(tabs)')}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="compass-outline" size={18} color={Colors.brandInk} style={{ marginRight: 8 }} />
-            <Text style={styles.guestBtnText}>
-              {language === 'sw' ? 'Gundua Chakula Bila Kuingia' : 'Explore as Guest'}
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.guestBtn}
+                onPress={() => router.replace('/(tabs)')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="compass-outline" size={18} color={Colors.brandInk} style={{ marginRight: 8 }} />
+                <Text style={styles.guestBtnText}>
+                  {language === 'sw' ? 'Gundua Chakula Bila Kuingia' : 'Explore as Guest'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Create Account Link */}
@@ -447,20 +462,43 @@ const styles = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
     borderRadius: Radii.xl,
     paddingHorizontal: Spacing.sm,
-    height: 48,
+    height: 50,
+  },
+  inputWrapFocused: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.white,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 0 0 3px rgba(249, 115, 22, 0.15)',
+      } as any,
+    }),
   },
   inputIcon: {
     marginRight: Spacing.xs,
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.brandInk,
+    height: '100%',
+    paddingVertical: 0,
+    paddingHorizontal: 4,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    ...Platform.select({
+      web: {
+        outlineStyle: 'none',
+        outlineWidth: 0,
+        outline: 'none',
+        border: 'none',
+        boxShadow: 'none',
+      } as any,
+    }),
   },
   eyeBtn: {
     padding: 6,

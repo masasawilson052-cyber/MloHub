@@ -1,6 +1,7 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
 import { DbProvider, useMloHubDB } from '../context/DbContext';
@@ -123,6 +124,28 @@ function RootNavigationLayout() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
+      {Platform.OS === 'web' && (
+        <style
+          // @ts-ignore
+          dangerouslySetInnerHTML={{
+            __html: `
+              input::-ms-reveal,
+              input::-ms-clear {
+                display: none !important;
+              }
+              input, textarea {
+                outline: none !important;
+                border: none !important;
+              }
+              input:focus, textarea:focus {
+                outline: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+            `,
+          }}
+        />
+      )}
       <DbProvider>
         <AuthProvider>
           <LanguageProvider>
