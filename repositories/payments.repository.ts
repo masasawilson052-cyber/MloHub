@@ -7,7 +7,7 @@ export class PaymentRepository {
     methodCode: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA';
     payerPhone: string;
     idempotencyKey: string;
-  }): Promise<{ success: boolean; paymentId?: string; error?: string }> {
+  }): Promise<{ success: boolean; paymentId?: string; status?: string; error?: string }> {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase client is not configured.');
     }
@@ -25,6 +25,7 @@ export class PaymentRepository {
     return {
       success: data?.success === true,
       paymentId: data?.paymentId,
+      status: data?.status,
       error: data?.success === true ? undefined : data?.error || 'Payment was not accepted.',
     };
   }

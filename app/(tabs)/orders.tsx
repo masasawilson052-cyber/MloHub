@@ -64,6 +64,7 @@ export default function OrdersScreen() {
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, { eligible: boolean; existingReviewId?: string }>>({});
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [paymentAttemptIds, setPaymentAttemptIds] = useState<Record<string, string>>({});
 
   const fetchOrders = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -138,20 +139,35 @@ export default function OrdersScreen() {
       Alert.alert('Phone number required', 'Add a mobile-money phone number to your profile before paying.');
       return;
     }
+    const attemptId = paymentAttemptIds[order.id] || globalThis.crypto?.randomUUID?.() || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    setPaymentAttemptIds((current) => ({ ...current, [order.id]: attemptId }));
     setIsActionLoading(true);
     try {
       const result = await PaymentRepository.createForOrder({
         orderId: order.id,
         methodCode: 'MPESA',
         payerPhone: user.phone,
-        idempotencyKey: `order_payment_${order.id}`,
+        idempotencyKey: `order_payment_${order.id}_${attemptId}`,
       });
       Alert.alert(
         result.success ? 'Payment started' : 'Payment failed',
         result.success ? 'Check your phone and approve the mobile-money request.' : (result.error || 'Could not start payment.')
       );
-      if (result.success) await fetchOrders();
+      if (result.success) {
+        await fetchOrders();
+      } else {
+        setPaymentAttemptIds((current) => {
+          const next = { ...current };
+          delete next[order.id];
+          return next;
+        });
+      }
     } catch (error: any) {
+      setPaymentAttemptIds((current) => {
+        const next = { ...current };
+        delete next[order.id];
+        return next;
+      });
       Alert.alert('Payment failed', error?.message || 'Could not start payment.');
     } finally {
       setIsActionLoading(false);

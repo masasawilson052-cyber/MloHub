@@ -27,6 +27,7 @@ export interface StaffMember {
   role: RestaurantRole;
   isActive: boolean;
   joinedAt: string;
+  invitationToken?: string;
 }
 
 export interface StaffManagerProps {

@@ -170,7 +170,6 @@ BEGIN
             'membership_id',     v_membership_id,
             'invitation_id',    v_invitation_id,
             'invited_user_id',  v_invitee_profile.id,
-            'invitation_token', v_invitation_token,
             'invited_by',        v_actor
         ),
         v_invitation_key
@@ -190,6 +189,7 @@ BEGIN
         'success',       true,
         'membership_id', v_membership_id,
         'invitation_id', v_invitation_id,
+        'invitation_token', v_invitation_token,
         'invited_email', lower(trim(p_email)),
         'role',          p_role,
         'status',        'PENDING_ACCEPTANCE',

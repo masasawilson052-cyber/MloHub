@@ -35,7 +35,7 @@ interface CartContextType {
   totalBillTzs: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
-  getOrderQuote: (diningOption?: 'Delivery' | 'Dine-In' | 'Takeaway') => OrderQuote;
+  getOrderQuote: (diningOption?: 'Delivery' | 'Dine-In' | 'Takeaway', deliveryFeeTzs?: number) => OrderQuote;
 }
 
 const FIXED_DELIVERY_FEE_TZS = 2500;
@@ -178,16 +178,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getOrderQuote = useCallback(
-    (diningOption: 'Delivery' | 'Dine-In' | 'Takeaway' = 'Delivery'): OrderQuote => {
+    (diningOption: 'Delivery' | 'Dine-In' | 'Takeaway' = 'Delivery', deliveryFeeTzs?: number): OrderQuote => {
       return OrderService.quoteOrder({
         items: items.map((i) => ({ unitPriceTzs: i.priceTzs, quantity: i.quantity })),
         diningOption,
+        deliveryFeeTzs,
       });
     },
     [items]
   );
 
-  const defaultQuote = useMemo(() => getOrderQuote('Delivery'), [getOrderQuote]);
+  const defaultQuote = useMemo(() => getOrderQuote('Delivery', 0), [getOrderQuote]);
 
   const totalItems = defaultQuote.itemCount;
   const subtotalTzs = defaultQuote.subtotalTzs;

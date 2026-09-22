@@ -123,6 +123,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (payment.status === 'PENDING' || payment.status === 'PROCESSING') {
+      const paymentAgeMs = Date.now() - new Date(payment.created_at || payment.updated_at || 0).getTime();
+      if (paymentAgeMs < 30_000) {
+        return new Response(JSON.stringify({ success: true, payment, reconciled: false, recoveryEligibleAt: new Date(Date.now() + (30_000 - paymentAgeMs)).toISOString() }), {
+          status: 200,
+          headers: jsonHeaders,
+        });
+      }
+      if (!payment.provider_reference || !payment.merchant_reference) {
+        return new Response(JSON.stringify({ success: false, error: 'PAYMENT_PROVIDER_REFERENCE_MISSING' }), {
+          status: 409,
+          headers: jsonHeaders,
+        });
+      }
       const gateway = PaymentGatewayFactory.getGateway(String(payment.provider || 'clickpesa').toLowerCase() as any);
       const providerStatus = await gateway.queryStatus(
         payment.provider_reference || '',

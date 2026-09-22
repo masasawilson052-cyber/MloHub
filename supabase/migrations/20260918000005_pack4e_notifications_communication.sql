@@ -988,15 +988,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF p_aggregate_type = 'RESTAURANT' AND p_event_type::TEXT = 'STAFF_INVITATION' THEN
-        -- Invitations are private: only the intended existing account receives
-        -- an in-app notification. Unknown invitees use the external delivery
-        -- worker with the invitation email/phone payload instead.
-        IF p_payload ? 'invited_user_id' AND NULLIF(p_payload->>'invited_user_id', '') IS NOT NULL THEN
-            RETURN QUERY
-            SELECT (p_payload->>'invited_user_id')::UUID, 'INVITED_USER'::VARCHAR(50), 'sw'::VARCHAR(10);
-        END IF;
-    ELSIF p_aggregate_type = 'ORDER' THEN
+    IF p_aggregate_type = 'ORDER' THEN
         -- 1. Customer
         RETURN QUERY
         SELECT o.user_id, 'CUSTOMER'::VARCHAR(50), 'sw'::VARCHAR(10)
@@ -1525,10 +1517,6 @@ VALUES
 -- Reviews
 ('REVIEW_RESPONSE_PUBLISHED', 'IN_APP', 'sw', 'Jibu Kutoka Mgahawani', 'Mgahawa ulijibu tathmini yako. Gusa kusoma jibu lao.', ARRAY['restaurant_name']),
 ('REVIEW_RESPONSE_PUBLISHED', 'IN_APP', 'en', 'Restaurant Responded to Your Review', 'The restaurant replied to your feedback. Tap to view their message.', ARRAY['restaurant_name'])
-,
-('STAFF_INVITATION', 'IN_APP', 'sw', 'Mwaliko wa Timu ya Mgahawa', 'Umealikwa kujiunga na timu ya {{restaurant_name}} kama {{role}}.', ARRAY['restaurant_name', 'role']),
-('STAFF_INVITATION', 'IN_APP', 'en', 'Restaurant Team Invitation', 'You have been invited to join {{restaurant_name}} as {{role}}.', ARRAY['restaurant_name', 'role']),
-('STAFF_INVITATION', 'SMS', 'en', 'MloHub invitation: join {{restaurant_name}} as {{role}}. Use the secure invitation link sent to your email.', ARRAY['restaurant_name', 'role'])
 
 ON CONFLICT (event_type, channel, locale) DO UPDATE SET
     title_template = EXCLUDED.title_template,

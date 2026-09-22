@@ -22,6 +22,7 @@ export interface SubmitMenuOrderDTO {
   }[];
   diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
   deliveryAddress?: string;
+  deliveryZoneId?: string;
   specialInstructions?: string;
 }
 
@@ -57,10 +58,11 @@ export class OrderService {
   public static quoteOrder(params: {
     items: { unitPriceTzs: number; quantity: number }[];
     diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
+    deliveryFeeTzs?: number;
   }): OrderQuote {
     const subtotalTzs = params.items.reduce((sum, item) => sum + item.unitPriceTzs * item.quantity, 0);
     const serviceFeeTzs = 1500;
-    const deliveryFeeTzs = params.diningOption === 'Delivery' ? 2500 : 0;
+    const deliveryFeeTzs = params.diningOption === 'Delivery' ? (params.deliveryFeeTzs ?? 0) : 0;
     const totalTzs = subtotalTzs + serviceFeeTzs + deliveryFeeTzs;
     const itemCount = params.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -96,8 +98,13 @@ export class OrderService {
         throw new Error(`Item "${item.name}" has an invalid quantity.`);
       }
     }
-    if (dto.diningOption === 'Delivery' && (!dto.deliveryAddress || !dto.deliveryAddress.trim())) {
-      throw new Error('A valid delivery address is required for delivery orders.');
+    if (dto.diningOption === 'Delivery') {
+      if (!dto.deliveryAddress || !dto.deliveryAddress.trim()) {
+        throw new Error('A valid delivery address is required for delivery orders.');
+      }
+      if (!dto.deliveryZoneId || !dto.deliveryZoneId.trim()) {
+        throw new Error('A valid delivery zone is required for delivery orders.');
+      }
     }
 
     const orderNumber = `MLO-${Date.now().toString().slice(-4)}`;
@@ -107,6 +114,7 @@ export class OrderService {
         customerId: dto.userId,
         restaurantId: dto.restaurantId,
         branchId: dto.branchId,
+        deliveryZoneId: dto.diningOption === 'Delivery' ? dto.deliveryZoneId : undefined,
         orderNumber,
         status: 'PENDING',
         paymentStatus: 'PENDING',
@@ -196,6 +204,7 @@ export class OrderService {
       customerId: dto.userId,
       restaurantId: dto.restaurantId,
       branchId: dto.branchId,
+      deliveryZoneId: dto.diningOption === 'Delivery' ? dto.deliveryZoneId : undefined,
       status: 'PENDING',
       paymentStatus: 'PENDING',
       subtotalTzs: subtotal,

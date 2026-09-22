@@ -162,6 +162,16 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (existing) {
+        const existingStatus = String(existing.status || '').toUpperCase();
+        if (existingStatus === 'FAILED' || existingStatus === 'CANCELLED') {
+          return response(409, {
+            success: false,
+            error: 'PAYMENT_ATTEMPT_TERMINAL',
+            paymentId: existing.id,
+            status: existing.status,
+            message: 'This payment attempt has ended. Start a new payment attempt.',
+          });
+        }
         return response(200, {
           success: true,
           paymentId: existing.id,

@@ -431,3 +431,7 @@ verify_jwt = true
 
 [functions.payment-webhook]
 verify_jwt = false
+
+[functions.reconcile-payments]
+verify_jwt = false
+

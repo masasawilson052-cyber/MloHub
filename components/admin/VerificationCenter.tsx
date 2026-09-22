@@ -25,7 +25,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
 }) => {
   const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE'>('ALL');
   const [notifiedRestId, setNotifiedRestId] = useState<string | null>(null);
-  const [menuCounts, setMenuCounts] = useState<Record<string, number>>({});
+  const [menuMetrics, setMenuMetrics] = useState<Record<string, { activeCount: number; lastUpdated?: string }>>({});
 
   useEffect(() => {
     let active = true;
@@ -33,8 +33,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
       if (!isSupabaseConfigured()) return;
       const { data, error } = await supabase.rpc('get_restaurant_menu_counts');
       if (!error && active) {
-        setMenuCounts((data || []).reduce((result: Record<string, number>, row: { restaurant_id: string; active_menu_count: number }) => {
-          result[row.restaurant_id] = Number(row.active_menu_count || 0);
+        setMenuMetrics((data || []).reduce((result: Record<string, { activeCount: number; lastUpdated?: string }>, row: { restaurant_id: string; active_menu_count: number; last_menu_update?: string }) => {
+          result[row.restaurant_id] = { activeCount: Number(row.active_menu_count || 0), lastUpdated: row.last_menu_update };
           return result;
         }, {}));
       }
@@ -46,7 +46,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   // Compute freshness classification for each restaurant
   const classifiedRestaurants = restaurants.map((r) => {
     // In demo/test environment or live: check last updated date
-    const updated = r.updatedAt ? new Date(r.updatedAt).getTime() : new Date(r.createdAt).getTime();
+    const metrics = menuMetrics[r.id];
+    const updated = metrics?.lastUpdated ? new Date(metrics.lastUpdated).getTime() : new Date(r.createdAt).getTime();
     const daysSince = Math.floor((Date.now() - updated) / (1000 * 60 * 60 * 24));
 
     let status: 'FRESH' | 'RECENT' | 'AGING' | 'STALE' = 'FRESH';
@@ -56,7 +57,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
 
     // Use the authoritative active menu-item count; freshness is restaurant-level
     // catalog recency because this screen does not have per-item verification data.
-    const menuCount = menuCounts[r.id] ?? 0;
+    const menuCount = metrics?.activeCount ?? 0;
     return {
       restaurant: r,
       daysSince,

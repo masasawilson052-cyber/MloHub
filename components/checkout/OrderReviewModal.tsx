@@ -23,7 +23,8 @@ import { Button } from '../ui/Button';
 import { PriceText } from '../ui/PriceText';
 import { Badge } from '../ui/Badge';
 import { PaymentMethodCode, PaymentTransactionEntity } from '../../db/types';
-import { Order } from '../../types/domain';
+import { Order, BranchDeliveryZone } from '../../types/domain';
+import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
 import { PaymentCheckoutModal } from '../PaymentCheckoutModal';
 
 export interface OrderReviewModalProps {
@@ -63,6 +64,51 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   const [confirmedOrderId, setConfirmedOrderId] = useState<string>('');
   const [confirmedOrderNumber, setConfirmedOrderNumber] = useState<string>('');
 
+  const [deliveryZones, setDeliveryZones] = useState<BranchDeliveryZone[]>([]);
+  const [isLoadingZones, setIsLoadingZones] = useState(false);
+  const [selectedDeliveryZone, setSelectedDeliveryZone] = useState<BranchDeliveryZone | null>(null);
+  const [zoneLoadError, setZoneLoadError] = useState<string | null>(null);
+
+  const effectiveBranchId = branchId || (items.length > 0 ? items[0].branchId : null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (visible && fulfillment === 'Delivery' && effectiveBranchId) {
+      setIsLoadingZones(true);
+      setZoneLoadError(null);
+      BranchOperationsRepository.getDeliveryZones(effectiveBranchId)
+        .then((zones) => {
+          if (!isMounted) return;
+          setDeliveryZones(zones);
+          if (zones.length > 0) {
+            setSelectedDeliveryZone((prev) => {
+              if (prev && zones.some((z) => z.id === prev.id)) {
+                return zones.find((z) => z.id === prev.id) || zones[0];
+              }
+              return zones[0];
+            });
+          } else {
+            setSelectedDeliveryZone(null);
+          }
+        })
+        .catch((err) => {
+          if (!isMounted) return;
+          console.warn('Failed to load delivery zones:', err);
+          setZoneLoadError('Failed to load delivery zones for this branch.');
+          setDeliveryZones([]);
+          setSelectedDeliveryZone(null);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingZones(false);
+        });
+    } else if (fulfillment !== 'Delivery') {
+      setSelectedDeliveryZone(null);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, fulfillment, effectiveBranchId]);
+
   useEffect(() => {
     if (user?.location && !deliveryAddress) {
       setDeliveryAddress(user.location);
@@ -73,8 +119,9 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   }, [user]);
 
   const currentQuote = React.useMemo(() => {
-    return getOrderQuote(fulfillment);
-  }, [getOrderQuote, fulfillment]);
+    const fee = fulfillment === 'Delivery' ? (selectedDeliveryZone?.feeTzs ?? 0) : 0;
+    return getOrderQuote(fulfillment, fee);
+  }, [getOrderQuote, fulfillment, selectedDeliveryZone]);
 
   if (!visible) return null;
 
@@ -96,12 +143,30 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
       return;
     }
 
-    if (fulfillment === 'Delivery' && !deliveryAddress.trim()) {
-      Alert.alert(
-        'Delivery Address Required',
-        'Please enter a delivery address for your order.'
-      );
-      return;
+    if (fulfillment === 'Delivery') {
+      if (!deliveryAddress.trim()) {
+        Alert.alert(
+          'Delivery Address Required',
+          'Please enter a delivery address for your order.'
+        );
+        return;
+      }
+      if (!selectedDeliveryZone) {
+        Alert.alert(
+          'Delivery Area Required',
+          deliveryZones.length === 0
+            ? 'No delivery zones are configured for this branch. Please choose Takeaway or Dine-In.'
+            : 'Please select your delivery area to calculate delivery fee and proceed.'
+        );
+        return;
+      }
+      if (selectedDeliveryZone.minimumOrderTzs && currentQuote.subtotalTzs < selectedDeliveryZone.minimumOrderTzs) {
+        Alert.alert(
+          'Minimum Order Required',
+          `The minimum order for ${selectedDeliveryZone.zoneName} is TZS ${selectedDeliveryZone.minimumOrderTzs.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
+        );
+        return;
+      }
     }
 
     if (!payerPhone.trim()) {
@@ -130,6 +195,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
         })),
         diningOption: fulfillment,
         deliveryAddress: fulfillment === 'Delivery' ? deliveryAddress.trim() : undefined,
+        deliveryZoneId: fulfillment === 'Delivery' ? selectedDeliveryZone?.id : undefined,
         specialInstructions: items.map((it) => it.notes).filter(Boolean).join('; ') || undefined,
       });
 
@@ -238,15 +304,68 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 </View>
 
                 {fulfillment === 'Delivery' && (
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Delivery Address (Dar es Salaam)</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={deliveryAddress}
-                      onChangeText={setDeliveryAddress}
-                      placeholder="e.g. Street name, House/Flat number, Landmark"
-                    />
-                  </View>
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Delivery Address (Dar es Salaam)</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={deliveryAddress}
+                        onChangeText={setDeliveryAddress}
+                        placeholder="e.g. Street name, House/Flat number, Landmark"
+                      />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Select Delivery Area / Zone</Text>
+                      {isLoadingZones ? (
+                        <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                          <ActivityIndicator size="small" color={Colors.primary} />
+                          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 4 }}>Loading delivery areas...</Text>
+                        </View>
+                      ) : zoneLoadError ? (
+                        <Text style={{ fontSize: 12, color: Colors.error, marginVertical: 4 }}>{zoneLoadError}</Text>
+                      ) : deliveryZones.length === 0 ? (
+                        <Text style={{ fontSize: 12, color: Colors.textMuted, marginVertical: 4 }}>
+                          No delivery areas found for this branch. Please choose Takeaway or Dine-In.
+                        </Text>
+                      ) : (
+                        <View style={{ gap: 8, marginTop: 4 }}>
+                          {deliveryZones.map((zone) => {
+                            const isSelected = selectedDeliveryZone?.id === zone.id;
+                            return (
+                              <TouchableOpacity
+                                key={zone.id}
+                                style={[
+                                  styles.zoneCard,
+                                  isSelected && styles.zoneCardSelected,
+                                ]}
+                                onPress={() => setSelectedDeliveryZone(zone)}
+                                accessible={true}
+                                accessibilityRole="button"
+                                accessibilityLabel={zone.zoneName}
+                              >
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={[styles.zoneName, isSelected && styles.zoneNameSelected]}>
+                                      {zone.zoneName}
+                                    </Text>
+                                    <Text style={styles.zoneDetails}>
+                                      Est. {zone.estimatedDeliveryMinutes} mins
+                                      {zone.minimumOrderTzs > 0 ? ` • Min. TZS ${zone.minimumOrderTzs.toLocaleString()}` : ''}
+                                      {zone.supportedWards && zone.supportedWards.length > 0 ? ` • ${zone.supportedWards.slice(0, 3).join(', ')}` : ''}
+                                    </Text>
+                                  </View>
+                                  <Text style={[styles.zoneFee, isSelected && styles.zoneFeeSelected]}>
+                                    TZS {zone.feeTzs.toLocaleString()}
+                                  </Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  </>
                 )}
               </View>
 
@@ -316,7 +435,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 </View>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Estimated Delivery Fee</Text>
-                  <PriceText amountTzs={currentQuote.deliveryFeeTzs} size="sm" />
+                  {fulfillment === 'Delivery' && !selectedDeliveryZone ? (
+                    <Text style={{ fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' }}>
+                      Select delivery area to calculate delivery fee
+                    </Text>
+                  ) : (
+                    <PriceText amountTzs={currentQuote.deliveryFeeTzs} size="sm" />
+                  )}
                 </View>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Service Fee</Text>
@@ -659,5 +784,38 @@ const styles = StyleSheet.create({
   },
   trackBtn: {
     marginBottom: Spacing.xs,
+  },
+  zoneCard: {
+    padding: Spacing.sm,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  zoneCardSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryMuted,
+  },
+  zoneName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  zoneNameSelected: {
+    color: Colors.primaryDark,
+  },
+  zoneDetails: {
+    fontSize: 11.5,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  zoneFee: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginLeft: 8,
+  },
+  zoneFeeSelected: {
+    color: Colors.primaryDark,
   },
 });

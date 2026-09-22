@@ -93,6 +93,7 @@ export async function runSupabaseDataLayerTestSuite(): Promise<{ passedCount: nu
     ],
     diningOption: 'Delivery',
     deliveryAddress: 'Mikocheni B, Mwai Kibaki Rd',
+    deliveryZoneId: 'zone-test-mikocheni',
   });
 
   assert(standardOrder.customerId === 'usr-customer-test', 'Order assigned to correct customer');

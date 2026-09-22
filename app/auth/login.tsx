@@ -75,6 +75,16 @@ export default function LoginScreen() {
         router.replace('/auth/register-restaurant');
         return;
       }
+      if (
+        params.returnTo &&
+        typeof params.returnTo === 'string' &&
+        params.returnTo.startsWith('/') &&
+        !params.returnTo.startsWith('//') &&
+        !params.returnTo.includes('://')
+      ) {
+        router.replace(params.returnTo as any);
+        return;
+      }
       const role = res.user.activeRole || res.user.role;
       if (hasAdminAccess(res.user)) {
         router.replace('/admin');

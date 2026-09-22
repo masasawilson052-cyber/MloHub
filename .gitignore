@@ -6,6 +6,9 @@ package-lock.json.bak
 # Expo
 .expo/
 dist/
+dist-verify/
+dist-final-verify/
+ANTIGRAVITY_RECOVERY_STATUS*.txt
 web-build/
 expo-env.d.ts
 

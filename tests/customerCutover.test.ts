@@ -241,6 +241,7 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
       { unitPriceTzs: 3500, quantity: 1 },
     ],
     diningOption: 'Delivery',
+    deliveryFeeTzs: 2500, // Simulates a selected delivery zone with 2,500 TZS fee
   });
   assert(quote.subtotalTzs === 27500, 'OrderService quote calculates accurate subtotal (27500 TZS)');
   assert(quote.deliveryFeeTzs === 2500, 'OrderService quote calculates delivery fee (2500 TZS)');

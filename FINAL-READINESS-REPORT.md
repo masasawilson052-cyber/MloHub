@@ -118,9 +118,31 @@ Live payment execution and cellular SMS delivery cannot proceed without external
 
 ### 3. Apply the complete migration chain on the target environment
 - [ ] Validate the ordered files in `supabase/migrations/` against a disposable local Supabase/Postgres database first.
-- [ ] Apply migrations through the latest file, including `20260921000006_custom_meal_privacy_and_direct_write_guards.sql`, `20260921000007_transaction_integrity_hardening.sql`, and `20260921000008_gap_closure.sql`.
-- [ ] Do not apply only migration 00006: 00007/00008 contain the payment gate, delivery-zone authority, secure invitations, canonical refund authority, and analytics closure.
+- [ ] Apply migrations through the latest file, including `20260921000006_custom_meal_privacy_and_direct_write_guards.sql`, `20260921000007_transaction_integrity_hardening.sql`, `20260921000008_gap_closure.sql`, `20260921000009_notification_invitation_closure.sql`, and `20260921000010_order_role_and_notification_retry_closure.sql`.
+- [ ] Do not apply only migration 00006: 00007–00010 contain the payment gate, delivery-zone authority, secure invitations, canonical refund authority, role-aware order transitions, notification FAILED retry, and analytics closure.
 - [ ] This source pass does not deploy hosted migrations.
+
+### 5. Deploy and Configure Payment Reconciliation Worker
+
+The `supabase/functions/reconcile-payments/` edge function provides background payment resilience. It must be deployed and triggered on a schedule (e.g., every 2 minutes via `pg_cron` or an external cron):
+
+```sql
+-- Run inside the hosted database to schedule reconciliation every 2 minutes:
+SELECT cron.schedule(
+  'reconcile-payments',
+  '*/2 * * * *',
+  $$SELECT net.http_post(
+    url := current_setting('app.supabase_function_url') || '/reconcile-payments',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || current_setting('app.service_role_key')
+    ),
+    body := '{}'::jsonb
+  )$$
+);
+```
+
+Or configure via an external cron service using the `x-worker-secret` header and the `RECONCILE_WORKER_SECRET` edge function secret.
 
 ### 4. Supabase Auth Redirect URLs
 - [ ] In Supabase Dashboard → Authentication → URL Configuration:

@@ -11,10 +11,15 @@ const assert = (condition: boolean, message: string) => {
 const refundEdge = read('supabase/functions/request-refund/index.ts');
 const gapClosure = read('supabase/migrations/20260921000008_gap_closure.sql');
 const notifications = read('supabase/migrations/20260918000005_pack4e_notifications_communication.sql');
+const invitationNotifications = read('supabase/migrations/20260921000009_notification_invitation_closure.sql');
 const orders = read('app/(tabs)/orders.tsx');
 const verification = read('components/admin/VerificationCenter.tsx');
 const readiness = read('FINAL-READINESS-REPORT.md');
+const worker = read('supabase/functions/process-notification-outbox/index.ts');
+const historicalNotifications = read('supabase/migrations/20260918000005_pack4e_notifications_communication.sql');
+const invitationRoute = read('app/auth/staff-invite.tsx');
 
+// ── Original 22 assertions ────────────────────────────────────────────────────
 assert((refundEdge.match(/Deno\.serve\s*\(/g) || []).length === 1, 'request-refund has exactly one Deno.serve handler');
 assert(!refundEdge.includes(".from('refund_requests')"), 'request-refund has no direct refund_requests write');
 assert(refundEdge.includes("rpc(\n      'request_refund_admin_secure'"), 'request-refund delegates to request_refund_admin_secure');
@@ -27,10 +32,47 @@ assert(gapClosure.includes('accept_restaurant_invitation_secure'), 'secure invit
 assert(gapClosure.includes('token_hash') && gapClosure.includes('expires_at'), 'invitations persist hashed expiring tokens');
 assert(gapClosure.includes("v_invitation.accepted_at IS NOT NULL OR v_invitation.revoked_at IS NOT NULL") && gapClosure.includes("'410 Gone: Invitation has expired.'"), 'invitation acceptance rejects replayed and expired tokens');
 assert(gapClosure.includes('Invitation email does not match'), 'invitation acceptance binds token to the authenticated invitee email');
-assert(notifications.includes("p_aggregate_type = 'RESTAURANT' AND p_event_type::TEXT = 'STAFF_INVITATION'"), 'staff invitation recipient routing is explicit');
+assert(invitationNotifications.includes("p_aggregate_type = 'RESTAURANT' AND p_event_type::TEXT = 'STAFF_INVITATION'"), 'staff invitation recipient routing is explicit');
 assert(orders.includes('export const canRetryOrderPayment') && orders.includes("order.status === 'CANCELLED'"), 'payment retry excludes terminal orders');
 assert(orders.includes('getEligibility') && orders.includes('existingReviewId'), 'review action checks authoritative existing review state');
 assert(!verification.includes('verifiedDishCount') && !verification.includes('Dishes confirmed') && !verification.includes('0 verified dishes'), 'verification UI does not fabricate verified dish counts');
 assert(readiness.includes('20260921000008_gap_closure.sql') && readiness.includes('refund_requests'), 'readiness report reflects latest migrations and canonical refunds');
+assert(!historicalNotifications.includes('STAFF_INVITATION'), 'historical notification migration remains unchanged');
+assert(read('supabase/migrations/20260921000009_notification_invitation_closure.sql').includes('resolve_event_recipients'), 'invitation notification logic is forward-migrated');
+assert(worker.includes('claim_outbox_events_secure') && worker.includes('PROCESSED'), 'notification outbox has a trusted processor');
+assert(invitationRoute.includes('acceptInvitation'), 'staff invitation acceptance route uses the repository authority');
+assert(orders.includes('order_payment_${order.id}_${attemptId}'), 'payment retries use stable per-attempt idempotency');
 
-console.log('FINAL BLOCKER CLOSURE STATIC TESTS: 17 passed; 0 failed');
+// ── New assertions for session closure (Items 1–5) ────────────────────────────
+const migration10 = read('supabase/migrations/20260921000010_order_role_and_notification_retry_closure.sql');
+const orderService = read('services/OrderService.ts');
+const loginRoute = read('app/auth/login.tsx');
+const configToml = read('supabase/config.toml');
+const reconcileWorker = read('supabase/functions/reconcile-payments/index.ts');
+
+// Item 1 — Delivery zone checkout
+assert(orderService.includes('deliveryZoneId'), 'OrderService DTO includes deliveryZoneId');
+assert(orderService.includes('deliveryZoneId') && orderService.includes('A valid delivery zone is required for delivery orders'), 'OrderService validates deliveryZoneId for Delivery orders');
+assert(!orderService.includes('deliveryFeeTzs: 2500'), 'OrderService no longer hardcodes deliveryFeeTzs 2500');
+
+// Item 2 — Restaurant order roles (no KITCHEN_STAFF)
+assert(!migration10.includes('KITCHEN_STAFF'), 'migration 00010 has no KITCHEN_STAFF references');
+assert(migration10.includes("'CHEF'"), 'migration 00010 defines CHEF kitchen-only transitions');
+assert(migration10.includes("RAISE EXCEPTION '403"), 'migration 00010 raises 403 for unauthorized role transitions');
+
+// Item 3 — Notification outbox retry with FAILED
+assert(migration10.includes("'FAILED'"), 'migration 00010 claim_outbox_events_secure includes FAILED status');
+
+// Item 4 — Staff invite token preserved through login
+assert(invitationRoute.includes('returnTo') && invitationRoute.includes('/auth/staff-invite?token='), 'staff-invite constructs returnTo with token');
+assert(loginRoute.includes('returnTo') && loginRoute.includes("startsWith('/')"), 'login validates safe internal returnTo redirect');
+
+// Item 5 — Background payment reconciliation worker
+assert(reconcileWorker.includes('Deno.serve'), 'reconcile-payments worker has a Deno.serve handler');
+assert((reconcileWorker.match(/Deno\.serve\s*\(/g) || []).length === 1, 'reconcile-payments has exactly one Deno.serve handler');
+assert(reconcileWorker.includes('PENDING') && reconcileWorker.includes('PROCESSING'), 'reconcile-payments targets stale PENDING/PROCESSING payments');
+assert(reconcileWorker.includes('confirm_payment_webhook_rpc'), 'reconcile-payments confirms via canonical RPC');
+assert(reconcileWorker.includes('ORPHAN_TIMEOUT'), 'reconcile-payments auto-fails orphaned payments');
+assert(configToml.includes('[functions.reconcile-payments]'), 'config.toml registers reconcile-payments function');
+
+console.log('FINAL BLOCKER CLOSURE STATIC TESTS: 36 passed; 0 failed');

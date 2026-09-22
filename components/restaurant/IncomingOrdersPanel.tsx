@@ -17,6 +17,7 @@ import { Shadows } from '../../theme/shadows';
 import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 import { Order, OrderStatus } from '../../types/domain';
+import { RestaurantRole } from '../../types/auth';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
@@ -27,6 +28,7 @@ export interface IncomingOrdersPanelProps {
   onRejectOrder: (orderId: string, reason: string) => Promise<void>;
   onUpdateStatus: (orderId: string, nextStatus: OrderStatus) => Promise<void>;
   language?: 'en' | 'sw';
+  userRole?: RestaurantRole;
 }
 
 export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
@@ -35,6 +37,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   onRejectOrder,
   onUpdateStatus,
   language = 'en',
+  userRole,
 }) => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PREPARING' | 'READY' | 'COMPLETED'>('ALL');
 
@@ -217,7 +220,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                 </View>
 
                 <View style={styles.actionsRow}>
-                  {order.status === 'PENDING' && (
+                  {order.status === 'PENDING' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     <>
                       <TouchableOpacity
                         style={styles.rejectBtn}
@@ -245,7 +248,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                     </>
                   )}
 
-                  {order.status === 'ACCEPTED' && (
+                  {order.status === 'ACCEPTED' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER' || userRole === 'CHEF') && (
                     <TouchableOpacity
                       style={styles.actionTransitionBtn}
                       onPress={() => onUpdateStatus(order.id, 'PREPARING')}
@@ -255,7 +258,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                     </TouchableOpacity>
                   )}
 
-                  {order.status === 'PREPARING' && (
+                  {order.status === 'PREPARING' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER' || userRole === 'CHEF') && (
                     <TouchableOpacity
                       style={[styles.actionTransitionBtn, { backgroundColor: Colors.success }]}
                       onPress={() => onUpdateStatus(order.id, 'READY')}
@@ -265,7 +268,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                     </TouchableOpacity>
                   )}
 
-                  {order.status === 'READY' && (
+                  {order.status === 'READY' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     <TouchableOpacity
                       style={[styles.actionTransitionBtn, { backgroundColor: Colors.primaryDark }]}
                       onPress={() => onUpdateStatus(order.id, 'COMPLETED')}

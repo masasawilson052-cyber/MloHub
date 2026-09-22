@@ -7,6 +7,7 @@ export class RestaurantMemberRepository {
     restaurantId: string;
     membershipId: string;
     role: RestaurantRole;
+    invitationToken?: string;
   }> {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase client is not configured.');
@@ -20,6 +21,7 @@ export class RestaurantMemberRepository {
       restaurantId: data.restaurant_id,
       membershipId: data.membership_id,
       role: data.role as RestaurantRole,
+      invitationToken: data.invitation_token,
     };
   }
 
@@ -111,7 +113,7 @@ export class RestaurantMemberRepository {
     email: string,
     role: RestaurantRole,
     fullName?: string
-  ): Promise<StaffMember> {
+  ): Promise<StaffMember & { invitationToken?: string }> {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase is not configured. Cannot send staff invitations.');
     }
@@ -141,6 +143,7 @@ export class RestaurantMemberRepository {
       role,
       isActive: false,  // Inactive until the invitee accepts
       joinedAt: new Date().toISOString(),
+      invitationToken: data.invitation_token,
     };
   }
 }

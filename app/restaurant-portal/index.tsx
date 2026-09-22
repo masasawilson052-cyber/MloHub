@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   ScrollView,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -900,9 +901,17 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const handleInviteStaff = useCallback(
     async (email: string, role: RestaurantRole, fullName: string) => {
       try {
-        await RestaurantMemberRepository.inviteMember(activeRestaurant.id, email, role, fullName);
+        const invitation = await RestaurantMemberRepository.inviteMember(activeRestaurant.id, email, role, fullName);
         await loadRestaurantWorkspace();
-        Alert.alert('Mwaliko Umetumwa', `Mwaliko umetumwa kwa ${email} kama ${role}.`);
+        const baseUrl = process.env.EXPO_PUBLIC_APP_URL?.replace(/\/+$/, '') || 'https://mlohub.app';
+        const invitationLink = invitation.invitationToken
+          ? `${baseUrl}/auth/staff-invite?token=${encodeURIComponent(invitation.invitationToken)}`
+          : undefined;
+        if (invitationLink) {
+          await Share.share({ message: `MloHub restaurant invitation for ${email}: ${invitationLink}` });
+        } else {
+          Alert.alert('Mwaliko Umetumwa', `Mwaliko umetumwa kwa ${email} kama ${role}.`);
+        }
       } catch (e: any) {
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kualika mfanyakazi.');
       }
@@ -1214,6 +1223,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   await handleAdvanceKitchenStatus(orderId, nextStatus);
                 }}
                 language={language as any}
+                userRole={userRole}
               />
             )}
 
@@ -1336,7 +1346,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               <StaffManager
                 staffList={staffList}
                 currentUserId={authUser?.id || ''}
-                onInviteStaff={runtimeConfig.isDemo ? handleInviteStaff : undefined}
+                onInviteStaff={handleInviteStaff}
                 onChangeRole={handleChangeStaffRole}
                 onDeactivateStaff={handleDeactivateStaff}
                 language={language as any}
