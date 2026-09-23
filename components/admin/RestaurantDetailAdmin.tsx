@@ -44,8 +44,34 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const [upgradeMode, setUpgradeMode] = useState(false);
   const [tinNumber, setTinNumber] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   if (!restaurant) return null;
+
+  const handleModalClose = () => {
+    if (isProcessing) return;
+    setSuspendMode(false);
+    setUpgradeMode(false);
+    setDeleteMode(false);
+    setActionError(null);
+    onClose();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!onDelete) return;
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await onDelete(restaurant.id);
+      setDeleteMode(false);
+      onClose();
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to delete restaurant.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleConfirmSuspend = async () => {
     if (!suspendReason.trim()) {
@@ -116,7 +142,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 ID: {restaurant.id} • {restaurant.neighborhood}
               </Text>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose} disabled={isProcessing}>
+            <TouchableOpacity style={styles.closeBtn} onPress={handleModalClose} disabled={isProcessing}>
               <Ionicons name="close" size={22} color="#64748b" />
             </TouchableOpacity>
           </View>
@@ -262,10 +288,55 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 </View>
               </View>
             )}
+
+            {/* Delete Confirmation Form */}
+            {deleteMode && (
+              <View style={[styles.inputPromptBox, styles.deletePromptBox]}>
+                <View style={styles.deletePromptHeader}>
+                  <Ionicons name="warning" size={20} color="#dc2626" />
+                  <Text style={styles.deletePromptTitle}>Permanently Delete Restaurant?</Text>
+                </View>
+                <Text style={styles.deletePromptSubtitle}>
+                  Are you sure you want to permanently delete <Text style={{ fontWeight: '700' }}>"{restaurant.name}"</Text>? All associated branches, menus, operational hours, and records will be deleted. This cannot be undone.
+                </Text>
+                {actionError && (
+                  <View style={styles.inlineErrorBox}>
+                    <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                    <Text style={styles.inlineErrorText}>{actionError}</Text>
+                  </View>
+                )}
+                <View style={styles.promptBtnRow}>
+                  <TouchableOpacity
+                    style={styles.promptCancelBtn}
+                    onPress={() => {
+                      setDeleteMode(false);
+                      setActionError(null);
+                    }}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.promptCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.promptDeleteConfirmBtn}
+                    onPress={handleConfirmDelete}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Ionicons name="trash" size={14} color="#ffffff" />
+                        <Text style={styles.promptDeleteConfirmText}>Yes, Delete Permanently</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           {/* Action Footer */}
-          {!suspendMode && !upgradeMode && (
+          {!suspendMode && !upgradeMode && !deleteMode && (
             <View style={styles.modalFooter}>
               {!isVerified && onUpgradeToVerified && !isSuspended && (
                 <TouchableOpacity
@@ -308,28 +379,10 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => {
-                    Alert.alert(
-                      'Delete Restaurant',
-                      `Are you sure you want to permanently delete "${restaurant.name}"? This action cannot be undone.`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: async () => {
-                            setIsProcessing(true);
-                            try {
-                              await onDelete(restaurant.id);
-                              onClose();
-                            } catch (err: any) {
-                              Alert.alert('Error', err.message || 'Failed to delete restaurant.');
-                            } finally {
-                              setIsProcessing(false);
-                            }
-                          },
-                        },
-                      ]
-                    );
+                    setDeleteMode(true);
+                    setSuspendMode(false);
+                    setUpgradeMode(false);
+                    setActionError(null);
                   }}
                   disabled={isProcessing}
                 >
@@ -601,5 +654,54 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#dc2626',
+  },
+  deletePromptBox: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fca5a5',
+  },
+  deletePromptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  deletePromptTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#991b1b',
+  },
+  deletePromptSubtitle: {
+    fontSize: 13,
+    color: '#7f1d1d',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  inlineErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fee2e2',
+    padding: 8,
+    borderRadius: Radii.sm,
+    marginBottom: 10,
+  },
+  inlineErrorText: {
+    fontSize: 12,
+    color: '#dc2626',
+    flex: 1,
+  },
+  promptDeleteConfirmBtn: {
+    backgroundColor: '#dc2626',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: Radii.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  promptDeleteConfirmText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });

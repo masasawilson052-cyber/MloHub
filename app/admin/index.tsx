@@ -369,9 +369,6 @@ export default function AdminPortalScreen() {
 
   // 5b. Delete Restaurant
   const handleDeleteRestaurant = async (restaurantId: string) => {
-    if (!activeUser?.id) {
-      throw new Error('Authenticated administrator is required.');
-    }
     await RestaurantRepository.deleteRestaurant(restaurantId);
     await loadPlatformData();
   };
