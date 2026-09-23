@@ -184,4 +184,22 @@ export class PayoutsRepository {
 
     return this.mapRowToPayout(data);
   }
+
+  public static async listAll(limit: number = 100): Promise<MerchantPayout[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('merchant_payouts')
+      .select('*')
+      .order('requested_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[PayoutsRepository.listAll] Error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToPayout);
+  }
 }
+

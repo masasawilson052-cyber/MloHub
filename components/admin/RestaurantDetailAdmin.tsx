@@ -25,6 +25,8 @@ interface RestaurantDetailAdminProps {
     docs: { tinNumber: string; businessLicenseNumber: string }
   ) => Promise<void>;
   onDelete?: (restaurantId: string) => Promise<void>;
+  onArchive?: (restaurantId: string, reason: string) => Promise<void>;
+  onUnarchive?: (restaurantId: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -36,6 +38,8 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   onReactivate,
   onUpgradeToVerified,
   onDelete,
+  onArchive,
+  onUnarchive,
   language = 'en',
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -44,8 +48,11 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const [upgradeMode, setUpgradeMode] = useState(false);
   const [tinNumber, setTinNumber] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
+  const [archiveMode, setArchiveMode] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
   const [deleteMode, setDeleteMode] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
 
   if (!restaurant) return null;
 
@@ -127,8 +134,44 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     }
   };
 
+  const handleConfirmArchive = async () => {
+    if (!onArchive) return;
+    if (!archiveReason.trim()) {
+      Alert.alert('Reason Required', 'Please enter a clear reason for archiving this vendor.');
+      return;
+    }
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await onArchive(restaurant.id, archiveReason.trim());
+      setArchiveMode(false);
+      setArchiveReason('');
+      onClose();
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to archive restaurant.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmUnarchive = async () => {
+    if (!onUnarchive) return;
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await onUnarchive(restaurant.id);
+      onClose();
+    } catch (err: any) {
+      Alert.alert('Restore Error', err.message || 'Failed to restore restaurant.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const isArchived = !!((restaurant as any).archivedAt || (restaurant as any).archived_at);
   const isSuspended = !!restaurant.isSuspended || restaurant.verificationStatus === 'SUSPENDED';
   const isVerified = restaurant.sellerTier === 'VERIFIED_RESTAURANT' || restaurant.sellerTier === 'VERIFIED_SELLER';
+
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -150,9 +193,16 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
           <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
             {/* Status Pills */}
             <View style={styles.badgeRow}>
-              <View style={[styles.pill, isSuspended ? styles.pillSuspended : styles.pillActive]}>
-                <Text style={styles.pillText}>{isSuspended ? 'SUSPENDED' : 'ACTIVE'}</Text>
-              </View>
+              {isArchived ? (
+                <View style={[styles.pill, { backgroundColor: '#fee2e2' }]}>
+                  <Ionicons name="archive" size={12} color="#b91c1c" />
+                  <Text style={[styles.pillText, { color: '#b91c1c' }]}>ARCHIVED</Text>
+                </View>
+              ) : (
+                <View style={[styles.pill, isSuspended ? styles.pillSuspended : styles.pillActive]}>
+                  <Text style={styles.pillText}>{isSuspended ? 'SUSPENDED' : 'ACTIVE'}</Text>
+                </View>
+              )}
               <View style={[styles.pill, isVerified ? styles.pillVerified : styles.pillBasic]}>
                 <Ionicons
                   name={isVerified ? 'shield-checkmark' : 'storefront-outline'}
@@ -164,6 +214,24 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 </Text>
               </View>
             </View>
+
+            {/* Archive Warning Notice */}
+            {isArchived && (
+              <View style={[styles.cardSection, { backgroundColor: '#fff1f2', borderColor: '#fecdd3' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="archive" size={16} color="#be123c" />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#be123c' }}>Archived Restaurant</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: '#9f1239', marginTop: 2 }}>
+                  Reason: {(restaurant as any).archiveReason || (restaurant as any).archive_reason || 'Archived by platform operator'}
+                </Text>
+                {((restaurant as any).archivedAt || (restaurant as any).archived_at) && (
+                  <Text style={{ fontSize: 11, color: '#e11d48', marginTop: 2 }}>
+                    Archived at: {new Date((restaurant as any).archivedAt || (restaurant as any).archived_at).toLocaleString()}
+                  </Text>
+                )}
+              </View>
+            )}
 
             {/* Business Info */}
             <View style={styles.cardSection}>
@@ -289,6 +357,58 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
               </View>
             )}
 
+            {/* Archive Confirmation Form */}
+            {archiveMode && (
+              <View style={[styles.inputPromptBox, styles.deletePromptBox]}>
+                <View style={styles.deletePromptHeader}>
+                  <Ionicons name="archive" size={20} color="#ea580c" />
+                  <Text style={[styles.deletePromptTitle, { color: '#c2410c' }]}>Archive Restaurant?</Text>
+                </View>
+                <Text style={styles.deletePromptSubtitle}>
+                  Archiving <Text style={{ fontWeight: '700' }}>"{restaurant.name}"</Text> safely unpublishes and hides it from public discovery while preserving historical order logs, payments, and ratings.
+                </Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Reason for archiving (e.g. permanently closed, duplicate entry, owner requested removal)..."
+                  value={archiveReason}
+                  onChangeText={setArchiveReason}
+                  multiline
+                />
+                {actionError && (
+                  <View style={styles.inlineErrorBox}>
+                    <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                    <Text style={styles.inlineErrorText}>{actionError}</Text>
+                  </View>
+                )}
+                <View style={styles.promptBtnRow}>
+                  <TouchableOpacity
+                    style={styles.promptCancelBtn}
+                    onPress={() => {
+                      setArchiveMode(false);
+                      setActionError(null);
+                    }}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.promptCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.promptDeleteConfirmBtn, { backgroundColor: '#ea580c' }]}
+                    onPress={handleConfirmArchive}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Ionicons name="archive-outline" size={14} color="#ffffff" />
+                        <Text style={styles.promptDeleteConfirmText}>Confirm Archive</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* Delete Confirmation Form */}
             {deleteMode && (
               <View style={[styles.inputPromptBox, styles.deletePromptBox]}>
@@ -336,9 +456,26 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
           </ScrollView>
 
           {/* Action Footer */}
-          {!suspendMode && !upgradeMode && !deleteMode && (
+          {!suspendMode && !upgradeMode && !archiveMode && !deleteMode && (
             <View style={styles.modalFooter}>
-              {!isVerified && onUpgradeToVerified && !isSuspended && (
+              {isArchived && onUnarchive && (
+                <TouchableOpacity
+                  style={styles.reactivateBtn}
+                  onPress={handleConfirmUnarchive}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <Ionicons name="refresh-circle-outline" size={16} color="#ffffff" />
+                      <Text style={styles.reactivateBtnText}>Restore / Unarchive</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {!isArchived && !isVerified && onUpgradeToVerified && !isSuspended && (
                 <TouchableOpacity
                   style={styles.upgradeBtn}
                   onPress={() => setUpgradeMode(true)}
@@ -349,7 +486,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 </TouchableOpacity>
               )}
 
-              {isSuspended ? (
+              {!isArchived && (isSuspended ? (
                 <TouchableOpacity
                   style={styles.reactivateBtn}
                   onPress={handleConfirmReactivate}
@@ -373,6 +510,23 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   <Ionicons name="ban-outline" size={16} color="#ef4444" />
                   <Text style={styles.suspendBtnText}>Suspend Restaurant</Text>
                 </TouchableOpacity>
+              ))}
+
+              {!isArchived && onArchive && (
+                <TouchableOpacity
+                  style={[styles.deleteBtn, { backgroundColor: '#fff7ed', borderColor: '#fed7aa' }]}
+                  onPress={() => {
+                    setArchiveMode(true);
+                    setSuspendMode(false);
+                    setUpgradeMode(false);
+                    setDeleteMode(false);
+                    setActionError(null);
+                  }}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="archive-outline" size={16} color="#ea580c" />
+                  <Text style={[styles.deleteBtnText, { color: '#ea580c' }]}>Archive</Text>
+                </TouchableOpacity>
               )}
 
               {onDelete && (
@@ -380,6 +534,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   style={styles.deleteBtn}
                   onPress={() => {
                     setDeleteMode(true);
+                    setArchiveMode(false);
                     setSuspendMode(false);
                     setUpgradeMode(false);
                     setActionError(null);
@@ -392,6 +547,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
               )}
             </View>
           )}
+
         </View>
       </View>
     </Modal>

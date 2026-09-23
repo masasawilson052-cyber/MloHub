@@ -435,3 +435,8 @@ verify_jwt = false
 [functions.reconcile-payments]
 verify_jwt = false
 
+[functions.admin-system-health]
+verify_jwt = false
+
+[functions.process-notification-outbox]
+verify_jwt = false

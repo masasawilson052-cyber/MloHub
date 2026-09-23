@@ -34,3 +34,5 @@ export * from './pushDevices.repository';
 export * from './notificationTemplates.repository';
 export * from './communicationSuppressions.repository';
 export * from './branchOperations.repository';
+export * from './platformSettings.repository';
+export * from './platformAnnouncements.repository';

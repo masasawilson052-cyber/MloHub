@@ -12,7 +12,9 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantEntity } from '../../db/types';
 import { RestaurantDetailAdmin } from './RestaurantDetailAdmin';
 
-type RestaurantFilter = 'ALL' | 'BASIC_SELLER' | 'VERIFIED' | 'SUSPENDED';
+import { useTheme } from '../../context/ThemeContext';
+
+type RestaurantFilter = 'ALL' | 'BASIC_SELLER' | 'VERIFIED' | 'SUSPENDED' | 'ARCHIVED';
 
 interface RestaurantsManagerProps {
   restaurants: RestaurantEntity[];
@@ -23,6 +25,8 @@ interface RestaurantsManagerProps {
     docs: { tinNumber: string; businessLicenseNumber: string }
   ) => Promise<void>;
   onDelete?: (restaurantId: string) => Promise<void>;
+  onArchive?: (restaurantId: string, reason: string) => Promise<void>;
+  onUnarchive?: (restaurantId: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -32,59 +36,63 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   onReactivate,
   onUpgradeToVerified,
   onDelete,
+  onArchive,
+  onUnarchive,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [filter, setFilter] = useState<RestaurantFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeRestaurant, setActiveRestaurant] = useState<RestaurantEntity | null>(null);
 
-  const isDeletedOrSample = (r: RestaurantEntity) => {
-    const name = (r.name || '').toLowerCase();
-    const slug = (r.slug || '').toLowerCase();
-    const id = (r.id || '').toLowerCase();
-    if (name.startsWith('[deleted]') || slug.startsWith('deleted-')) return true;
-    return ['mama amina', 'bahari swahili', 'kibo mchemsho', 'kibo peak'].some(
-      (fake) => name.includes(fake) || slug.includes(fake) || id.includes(fake)
-    );
+  const isRestaurantArchived = (r: RestaurantEntity) => {
+    return !!((r as any).archivedAt || (r as any).archived_at);
   };
 
-  const visibleRestaurants = restaurants.filter((r) => !isDeletedOrSample(r));
+  const archivedCount = restaurants.filter(isRestaurantArchived).length;
+  const activeRestaurants = restaurants.filter((r) => !isRestaurantArchived(r));
 
-  const filtered = visibleRestaurants.filter((r) => {
+  const allCount = activeRestaurants.length;
+  const basicCount = activeRestaurants.filter((r) => r.sellerTier === 'BASIC_SELLER' && !r.isSuspended).length;
+  const verifiedCount = activeRestaurants.filter(
+    (r) => (r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER') && !r.isSuspended
+  ).length;
+  const suspendedCount = activeRestaurants.filter((r) => r.isSuspended || r.verificationStatus === 'SUSPENDED').length;
+
+  const filtered = restaurants.filter((r) => {
+    const isArchived = isRestaurantArchived(r);
     const isSuspended = !!r.isSuspended || r.verificationStatus === 'SUSPENDED';
     const isVerified = r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER';
 
-    if (filter === 'BASIC_SELLER' && (isVerified || isSuspended)) return false;
-    if (filter === 'VERIFIED' && (!isVerified || isSuspended)) return false;
-    if (filter === 'SUSPENDED' && !isSuspended) return false;
+    if (filter === 'ARCHIVED') {
+      if (!isArchived) return false;
+    } else {
+      if (isArchived) return false;
+      if (filter === 'BASIC_SELLER' && (isVerified || isSuspended)) return false;
+      if (filter === 'VERIFIED' && (!isVerified || isSuspended)) return false;
+      if (filter === 'SUSPENDED' && !isSuspended) return false;
+    }
 
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
 
     return (
-      r.name.toLowerCase().includes(query) ||
+      (r.name || '').toLowerCase().includes(query) ||
       (r.ownerName && r.ownerName.toLowerCase().includes(query)) ||
-      r.neighborhood.toLowerCase().includes(query) ||
-      r.cuisine.toLowerCase().includes(query)
+      (r.neighborhood || '').toLowerCase().includes(query) ||
+      (r.cuisine || '').toLowerCase().includes(query)
     );
   });
 
-  const allCount = visibleRestaurants.length;
-  const basicCount = visibleRestaurants.filter((r) => r.sellerTier === 'BASIC_SELLER' && !r.isSuspended).length;
-  const verifiedCount = visibleRestaurants.filter(
-    (r) => (r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER') && !r.isSuspended
-  ).length;
-  const suspendedCount = visibleRestaurants.filter((r) => r.isSuspended || r.verificationStatus === 'SUSPENDED').length;
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.text }]}>
             {language === 'sw' ? 'Usimamizi wa Migahawa na Wauzaji' : 'Restaurants & Vendors Directory'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Oversee live food spots, enforce quality standards, manage suspensions, and review tax tiers.
           </Text>
         </View>
@@ -125,23 +133,33 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
               Suspended ({suspendedCount})
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterPill, filter === 'ARCHIVED' && styles.filterPillActive]}
+            onPress={() => setFilter('ARCHIVED')}
+          >
+            <Text style={[styles.filterPillText, filter === 'ARCHIVED' && styles.filterPillTextActive]}>
+              Archived ({archivedCount})
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={16} color="#94a3b8" />
+        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="search" size={16} color={colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search name, owner, neighborhood..."
+            placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={16} color="#94a3b8" />
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
+
 
       {/* Grid of Restaurant Cards */}
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
@@ -154,13 +172,14 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         ) : (
           <View style={styles.cardsGrid}>
             {filtered.map((r) => {
+              const isArchived = isRestaurantArchived(r);
               const isSuspended = !!r.isSuspended || r.verificationStatus === 'SUSPENDED';
               const isVerified = r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER';
 
               return (
                 <TouchableOpacity
                   key={r.id}
-                  style={[styles.card, isSuspended && styles.cardSuspended]}
+                  style={[styles.card, isSuspended && styles.cardSuspended, isArchived && { borderColor: '#fca5a5', opacity: 0.85 }]}
                   onPress={() => setActiveRestaurant(r)}
                 >
                   <View style={styles.cardHeader}>
@@ -175,15 +194,22 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
                     <View
                       style={[
                         styles.tierBadge,
-                        isSuspended
+                        isArchived
+                          ? { backgroundColor: '#fee2e2' }
+                          : isSuspended
                           ? styles.badgeSuspended
                           : isVerified
                           ? styles.badgeVerified
                           : styles.badgeBasic,
                       ]}
                     >
-                      <Text style={styles.tierBadgeText}>
-                        {isSuspended ? 'SUSPENDED' : isVerified ? 'VERIFIED' : 'BASIC'}
+                      <Text
+                        style={[
+                          styles.tierBadgeText,
+                          isArchived && { color: '#b91c1c' },
+                        ]}
+                      >
+                        {isArchived ? 'ARCHIVED' : isSuspended ? 'SUSPENDED' : isVerified ? 'VERIFIED' : 'BASIC'}
                       </Text>
                     </View>
                   </View>
@@ -235,11 +261,14 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         onReactivate={onReactivate}
         onUpgradeToVerified={onUpgradeToVerified}
         onDelete={onDelete}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
         language={language}
       />
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

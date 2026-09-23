@@ -12,11 +12,15 @@ import { CartProvider } from '../context/CartContext';
 import { UserRole } from '../db/types';
 import { ConnectionNotice } from '../components/ConnectionNotice';
 
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { AdminPreviewProvider } from '../context/AdminPreviewContext';
+
 function RootNavigationLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { isReady, hasCompletedOnboarding } = useMloHubDB();
   const { isAuthLoading, isAuthenticated, currentRole, activeWorkspace, user } = useAuth();
+  const { isDark, colors } = useTheme();
 
   useEffect(() => {
     if (!isReady || isAuthLoading) return;
@@ -64,12 +68,12 @@ function RootNavigationLayout() {
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <ConnectionNotice />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -133,30 +137,30 @@ export default function RootLayout() {
               input::-ms-clear {
                 display: none !important;
               }
-              input, textarea {
-                outline: none !important;
-                border: none !important;
-              }
-              input:focus, textarea:focus {
-                outline: none !important;
-                border: none !important;
-                box-shadow: none !important;
+              input:focus-visible, textarea:focus-visible, button:focus-visible, [tabindex]:focus-visible {
+                outline: 2px solid #EA580C !important;
+                outline-offset: 1px !important;
               }
             `,
           }}
         />
       )}
-      <DbProvider>
-        <AuthProvider>
-          <LanguageProvider>
-            <NotificationProvider>
-              <CartProvider>
-                <RootNavigationLayout />
-              </CartProvider>
-            </NotificationProvider>
-          </LanguageProvider>
-        </AuthProvider>
-      </DbProvider>
+      <ThemeProvider>
+        <AdminPreviewProvider>
+          <DbProvider>
+            <AuthProvider>
+              <LanguageProvider>
+                <NotificationProvider>
+                  <CartProvider>
+                    <RootNavigationLayout />
+                  </CartProvider>
+                </NotificationProvider>
+              </LanguageProvider>
+            </AuthProvider>
+          </DbProvider>
+        </AdminPreviewProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
+

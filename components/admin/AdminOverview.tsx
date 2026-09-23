@@ -5,6 +5,9 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { AdminTabId } from './AdminSidebar';
 import { FINANCIAL_CONFIG, formatTzs } from '../../config/platformFees';
 
+import { useTheme } from '../../context/ThemeContext';
+import { PlatformHealthStatus } from '../../services/AdminSystemHealthService';
+
 export interface AttentionItem {
   id: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
@@ -29,6 +32,7 @@ interface AdminOverviewProps {
     freshnessScorePct: number;
   };
   attentionItems: AttentionItem[];
+  systemHealth?: PlatformHealthStatus | null;
   onNavigateTab: (tab: AdminTabId) => void;
   language?: 'en' | 'sw';
 }
@@ -36,9 +40,26 @@ interface AdminOverviewProps {
 export const AdminOverview: React.FC<AdminOverviewProps> = ({
   stats,
   attentionItems,
+  systemHealth,
   onNavigateTab,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
+
+  // Truthful check: Include health degradation in attention if down/degraded
+  const effectiveAttentionItems: AttentionItem[] = [...attentionItems];
+
+  if (systemHealth && systemHealth.status !== 'HEALTHY') {
+    effectiveAttentionItems.unshift({
+      id: 'att-system-health',
+      severity: systemHealth.status === 'DOWN' ? 'CRITICAL' : 'HIGH',
+      title: systemHealth.status === 'DOWN' ? 'Backend Offline or Degraded' : 'Worker / Background Latency Warning',
+      description: 'One or more platform workers or database connections require operator review.',
+      targetTab: 'HEALTH',
+      count: 1,
+    });
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* 1. PLATFORM ATTENTION CENTER */}
@@ -57,7 +78,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           </Text>
         </View>
 
-        {attentionItems.length === 0 ? (
+        {effectiveAttentionItems.length === 0 ? (
           <View style={styles.allClearCard}>
             <Ionicons name="checkmark-done-circle" size={32} color="#10b981" />
             <View>
@@ -67,7 +88,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           </View>
         ) : (
           <View style={styles.attentionGrid}>
-            {attentionItems.map((item) => {
+            {effectiveAttentionItems.map((item) => {
               const isCrit = item.severity === 'CRITICAL';
               const isHigh = item.severity === 'HIGH';
               const isMed = item.severity === 'MEDIUM';

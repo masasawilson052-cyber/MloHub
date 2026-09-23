@@ -1,33 +1,39 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
+import { AdminPreviewBanner } from '../../components/navigation/AdminPreviewBanner';
+import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
 
 export default function TabLayout() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.muted,
-        tabBarStyle: {
-          backgroundColor: Colors.surface || Colors.white,
-          borderTopColor: Colors.borderLight,
-          height: Platform.select({ ios: 88, default: 68 }),
-          paddingBottom: Platform.select({ ios: 28, default: 10 }),
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
-          letterSpacing: 0.2,
-        },
-      }}
-    >
+    <View style={styles.container}>
+      <AdminPreviewBanner />
+      <PlatformAnnouncementBanner audience="CUSTOMERS" language={language === 'sw' ? 'sw' : 'en'} />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: Colors.primary,
+          tabBarInactiveTintColor: Colors.muted,
+          tabBarStyle: {
+            backgroundColor: Colors.surface || Colors.white,
+            borderTopColor: Colors.borderLight,
+            height: Platform.select({ ios: 88, default: 68 }),
+            paddingBottom: Platform.select({ ios: 28, default: 10 }),
+            paddingTop: 8,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '700',
+            letterSpacing: 0.2,
+          },
+        }}
+      >
+
       <Tabs.Screen
         name="index"
         options={{
@@ -80,5 +86,13 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
+

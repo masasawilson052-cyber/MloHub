@@ -11,6 +11,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { AuditLogEntity } from '../../db/types';
 
+import { useTheme } from '../../context/ThemeContext';
+
 interface AuditLogViewerProps {
   logs: AuditLogEntity[];
   language?: 'en' | 'sw';
@@ -20,12 +22,25 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   logs,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [actionFilter, setActionFilter] = useState<string>('ALL');
+  const [entityFilter, setEntityFilter] = useState<string>('ALL');
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
   const filtered = logs.filter((log) => {
     if (actionFilter !== 'ALL' && log.action !== actionFilter) return false;
+    if (entityFilter !== 'ALL' && log.targetType !== entityFilter) return false;
+
+    if (dateFilter !== 'ALL') {
+      const logDate = new Date(log.timestamp).getTime();
+      const now = Date.now();
+      const diffDays = (now - logDate) / (1000 * 60 * 60 * 24);
+      if (dateFilter === 'TODAY' && diffDays > 1) return false;
+      if (dateFilter === '7_DAYS' && diffDays > 7) return false;
+      if (dateFilter === '30_DAYS' && diffDays > 30) return false;
+    }
 
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
@@ -37,6 +52,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       (log.targetType && log.targetType.toLowerCase().includes(query))
     );
   });
+
 
   const getActionBadge = (action: string) => {
     if (action.includes('REJECT') || action.includes('SUSPEND') || action.includes('REVOKE')) {
@@ -94,11 +110,31 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
               onPress={() => setActionFilter(act)}
             >
               <Text style={[styles.pillText, actionFilter === act && styles.pillTextActive]}>
-                {act === 'ALL' ? 'All Events' : act.replace(/_/g, ' ')}
+                {act === 'ALL' ? 'All Actions' : act.replace(/_/g, ' ')}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterPills, { marginTop: 6 }]}>
+          {([
+            { id: 'ALL', label: 'All Time' },
+            { id: 'TODAY', label: 'Today (24h)' },
+            { id: '7_DAYS', label: 'Past 7 Days' },
+            { id: '30_DAYS', label: 'Past 30 Days' },
+          ] as const).map((d) => (
+            <TouchableOpacity
+              key={d.id}
+              style={[styles.pill, dateFilter === d.id && styles.pillActive]}
+              onPress={() => setDateFilter(d.id)}
+            >
+              <Text style={[styles.pillText, dateFilter === d.id && styles.pillTextActive]}>
+                {d.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
 
         <View style={styles.searchBox}>
           <Ionicons name="search" size={14} color="#94a3b8" />

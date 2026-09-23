@@ -12,6 +12,8 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantEntity } from '../../db/types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
+import { useTheme } from '../../context/ThemeContext';
+
 interface VerificationCenterProps {
   restaurants: RestaurantEntity[];
   onTriggerReverification?: (restaurantId: string) => Promise<void>;
@@ -23,7 +25,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   onTriggerReverification,
   language = 'en',
 }) => {
-  const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE'>('ALL');
+  const { colors, isDark } = useTheme();
+  const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE' | 'NO_CATALOG'>('ALL');
   const [notifiedRestId, setNotifiedRestId] = useState<string | null>(null);
   const [menuMetrics, setMenuMetrics] = useState<Record<string, { activeCount: number; lastUpdated?: string }>>({});
 
@@ -45,19 +48,22 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
 
   // Compute freshness classification for each restaurant
   const classifiedRestaurants = restaurants.map((r) => {
-    // In demo/test environment or live: check last updated date
     const metrics = menuMetrics[r.id];
     const updated = metrics?.lastUpdated ? new Date(metrics.lastUpdated).getTime() : new Date(r.createdAt).getTime();
     const daysSince = Math.floor((Date.now() - updated) / (1000 * 60 * 60 * 24));
-
-    let status: 'FRESH' | 'RECENT' | 'AGING' | 'STALE' = 'FRESH';
-    if (daysSince > 30) status = 'STALE';
-    else if (daysSince > 14) status = 'AGING';
-    else if (daysSince > 7) status = 'RECENT';
-
-    // Use the authoritative active menu-item count; freshness is restaurant-level
-    // catalog recency because this screen does not have per-item verification data.
     const menuCount = metrics?.activeCount ?? 0;
+
+    let status: 'FRESH' | 'RECENT' | 'AGING' | 'STALE' | 'NO_CATALOG' = 'FRESH';
+    if (menuCount === 0) {
+      status = 'NO_CATALOG';
+    } else if (daysSince > 30) {
+      status = 'STALE';
+    } else if (daysSince > 14) {
+      status = 'AGING';
+    } else if (daysSince > 7) {
+      status = 'RECENT';
+    }
+
     return {
       restaurant: r,
       daysSince,
@@ -66,7 +72,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     };
   });
 
-  const freshCount = classifiedRestaurants.filter((c) => c.status === 'FRESH').length;
+  const noCatalogCount = classifiedRestaurants.filter((c) => c.status === 'NO_CATALOG').length;
+  const freshCount = classifiedRestaurants.filter((c) => c.status === 'FRESH' || c.status === 'RECENT').length;
   const agingCount = classifiedRestaurants.filter((c) => c.status === 'AGING').length;
   const staleCount = classifiedRestaurants.filter((c) => c.status === 'STALE').length;
 
@@ -74,12 +81,15 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     if (freshnessFilter === 'FRESH') return c.status === 'FRESH' || c.status === 'RECENT';
     if (freshnessFilter === 'AGING') return c.status === 'AGING';
     if (freshnessFilter === 'STALE') return c.status === 'STALE';
+    if (freshnessFilter === 'NO_CATALOG') return c.status === 'NO_CATALOG';
     return true;
   });
 
-  const freshCatalogPct = classifiedRestaurants.length > 0
-    ? Math.round((classifiedRestaurants.filter((c) => c.status === 'FRESH' || c.status === 'RECENT').length / classifiedRestaurants.length) * 100)
+  const spotsWithCatalog = classifiedRestaurants.filter((c) => c.status !== 'NO_CATALOG');
+  const freshCatalogPct = spotsWithCatalog.length > 0
+    ? Math.round((freshCount / spotsWithCatalog.length) * 100)
     : 0;
+
 
   const handleSendReminder = async (restaurantId: string, restaurantName: string) => {
     try {
@@ -166,17 +176,26 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
             Stale ({staleCount})
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterPill, freshnessFilter === 'NO_CATALOG' && styles.filterPillActive]}
+          onPress={() => setFreshnessFilter('NO_CATALOG')}
+        >
+          <Text style={[styles.filterPillText, freshnessFilter === 'NO_CATALOG' && styles.filterPillTextActive]}>
+            No Catalog ({noCatalogCount})
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Spots List */}
       <View style={styles.listContainer}>
         {filtered.map((item) => {
+          const isNoCatalog = item.status === 'NO_CATALOG';
           const isStale = item.status === 'STALE';
           const isAging = item.status === 'AGING';
           const isFresh = item.status === 'FRESH' || item.status === 'RECENT';
 
-          const badgeBg = isStale ? '#fee2e2' : isAging ? '#fef3c7' : '#dcfce7';
-          const badgeColor = isStale ? '#991b1b' : isAging ? '#92400e' : '#166534';
+          const badgeBg = isNoCatalog ? '#f1f5f9' : isStale ? '#fee2e2' : isAging ? '#fef3c7' : '#dcfce7';
+          const badgeColor = isNoCatalog ? '#475569' : isStale ? '#991b1b' : isAging ? '#92400e' : '#166534';
 
           return (
             <View key={item.restaurant.id} style={styles.spotCard}>
@@ -188,7 +207,9 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
                   </Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
-                  <Text style={[styles.statusBadgeText, { color: badgeColor }]}>{item.status}</Text>
+                  <Text style={[styles.statusBadgeText, { color: badgeColor }]}>
+                    {isNoCatalog ? 'NO CATALOG' : item.status}
+                  </Text>
                 </View>
               </View>
 
@@ -196,7 +217,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
                 <View style={styles.metricItem}>
                   <Text style={styles.metricLabel}>Last Catalog Verification:</Text>
                   <Text style={styles.metricValue}>
-                    {item.daysSince === 0 ? 'Today' : `${item.daysSince} days ago`}
+                    {isNoCatalog ? 'No dishes uploaded' : item.daysSince === 0 ? 'Today' : `${item.daysSince} days ago`}
                   </Text>
                 </View>
                 <View style={styles.metricItem}>
@@ -206,6 +227,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
                   </Text>
                 </View>
               </View>
+
 
               {(isAging || isStale) && (
                 <View style={styles.cardActions}>

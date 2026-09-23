@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
+import { useTheme } from '../../context/ThemeContext';
+
 interface SearchQueryRow {
   query: string;
   count: number;
@@ -22,9 +24,12 @@ interface PlatformAnalyticsProps {
 export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [totalSearches, setTotalSearches] = useState(0);
   const [zeroResultCount, setZeroResultCount] = useState(0);
+  const [matchRatePct, setMatchRatePct] = useState<number | null>(null);
+  const [zeroResultPct, setZeroResultPct] = useState<number | null>(null);
   const [topSearches, setTopSearches] = useState<SearchQueryRow[]>([]);
   const [supplyGaps, setSupplyGaps] = useState<ZeroResultRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -43,23 +48,36 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
       }
 
       try {
-        // Total search count (last 30 days)
+        // First try authoritative server-side SQL aggregation RPC
+        const { data: rpcData, error: rpcError } = await supabase.rpc('get_admin_search_demand_metrics', {
+          p_days_back: 30,
+        });
+
+        if (!rpcError && rpcData && !cancelled) {
+          setTotalSearches(rpcData.total_searches ?? 0);
+          setZeroResultCount(rpcData.zero_result_searches ?? 0);
+          setMatchRatePct(rpcData.match_rate_pct ?? null);
+          setZeroResultPct(rpcData.zero_result_pct ?? null);
+          setTopSearches(rpcData.top_queries || []);
+          setSupplyGaps(rpcData.unmet_demand_by_ward || []);
+          setLoading(false);
+          return;
+        }
+
+        // Fallback to table queries if RPC is unavailable in current migration state
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
         const [searchRes, zeroRes, topRes, gapRes] = await Promise.all([
-          // Total search events
           supabase
             .from('search_analytics_events')
             .select('id', { count: 'exact', head: true })
             .gte('created_at', thirtyDaysAgo),
 
-          // Zero-result searches
           supabase
             .from('zero_result_events')
             .select('id', { count: 'exact', head: true })
             .gte('created_at', thirtyDaysAgo),
 
-          // Top 10 searched queries
           supabase
             .from('search_analytics_events')
             .select('query')
@@ -67,7 +85,6 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
             .not('query', 'is', null)
             .limit(500),
 
-          // Zero-result events with ward/neighborhood context
           supabase
             .from('zero_result_events')
             .select('query, ward_name')
@@ -78,12 +95,24 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
 
         if (cancelled) return;
 
-        setTotalSearches(searchRes.count ?? 0);
-        setZeroResultCount(zeroRes.count ?? 0);
+        const total = searchRes.count ?? 0;
+        const zeroCount = zeroRes.count ?? 0;
+        setTotalSearches(total);
+        setZeroResultCount(zeroCount);
+
+        if (total > 0) {
+          const zPct = Math.round((zeroCount / total) * 100);
+          setZeroResultPct(zPct);
+          setMatchRatePct(100 - zPct);
+        } else {
+          // Truthful metric: NEVER claim 100% success on 0 searches
+          setZeroResultPct(null);
+          setMatchRatePct(null);
+        }
 
         // Aggregate top queries client-side
         const queryCounts: Record<string, number> = {};
-        (searchRes.data || topRes.data || []).forEach((row: any) => {
+        (topRes.data || []).forEach((row: any) => {
           const q = (row.query || '').toLowerCase().trim();
           if (q) queryCounts[q] = (queryCounts[q] || 0) + 1;
         });
@@ -122,10 +151,6 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
     return () => { cancelled = true; };
   }, []);
 
-  const zeroResultPct = totalSearches > 0
-    ? Math.round((zeroResultCount / totalSearches) * 100)
-    : 0;
-  const successPct = 100 - zeroResultPct;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -170,25 +195,32 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
               </Text>
             </View>
             <View style={styles.kpiCard}>
-              <Text style={[styles.kpiValue, { color: '#0284c7' }]}>{successPct}%</Text>
+              <Text style={[styles.kpiValue, { color: '#0284c7' }]}>
+                {matchRatePct !== null ? `${matchRatePct}%` : '—'}
+              </Text>
               <Text style={styles.kpiLabel}>
                 {language === 'sw' ? 'Kiwango cha Mafanikio' : 'Search Success Rate'}
               </Text>
               <Text style={styles.kpiSub}>
-                {language === 'sw' ? 'Matokeo yaliyopatikana' : 'Queries with results'}
+                {matchRatePct !== null
+                  ? (language === 'sw' ? 'Matokeo yaliyopatikana' : 'Queries with results')
+                  : (language === 'sw' ? 'Hakuna data bado' : 'No search data yet')}
               </Text>
             </View>
             <View style={styles.kpiCard}>
-              <Text style={[styles.kpiValue, { color: zeroResultPct > 20 ? '#dc2626' : '#f59e0b' }]}>
-                {zeroResultPct}%
+              <Text style={[styles.kpiValue, { color: zeroResultPct !== null && zeroResultPct > 20 ? '#dc2626' : '#f59e0b' }]}>
+                {zeroResultPct !== null ? `${zeroResultPct}%` : '—'}
               </Text>
               <Text style={styles.kpiLabel}>
                 {language === 'sw' ? 'Matokeo Sifuri' : 'Zero-Result Rate'}
               </Text>
               <Text style={styles.kpiSub}>
-                {language === 'sw' ? 'Upungufu wa bidhaa' : 'Supply gap signal'}
+                {zeroResultPct !== null
+                  ? (language === 'sw' ? 'Upungufu wa bidhaa' : 'Supply gap signal')
+                  : (language === 'sw' ? 'Hakuna data bado' : 'No search data yet')}
               </Text>
             </View>
+
           </View>
 
           {/* Top Dish Searches */}

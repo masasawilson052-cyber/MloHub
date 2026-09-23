@@ -25,6 +25,23 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
 }) => {
   const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [revealedUsers, setRevealedUsers] = useState<Record<string, boolean>>({});
+
+  const maskPhone = (phone?: string) => {
+    if (!phone) return 'No phone';
+    if (phone.length <= 4) return '••••';
+    return `${phone.slice(0, 4)} ••• •• ${phone.slice(-2)}`;
+  };
+
+  const maskEmail = (email?: string) => {
+    if (!email) return 'No email';
+    const parts = email.split('@');
+    if (parts.length !== 2) return '••••@••••';
+    const name = parts[0];
+    const domain = parts[1];
+    const maskedName = name.length > 2 ? `${name.slice(0, 2)}••••` : '••';
+    return `${maskedName}@${domain}`;
+  };
 
   const filtered = users.filter((u) => {
     // Hide platform operators from standard user manager; they are in AdminUsersManager
@@ -56,7 +73,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           style: isCurrentlySuspended ? 'default' : 'destructive',
           onPress: async () => {
             if (onToggleSuspendUser) {
-              await onToggleSuspendUser(user.id, !isCurrentlySuspended, 'Terms review');
+              await onToggleSuspendUser(user.id, !isCurrentlySuspended, 'Administrative review');
             }
           },
         },
@@ -73,7 +90,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
             {language === 'sw' ? 'Watumiaji wa Mfumo' : 'Users & Customer Accounts Directory'}
           </Text>
           <Text style={styles.subtitle}>
-            Inspect customer profiles, vendor owner assignments, and account standing.
+            Inspect customer profiles, vendor owner assignments, and account standing with privacy safeguards.
           </Text>
         </View>
       </View>
@@ -130,6 +147,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           <View style={styles.cardsGrid}>
             {filtered.map((u) => {
               const isSuspended = u.status === 'SUSPENDED';
+              const isRevealed = !!revealedUsers[u.id];
 
               return (
                 <View key={u.id} style={[styles.card, isSuspended && styles.cardSuspended]}>
@@ -149,14 +167,18 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                   <View style={styles.cardBody}>
                     <View style={styles.infoRow}>
                       <Ionicons name="call-outline" size={12} color="#64748b" />
-                      <Text style={styles.infoText}>{u.phone || 'No phone'}</Text>
+                      <Text style={styles.infoText}>
+                        {isRevealed ? (u.phone || 'No phone') : maskPhone(u.phone)}
+                      </Text>
                       {u.isPhoneVerified && (
                         <Ionicons name="checkmark-circle" size={12} color="#10b981" />
                       )}
                     </View>
                     <View style={styles.infoRow}>
                       <Ionicons name="mail-outline" size={12} color="#64748b" />
-                      <Text style={styles.infoText}>{u.email}</Text>
+                      <Text style={styles.infoText}>
+                        {isRevealed ? u.email : maskEmail(u.email)}
+                      </Text>
                     </View>
                     {u.companyOrGroup && (
                       <View style={styles.infoRow}>
@@ -167,8 +189,16 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                   </View>
 
                   <View style={styles.cardFooter}>
+                    <TouchableOpacity
+                      style={styles.revealBtn}
+                      onPress={() => setRevealedUsers((prev) => ({ ...prev, [u.id]: !isRevealed }))}
+                    >
+                      <Ionicons name={isRevealed ? "eye-off-outline" : "eye-outline"} size={13} color="#64748b" />
+                      <Text style={styles.revealBtnText}>{isRevealed ? 'Hide PII' : 'Reveal'}</Text>
+                    </TouchableOpacity>
+
                     <Text style={styles.dateText}>
-                      Member since {u.memberSince || '2026'}
+                      Since {u.memberSince || '2026'}
                     </Text>
                     {onToggleSuspendUser && (
                       <TouchableOpacity
@@ -190,6 +220,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -392,4 +423,19 @@ const styles = StyleSheet.create({
   reactivateActionText: {
     color: '#16a34a',
   },
+  revealBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+    backgroundColor: '#f1f5f9',
+  },
+  revealBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
 });
+

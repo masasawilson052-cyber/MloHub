@@ -54,17 +54,22 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   const investigatingCount = reports.filter((r) => r.status === 'INVESTIGATING').length;
   const resolvedCount = reports.filter((r) => r.status === 'RESOLVED').length;
 
-  const handleAction = async (status: 'RESOLVED' | 'REJECTED' | 'INVESTIGATING') => {
+  const handleAction = async (
+    status: 'RESOLVED' | 'REJECTED' | 'INVESTIGATING',
+    resolutionType?: 'RESOLVED_ONLY' | 'CATALOG_CORRECTED'
+  ) => {
     if (!selectedReport) return;
     setIsProcessing(true);
     try {
-      await onResolveReport(selectedReport.id, status, resolutionNotes.trim() || undefined);
+      const notePrefix = resolutionType === 'CATALOG_CORRECTED' ? '[CATALOG CORRECTION] ' : '';
+      const finalNotes = resolutionNotes.trim() ? `${notePrefix}${resolutionNotes.trim()}` : (notePrefix ? '[CATALOG CORRECTION] Price or availability manually corrected.' : undefined);
+      await onResolveReport(selectedReport.id, status, finalNotes);
       setSelectedReport(null);
       setResolutionNotes('');
       Alert.alert(
         'Success',
         status === 'RESOLVED'
-          ? 'Customer report resolved and catalog updated.'
+          ? (resolutionType === 'CATALOG_CORRECTED' ? 'Report resolved and catalog correction logged.' : 'Customer report resolved.')
           : status === 'INVESTIGATING'
           ? 'Marked as under investigation.'
           : 'Report dismissed.'
@@ -75,6 +80,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
       setIsProcessing(false);
     }
   };
+
 
   const getReportTypeBadge = (type: DataReportType) => {
     switch (type) {
@@ -276,17 +282,26 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                         </TouchableOpacity>
 
                         <TouchableOpacity
+                          style={[styles.drawerConfirmBtn, { backgroundColor: '#0284c7' }]}
+                          onPress={() => handleAction('RESOLVED', 'RESOLVED_ONLY')}
+                          disabled={isProcessing}
+                        >
+                          <Text style={styles.drawerConfirmText}>Resolve Only</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
                           style={styles.drawerConfirmBtn}
-                          onPress={() => handleAction('RESOLVED')}
+                          onPress={() => handleAction('RESOLVED', 'CATALOG_CORRECTED')}
                           disabled={isProcessing}
                         >
                           {isProcessing ? (
                             <ActivityIndicator size="small" color="#ffffff" />
                           ) : (
-                            <Text style={styles.drawerConfirmText}>Resolve & Update</Text>
+                            <Text style={styles.drawerConfirmText}>Resolve & Correct Catalog</Text>
                           )}
                         </TouchableOpacity>
                       </View>
+
                     </View>
                   )}
                 </View>

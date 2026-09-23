@@ -130,4 +130,22 @@ export class SettlementsRepository {
       items: (itemsData || []).map(this.mapRowToSettlementItem),
     };
   }
+
+  public static async listAll(limit: number = 100): Promise<MerchantSettlement[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('merchant_settlements')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[SettlementsRepository.listAll] Error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToSettlement);
+  }
 }
+

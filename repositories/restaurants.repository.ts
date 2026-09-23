@@ -83,6 +83,7 @@ export class RestaurantRepository {
     verifiedOnly?: boolean;
     publishedOnly?: boolean;
     search?: string;
+    includeArchived?: boolean;
   }): Promise<Restaurant[]> {
     if (!isSupabaseConfigured()) {
       return [];
@@ -106,6 +107,9 @@ export class RestaurantRepository {
       const q = filters.search.trim();
       query = query.or(`name.ilike.%${q}%,cuisine.ilike.%${q}%,neighborhood.ilike.%${q}%,specialty.ilike.%${q}%`);
     }
+    if (!filters?.includeArchived) {
+      query = query.is('archived_at', null);
+    }
 
     const { data, error } = await query.order('rating', { ascending: false });
     if (error) {
@@ -113,100 +117,48 @@ export class RestaurantRepository {
       throw new Error(`Failed to load restaurants: ${error.message}`);
     }
 
-    const deletedIds = await RestaurantRepository.getDeletedIds();
-
-    const FAKE_SAMPLE_IDENTIFIERS = [
-      'mama amina',
-      'bahari swahili',
-      'kibo mchemsho',
-      'kibo peak',
-    ];
-
-    const cleanRows = (data || []).filter((row: any) => {
-      const name = (row.name || '').toLowerCase();
-      const slug = (row.slug || '').toLowerCase();
-      const id = (row.id || '').toLowerCase();
-
-      // Check deleted storage
-      if (deletedIds.has(row.id) || deletedIds.has(id)) {
-        return false;
-      }
-
-      // Check deleted name/slug marker
-      if (name.startsWith('[deleted]') || slug.startsWith('deleted-')) {
-        return false;
-      }
-
-      return !FAKE_SAMPLE_IDENTIFIERS.some((fake) =>
-        name.includes(fake) || slug.includes(fake) || id.includes(fake)
-      );
-    });
-
-    return cleanRows.map(this.mapRowToRestaurant);
+    return (data || []).map(this.mapRowToRestaurant);
   }
 
   /**
-   * Delete restaurant by ID
+   * Archive restaurant authoritatively (non-destructive delisting)
    */
-  public static async deleteRestaurant(id: string): Promise<void> {
-    // 1. Immediately record in persistent deleted IDs
-    await RestaurantRepository.recordDeletedId(id);
-
+  public static async archiveRestaurant(id: string, reason: string = 'Archived by administrator'): Promise<void> {
     if (!isSupabaseConfigured()) return;
 
-    // 2. Try server-side security definer RPC first
-    const { error: rpcError } = await supabase.rpc('admin_delete_restaurant', {
+    const { data, error } = await supabase.rpc('archive_restaurant_secure', {
       p_restaurant_id: id,
+      p_archive_reason: reason.trim() || 'Administrative archiving',
     });
 
-    if (!rpcError) {
-      return;
+    if (error) {
+      console.error('RestaurantRepository.archiveRestaurant error:', error.message);
+      throw new Error(`Failed to archive restaurant: ${error.message}`);
     }
+  }
 
-    // 3. Direct deletion with child reference cleanup
-    try {
-      await Promise.allSettled([
-        supabase.from('tax_withholding_records').delete().eq('restaurant_id', id),
-        supabase.from('platform_commission_records').delete().eq('restaurant_id', id),
-        supabase.from('merchant_payouts').delete().eq('restaurant_id', id),
-        supabase.from('merchant_settlement_batches').delete().eq('restaurant_id', id),
-        supabase.from('financial_disputes').delete().eq('restaurant_id', id),
-        supabase.from('refund_requests').delete().eq('restaurant_id', id),
-        supabase.from('merchant_ledger_balances').delete().eq('restaurant_id', id),
-        supabase.from('merchant_payout_destinations').delete().eq('restaurant_id', id),
-        supabase.from('restaurant_applications').update({ restaurant_id: null }).eq('restaurant_id', id),
-        supabase.from('restaurant_branches').delete().eq('restaurant_id', id),
-        supabase.from('restaurant_memberships').delete().eq('restaurant_id', id),
-        supabase.from('menu_categories').delete().eq('restaurant_id', id),
-        supabase.from('menu_items').delete().eq('restaurant_id', id),
-        supabase.from('reviews').delete().eq('restaurant_id', id),
-      ]);
-    } catch {
-      // Continue to direct deletion
+  /**
+   * Unarchive / reinstate restaurant authoritatively
+   */
+  public static async unarchiveRestaurant(id: string, reason: string = 'Reinstated by administrator'): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+
+    const { data, error } = await supabase.rpc('unarchive_restaurant_secure', {
+      p_restaurant_id: id,
+      p_reason: reason.trim(),
+    });
+
+    if (error) {
+      console.error('RestaurantRepository.unarchiveRestaurant error:', error.message);
+      throw new Error(`Failed to reinstate restaurant: ${error.message}`);
     }
+  }
 
-    const { data: deletedRows, error: deleteErr } = await supabase
-      .from('restaurants')
-      .delete()
-      .eq('id', id)
-      .select();
-
-    // 4. Fallback: If direct delete was blocked by RLS (0 rows affected or error)
-    if (deleteErr || !deletedRows || deletedRows.length === 0) {
-      console.warn(`Direct delete did not remove row (${deleteErr?.message || '0 rows'}), marking as [DELETED].`);
-      await supabase
-        .from('restaurants')
-        .update({
-          name: `[DELETED] ${id}`,
-          slug: `deleted-${id}-${Date.now()}`,
-          is_open: false,
-          is_verified: false,
-          is_published: false,
-          verification_status: 'SUSPENDED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-    }
+  /**
+   * @deprecated Physical deletion is disabled for financial/order integrity. Calls archiveRestaurant.
+   */
+  public static async deleteRestaurant(id: string): Promise<void> {
+    await this.archiveRestaurant(id, 'Delisted via admin console');
   }
 
   /**

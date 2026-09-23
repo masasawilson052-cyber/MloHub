@@ -54,8 +54,10 @@ import {
   ReviewResponsesRepository,
   BranchOperationsRepository,
 } from '../../repositories';
+import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
 
 import {
+
   RestaurantPortalHeader,
   RealtimeStatus,
   RestaurantSidebar,
@@ -1085,6 +1087,9 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         activeBranchId={selectedBranchId}
         onSelectBranch={setSelectedBranchId}
       />
+
+      {/* Platform Announcements for Restaurants */}
+      <PlatformAnnouncementBanner audience="RESTAURANTS" language={language === 'sw' ? 'sw' : 'en'} />
 
       {/* Publication Warning Banner for Unpublished Restaurants */}
       {activeRestaurant.isPublished === false && (

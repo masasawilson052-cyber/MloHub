@@ -99,5 +99,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  try {
+    await admin.from('system_worker_heartbeats').upsert({
+      worker_name: 'process-notification-outbox',
+      last_heartbeat: new Date().toISOString(),
+      status: failed > 0 && processed === 0 ? 'DEGRADED' : 'HEALTHY',
+      details: { claimed: (events || []).length, processed, failed, lastRun: new Date().toISOString() },
+      error_count_last_hour: failed,
+      updated_at: new Date().toISOString(),
+    });
+  } catch {
+    // best-effort heartbeat
+  }
+
   return response(200, { success: true, workerId, claimed: (events || []).length, processed, failed });
 });
+

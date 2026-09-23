@@ -118,17 +118,21 @@ export class RefundsRepository {
     return (data || []).map(this.mapRowToRefundRequest);
   }
 
-  public static async getById(id: string): Promise<RefundRequest | null> {
-    if (!isSupabaseConfigured()) return null;
+  public static async listAll(limit: number = 100): Promise<RefundRequest[]> {
+    if (!isSupabaseConfigured()) return [];
 
     const { data, error } = await supabase
       .from('refund_requests')
       .select('*')
-      .eq('id', id)
-      .maybeSingle();
+      .order('requested_at', { ascending: false })
+      .limit(limit);
 
-    if (error || !data) return null;
+    if (error) {
+      console.error(`[RefundsRepository.listAll] Error:`, error.message);
+      return [];
+    }
 
-    return this.mapRowToRefundRequest(data);
+    return (data || []).map(this.mapRowToRefundRequest);
   }
 }
+

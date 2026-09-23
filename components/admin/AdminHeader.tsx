@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { UserRole } from '../../db/types';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { AdminSystemHealthService, PlatformHealthStatus } from '../../services/AdminSystemHealthService';
+import { useAdminPreview } from '../../context/AdminPreviewContext';
+import { useTheme } from '../../context/ThemeContext';
 
 interface AdminHeaderProps {
   userName?: string;
@@ -25,46 +28,114 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPER_ADMIN || userRole === 'SUPER_ADMIN';
   const isLive = isSupabaseConfigured();
+  const { enterPreview } = useAdminPreview();
+  const { colors, isDark } = useTheme();
+
+  const [health, setHealth] = useState<PlatformHealthStatus | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    AdminSystemHealthService.getHealth()
+      .then((h) => {
+        if (mounted) setHealth(h);
+      })
+      .catch((err) => {
+        console.warn('AdminHeader health check error:', err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [isRefreshing]);
+
+  const handleSwitchToCustomer = () => {
+    enterPreview();
+    if (onSwitchToCustomer) {
+      onSwitchToCustomer();
+    }
+  };
+
+  const getStatusBadge = () => {
+    if (!isLive) {
+      return {
+        label: 'OFFLINE BUS',
+        pillStyle: styles.mockPill,
+        dotStyle: styles.mockDot,
+        textStyle: styles.mockText,
+      };
+    }
+    if (!health) {
+      return {
+        label: 'CONNECTING...',
+        pillStyle: styles.devPill,
+        dotStyle: { backgroundColor: '#0284c7' },
+        textStyle: styles.devText,
+      };
+    }
+    if (health.status === 'HEALTHY') {
+      return {
+        label: 'BACKEND HEALTHY',
+        pillStyle: styles.livePill,
+        dotStyle: styles.liveDot,
+        textStyle: styles.liveText,
+      };
+    }
+    if (health.status === 'DEGRADED') {
+      return {
+        label: 'SYSTEM DEGRADED',
+        pillStyle: styles.stagingPill,
+        dotStyle: styles.mockDot,
+        textStyle: styles.stagingText,
+      };
+    }
+    return {
+      label: 'BACKEND DOWN',
+      pillStyle: styles.prodPill,
+      dotStyle: { backgroundColor: '#ef4444' },
+      textStyle: styles.prodText,
+    };
+  };
+
+  const badge = getStatusBadge();
 
   return (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <View style={styles.brandingRow}>
         <View style={styles.logoBadge}>
           <Ionicons name="shield-checkmark" size={24} color={Colors.primary} />
         </View>
         <View>
           <View style={styles.titleRow}>
-            <Text style={styles.portalTitle}>MloHub Governance</Text>
+            <Text style={[styles.portalTitle, { color: colors.text }]}>MloHub Governance</Text>
             <View style={[styles.envPill, runtimeConfig.isProduction ? styles.prodPill : runtimeConfig.isStaging ? styles.stagingPill : styles.devPill]}>
               <Text style={[styles.envText, runtimeConfig.isProduction ? styles.prodText : runtimeConfig.isStaging ? styles.stagingText : styles.devText]}>
                 {runtimeConfig.environmentLabel}
               </Text>
             </View>
-            <View style={[styles.realtimePill, isLive ? styles.livePill : styles.mockPill]}>
-              <View style={[styles.pulseDot, isLive ? styles.liveDot : styles.mockDot]} />
-              <Text style={[styles.realtimeText, isLive ? styles.liveText : styles.mockText]}>
-                {isLive ? 'SUPABASE LIVE' : 'OFFLINE BUS'}
+            <View style={[styles.realtimePill, badge.pillStyle]}>
+              <View style={[styles.pulseDot, badge.dotStyle]} />
+              <Text style={[styles.realtimeText, badge.textStyle]}>
+                {badge.label}
               </Text>
             </View>
           </View>
-          <Text style={styles.portalSubtitle}>Platform Operations & Control Center</Text>
+          <Text style={[styles.portalSubtitle, { color: colors.textSecondary }]}>Platform Operations & Control Center</Text>
         </View>
       </View>
 
       <View style={styles.controlsRow}>
-        <View style={styles.userBadge}>
+        <View style={[styles.userBadge, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}>
           <View style={[styles.roleTag, isSuperAdmin ? styles.superAdminTag : styles.adminTag]}>
             <Text style={[styles.roleTagText, isSuperAdmin ? styles.superAdminText : styles.adminText]}>
               {isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN'}
             </Text>
           </View>
-          <Text style={styles.userName} numberOfLines={1}>
+          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
             {userName}
           </Text>
         </View>
 
         <TouchableOpacity
-          style={styles.actionIconButton}
+          style={[styles.actionIconButton, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}
           onPress={onRefresh}
           disabled={isRefreshing}
           accessibilityLabel="Refresh portal data"
@@ -72,20 +143,18 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           {isRefreshing ? (
             <ActivityIndicator size="small" color={Colors.primary} />
           ) : (
-            <Ionicons name="refresh" size={20} color={Colors.textPrimary} />
+            <Ionicons name="refresh" size={20} color={colors.text} />
           )}
         </TouchableOpacity>
 
-        {onSwitchToCustomer && (
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={onSwitchToCustomer}
-            accessibilityLabel="Switch to customer app"
-          >
-            <Ionicons name="storefront-outline" size={16} color={Colors.textSecondary} />
-            <Text style={styles.switchButtonText}>Customer View</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.switchButton, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}
+          onPress={handleSwitchToCustomer}
+          accessibilityLabel="Preview customer app"
+        >
+          <Ionicons name="storefront-outline" size={16} color={Colors.primary} />
+          <Text style={[styles.switchButtonText, { color: colors.text }]}>Preview Customer App</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.logoutButton}
@@ -98,6 +167,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   headerContainer: {

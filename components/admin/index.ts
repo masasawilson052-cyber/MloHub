@@ -17,3 +17,5 @@ export * from './AuditLogViewer';
 export * from './PlatformAnalytics';
 export * from './SystemHealth';
 export * from './AdminSettings';
+export * from './RefundsDisputesCenter';
+export * from './SettlementsPayoutsCenter';

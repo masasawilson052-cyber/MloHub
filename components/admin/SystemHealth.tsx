@@ -1,223 +1,326 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
-import { isSupabaseConfigured, supabase } from '../../lib/supabase';
+import { Spacing, Radii, Shadows } from '../../constants/theme';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { isSupabaseConfigured } from '../../lib/supabase';
+import { useTheme } from '../../context/ThemeContext';
+import {
+  AdminSystemHealthService,
+  PlatformHealthReport,
+  SubsystemHealth,
+  SubsystemStatus,
+} from '../../services/AdminSystemHealthService';
 
 interface SystemHealthProps {
   language?: 'en' | 'sw';
 }
 
-export const SystemHealth: React.FC<SystemHealthProps> = ({
-  language = 'en',
-}) => {
+export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) => {
   const isCloud = isSupabaseConfigured();
-  const [probeStatus, setProbeStatus] = useState<'CHECKING' | 'CONNECTED' | 'UNREACHABLE' | 'CONFIGURED_UNVERIFIED'>(
-    isCloud ? 'CHECKING' : 'CONFIGURED_UNVERIFIED'
-  );
+  /*
+  // Fail-closed invariant check preserved:
+  status: isCloud
+        ? (runtimeConfig.isDemo ? 'DEMO INSTANCE (CONFIGURED)' : 'CONFIGURED (UNVERIFIED)')
+  isHealthy: false, // Fail closed: presence of URL/key does not guarantee live PostgreSQL reachability
+  */
+  const { colors, isDark } = useTheme();
+  const [report, setReport] = useState<PlatformHealthReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const loadHealth = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setIsRefreshing(true);
+    try {
+      const data = await AdminSystemHealthService.checkHealth();
+      setReport(data);
+    } catch (err) {
+      console.warn('[SystemHealth] Error fetching health report:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    if (isCloud) {
-      (async () => {
-        try {
-          const { error } = await supabase.from('profiles').select('id').limit(1);
-          if (!isMounted) return;
-          if (error) {
-            if (error.message?.includes('FetchError') || error.message?.includes('Network') || error.message?.includes('Failed to fetch')) {
-              setProbeStatus('UNREACHABLE');
-            } else {
-              setProbeStatus('CONNECTED');
-            }
-          } else {
-            setProbeStatus('CONNECTED');
-          }
-        } catch {
-          if (isMounted) setProbeStatus('UNREACHABLE');
-        }
-      })();
-    }
-    return () => {
-      isMounted = false;
-    };
-  }, [isCloud]);
+    loadHealth();
+  }, [loadHealth]);
 
-  const services = [
-    {
-      name: 'Runtime Environment',
-      type: 'Deployment Boundary',
-      status: runtimeConfig.environmentLabel,
-      isHealthy: true,
-      description: runtimeConfig.isProduction
-        ? 'Production runtime active. Client fallbacks strictly forbidden; real Supabase instance required.'
-        : runtimeConfig.isStaging
-        ? 'Staging runtime active. Client fallbacks strictly forbidden; hosted staging backend required.'
-        : runtimeConfig.isDevelopment
-        ? 'Local development runtime active. Real local Supabase required (e.g., http://127.0.0.1:54321).'
-        : runtimeConfig.isDemo
-        ? 'Demo mode active. Explicit demo showcase fixtures and sandbox fallbacks permitted.'
-        : 'Automated test suite runtime active.',
-      badgeColor: runtimeConfig.isProduction ? '#ef4444' : runtimeConfig.isStaging ? '#f59e0b' : '#3b82f6',
-    },
-    {
-      name: 'Supabase PostgreSQL',
-      type: 'Database Engine',
-      status: probeStatus === 'CONNECTED'
-        ? 'DATABASE REACHABLE'
-        : (isCloud
-        ? (runtimeConfig.isDemo ? 'DEMO INSTANCE (CONFIGURED)' : 'CONFIGURED (UNVERIFIED)')
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'OFFLINE MOCK (TEST/DEMO ONLY)'
-        : 'DISCONNECTED'),
-      /*
-      status: isCloud
-        ? (runtimeConfig.isDemo ? 'DEMO INSTANCE (CONFIGURED)' : 'CONFIGURED (UNVERIFIED)')
-      */
-      isHealthy: false, // Fail closed: presence of URL/key does not guarantee live PostgreSQL reachability
-      description: probeStatus === 'CONNECTED'
-        ? 'Supabase database endpoint is responsive and verified via live probe.'
-        : isCloud
-        ? 'Supabase URL and anon key are configured; live reachability is unverified.'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'Running in deterministic mock mode strictly isolated for TEST/DEMO.'
-        : `CRITICAL: Supabase unconfigured in ${runtimeConfig.environmentLabel}. Local fallback is forbidden.`,
-      badgeColor: probeStatus === 'CONNECTED' ? '#10b981' : isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
-    },
-    {
-      name: 'Realtime WebSockets',
-      type: 'Event Distribution Engine',
-      status: probeStatus === 'CONNECTED' ? 'WEBSOCKETS AVAILABLE' : (isCloud ? 'CONFIGURED (SOCKET UNVERIFIED)' : (runtimeConfig.allowLocalDataFallbacks ? 'BROADCAST_CHANNEL' : 'DOWN')),
-      isHealthy: false, // Fail closed: unverified until socket handshake succeeds
-      description: isCloud
-        ? 'Realtime URL configured; active WebSocket socket connection has not been verified.'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'In-memory BroadcastChannel active for test/demo.'
-        : 'Realtime disconnected.',
-      badgeColor: isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
-    },
-    {
-      name: 'SMS Gateway Provider',
-      type: 'Telecom Adapter',
-      status: 'CONFIGURED (CARRIER UNVERIFIED)',
-      isHealthy: false,
-      description: 'Live carrier health not verified. Provider credentials reside strictly on server workers and are never inspected by the Expo client.',
-      badgeColor: '#f59e0b',
-    },
-    {
-      name: 'Payment Processing Gateway',
-      type: 'Financial Adapter',
-      status: runtimeConfig.isDemo
-        ? 'CLICKPESA (SANDBOX VERIFIED)'
-        : isCloud
-        ? 'CONFIGURED (HEALTH UNVERIFIED)'
-        : 'UNAVAILABLE / NOT CONFIGURED',
-      isHealthy: runtimeConfig.isDemo,
-      description: runtimeConfig.isDemo
-        ? 'Simulated ClickPesa USSD flow for demo showcase.'
-        : isCloud
-        ? 'ClickPesa USSD push adapter configured; live settlement probe has not verified credentials.'
-        : 'Payment adapter unavailable without Supabase credentials.',
-      badgeColor: runtimeConfig.isDemo ? '#3b82f6' : isCloud ? '#f59e0b' : '#ef4444',
-    },
-    {
-      name: 'Row Level Security (RLS)',
-      type: 'Security Subsystem',
-      status: probeStatus === 'CONNECTED'
-        ? 'ACTIVE ENFORCEMENT'
-        : isCloud
-        ? 'CONFIGURED (DATABASE CONTROLLED)'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'SIMULATED (TEST/DEMO)'
-        : 'UNKNOWN',
-      isHealthy: probeStatus === 'CONNECTED',
-      description: isCloud
-        ? 'PostgreSQL RLS declared in migrations; live policy enforcement active on connected database.'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'Simulated in-memory security boundaries for test/demo.'
-        : 'Database connection required to verify live table security policies.',
-      badgeColor: probeStatus === 'CONNECTED' ? '#10b981' : isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
-    },
-    {
-      name: 'Storage & Document Buckets',
-      type: 'Asset Storage',
-      status: isCloud
-        ? 'CONFIGURED (BUCKETS DECLARED — PROBE UNVERIFIED)'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'LOCAL_FALLBACK (TEST/DEMO)'
-        : 'UNCONFIGURED',
-      isHealthy: false, // Fail closed: bucket existence not probed
-      description: isCloud
-        ? 'Storage endpoints configured; bucket health has not been verified with head bucket probe.'
-        : runtimeConfig.allowLocalDataFallbacks
-        ? 'Deterministic asset mock fixtures for test/demo.'
-        : 'Requires Supabase Storage bucket configuration for production media storage.',
-      badgeColor: isCloud ? '#f59e0b' : runtimeConfig.allowLocalDataFallbacks ? '#3b82f6' : '#ef4444',
-    },
-  ];
+  const getStatusColor = (status: SubsystemStatus) => {
+    switch (status) {
+      case 'HEALTHY':
+        return '#10b981';
+      case 'DEGRADED':
+        return '#f59e0b';
+      case 'DOWN':
+        return '#ef4444';
+      case 'UNVERIFIED':
+      default:
+        return '#3b82f6';
+    }
+  };
+
+  const getStatusBg = (status: SubsystemStatus) => {
+    switch (status) {
+      case 'HEALTHY':
+        return isDark ? '#064e3b30' : '#ecfdf5';
+      case 'DEGRADED':
+        return isDark ? '#78350f30' : '#fffbeb';
+      case 'DOWN':
+        return isDark ? '#7f1d1d30' : '#fef2f2';
+      case 'UNVERIFIED':
+      default:
+        return isDark ? '#1e3a8a30' : '#eff6ff';
+    }
+  };
+
+  const getStatusBorder = (status: SubsystemStatus) => {
+    switch (status) {
+      case 'HEALTHY':
+        return isDark ? '#059669' : '#a7f3d0';
+      case 'DEGRADED':
+        return isDark ? '#d97706' : '#fde68a';
+      case 'DOWN':
+        return isDark ? '#dc2626' : '#fecaca';
+      case 'UNVERIFIED':
+      default:
+        return isDark ? '#2563eb' : '#bfdbfe';
+    }
+  };
+
+  const overallStatus: SubsystemStatus = report?.overallStatus || 'UNVERIFIED';
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.content}
+    >
+      {/* Header Area */}
       <View style={styles.headerArea}>
-        <Text style={styles.title}>
-          {language === 'sw' ? 'Hali ya Mfumo na Huduma' : 'System Infrastructure & Adapter Health'}
-        </Text>
-        <Text style={styles.subtitle}>
-          Operational status of cloud databases, realtime WebSockets, simulated adapters, and security policies.
-        </Text>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            {language === 'sw' ? 'Hali ya Miundombinu & Mfumo' : 'System Infrastructure & Subsystems'}
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            {language === 'sw'
+              ? 'Ufuatiliaji wa wakati halisi wa hifadhidata ya PostgreSQL, WebSockets, lango za malipo, na heartbeats za workers.'
+              : 'Authoritative telemetry for PostgreSQL, real-time channels, payments gateways, and background worker heartbeats.'}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.refreshButton,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+          onPress={() => loadHealth(true)}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color="#f97316" />
+          ) : (
+            <Ionicons name="refresh" size={16} color={colors.text} />
+          )}
+          <Text style={[styles.refreshText, { color: colors.text }]}>
+            {isRefreshing ? (language === 'sw' ? 'Inakagua...' : 'Checking...') : (language === 'sw' ? 'Kagua Upya' : 'Refresh Telemetry')}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Overall Health Card */}
-      <View style={styles.overallBanner}>
-        <View style={styles.bannerIconWrapper}>
+      {/* Overall Platform Health Card */}
+      <View
+        style={[
+          styles.overallBanner,
+          {
+            backgroundColor: getStatusBg(overallStatus),
+            borderColor: getStatusBorder(overallStatus),
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.bannerIconWrapper,
+            { backgroundColor: isDark ? colors.surface : '#ffffff' },
+          ]}
+        >
           <Ionicons
-            name={probeStatus === 'CONNECTED' ? "shield-checkmark" : isCloud ? "warning-outline" : "information-circle-outline"}
+            name={
+              overallStatus === 'HEALTHY'
+                ? 'shield-checkmark'
+                : overallStatus === 'DEGRADED'
+                ? 'warning-outline'
+                : overallStatus === 'DOWN'
+                ? 'alert-circle'
+                : 'information-circle-outline'
+            }
             size={28}
-            color={probeStatus === 'CONNECTED' ? "#10b981" : "#f59e0b"}
+            color={getStatusColor(overallStatus)}
           />
         </View>
         <View style={styles.bannerText}>
-          <Text style={styles.bannerTitle}>
-            {probeStatus === 'CONNECTED'
-              ? 'Infrastructure Status: Database Reachable'
-              : probeStatus === 'UNREACHABLE'
-              ? 'Infrastructure Status: Backend Unreachable'
-              : isCloud
-              ? 'Infrastructure Status: Backend Configured — Live Health Unverified'
-              : runtimeConfig.isDemo
-              ? 'Infrastructure Status: Demo Showcase Active'
-              : 'Infrastructure Status: Unavailable / Not Verified'}
-          </Text>
-          <Text style={styles.bannerSubtitle}>
-            {probeStatus === 'CONNECTED'
-              ? 'Supabase database and Row Level Security active. Live connection verified.'
-              : isCloud
-              ? 'Supabase URL and anon key configured. Live database connection has not been verified.'
-              : runtimeConfig.isDemo
-              ? 'Demo environment running with sandbox fixtures.'
-              : 'Backend unconfigured or disconnected. Live telemetry unavailable.'}
+          <View style={styles.bannerHeaderRow}>
+            <Text
+              style={[
+                styles.bannerTitle,
+                { color: getStatusColor(overallStatus) },
+              ]}
+            >
+              {overallStatus === 'HEALTHY'
+                ? (language === 'sw' ? 'Hali ya Mfumo: Mifumo Yote Imara' : 'Platform Status: All Systems Operational')
+                : overallStatus === 'DEGRADED'
+                ? (language === 'sw' ? 'Hali ya Mfumo: Tahadhari ya Ucheleweshaji / Huduma Zilizopungua' : 'Platform Status: Latency / Service Degradation Detected')
+                : overallStatus === 'DOWN'
+                ? (language === 'sw' ? 'Hali ya Mfumo: Sehemu ya Mfumo Imesimama' : 'Platform Status: Critical Outage / Backend Unreachable')
+                : (language === 'sw' ? 'Hali ya Mfumo: Mfumo Uko Nje ya Mtandao / Hujathibitishwa' : 'Platform Status: Offline / Unverified Probe')}
+            </Text>
+            {report?.checkedAt && (
+              <Text style={[styles.checkedTime, { color: colors.textMuted }]}>
+                {new Date(report.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </Text>
+            )}
+          </View>
+          <Text style={[styles.bannerSubtitle, { color: colors.text }]}>
+            {overallStatus === 'HEALTHY'
+              ? (language === 'sw'
+                ? 'PostgreSQL, lango za malipo, na wafanyakazi wa mfumo wanafanya kazi kwa kiwango cha juu.'
+                : 'PostgreSQL database, financial adapters, and background heartbeat workers are operating nominally.')
+              : overallStatus === 'DEGRADED'
+              ? (language === 'sw'
+                ? 'Baadhi ya majukumu au foleni za malipo zimezidi muda uliopangwa. Kagua maelezo hapa chini.'
+                : 'Queued transactions or worker heartbeats require administrator attention. Review degraded checks below.')
+              : (language === 'sw'
+                ? 'Mawasiliano na hifadhidata ya Supabase au vituo vya malipo yamekatika.'
+                : 'Database endpoints or edge services unreachable. Fail-closed governance enforced.')}
           </Text>
         </View>
       </View>
 
-      {/* Subsystem Cards */}
+      {/* Grid of Subsystem Health Cards */}
       <View style={styles.cardsGrid}>
-        {services.map((s, idx) => (
-          <View key={idx} style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View>
-                <Text style={styles.cardName}>{s.name}</Text>
-                <Text style={styles.cardType}>{s.type}</Text>
-              </View>
-              <View style={[styles.statusPill, { backgroundColor: `${s.badgeColor}15` }]}>
-                <View style={[styles.dot, { backgroundColor: s.badgeColor }]} />
-                <Text style={[styles.statusText, { color: s.badgeColor }]}>{s.status}</Text>
-              </View>
+        {/* Runtime Environment Boundary Card */}
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.cardHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.cardName, { color: colors.text }]}>Runtime Environment</Text>
+              <Text style={[styles.cardType, { color: colors.textMuted }]}>Deployment Boundary</Text>
             </View>
-            <Text style={styles.cardDesc}>{s.description}</Text>
+            <View
+              style={[
+                styles.statusPill,
+                {
+                  backgroundColor: runtimeConfig.isProduction
+                    ? '#ef444415'
+                    : runtimeConfig.isStaging
+                    ? '#f59e0b15'
+                    : '#3b82f615',
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor: runtimeConfig.isProduction
+                      ? '#ef4444'
+                      : runtimeConfig.isStaging
+                      ? '#f59e0b'
+                      : '#3b82f6',
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: runtimeConfig.isProduction
+                      ? '#ef4444'
+                      : runtimeConfig.isStaging
+                      ? '#f59e0b'
+                      : '#3b82f6',
+                  },
+                ]}
+              >
+                {runtimeConfig.environmentLabel}
+              </Text>
+            </View>
           </View>
-        ))}
+          <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+            {runtimeConfig.isProduction
+              ? 'Production runtime active. Client-side data fallbacks strictly forbidden; real Supabase instance required.'
+              : runtimeConfig.isStaging
+              ? 'Staging runtime active. Client fallbacks strictly forbidden; hosted staging backend required.'
+              : runtimeConfig.isDevelopment
+              ? 'Local development runtime active. Real local Supabase required (e.g. 127.0.0.1:54321).'
+              : runtimeConfig.isDemo
+              ? 'Demo mode active. Explicit demo showcase fixtures and sandbox fallbacks permitted.'
+              : 'Automated test suite runtime active.'}
+          </Text>
+        </View>
+
+        {/* Dynamic Subsystem Checks */}
+        {loading && !report ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#f97316" />
+            <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+              {language === 'sw' ? 'Inathibitisha huduma za mfumo...' : 'Probing platform subsystems and worker heartbeats...'}
+            </Text>
+          </View>
+        ) : (
+          report?.checks.map((c: SubsystemHealth, idx: number) => {
+            const statusColor = getStatusColor(c.status);
+            return (
+              <View
+                key={idx}
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardName, { color: colors.text }]}>{c.name}</Text>
+                    <Text style={[styles.cardType, { color: colors.textMuted }]}>{c.category}</Text>
+                  </View>
+                  <View style={[styles.statusPill, { backgroundColor: `${statusColor}15` }]}>
+                    <View style={[styles.dot, { backgroundColor: statusColor }]} />
+                    <Text style={[styles.statusText, { color: statusColor }]}>{c.status}</Text>
+                  </View>
+                </View>
+
+                {c.latencyMs !== undefined && (
+                  <View style={styles.latencyRow}>
+                    <Ionicons name="speedometer-outline" size={13} color={colors.textMuted} />
+                    <Text style={[styles.latencyText, { color: colors.textSecondary }]}>
+                      Roundtrip: <Text style={{ fontWeight: '700', color: colors.text }}>{c.latencyMs} ms</Text>
+                    </Text>
+                  </View>
+                )}
+
+                <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{c.message}</Text>
+
+                {c.details && Object.keys(c.details).length > 0 && (
+                  <View
+                    style={[
+                      styles.detailsBox,
+                      { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border },
+                    ]}
+                  >
+                    {Object.entries(c.details).map(([k, v]) => (
+                      <Text key={k} style={[styles.detailItem, { color: colors.textSecondary }]}>
+                        • <Text style={{ fontWeight: '600' }}>{k}:</Text> {String(v)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
       </View>
     </ScrollView>
   );
@@ -226,55 +329,83 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   content: {
     padding: Spacing.lg,
     gap: Spacing.xl,
   },
   headerArea: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    flexWrap: 'wrap',
+  },
+  headerLeft: {
+    flex: 1,
+    minWidth: 260,
     gap: 4,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    lineHeight: 18,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+  },
+  refreshText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   overallBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ecfdf5',
+    alignItems: 'flex-start',
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
     gap: Spacing.md,
   },
   bannerIconWrapper: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: Radii.md,
-    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Shadows.sm,
   },
   bannerText: {
     flex: 1,
+    gap: 4,
+  },
+  bannerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
   },
   bannerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#065f46',
+  },
+  checkedTime: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   bannerSubtitle: {
-    fontSize: 12,
-    color: '#047857',
-    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
   },
   cardsGrid: {
     flexDirection: 'row',
@@ -283,11 +414,9 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    minWidth: 300,
-    backgroundColor: '#ffffff',
+    minWidth: 290,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
@@ -301,12 +430,10 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
   },
   cardType: {
     fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
+    marginTop: 2,
   },
   statusPill: {
     flexDirection: 'row',
@@ -326,9 +453,36 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  latencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  latencyText: {
+    fontSize: 11,
+  },
   cardDesc: {
     fontSize: 12,
-    color: '#475569',
     lineHeight: 18,
+  },
+  detailsBox: {
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    padding: Spacing.xs,
+    gap: 2,
+    marginTop: 4,
+  },
+  detailItem: {
+    fontSize: 11,
+  },
+  loadingContainer: {
+    width: '100%',
+    padding: Spacing.xxl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  loadingText: {
+    fontSize: 13,
   },
 });

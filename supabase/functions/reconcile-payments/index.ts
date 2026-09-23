@@ -126,6 +126,19 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[reconcile-payments] Run complete — confirmed: ${confirmed}, failed: ${failed}, skipped: ${skipped}, errors: ${errors}`);
 
+    try {
+      await adminClient.from('system_worker_heartbeats').upsert({
+        worker_name: 'reconcile-payments',
+        last_heartbeat: new Date().toISOString(),
+        status: errors > 0 ? 'DEGRADED' : 'HEALTHY',
+        details: { processed: stalePayments.length, confirmed, failed, skipped, errors },
+        error_count_last_hour: errors,
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // best-effort heartbeat
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

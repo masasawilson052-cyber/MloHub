@@ -169,4 +169,22 @@ export class DisputesRepository {
 
     return { success: true, evidenceId: data.id };
   }
+
+  public static async listAll(limit: number = 100): Promise<FinancialDispute[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('financial_disputes')
+      .select('*')
+      .order('opened_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[DisputesRepository.listAll] Error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToDispute);
+  }
 }
+

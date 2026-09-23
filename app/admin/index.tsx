@@ -38,6 +38,8 @@ import {
   NotificationRepository,
   DataReportsRepository,
   ProfileAdminRepository,
+  RefundsRepository,
+  SettlementsRepository,
 } from '../../repositories';
 import {
   RestaurantApplication,
@@ -47,8 +49,12 @@ import {
   DataReport,
   AuditLog,
   Notification,
+  RefundRequest,
+  MerchantSettlement,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { useTheme } from '../../context/ThemeContext';
+import { AdminSystemHealthService, PlatformHealthStatus } from '../../services/AdminSystemHealthService';
 
 import {
   AdminHeader,
@@ -70,6 +76,8 @@ import {
   PlatformAnalytics,
   SystemHealth,
   AdminSettings,
+  RefundsDisputesCenter,
+  SettlementsPayoutsCenter,
 } from '../../components/admin';
 
 export default function AdminPortalScreen() {
@@ -78,6 +86,7 @@ export default function AdminPortalScreen() {
   const { user, switchWorkspace, logout, loading: isAuthLoading } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 840;
+  const { colors, isDark } = useTheme();
 
   const activeUser = user;
   const isAuthorized = hasAdminAccess(activeUser);
@@ -97,6 +106,9 @@ export default function AdminPortalScreen() {
   const [paymentsList, setPaymentsList] = useState<PaymentTransactionEntity[]>([]);
   const [standardOrders, setStandardOrders] = useState<Order[]>([]);
   const [restaurants, setRestaurants] = useState<RestaurantEntity[]>([]);
+  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
+  const [settlements, setSettlements] = useState<MerchantSettlement[]>([]);
+  const [systemHealth, setSystemHealth] = useState<PlatformHealthStatus | null>(null);
 
   // Newly onboarded vendor credential display modal
   const [createdVendorModal, setCreatedVendorModal] = useState<{
@@ -112,7 +124,7 @@ export default function AdminPortalScreen() {
     setIsRefreshing(true);
     setLoadError(null);
     try {
-      const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests] = await Promise.all([
+      const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests, refundList, settleList, healthReport] = await Promise.all([
         ApplicationRepository.listAll().then((apps) => { setApplications(apps); return apps; }),
         DataReportsRepository.listAll(),
         AuditLogRepository.listAll(),
@@ -121,10 +133,16 @@ export default function AdminPortalScreen() {
         PaymentRepository.listAll(),
         OrderRepository.listAll(),
         RestaurantRepository.list(),
+        RefundsRepository.listAll().catch(() => [] as RefundRequest[]),
+        SettlementsRepository.listAll().catch(() => [] as MerchantSettlement[]),
+        AdminSystemHealthService.getHealth().catch(() => null),
       ]);
 
       setApplications(apps);
       setReports(dataReps);
+      setRefunds(refundList || []);
+      setSettlements(settleList || []);
+      setSystemHealth(healthReport);
 
       // Map audit logs to presentation entity
       setAuditLogs(
@@ -377,6 +395,18 @@ export default function AdminPortalScreen() {
     await loadPlatformData();
   };
 
+  // 5c. Archive Restaurant (non-destructive soft delete)
+  const handleArchiveRestaurant = async (restaurantId: string, reason: string) => {
+    await RestaurantRepository.archiveRestaurant(restaurantId, reason);
+    await loadPlatformData();
+  };
+
+  // 5d. Unarchive Restaurant
+  const handleUnarchiveRestaurant = async (restaurantId: string) => {
+    await RestaurantRepository.unarchiveRestaurant(restaurantId);
+    await loadPlatformData();
+  };
+
   // 6. Upgrade to Verified
   const handleUpgradeToVerified = async (
     restaurantId: string,
@@ -536,6 +566,31 @@ export default function AdminPortalScreen() {
     await loadPlatformData();
   };
 
+  // 12. Toggle User Profile Suspension
+  const handleToggleSuspendUser = async (
+    userId: string,
+    shouldSuspend: boolean,
+    reason?: string
+  ) => {
+    if (!activeUser?.id) {
+      throw new Error('Authenticated administrator is required.');
+    }
+    const { supabase: sbClient, isSupabaseConfigured } = await import('../../lib/supabase');
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase is not configured.');
+    }
+    const { error } = await sbClient.rpc('suspend_user_profile_secure', {
+      p_user_id: userId,
+      p_suspend: shouldSuspend,
+      p_reason: reason || (shouldSuspend ? 'Administrative suspension' : 'Reinstatement'),
+    });
+    if (error) {
+      console.error('handleToggleSuspendUser error:', error.message);
+      throw new Error(error.message);
+    }
+    await loadPlatformData();
+  };
+
   // --- STATS & ATTENTION CENTER COMPUTATION (AUTHORITATIVE) ---
 
   const pendingAppsCount = applications.filter((a) => a.status === 'PENDING').length;
@@ -543,6 +598,8 @@ export default function AdminPortalScreen() {
   const suspendedCount = restaurants.filter(
     (r) => r.isSuspended || r.verificationStatus === 'SUSPENDED'
   ).length;
+  const pendingRefundsCount = refunds.filter((r) => r.status === 'REQUESTED').length;
+  const pendingSettlementsCount = settlements.filter((s) => s.status === 'CALCULATED').length;
 
   // Stale spots: calculated only if menu verification data exists, otherwise truthful empty
   const staleSpots = restaurants.filter((r) => {
@@ -573,6 +630,28 @@ export default function AdminPortalScreen() {
       description: 'Review submitted TIN credentials, phone numbers, and approve for launch.',
       targetTab: 'APPLICATIONS',
       count: pendingAppsCount,
+    });
+  }
+
+  if (pendingRefundsCount > 0) {
+    attentionItems.push({
+      id: 'att-refunds',
+      severity: 'HIGH',
+      title: `${pendingRefundsCount} Refund Request(s) Pending`,
+      description: 'Customer or operator requested transaction reversals awaiting approval.',
+      targetTab: 'REFUNDS',
+      count: pendingRefundsCount,
+    });
+  }
+
+  if (pendingSettlementsCount > 0) {
+    attentionItems.push({
+      id: 'att-settlements',
+      severity: 'MEDIUM',
+      title: `${pendingSettlementsCount} Merchant Settlement(s) Pending`,
+      description: 'Calculated merchant settlement batches awaiting review and payout generation.',
+      targetTab: 'SETTLEMENTS',
+      count: pendingSettlementsCount,
     });
   }
 
@@ -630,7 +709,7 @@ export default function AdminPortalScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.screenContainer} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.screenContainer, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
       {/* 1. Header */}
       <AdminHeader
         userName={activeUser?.fullName || 'Operator'}
@@ -654,6 +733,10 @@ export default function AdminPortalScreen() {
           badges={{
             pendingApplications: pendingAppsCount,
             openReports: openReportsCount,
+            staleMenus: staleSpots.length,
+            criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
+            pendingRefunds: pendingRefundsCount,
+            pendingSettlements: pendingSettlementsCount,
           }}
         />
       )}
@@ -671,12 +754,15 @@ export default function AdminPortalScreen() {
               pendingApplications: pendingAppsCount,
               openReports: openReportsCount,
               staleMenus: staleSpots.length,
+              criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
+              pendingRefunds: pendingRefundsCount,
+              pendingSettlements: pendingSettlementsCount,
             }}
           />
         )}
 
         {/* Right Active Content Panel */}
-        <View style={styles.contentPanel}>
+        <View style={[styles.contentPanel, { backgroundColor: isDark ? colors.background : '#f8fafc' }]}>
           {loadError && (
             <View style={styles.errorBanner}>
               <Ionicons name="alert-circle" size={20} color="#b91c1c" />
@@ -703,6 +789,7 @@ export default function AdminPortalScreen() {
                 freshnessScorePct: freshnessPct,
               }}
               attentionItems={attentionItems}
+              systemHealth={systemHealth}
               onNavigateTab={setActiveTab}
               language={language}
             />
@@ -725,6 +812,8 @@ export default function AdminPortalScreen() {
               onReactivate={handleReactivateRestaurant}
               onUpgradeToVerified={handleUpgradeToVerified}
               onDelete={handleDeleteRestaurant}
+              onArchive={handleArchiveRestaurant}
+              onUnarchive={handleUnarchiveRestaurant}
               language={language}
             />
           )}
@@ -759,9 +848,22 @@ export default function AdminPortalScreen() {
             />
           )}
 
+          {activeTab === 'REFUNDS' && (
+            <RefundsDisputesCenter
+              language={language}
+            />
+          )}
+
+          {activeTab === 'SETTLEMENTS' && (
+            <SettlementsPayoutsCenter
+              language={language}
+            />
+          )}
+
           {activeTab === 'USERS' && (
             <UsersManager
               users={allUsers}
+              onToggleSuspendUser={handleToggleSuspendUser}
               language={language}
             />
           )}

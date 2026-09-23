@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { NotificationEntity } from '../../db/types';
+import {
+  PlatformAnnouncementsRepository,
+  PlatformAnnouncement,
+} from '../../repositories/platformAnnouncements.repository';
+import { useTheme } from '../../context/ThemeContext';
 
 interface NotificationsCenterProps {
   notifications: NotificationEntity[];
@@ -28,27 +33,75 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   onSendBroadcast,
   language = 'en',
 }) => {
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
+  const { colors, isDark } = useTheme();
+  const [titleEn, setTitleEn] = useState('');
+  const [titleSw, setTitleSw] = useState('');
+  const [bodyEn, setBodyEn] = useState('');
+  const [bodySw, setBodySw] = useState('');
+  const [ctaLabel, setCtaLabel] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
+  const [priority, setPriority] = useState<'NORMAL' | 'HIGH' | 'URGENT'>('NORMAL');
   const [audience, setAudience] = useState<'ALL' | 'CUSTOMERS' | 'RESTAURANTS'>('ALL');
   const [isSending, setIsSending] = useState(false);
+  const [announcements, setAnnouncements] = useState<PlatformAnnouncement[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const loadAnnouncementsHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const list = await PlatformAnnouncementsRepository.listAllForAdmin();
+      setAnnouncements(list);
+    } catch (e: any) {
+      console.warn('Failed to load announcements history:', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAnnouncementsHistory();
+  }, []);
 
   const handleSend = async () => {
-    if (!onSendBroadcast) return;
-    if (!title.trim() || !message.trim()) {
-      Alert.alert('Incomplete Form', 'Please provide both title and announcement body.');
+    if (!titleEn.trim() || !bodyEn.trim()) {
+      Alert.alert('Incomplete Form', 'Please provide at least the English title and message body.');
       return;
     }
     setIsSending(true);
     try {
-      await onSendBroadcast(title.trim(), message.trim(), audience);
-      setTitle('');
-      setMessage('');
-      Alert.alert('Success', 'Announcement broadcast dispatched successfully across the platform.');
+      await PlatformAnnouncementsRepository.publishAnnouncement({
+        titleEn: titleEn.trim(),
+        titleSw: titleSw.trim() || undefined,
+        bodyEn: bodyEn.trim(),
+        bodySw: bodySw.trim() || undefined,
+        targetAudience: audience,
+        priority,
+        ctaLabel: ctaLabel.trim() || undefined,
+        ctaUrl: ctaUrl.trim() || undefined,
+      });
+
+      setTitleEn('');
+      setTitleSw('');
+      setBodyEn('');
+      setBodySw('');
+      setCtaLabel('');
+      setCtaUrl('');
+      Alert.alert('Success', 'Announcement broadcast dispatched successfully across all clients.');
+      await loadAnnouncementsHistory();
     } catch (e: any) {
       Alert.alert('Broadcast Error', e.message || 'Failed to dispatch broadcast.');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleDeactivate = async (announcementId: string) => {
+    try {
+      await PlatformAnnouncementsRepository.deactivateAnnouncement(announcementId);
+      Alert.alert('Deactivated', 'Announcement has been deactivated.');
+      await loadAnnouncementsHistory();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to deactivate announcement.');
     }
   };
 
@@ -60,87 +113,189 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           {language === 'sw' ? 'Kituo cha Matangazo na Taarifa' : 'Platform Announcements & Broadcast Center'}
         </Text>
         <Text style={styles.subtitle}>
-          System-wide alerts, operational announcements, and targeted notifications.
+          System-wide alerts, operational banners, and targeted stakeholder broadcasts with real receipt tracking.
         </Text>
       </View>
 
-      {/* Broadcast Pilot Notice / Composer */}
-      {onSendBroadcast ? (
-        <View style={styles.composerCard}>
-          <Text style={styles.composerTitle}>Compose Platform Broadcast</Text>
+      {/* Broadcast Composer */}
+      <View style={styles.composerCard}>
+        <Text style={styles.composerTitle}>Compose Platform Announcement</Text>
 
-          <View style={styles.audienceRow}>
-            <Text style={styles.audienceLabel}>Target Audience:</Text>
-            <TouchableOpacity
-              style={[styles.audiencePill, audience === 'ALL' && styles.audiencePillActive]}
-              onPress={() => setAudience('ALL')}
-            >
-              <Text style={[styles.audiencePillText, audience === 'ALL' && styles.audiencePillTextActive]}>
-                All Users
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.audiencePill, audience === 'CUSTOMERS' && styles.audiencePillActive]}
-              onPress={() => setAudience('CUSTOMERS')}
-            >
-              <Text style={[styles.audiencePillText, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
-                Customers Only
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.audiencePill, audience === 'RESTAURANTS' && styles.audiencePillActive]}
-              onPress={() => setAudience('RESTAURANTS')}
-            >
-              <Text style={[styles.audiencePillText, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
-                Restaurant Owners
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TextInput
-            style={styles.inputTitle}
-            placeholder="Announcement Title"
-            value={title}
-            onChangeText={setTitle}
-          />
-
-          <TextInput
-            style={styles.inputBody}
-            placeholder="Write the announcement message here..."
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            numberOfLines={4}
-          />
-
-          <View style={styles.composerFooter}>
-            <TouchableOpacity
-              style={styles.sendBtn}
-              onPress={handleSend}
-              disabled={isSending}
-            >
-              {isSending ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Ionicons name="megaphone" size={16} color="#ffffff" />
-                  <Text style={styles.sendBtnText}>Dispatch Broadcast</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+        <View style={styles.audienceRow}>
+          <Text style={styles.audienceLabel}>Target Audience:</Text>
+          <TouchableOpacity
+            style={[styles.audiencePill, audience === 'ALL' && styles.audiencePillActive]}
+            onPress={() => setAudience('ALL')}
+          >
+            <Text style={[styles.audiencePillText, audience === 'ALL' && styles.audiencePillTextActive]}>
+              All Stakeholders
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.audiencePill, audience === 'CUSTOMERS' && styles.audiencePillActive]}
+            onPress={() => setAudience('CUSTOMERS')}
+          >
+            <Text style={[styles.audiencePillText, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
+              Customers Only
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.audiencePill, audience === 'RESTAURANTS' && styles.audiencePillActive]}
+            onPress={() => setAudience('RESTAURANTS')}
+          >
+            <Text style={[styles.audiencePillText, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
+              Restaurant Owners
+            </Text>
+          </TouchableOpacity>
         </View>
-      ) : (
-        <View style={styles.composerCard}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-            <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
-            <Text style={styles.composerTitle}>Platform Broadcast Notice</Text>
-          </View>
-          <Text style={[styles.subtitle, { marginTop: Spacing.xs }]}>
-            Platform broadcast composition is not enabled in this pilot console.
-          </Text>
+
+        <View style={styles.audienceRow}>
+          <Text style={styles.audienceLabel}>Priority:</Text>
+          <TouchableOpacity
+            style={[styles.audiencePill, priority === 'NORMAL' && styles.audiencePillActive]}
+            onPress={() => setPriority('NORMAL')}
+          >
+            <Text style={[styles.audiencePillText, priority === 'NORMAL' && styles.audiencePillTextActive]}>
+              Normal
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.audiencePill, priority === 'HIGH' && { backgroundColor: '#ea580c' }]}
+            onPress={() => setPriority('HIGH')}
+          >
+            <Text style={[styles.audiencePillText, priority === 'HIGH' && { color: '#ffffff' }]}>
+              High
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.audiencePill, priority === 'URGENT' && { backgroundColor: '#dc2626' }]}
+            onPress={() => setPriority('URGENT')}
+          >
+            <Text style={[styles.audiencePillText, priority === 'URGENT' && { color: '#ffffff' }]}>
+              Urgent (Red Alert)
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
+
+        <TextInput
+          style={styles.inputTitle}
+          placeholder="Announcement Title (English) *"
+          value={titleEn}
+          onChangeText={setTitleEn}
+        />
+
+        <TextInput
+          style={styles.inputTitle}
+          placeholder="Kichwa cha Tangazo (Kiswahili - Hiari)"
+          value={titleSw}
+          onChangeText={setTitleSw}
+        />
+
+        <TextInput
+          style={styles.inputBody}
+          placeholder="Announcement Message (English) *"
+          value={bodyEn}
+          onChangeText={setBodyEn}
+          multiline
+          numberOfLines={3}
+        />
+
+        <TextInput
+          style={styles.inputBody}
+          placeholder="Maelezo ya Tangazo (Kiswahili - Hiari)"
+          value={bodySw}
+          onChangeText={setBodySw}
+          multiline
+          numberOfLines={3}
+        />
+
+        <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+          <TextInput
+            style={[styles.inputTitle, { flex: 1 }]}
+            placeholder="CTA Button Label (Optional)"
+            value={ctaLabel}
+            onChangeText={setCtaLabel}
+          />
+          <TextInput
+            style={[styles.inputTitle, { flex: 2 }]}
+            placeholder="CTA Target URL (e.g. https://mlohub.co.tz/promo)"
+            value={ctaUrl}
+            onChangeText={setCtaUrl}
+          />
+        </View>
+
+        <View style={styles.composerFooter}>
+          <TouchableOpacity
+            style={styles.sendBtn}
+            onPress={handleSend}
+            disabled={isSending}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Ionicons name="megaphone" size={16} color="#ffffff" />
+                <Text style={styles.sendBtnText}>Publish Platform Announcement</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Active & Historical Announcements with Receipts */}
+      <View style={styles.historySection}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={styles.historyTitle}>Live Banners & Announcement History</Text>
+          <TouchableOpacity onPress={loadAnnouncementsHistory} disabled={isLoadingHistory}>
+            <Ionicons name="refresh" size={18} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {announcements.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No platform announcements published yet.</Text>
+          </View>
+        ) : (
+          <View style={styles.notificationsList}>
+            {announcements.map((a) => (
+              <View key={a.id} style={styles.notificationCard}>
+                <View style={styles.notifHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[styles.priorityBadge, a.priority === 'URGENT' ? styles.urgentBadge : a.priority === 'HIGH' ? styles.highBadge : styles.normalBadge]}>
+                      <Text style={styles.priorityBadgeText}>{a.priority}</Text>
+                    </View>
+                    <Text style={styles.notifTitle}>{a.titleEn}</Text>
+                  </View>
+                  <Text style={styles.notifDate}>
+                    {new Date(a.sentAt || a.createdAt).toLocaleDateString()}
+                  </Text>
+                </View>
+
+                {a.titleSw ? <Text style={styles.swSubtitle}>Swahili: {a.titleSw}</Text> : null}
+                <Text style={styles.notifMessage}>{a.bodyEn}</Text>
+
+                <View style={styles.announcementMetaRow}>
+                  <Text style={styles.announcementMetaText}>Audience: {a.targetAudience}</Text>
+                  <Text style={styles.receiptsText}>
+                    Acknowledged: {a.acknowledgedCount ?? 0} receipts
+                  </Text>
+
+                  {a.isActive ? (
+                    <TouchableOpacity
+                      style={styles.deactivateBtn}
+                      onPress={() => handleDeactivate(a.id)}
+                    >
+                      <Text style={styles.deactivateBtnText}>Deactivate</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.inactiveTag}>INACTIVE</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Recent Dispatches */}
       <View style={styles.historySection}>
@@ -323,4 +478,64 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 18,
   },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radii.sm,
+  },
+  urgentBadge: {
+    backgroundColor: '#fee2e2',
+  },
+  highBadge: {
+    backgroundColor: '#ffedd5',
+  },
+  normalBadge: {
+    backgroundColor: '#f1f5f9',
+  },
+  priorityBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  swSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginBottom: 2,
+  },
+  announcementMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 6,
+    marginTop: 4,
+  },
+  announcementMetaText: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  receiptsText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0284c7',
+  },
+  deactivateBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.sm,
+    backgroundColor: '#fee2e2',
+  },
+  deactivateBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b91c1c',
+  },
+  inactiveTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94a3b8',
+  },
 });
+

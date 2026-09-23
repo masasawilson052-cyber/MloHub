@@ -250,6 +250,8 @@ export interface Order {
   id: string;
   orderNumber: string;
   customerId: string;
+  customerName?: string;
+  customerPhone?: string;
   restaurantId: string;
   restaurantName?: string;
   branchId?: string;
@@ -259,6 +261,7 @@ export interface Order {
   subtotalTzs: number;
   serviceFeeTzs: number;
   deliveryFeeTzs: number;
+  platformCommissionTzs?: number;
   totalTzs: number;
   currency: string;
   fulfillmentType: 'Delivery' | 'Dine-In' | 'Takeaway';
@@ -266,6 +269,7 @@ export interface Order {
   specialInstructions?: string;
   estimatedPrepMinutes?: number;
   acceptedAt?: string;
+  confirmedAt?: string;
   readyAt?: string;
   completedAt?: string;
   cancelledAt?: string;
@@ -283,6 +287,7 @@ export interface OrderItem {
   menuItemId?: string;
   itemNameSnapshot: string;
   priceSnapshot: number;
+  priceTzsSnapshot?: number;
   quantity: number;
   subtotal: number;
   specialNotes?: string;
@@ -1017,6 +1022,7 @@ export interface MerchantPayout {
   provider: string;
   providerReference?: string;
   providerPayoutId?: string;
+  destinationPhone?: string;
   status: MerchantPayoutStatus;
   idempotencyKey: string;
   requestedAt: string;

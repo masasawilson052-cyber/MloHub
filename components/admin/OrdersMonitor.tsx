@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { Order, OrderStatus } from '../../types/domain';
 import { formatTzs } from '../../config/platformFees';
+import { useTheme } from '../../context/ThemeContext';
 
 interface OrdersMonitorProps {
   orders: Order[];
@@ -21,8 +23,19 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
   orders,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const isOrderException = (ord: Order) => {
+    if (ord.status === 'CANCELLED') return { isException: true, reason: 'Cancelled' };
+    if (ord.paymentStatus === 'FAILED') return { isException: true, reason: 'Payment Failed' };
+    const minutesSince = Math.floor((Date.now() - new Date(ord.createdAt).getTime()) / (1000 * 60));
+    if (ord.status === 'PENDING' && minutesSince > 20) return { isException: true, reason: `Pending > ${minutesSince}m` };
+    if (ord.status === 'PREPARING' && minutesSince > 90) return { isException: true, reason: `Prep > ${minutesSince}m` };
+    return { isException: false, reason: '' };
+  };
 
   const getItemSummary = (ord: Order): string => {
     if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
@@ -32,7 +45,11 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
   };
 
   const filtered = orders.filter((ord) => {
-    if (statusFilter !== 'ALL' && ord.status !== statusFilter) return false;
+    if (statusFilter === 'EXCEPTIONS') {
+      if (!isOrderException(ord).isException) return false;
+    } else if (statusFilter !== 'ALL' && ord.status !== statusFilter) {
+      return false;
+    }
 
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
@@ -49,6 +66,8 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       addr.includes(query)
     );
   });
+
+  const exceptionsCount = orders.filter((o) => isOrderException(o).isException).length;
 
   const getStatusBadge = (status: OrderStatus | string) => {
     switch (status) {
@@ -67,6 +86,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
     }
   };
 
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -84,7 +104,25 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       {/* Controls */}
       <View style={styles.controlsRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusPills}>
-          {(['ALL', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const).map((st) => (
+          <TouchableOpacity
+            style={[styles.pill, statusFilter === 'ALL' && styles.pillActive]}
+            onPress={() => setStatusFilter('ALL')}
+          >
+            <Text style={[styles.pillText, statusFilter === 'ALL' && styles.pillTextActive]}>
+              All ({orders.length})
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pill, statusFilter === 'EXCEPTIONS' && { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
+            onPress={() => setStatusFilter('EXCEPTIONS')}
+          >
+            <Text style={[styles.pillText, statusFilter === 'EXCEPTIONS' ? { color: '#b91c1c', fontWeight: '800' } : { color: '#dc2626' }]}>
+              Exceptions ({exceptionsCount})
+            </Text>
+          </TouchableOpacity>
+
+          {(['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const).map((st) => (
             <TouchableOpacity
               key={st}
               style={[styles.pill, statusFilter === st && styles.pillActive]}
@@ -120,10 +158,23 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
           <View style={styles.cardsGrid}>
             {filtered.map((ord) => {
               const statusBadge = getStatusBadge(ord.status);
+              const exc = isOrderException(ord);
               const totalItems = ord.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
 
               return (
-                <View key={ord.id} style={styles.card}>
+                <TouchableOpacity
+                  key={ord.id}
+                  style={[styles.card, exc.isException && styles.cardException]}
+                  onPress={() => setSelectedOrder(ord)}
+                  activeOpacity={0.8}
+                >
+                  {exc.isException && (
+                    <View style={styles.exceptionBanner}>
+                      <Ionicons name="warning" size={12} color="#b91c1c" />
+                      <Text style={styles.exceptionBannerText}>EXCEPTION: {exc.reason}</Text>
+                    </View>
+                  )}
+
                   <View style={styles.cardHeader}>
                     <View>
                       <Text style={styles.orderNumber}>#{ord.orderNumber || ord.id.slice(0, 8)}</Text>
@@ -177,15 +228,129 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
                       </Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
         )}
       </ScrollView>
+
+      {/* Order Detail Drawer Modal */}
+      {selectedOrder && (
+        <Modal visible transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.detailCard}>
+              <View style={styles.detailHeader}>
+                <View>
+                  <Text style={styles.detailTitle}>Order #{selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)}</Text>
+                  <Text style={styles.detailSubtitle}>{selectedOrder.restaurantName || 'Restaurant'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setSelectedOrder(null)} style={styles.closeBtn}>
+                  <Ionicons name="close" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.detailBody} showsVerticalScrollIndicator={false}>
+                {isOrderException(selectedOrder).isException && (
+                  <View style={[styles.exceptionBanner, { marginBottom: 12, paddingVertical: 8, paddingHorizontal: 12 }]}>
+                    <Ionicons name="alert-circle" size={16} color="#b91c1c" />
+                    <Text style={[styles.exceptionBannerText, { fontSize: 13 }]}>
+                      Operational Attention: {isOrderException(selectedOrder).reason}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionHeader}>Customer & Fulfillment</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Customer:</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.customerName || 'Customer on file'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Phone:</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.customerPhone || '-'}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Type:</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.fulfillmentType || 'Delivery'}</Text>
+                  </View>
+                  {selectedOrder.deliveryAddress && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Address:</Text>
+                      <Text style={styles.detailValue}>{selectedOrder.deliveryAddress}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionHeader}>Items Ordered</Text>
+                  {(selectedOrder.items || []).map((it, idx) => (
+                    <View key={idx} style={styles.itemRow}>
+                      <Text style={styles.itemQty}>{it.quantity || 1}x</Text>
+                      <Text style={styles.itemName}>{it.itemNameSnapshot || 'Dish'}</Text>
+                      <Text style={styles.itemPrice}>{formatTzs((it.priceTzsSnapshot || 0) * (it.quantity || 1))}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionHeader}>Financial Summary</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Subtotal:</Text>
+                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.subtotalTzs || 0)}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Delivery Fee:</Text>
+                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.deliveryFeeTzs || 0)}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Platform Commission:</Text>
+                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.platformCommissionTzs || 0)}</Text>
+                  </View>
+                  <View style={[styles.detailRow, { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6, marginTop: 4 }]}>
+                    <Text style={[styles.detailLabel, { fontWeight: '800', color: '#0f172a' }]}>Total:</Text>
+                    <Text style={[styles.detailValue, { fontWeight: '800', color: '#ea580c', fontSize: 15 }]}>
+                      {formatTzs(selectedOrder.totalTzs || 0)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Payment Status:</Text>
+                    <Text style={[styles.detailValue, { fontWeight: '700' }]}>{selectedOrder.paymentStatus || 'PENDING'}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.sectionHeader}>Lifecycle Timestamps</Text>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Created:</Text>
+                    <Text style={styles.detailValue}>{new Date(selectedOrder.createdAt).toLocaleString()}</Text>
+                  </View>
+                  {selectedOrder.confirmedAt && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Confirmed:</Text>
+                      <Text style={styles.detailValue}>{new Date(selectedOrder.confirmedAt).toLocaleString()}</Text>
+                    </View>
+                  )}
+                  {selectedOrder.completedAt && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Completed:</Text>
+                      <Text style={styles.detailValue}>{new Date(selectedOrder.completedAt).toLocaleString()}</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedOrder(null)}>
+                <Text style={styles.modalCloseBtnText}>Close Drawer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -394,4 +559,132 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#475569',
   },
+  cardException: {
+    borderColor: '#fca5a5',
+    backgroundColor: '#fffdfd',
+  },
+  exceptionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fee2e2',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: Radii.sm,
+  },
+  exceptionBannerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#b91c1c',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  detailCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: Radii.xl,
+    padding: Spacing.lg,
+    maxWidth: 540,
+    width: '100%',
+    maxHeight: '85%',
+    gap: Spacing.md,
+    ...Shadows.lg,
+  },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    paddingBottom: Spacing.sm,
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  detailSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  closeBtn: {
+    padding: 6,
+    borderRadius: Radii.full,
+    backgroundColor: '#f1f5f9',
+  },
+  detailBody: {
+    gap: Spacing.sm,
+  },
+  detailSection: {
+    backgroundColor: '#f8fafc',
+    borderRadius: Radii.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
+    maxWidth: '65%',
+    textAlign: 'right',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 3,
+  },
+  itemQty: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ea580c',
+    width: 24,
+  },
+  itemName: {
+    fontSize: 13,
+    color: '#0f172a',
+    flex: 1,
+  },
+  itemPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  modalCloseBtn: {
+    backgroundColor: '#0f172a',
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 });
+
