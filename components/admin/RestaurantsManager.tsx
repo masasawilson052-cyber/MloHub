@@ -38,7 +38,19 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeRestaurant, setActiveRestaurant] = useState<RestaurantEntity | null>(null);
 
-  const filtered = restaurants.filter((r) => {
+  const isDeletedOrSample = (r: RestaurantEntity) => {
+    const name = (r.name || '').toLowerCase();
+    const slug = (r.slug || '').toLowerCase();
+    const id = (r.id || '').toLowerCase();
+    if (name.startsWith('[deleted]') || slug.startsWith('deleted-')) return true;
+    return ['mama amina', 'bahari swahili', 'kibo mchemsho', 'kibo peak'].some(
+      (fake) => name.includes(fake) || slug.includes(fake) || id.includes(fake)
+    );
+  };
+
+  const visibleRestaurants = restaurants.filter((r) => !isDeletedOrSample(r));
+
+  const filtered = visibleRestaurants.filter((r) => {
     const isSuspended = !!r.isSuspended || r.verificationStatus === 'SUSPENDED';
     const isVerified = r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER';
 
@@ -57,12 +69,12 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
     );
   });
 
-  const allCount = restaurants.length;
-  const basicCount = restaurants.filter((r) => r.sellerTier === 'BASIC_SELLER' && !r.isSuspended).length;
-  const verifiedCount = restaurants.filter(
+  const allCount = visibleRestaurants.length;
+  const basicCount = visibleRestaurants.filter((r) => r.sellerTier === 'BASIC_SELLER' && !r.isSuspended).length;
+  const verifiedCount = visibleRestaurants.filter(
     (r) => (r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER') && !r.isSuspended
   ).length;
-  const suspendedCount = restaurants.filter((r) => r.isSuspended || r.verificationStatus === 'SUSPENDED').length;
+  const suspendedCount = visibleRestaurants.filter((r) => r.isSuspended || r.verificationStatus === 'SUSPENDED').length;
 
   return (
     <View style={styles.container}>

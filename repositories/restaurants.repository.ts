@@ -1,7 +1,31 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Restaurant } from '../types/domain';
 
 export class RestaurantRepository {
+  private static DELETED_IDS_STORAGE_KEY = 'mlohub_deleted_restaurant_ids';
+
+  public static async getDeletedIds(): Promise<Set<string>> {
+    try {
+      const raw = await AsyncStorage.getItem(RestaurantRepository.DELETED_IDS_STORAGE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch {}
+    return new Set();
+  }
+
+  public static async recordDeletedId(id: string): Promise<void> {
+    try {
+      const set = await RestaurantRepository.getDeletedIds();
+      set.add(id);
+      await AsyncStorage.setItem(
+        RestaurantRepository.DELETED_IDS_STORAGE_KEY,
+        JSON.stringify(Array.from(set))
+      );
+    } catch {}
+  }
   /**
    * Map database row (snake_case) to domain Restaurant model (camelCase)
    */
@@ -89,6 +113,8 @@ export class RestaurantRepository {
       throw new Error(`Failed to load restaurants: ${error.message}`);
     }
 
+    const deletedIds = await RestaurantRepository.getDeletedIds();
+
     const FAKE_SAMPLE_IDENTIFIERS = [
       'mama amina',
       'bahari swahili',
@@ -100,6 +126,17 @@ export class RestaurantRepository {
       const name = (row.name || '').toLowerCase();
       const slug = (row.slug || '').toLowerCase();
       const id = (row.id || '').toLowerCase();
+
+      // Check deleted storage
+      if (deletedIds.has(row.id) || deletedIds.has(id)) {
+        return false;
+      }
+
+      // Check deleted name/slug marker
+      if (name.startsWith('[deleted]') || slug.startsWith('deleted-')) {
+        return false;
+      }
+
       return !FAKE_SAMPLE_IDENTIFIERS.some((fake) =>
         name.includes(fake) || slug.includes(fake) || id.includes(fake)
       );
@@ -112,9 +149,12 @@ export class RestaurantRepository {
    * Delete restaurant by ID
    */
   public static async deleteRestaurant(id: string): Promise<void> {
+    // 1. Immediately record in persistent deleted IDs
+    await RestaurantRepository.recordDeletedId(id);
+
     if (!isSupabaseConfigured()) return;
 
-    // 1. Try server-side security definer RPC first
+    // 2. Try server-side security definer RPC first
     const { error: rpcError } = await supabase.rpc('admin_delete_restaurant', {
       p_restaurant_id: id,
     });
@@ -123,7 +163,7 @@ export class RestaurantRepository {
       return;
     }
 
-    // 2. Direct deletion with child reference cleanup
+    // 3. Direct deletion with child reference cleanup
     try {
       await Promise.allSettled([
         supabase.from('tax_withholding_records').delete().eq('restaurant_id', id),
@@ -145,17 +185,20 @@ export class RestaurantRepository {
       // Continue to direct deletion
     }
 
-    const { error } = await supabase
+    const { data: deletedRows, error: deleteErr } = await supabase
       .from('restaurants')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select();
 
-    if (error) {
-      console.warn(`Direct delete failed (${error.message}), applying full deactivation fallback.`);
-      // 3. Fallback: Full deactivation so it never appears anywhere
+    // 4. Fallback: If direct delete was blocked by RLS (0 rows affected or error)
+    if (deleteErr || !deletedRows || deletedRows.length === 0) {
+      console.warn(`Direct delete did not remove row (${deleteErr?.message || '0 rows'}), marking as [DELETED].`);
       await supabase
         .from('restaurants')
         .update({
+          name: `[DELETED] ${id}`,
+          slug: `deleted-${id}-${Date.now()}`,
           is_open: false,
           is_verified: false,
           is_published: false,

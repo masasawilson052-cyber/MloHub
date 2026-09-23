@@ -369,7 +369,11 @@ export default function AdminPortalScreen() {
 
   // 5b. Delete Restaurant
   const handleDeleteRestaurant = async (restaurantId: string) => {
+    // 1. Instantly remove from local React state (0ms UI latency)
+    setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
+    // 2. Perform authoritative backend deletion & persistence
     await RestaurantRepository.deleteRestaurant(restaurantId);
+    // 3. Reload authoritative data
     await loadPlatformData();
   };
 
