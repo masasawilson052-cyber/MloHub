@@ -74,7 +74,7 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM public.profiles
         WHERE id = v_actor
-          AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+          AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
     ) INTO v_is_admin;
 
     IF v_actor_role IS NULL AND NOT v_is_admin THEN
@@ -201,7 +201,7 @@ $$;
 REVOKE ALL ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.invite_restaurant_member_secure IS
+COMMENT ON FUNCTION public.invite_restaurant_member_secure(VARCHAR, TEXT, VARCHAR, TEXT) IS
 'Staff invitation RPC. Defined in 00008 to guarantee the STAFF_INVITATION enum '
 'value added in 00007 is fully committed before use. Notification queued via outbox.';
 
@@ -290,7 +290,7 @@ $$;
 REVOKE ALL ON FUNCTION public.accept_restaurant_invitation_secure(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_restaurant_invitation_secure(TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.accept_restaurant_invitation_secure IS
+COMMENT ON FUNCTION public.accept_restaurant_invitation_secure(TEXT) IS
 'Consumes a hashed, single-use, expiring invitation only for the matching authenticated email.';
 
 
@@ -527,7 +527,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 REVOKE ALL ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) TO authenticated;
 
-COMMENT ON FUNCTION public.create_order_secure IS
+COMMENT ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) IS
 'Authoritative order creation. Delivery orders REQUIRE an explicit p_delivery_zone_id '
 '(DELIVERY_ZONE_REQUIRED raised if omitted). Zone validated against branch. '
 'Pickup/Dine-In: no zone validation, delivery_fee = 0.';
@@ -617,7 +617,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.request_refund_restaurant_cancel_secure(VARCHAR, UUID, TEXT) FROM PUBLIC, anon, authenticated, service_role;
 
-COMMENT ON FUNCTION public.request_refund_restaurant_cancel_secure IS
+COMMENT ON FUNCTION public.request_refund_restaurant_cancel_secure(VARCHAR, UUID, TEXT) IS
 'Single idempotent refund authority for restaurant cancellation of paid orders.';
 
 
@@ -669,7 +669,7 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = v_actor
-              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
         ) THEN
             RAISE EXCEPTION '403 Forbidden: You do not have authority over restaurant %.', v_order.restaurant_id;
         END IF;
@@ -764,7 +764,7 @@ $$;
 REVOKE ALL ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.transition_restaurant_order IS
+COMMENT ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) IS
 'Authoritative order state machine (v2 from migration 00008). '
 'PAYMENT GATE: PENDING to ACCEPTED requires captured payment. '
 'CANCELLATION REFUND GATE: cancelling a PAID order atomically creates a '
@@ -802,7 +802,7 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM public.profiles
         WHERE id = p_admin_user_id
-          AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+          AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
     ) THEN
         RAISE EXCEPTION '403 Forbidden: Only platform admins may use request_refund_admin_secure.';
     END IF;
@@ -899,7 +899,7 @@ REVOKE ALL ON FUNCTION public.request_refund_admin_secure(VARCHAR, BIGINT, VARCH
 -- Only service_role may call this -- edge function uses service role key
 GRANT EXECUTE ON FUNCTION public.request_refund_admin_secure(VARCHAR, BIGINT, VARCHAR, TEXT, TEXT, UUID, JSONB) TO service_role;
 
-COMMENT ON FUNCTION public.request_refund_admin_secure IS
+COMMENT ON FUNCTION public.request_refund_admin_secure(VARCHAR, BIGINT, VARCHAR, TEXT, TEXT, UUID, JSONB) IS
 'Admin-only refund authority for use by the request-refund Edge Function. '
 'Accepts explicit admin_user_id (auth.uid() unavailable in service_role context). '
 'Validates admin role, cumulative refund limits, creates idempotent refund_requests record.';
@@ -932,7 +932,7 @@ $$;
 REVOKE ALL ON FUNCTION public.get_restaurant_menu_counts() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_restaurant_menu_counts() TO authenticated;
 
-COMMENT ON FUNCTION public.get_restaurant_menu_counts IS
+COMMENT ON FUNCTION public.get_restaurant_menu_counts() IS
 'Batch query: active dish count and last menu update per restaurant. '
 'Used by admin VerificationCenter for authoritative (not client-hydrated) menu metrics.';
 
@@ -985,6 +985,7 @@ $$;
 REVOKE ALL ON FUNCTION public.track_search_event(TEXT, TEXT, TEXT, INTEGER, TEXT, JSONB) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.track_search_event(TEXT, TEXT, TEXT, INTEGER, TEXT, JSONB) TO authenticated, anon;
 
-COMMENT ON FUNCTION public.track_search_event IS
+COMMENT ON FUNCTION public.track_search_event(TEXT, TEXT, TEXT, INTEGER, TEXT, JSONB) IS
 'Records customer search events. Writes zero_result_events when result_count=0. '
 'Idempotent (ON CONFLICT DO NOTHING). Privacy-safe: no PII, only session_id.';
+

@@ -54,6 +54,8 @@ export interface Restaurant {
   reviews?: number;
   menu?: MenuItem[];
   branches?: RestaurantBranch[];
+  archivedAt?: string | null;
+  archivedReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -69,6 +69,8 @@ export class RestaurantRepository {
       lat: row.lat ? Number(row.lat) : undefined,
       lng: row.lng ? Number(row.lng) : undefined,
       supportsOrderAhead: row.supports_order_ahead ?? false,
+      archivedAt: row.archived_at ?? null,
+      archivedReason: row.archived_reason ?? null,
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     };
@@ -111,7 +113,32 @@ export class RestaurantRepository {
       query = query.is('archived_at', null);
     }
 
-    const { data, error } = await query.order('rating', { ascending: false });
+    let { data, error } = await query.order('rating', { ascending: false });
+
+    // Graceful backward-compatibility fallback if database hasn't executed migration 20260923000003 yet
+    if (error && (error.code === '42703' || error.message?.includes('archived_at'))) {
+      let fallbackQuery = supabase.from('restaurants').select('*');
+      if (filters?.publishedOnly === true) {
+        fallbackQuery = fallbackQuery.eq('is_published', true);
+      }
+      if (filters?.verifiedOnly) {
+        fallbackQuery = fallbackQuery.eq('is_verified', true);
+      }
+      if (filters?.neighborhood && filters.neighborhood !== 'All') {
+        fallbackQuery = fallbackQuery.ilike('neighborhood', `%${filters.neighborhood}%`);
+      }
+      if (filters?.cuisine && filters.cuisine !== 'All') {
+        fallbackQuery = fallbackQuery.ilike('cuisine', `%${filters.cuisine}%`);
+      }
+      if (filters?.search && filters.search.trim()) {
+        const q = filters.search.trim();
+        fallbackQuery = fallbackQuery.or(`name.ilike.%${q}%,cuisine.ilike.%${q}%,neighborhood.ilike.%${q}%,specialty.ilike.%${q}%`);
+      }
+      const fallbackRes = await fallbackQuery.order('rating', { ascending: false });
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    }
+
     if (error) {
       console.error('RestaurantRepository.list error:', error.message);
       throw new Error(`Failed to load restaurants: ${error.message}`);

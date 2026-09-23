@@ -67,7 +67,7 @@ BEGIN
     SELECT EXISTS (
         SELECT 1 FROM public.profiles
         WHERE id = v_actor
-          AND (role IN ('ADMIN', 'SUPER_ADMIN') OR roles && ARRAY['ADMIN', 'SUPER_ADMIN'])
+          AND (role IN ('ADMIN', 'SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
     ) INTO v_is_admin;
 
     -- 4. Check Restaurant Membership Role
@@ -203,7 +203,7 @@ $$;
 REVOKE ALL ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.transition_restaurant_order IS
+COMMENT ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) IS
 'Role-aware order state machine (migration 00010). '
 'Enforces: ADMIN/OWNER/MANAGER full lifecycle authority; '
 'CHEF kitchen-only transitions (ACCEPTED->PREPARING, PREPARING->READY); '
@@ -257,6 +257,7 @@ $$;
 REVOKE ALL ON FUNCTION public.claim_outbox_events_secure(VARCHAR, INTEGER, INTEGER) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_outbox_events_secure(VARCHAR, INTEGER, INTEGER) TO service_role;
 
-COMMENT ON FUNCTION public.claim_outbox_events_secure IS
+COMMENT ON FUNCTION public.claim_outbox_events_secure(VARCHAR, INTEGER, INTEGER) IS
 'Claims outbox events for background workers including retryable FAILED events '
 'whose next_retry_at has been reached (migration 00010). Service-role only.';
+

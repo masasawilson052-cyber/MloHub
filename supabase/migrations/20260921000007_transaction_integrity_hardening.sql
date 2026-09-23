@@ -6,7 +6,7 @@
 --
 -- 1. PAYMENT GATE on order acceptance:
 --    `transition_restaurant_order` now verifies that a SUCCESS payment exists
---    before allowing PENDING → ACCEPTED transition.
+--    before allowing PENDING â†’ ACCEPTED transition.
 --
 -- 2. DELIVERY ZONE parameter:
 --    `create_order_secure` adds optional `p_delivery_zone_id UUID` parameter.
@@ -16,20 +16,20 @@
 -- 3. PLATFORM ANNOUNCEMENTS table for admin broadcast composer.
 --
 -- 4. STAFF INVITATION RPC:
---    `invite_restaurant_member_secure` — creates a pending invitation row in
+--    `invite_restaurant_member_secure` â€” creates a pending invitation row in
 --    `restaurant_members` with is_active=false and sends an OTP-style token.
 --    Full email/SMS delivery requires external SMTP/SMS credentials.
 --
 -- ==============================================================================
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 0. Extend notification_event_type_enum with STAFF_INVITATION value
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ALTER TYPE public.notification_event_type_enum ADD VALUE IF NOT EXISTS 'STAFF_INVITATION';
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 1. Replace transition_restaurant_order with payment-gated version
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.transition_restaurant_order(
     p_order_id          VARCHAR(80),
     p_next_status       VARCHAR(30),
@@ -48,12 +48,12 @@ DECLARE
     v_restaurant RECORD;
     v_paid_payment RECORD;
 BEGIN
-    -- ── 1. Actor must be authenticated ────────────────────────────────────────
+    -- â”€â”€ 1. Actor must be authenticated â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     IF v_actor IS NULL THEN
         RAISE EXCEPTION '401 Unauthorized: Authentication required to transition order status.';
     END IF;
 
-    -- ── 2. Fetch & lock order row ─────────────────────────────────────────────
+    -- â”€â”€ 2. Fetch & lock order row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     SELECT o.*, r.owner_user_id
     INTO v_order
     FROM public.orders o
@@ -65,7 +65,7 @@ BEGIN
         RAISE EXCEPTION '404 Not Found: Order % does not exist.', p_order_id;
     END IF;
 
-    -- ── 3. Restaurant staff / owner authority check ───────────────────────────
+    -- â”€â”€ 3. Restaurant staff / owner authority check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     IF NOT EXISTS (
         SELECT 1 FROM public.restaurant_members rm
         WHERE rm.restaurant_id = v_order.restaurant_id
@@ -76,13 +76,13 @@ BEGIN
         -- Also allow admin
         IF NOT EXISTS (
             SELECT 1 FROM public.profiles
-            WHERE id = v_actor AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+            WHERE id = v_actor AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
         ) THEN
             RAISE EXCEPTION '403 Forbidden: You do not have authority over restaurant %.', v_order.restaurant_id;
         END IF;
     END IF;
 
-    -- ── 4. Terminal state guard ────────────────────────────────────────────────
+    -- â”€â”€ 4. Terminal state guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     IF v_order.status = 'COMPLETED' THEN
         RAISE EXCEPTION '400 Bad Request: Order % is already COMPLETED and cannot be transitioned further.', p_order_id;
     END IF;
@@ -91,7 +91,7 @@ BEGIN
         RAISE EXCEPTION '400 Bad Request: Order % is already CANCELLED and cannot be transitioned further.', p_order_id;
     END IF;
 
-    -- ── 5. Legal transition table ─────────────────────────────────────────────
+    -- â”€â”€ 5. Legal transition table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     IF v_order.status = 'PENDING' AND p_next_status NOT IN ('ACCEPTED', 'CANCELLED') THEN
         RAISE EXCEPTION '400 Bad Request: Invalid order transition from PENDING to %.', p_next_status;
     END IF;
@@ -108,7 +108,7 @@ BEGIN
         RAISE EXCEPTION '400 Bad Request: Invalid order transition from READY to %.', p_next_status;
     END IF;
 
-    -- ── 6. PAYMENT GATE: PENDING → ACCEPTED requires a captured payment ────────
+    -- â”€â”€ 6. PAYMENT GATE: PENDING â†’ ACCEPTED requires a captured payment â”€â”€â”€â”€â”€â”€â”€â”€
     IF v_order.status = 'PENDING' AND p_next_status = 'ACCEPTED' THEN
         SELECT id INTO v_paid_payment
         FROM public.payments
@@ -117,12 +117,12 @@ BEGIN
         LIMIT 1;
 
         IF NOT FOUND THEN
-            RAISE EXCEPTION '402 Payment Required: Order % cannot be accepted — no captured payment found. '
+            RAISE EXCEPTION '402 Payment Required: Order % cannot be accepted â€” no captured payment found. '
                             'Verify payment status before accepting.', p_order_id;
         END IF;
     END IF;
 
-    -- ── 7. Execute authoritative transition ───────────────────────────────────
+    -- â”€â”€ 7. Execute authoritative transition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     UPDATE public.orders
     SET status = p_next_status,
         estimated_prep_minutes = COALESCE(p_estimated_prep_minutes, estimated_prep_minutes),
@@ -138,7 +138,7 @@ BEGIN
         updated_at = NOW()
     WHERE id = p_order_id;
 
-    -- ── 8. Audit log ──────────────────────────────────────────────────────────
+    -- â”€â”€ 8. Audit log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     INSERT INTO public.audit_logs (
         admin_user_id, action, target_type, target_id, details
     ) VALUES (
@@ -166,15 +166,15 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) TO authenticated;
 
-COMMENT ON FUNCTION public.transition_restaurant_order IS
+COMMENT ON FUNCTION public.transition_restaurant_order(VARCHAR, VARCHAR, UUID, INTEGER, TEXT) IS
 'Authoritative server-side order state machine. Requires a captured payment before '
 'accepting a PENDING order (PAYMENT GATE added 2026-09-21). All transitions are '
 'actor-verified and audit-logged.';
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 2. Replace create_order_secure with delivery-zone-aware version
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE OR REPLACE FUNCTION public.create_order_secure(
     p_branch_id             UUID,
     p_items                 JSONB,
@@ -250,7 +250,7 @@ BEGIN
     -- 4. Delivery Zone & Minimum Order Validation (FIXED: explicit zone preferred)
     IF p_fulfillment_type = 'Delivery' THEN
         IF p_delivery_zone_id IS NOT NULL THEN
-            -- Customer explicitly selected a zone — use it directly
+            -- Customer explicitly selected a zone â€” use it directly
             SELECT * INTO v_zone
             FROM public.branch_delivery_zones
             WHERE id = p_delivery_zone_id
@@ -396,16 +396,16 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 GRANT EXECUTE ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) TO authenticated;
 
-COMMENT ON FUNCTION public.create_order_secure IS
+COMMENT ON FUNCTION public.create_order_secure(UUID, JSONB, VARCHAR, TEXT, TEXT, UUID) IS
 'Server-authoritative order creation. Accepts optional p_delivery_zone_id to select '
 'the precise delivery zone and fee. Falls back to lowest-fee active zone when not '
 'supplied (backward-compatible). Payment gate added on transition_restaurant_order '
 'prevents acceptance without a captured payment.';
 
 
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- 3. Platform Announcements table for admin broadcast composer
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 CREATE TABLE IF NOT EXISTS public.platform_announcements (
     id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     title_en        TEXT         NOT NULL CHECK (char_length(title_en) BETWEEN 1 AND 200),
@@ -440,14 +440,14 @@ CREATE POLICY announcements_admin_all ON public.platform_announcements
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()
-              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
         )
     )
     WITH CHECK (
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()
-              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN','SUPER_ADMIN'])
+              AND (role IN ('ADMIN','SUPER_ADMIN') OR roles && ARRAY['ADMIN'::public.user_role_enum, 'SUPER_ADMIN'::public.user_role_enum])
         )
     );
 
@@ -468,9 +468,9 @@ COMMENT ON TABLE public.platform_announcements IS
 'Visible to authenticated users after sent_at is populated by the dispatcher.';
 
 
--- ──────────────────────────────────────────────────────────────────────────────
--- 4. Staff invitation RPC — MOVED TO 20260921000008_gap_closure.sql
--- ──────────────────────────────────────────────────────────────────────────────
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- 4. Staff invitation RPC â€” MOVED TO 20260921000008_gap_closure.sql
+-- â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 -- The invite_restaurant_member_secure function references STAFF_INVITATION
 -- which was added to notification_event_type_enum in section 0 of this migration.
 -- To guarantee the enum value is fully committed before it is referenced in the
@@ -479,6 +479,7 @@ COMMENT ON TABLE public.platform_announcements IS
 --
 -- This file intentionally does NOT define invite_restaurant_member_secure.
 -- See 20260921000008_gap_closure.sql.
+
 
 
 
