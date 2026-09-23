@@ -22,6 +22,7 @@ interface RestaurantsManagerProps {
     restaurantId: string,
     docs: { tinNumber: string; businessLicenseNumber: string }
   ) => Promise<void>;
+  onDelete?: (restaurantId: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -30,6 +31,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   onSuspend,
   onReactivate,
   onUpgradeToVerified,
+  onDelete,
   language = 'en',
 }) => {
   const [filter, setFilter] = useState<RestaurantFilter>('ALL');
@@ -220,6 +222,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         onSuspend={onSuspend}
         onReactivate={onReactivate}
         onUpgradeToVerified={onUpgradeToVerified}
+        onDelete={onDelete}
         language={language}
       />
     </View>

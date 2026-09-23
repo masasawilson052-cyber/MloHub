@@ -89,7 +89,40 @@ export class RestaurantRepository {
       throw new Error(`Failed to load restaurants: ${error.message}`);
     }
 
-    return (data || []).map(this.mapRowToRestaurant);
+    const FAKE_SAMPLE_IDENTIFIERS = [
+      'mama amina',
+      'bahari swahili',
+      'kibo mchemsho',
+      'kibo peak',
+    ];
+
+    const cleanRows = (data || []).filter((row: any) => {
+      const name = (row.name || '').toLowerCase();
+      const slug = (row.slug || '').toLowerCase();
+      const id = (row.id || '').toLowerCase();
+      return !FAKE_SAMPLE_IDENTIFIERS.some((fake) =>
+        name.includes(fake) || slug.includes(fake) || id.includes(fake)
+      );
+    });
+
+    return cleanRows.map(this.mapRowToRestaurant);
+  }
+
+  /**
+   * Delete restaurant by ID
+   */
+  public static async deleteRestaurant(id: string): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+
+    const { error } = await supabase
+      .from('restaurants')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error(`RestaurantRepository.deleteRestaurant(${id}) error:`, error.message);
+      throw new Error(`Failed to delete restaurant: ${error.message}`);
+    }
   }
 
   /**

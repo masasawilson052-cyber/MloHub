@@ -24,6 +24,7 @@ interface RestaurantDetailAdminProps {
     restaurantId: string,
     docs: { tinNumber: string; businessLicenseNumber: string }
   ) => Promise<void>;
+  onDelete?: (restaurantId: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -34,6 +35,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   onSuspend,
   onReactivate,
   onUpgradeToVerified,
+  onDelete,
   language = 'en',
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -301,6 +303,40 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   <Text style={styles.suspendBtnText}>Suspend Restaurant</Text>
                 </TouchableOpacity>
               )}
+
+              {onDelete && (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => {
+                    Alert.alert(
+                      'Delete Restaurant',
+                      `Are you sure you want to permanently delete "${restaurant.name}"? This action cannot be undone.`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: async () => {
+                            setIsProcessing(true);
+                            try {
+                              await onDelete(restaurant.id);
+                              onClose();
+                            } catch (err: any) {
+                              Alert.alert('Error', err.message || 'Failed to delete restaurant.');
+                            } finally {
+                              setIsProcessing(false);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#dc2626" />
+                  <Text style={styles.deleteBtnText}>Delete</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -549,5 +585,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderRadius: Radii.md,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+  },
+  deleteBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#dc2626',
   },
 });
