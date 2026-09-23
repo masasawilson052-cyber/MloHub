@@ -146,9 +146,9 @@ export default function RootLayout() {
         />
       )}
       <ThemeProvider>
-        <AdminPreviewProvider>
-          <DbProvider>
-            <AuthProvider>
+        <DbProvider>
+          <AuthProvider>
+            <AdminPreviewProvider>
               <LanguageProvider>
                 <NotificationProvider>
                   <CartProvider>
@@ -156,9 +156,9 @@ export default function RootLayout() {
                   </CartProvider>
                 </NotificationProvider>
               </LanguageProvider>
-            </AuthProvider>
-          </DbProvider>
-        </AdminPreviewProvider>
+            </AdminPreviewProvider>
+          </AuthProvider>
+        </DbProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

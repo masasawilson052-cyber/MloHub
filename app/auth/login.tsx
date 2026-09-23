@@ -494,9 +494,6 @@ const styles = StyleSheet.create({
       web: {
         outlineStyle: 'none',
         outlineWidth: 0,
-        outline: 'none',
-        border: 'none',
-        boxShadow: 'none',
       } as any,
     }),
   },
