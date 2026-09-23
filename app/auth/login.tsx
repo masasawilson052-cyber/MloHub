@@ -472,11 +472,6 @@ const styles = StyleSheet.create({
   inputWrapFocused: {
     borderColor: Colors.primary,
     backgroundColor: Colors.white,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 0 0 3px rgba(249, 115, 22, 0.15)',
-      } as any,
-    }),
   },
   inputIcon: {
     marginRight: Spacing.xs,
