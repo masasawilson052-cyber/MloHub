@@ -36,3 +36,4 @@ export * from './communicationSuppressions.repository';
 export * from './branchOperations.repository';
 export * from './platformSettings.repository';
 export * from './platformAnnouncements.repository';
+export * from './adminGovernance.repository';

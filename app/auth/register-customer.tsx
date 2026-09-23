@@ -19,6 +19,7 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { CryptoEngine } from '../../db/auth/crypto';
+import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 
 export default function RegisterCustomerScreen() {
   const router = useRouter();
@@ -101,6 +102,26 @@ export default function RegisterCustomerScreen() {
 
     setIsSubmitting(true);
     try {
+      const opSettings = await PlatformSettingsRepository.getOperationalSettings();
+      if (opSettings.maintenanceMode) {
+        setGeneralError(
+          language === 'sw'
+            ? 'Mfumo upo kwenye matengenezo. Tafadhali jaribu tena baadaye.'
+            : 'The platform is currently under maintenance. Please try again later.'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+      if (!opSettings.customerRegistrationEnabled) {
+        setGeneralError(
+          language === 'sw'
+            ? 'Usajili wa wateja wapya umesitishwa kwa sasa na uongozi wa mfumo.'
+            : 'New customer registration is currently paused by platform administration.'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       await registerCustomer({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),

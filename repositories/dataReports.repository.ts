@@ -176,23 +176,27 @@ export class DataReportsRepository {
     const reviewedAt = new Date().toISOString();
 
     if (isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
-      const { data, error } = await supabase
-        .from('data_reports')
-        .update({
-          status,
-          reviewed_by: reviewedBy,
-          reviewed_at: reviewedAt,
-          notes: resolutionNotes,
-        })
-        .eq('id', id)
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc('resolve_data_report_secure', {
+        p_report_id: id,
+        p_status: status,
+        p_notes: resolutionNotes || null,
+      });
 
       if (error) {
         console.error('DataReportsRepository.resolveReport error:', error.message);
         throw new Error(`Failed to resolve data report: ${error.message}`);
       }
-      return this.mapRowToReport(data);
+
+      const { data: row, error: fetchErr } = await supabase
+        .from('data_reports')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchErr) {
+        throw new Error(`Report resolved, but reload failed: ${fetchErr.message}`);
+      }
+      return this.mapRowToReport(row);
     }
 
     if (!runtimeConfig.allowLocalDataFallbacks) {

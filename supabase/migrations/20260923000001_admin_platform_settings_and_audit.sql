@@ -4,7 +4,7 @@
 -- =============================================================================
 
 -- 1. Helper: Check if user has SUPER_ADMIN platform role
-CREATE OR REPLACE FUNCTION public.is_super_admin(p_user_id UUID)
+CREATE OR REPLACE FUNCTION public.is_super_admin(p_user_id UUID DEFAULT auth.uid())
 RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
     SELECT p_user_id IS NOT NULL AND EXISTS (

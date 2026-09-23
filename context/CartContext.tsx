@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { Alert } from 'react-native';
 import { OrderService, OrderQuote } from '../services/OrderService';
 import { RealtimeService } from '../services/RealtimeService';
+import { PlatformSettingsRepository } from '../repositories/platformSettings.repository';
 
 export interface CartItem {
   dishId: string;
@@ -24,6 +25,8 @@ interface CartContextType {
   branchId: string | null;
   branchName: string | null;
   pricingDisclaimer: string;
+  customerServiceFeeTzs: number;
+  minimumOrderValueTzs: number;
   addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
@@ -50,6 +53,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [branchId, setBranchId] = useState<string | null>(null);
   const [branchName, setBranchName] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [customerServiceFeeTzs, setCustomerServiceFeeTzs] = useState(1500);
+  const [minimumOrderValueTzs, setMinimumOrderValueTzs] = useState(2000);
+
+  // Load authoritative platform financial settings
+  useEffect(() => {
+    let isMounted = true;
+    PlatformSettingsRepository.getFinancialSettings()
+      .then((settings) => {
+        if (!isMounted) return;
+        if (settings.customerServiceFeeTzs !== undefined) {
+          setCustomerServiceFeeTzs(settings.customerServiceFeeTzs);
+        }
+        if (settings.minimumOrderValueTzs !== undefined) {
+          setMinimumOrderValueTzs(settings.minimumOrderValueTzs);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load financial settings in CartContext:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync restaurant and branch metadata with items
   useEffect(() => {
@@ -183,9 +209,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items: items.map((i) => ({ unitPriceTzs: i.priceTzs, quantity: i.quantity })),
         diningOption,
         deliveryFeeTzs,
+        serviceFeeTzs: customerServiceFeeTzs,
       });
     },
-    [items]
+    [items, customerServiceFeeTzs]
   );
 
   const defaultQuote = useMemo(() => getOrderQuote('Delivery', 0), [getOrderQuote]);
@@ -206,6 +233,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         branchId,
         branchName,
         pricingDisclaimer,
+        customerServiceFeeTzs,
+        minimumOrderValueTzs,
         addToCart,
         removeFromCart,
         updateQuantity,

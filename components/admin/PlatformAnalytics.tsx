@@ -48,35 +48,46 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
       }
 
       try {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
         // First try authoritative server-side SQL aggregation RPC
         const { data: rpcData, error: rpcError } = await supabase.rpc('get_admin_search_demand_metrics', {
-          p_days_back: 30,
+          p_from: thirtyDaysAgo.toISOString(),
+          p_to: now.toISOString(),
         });
 
         if (!rpcError && rpcData && !cancelled) {
-          setTotalSearches(rpcData.total_searches ?? 0);
-          setZeroResultCount(rpcData.zero_result_searches ?? 0);
-          setMatchRatePct(rpcData.match_rate_pct ?? null);
-          setZeroResultPct(rpcData.zero_result_pct ?? null);
+          const total = Number(rpcData.total_searches ?? 0);
+          const zero = Number(rpcData.zero_result_searches ?? 0);
+          setTotalSearches(total);
+          setZeroResultCount(zero);
+          if (total > 0) {
+            setMatchRatePct(rpcData.success_rate != null ? Math.round(Number(rpcData.success_rate)) : null);
+            setZeroResultPct(rpcData.zero_result_rate != null ? Math.round(Number(rpcData.zero_result_rate)) : null);
+          } else {
+            setMatchRatePct(null);
+            setZeroResultPct(null);
+          }
           setTopSearches(rpcData.top_queries || []);
-          setSupplyGaps(rpcData.unmet_demand_by_ward || []);
+          setSupplyGaps(rpcData.supply_gaps || rpcData.unmet_demand_by_ward || []);
           setLoading(false);
           return;
         }
 
         // Fallback to table queries if RPC is unavailable in current migration state
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
         const [searchRes, zeroRes, topRes, gapRes] = await Promise.all([
           supabase
             .from('search_analytics_events')
             .select('id', { count: 'exact', head: true })
-            .gte('created_at', thirtyDaysAgo),
+            .gte('created_at', thirtyDaysAgoIso),
 
           supabase
             .from('zero_result_events')
             .select('id', { count: 'exact', head: true })
-            .gte('created_at', thirtyDaysAgo),
+            .gte('created_at', thirtyDaysAgoIso),
 
           supabase
             .from('search_analytics_events')

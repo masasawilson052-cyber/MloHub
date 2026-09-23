@@ -246,7 +246,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
                       <Text style={[styles.colVal, { color: colors.textPrimary }]}>{formatTzs(s.grossSalesTzs)}</Text>
                     </View>
                     <View style={styles.gridCol}>
-                      <Text style={[styles.colLabel, { color: colors.textMuted }]}>Platform Fee (10%)</Text>
+                      <Text style={[styles.colLabel, { color: colors.textMuted }]}>Platform Commission</Text>
                       <Text style={[styles.colVal, { color: colors.primary }]}>{formatTzs(s.platformFeesTzs)}</Text>
                     </View>
                     <View style={styles.gridCol}>

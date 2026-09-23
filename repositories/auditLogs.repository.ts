@@ -16,6 +16,11 @@ export class AuditLogRepository {
     };
   }
 
+  /**
+   * @deprecated Privileged mutations (financial approvals, suspensions, settings changes)
+   * are authoritatively logged by PostgreSQL SECURITY DEFINER RPCs within the same transaction.
+   * Client-side logAction should only be used for benign, non-security-critical telemetry.
+   */
   public static async logAction(log: {
     actorUserId: string;
     adminName?: string;

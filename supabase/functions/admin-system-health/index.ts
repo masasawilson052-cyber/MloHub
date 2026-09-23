@@ -32,6 +32,48 @@ Deno.serve(async (req: Request) => {
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+  // Authenticate caller: must be an authenticated administrator or service-role
+  const authHeader = req.headers.get('Authorization') || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return new Response(
+      JSON.stringify({ error: '401 Unauthorized: Authorization required' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const token = authHeader.replace('Bearer ', '').trim();
+  const isServiceRole = token === serviceRoleKey;
+
+  if (!isServiceRole) {
+    const { data: { user }, error: authError } = await adminClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: '401 Unauthorized: Invalid credentials' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: profile } = await adminClient
+      .from('profiles')
+      .select('role, roles')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    const isAdmin = profile && (
+      profile.role === 'ADMIN' ||
+      profile.role === 'SUPER_ADMIN' ||
+      (Array.isArray(profile.roles) && (profile.roles.includes('ADMIN') || profile.roles.includes('SUPER_ADMIN')))
+    );
+
+    if (!isAdmin) {
+      return new Response(
+        JSON.stringify({ error: '403 Forbidden: Administrator authorization required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  }
+
   const now = new Date();
   const checks: SubsystemHealth[] = [];
 
@@ -83,6 +125,12 @@ Deno.serve(async (req: Request) => {
     if (storageErr || !buckets) {
       storageStatus = 'DEGRADED';
       storageMsg = `Storage listing error: ${storageErr?.message || 'Unknown'}`;
+    } else {
+      const mediaBucket = buckets.find((b: any) => b.name === 'mlohub-media');
+      if (!mediaBucket) {
+        storageStatus = 'DEGRADED';
+        storageMsg = 'Canonical bucket mlohub-media not found.';
+      }
     }
   } catch {
     storageStatus = 'UNVERIFIED';
@@ -107,7 +155,7 @@ Deno.serve(async (req: Request) => {
     const { count, error } = await adminClient
       .from('payments')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['PENDING', 'PROCESSING'])
+      .eq('status', 'PENDING')
       .lt('created_at', fifteenMinsAgo);
 
     stalePaymentsCount = count || 0;
@@ -147,7 +195,7 @@ Deno.serve(async (req: Request) => {
     const { count } = await adminClient
       .from('notification_event_outbox')
       .select('id', { count: 'exact', head: true })
-      .or('status.eq.DEAD_LETTER,retry_count.gte.5');
+      .or('processing_status.eq.DEAD_LETTER,processing_status.eq.FAILED,retry_count.gte.5');
 
     deadLetterCount = count || 0;
     if (deadLetterCount > 0) {
@@ -155,7 +203,7 @@ Deno.serve(async (req: Request) => {
       notifMsg = `${deadLetterCount} dead-letter events in notification outbox.`;
     }
   } catch {
-    // If outbox table not present in tests, leave nominal
+    // If outbox table not present, leave nominal
   }
 
   checks.push({
@@ -199,13 +247,16 @@ Deno.serve(async (req: Request) => {
     checkedAt: now.toISOString(),
   });
 
-  // Overall Status Resolution
+  // Overall Status Resolution: fail closed to UNVERIFIED rather than fabricating HEALTHY
   const hasDown = checks.some((c) => c.status === 'DOWN');
   const hasDegraded = checks.some((c) => c.status === 'DEGRADED');
+  const hasUnverified = checks.some((c) => c.status === 'UNVERIFIED');
   const overallStatus: SubsystemStatus = hasDown
     ? 'DOWN'
     : hasDegraded
     ? 'DEGRADED'
+    : hasUnverified
+    ? 'UNVERIFIED'
     : 'HEALTHY';
 
   return new Response(

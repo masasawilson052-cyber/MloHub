@@ -52,6 +52,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     getOrderQuote,
     pricingDisclaimer,
     totalItems,
+    minimumOrderValueTzs,
   } = useCart();
 
   const [step, setStep] = useState<CheckoutStep>('REVIEW');
@@ -143,6 +144,16 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
       return;
     }
 
+    // Enforce platform minimum order value for all orders
+    const platformMin = minimumOrderValueTzs || 2000;
+    if (currentQuote.subtotalTzs < platformMin) {
+      Alert.alert(
+        'Minimum Order Required',
+        `The platform minimum order subtotal is TZS ${platformMin.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
+      );
+      return;
+    }
+
     if (fulfillment === 'Delivery') {
       if (!deliveryAddress.trim()) {
         Alert.alert(
@@ -160,10 +171,12 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
         );
         return;
       }
-      if (selectedDeliveryZone.minimumOrderTzs && currentQuote.subtotalTzs < selectedDeliveryZone.minimumOrderTzs) {
+      const zoneMin = selectedDeliveryZone.minimumOrderTzs || 0;
+      const effectiveMinimum = Math.max(platformMin, zoneMin);
+      if (currentQuote.subtotalTzs < effectiveMinimum) {
         Alert.alert(
           'Minimum Order Required',
-          `The minimum order for ${selectedDeliveryZone.zoneName} is TZS ${selectedDeliveryZone.minimumOrderTzs.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
+          `The minimum order for ${selectedDeliveryZone.zoneName} is TZS ${effectiveMinimum.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
         );
         return;
       }

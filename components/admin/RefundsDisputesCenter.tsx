@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { RefundsRepository } from '../../repositories/refunds.repository';
 import { DisputesRepository } from '../../repositories/disputes.repository';
 import { RefundRequest, FinancialDispute, RefundResponsibility } from '../../types/domain';
@@ -28,6 +29,8 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   language = 'en',
 }) => {
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || (Array.isArray(user?.roles) && user.roles.includes('SUPER_ADMIN' as any));
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,6 +65,10 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   }, []);
 
   const handleOpenApproveModal = (refund: RefundRequest) => {
+    if (!isSuperAdmin) {
+      Alert.alert('Permission Denied', 'Super Admin authorization required to approve financial refunds.');
+      return;
+    }
     setSelectedRefund(refund);
     setApprovalAmount(refund.requestedAmountTzs);
     setApprovalResponsibility('RESTAURANT');
@@ -317,13 +324,22 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                     <Text style={[styles.idText, { color: colors.textMuted }]}>ID: {ref.id}</Text>
 
                     {isPending && (
-                      <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                        onPress={() => handleOpenApproveModal(ref)}
-                      >
-                        <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                        <Text style={styles.actionBtnText}>Approve Refund</Text>
-                      </TouchableOpacity>
+                      isSuperAdmin ? (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                          onPress={() => handleOpenApproveModal(ref)}
+                        >
+                          <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Text style={styles.actionBtnText}>Approve Refund</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="lock-closed" size={12} color={colors.textMuted} />
+                          <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>
+                            Super Admin authorization required to approve financial refunds.
+                          </Text>
+                        </View>
+                      )
                     )}
                   </View>
                 </View>

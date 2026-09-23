@@ -297,7 +297,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                           {isProcessing ? (
                             <ActivityIndicator size="small" color="#ffffff" />
                           ) : (
-                            <Text style={styles.drawerConfirmText}>Resolve & Correct Catalog</Text>
+                            <Text style={styles.drawerConfirmText}>Resolve & Flag Catalog Correction</Text>
                           )}
                         </TouchableOpacity>
                       </View>

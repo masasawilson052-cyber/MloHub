@@ -40,6 +40,8 @@ import {
   ProfileAdminRepository,
   RefundsRepository,
   SettlementsRepository,
+  AdminGovernanceRepository,
+  AdminAttentionSummary,
 } from '../../repositories';
 import {
   RestaurantApplication,
@@ -109,6 +111,7 @@ export default function AdminPortalScreen() {
   const [refunds, setRefunds] = useState<RefundRequest[]>([]);
   const [settlements, setSettlements] = useState<MerchantSettlement[]>([]);
   const [systemHealth, setSystemHealth] = useState<PlatformHealthStatus | null>(null);
+  const [attentionSummary, setAttentionSummary] = useState<AdminAttentionSummary | null>(null);
 
   // Newly onboarded vendor credential display modal
   const [createdVendorModal, setCreatedVendorModal] = useState<{
@@ -124,7 +127,7 @@ export default function AdminPortalScreen() {
     setIsRefreshing(true);
     setLoadError(null);
     try {
-      const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests, refundList, settleList, healthReport] = await Promise.all([
+      const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests, refundList, settleList, healthReport, attSummary] = await Promise.all([
         ApplicationRepository.listAll().then((apps) => { setApplications(apps); return apps; }),
         DataReportsRepository.listAll(),
         AuditLogRepository.listAll(),
@@ -132,10 +135,11 @@ export default function AdminPortalScreen() {
         NotificationRepository.listAll(),
         PaymentRepository.listAll(),
         OrderRepository.listAll(),
-        RestaurantRepository.list(),
+        RestaurantRepository.list({ includeArchived: true }),
         RefundsRepository.listAll().catch(() => [] as RefundRequest[]),
         SettlementsRepository.listAll().catch(() => [] as MerchantSettlement[]),
         AdminSystemHealthService.getHealth().catch(() => null),
+        AdminGovernanceRepository.getAttentionSummary().catch(() => null),
       ]);
 
       setApplications(apps);
@@ -143,6 +147,7 @@ export default function AdminPortalScreen() {
       setRefunds(refundList || []);
       setSettlements(settleList || []);
       setSystemHealth(healthReport);
+      if (attSummary) setAttentionSummary(attSummary);
 
       // Map audit logs to presentation entity
       setAuditLogs(
@@ -407,7 +412,7 @@ export default function AdminPortalScreen() {
     await loadPlatformData();
   };
 
-  // 6. Upgrade to Verified
+  // 6. Upgrade to Verified via verify_restaurant_secure RPC
   const handleUpgradeToVerified = async (
     restaurantId: string,
     docs: { tinNumber: string; businessLicenseNumber: string }
@@ -415,27 +420,16 @@ export default function AdminPortalScreen() {
     if (!activeUser?.id) {
       throw new Error('Authenticated administrator is required.');
     }
-    await RestaurantRepository.update(restaurantId, {
-      tinNumber: docs.tinNumber,
-      businessLicenseNumber: docs.businessLicenseNumber,
-      isVerified: true,
-      verificationStatus: 'VERIFIED',
-      sellerTier: 'VERIFIED_SELLER',
-    });
-
-    await AuditLogRepository.logAction({
-      actorUserId: activeUser.id,
-      adminName: activeUser.fullName,
-      action: 'APPROVE_RESTAURANT',
-      entityType: 'RESTAURANT',
-      entityId: restaurantId,
-      metadata: { tinNumber: docs.tinNumber, license: docs.businessLicenseNumber },
-    });
-
+    await RestaurantRepository.verifyRestaurant(
+      restaurantId,
+      docs.tinNumber,
+      docs.businessLicenseNumber,
+      'Administrative document verification'
+    );
     await loadPlatformData();
   };
 
-  // 7. Resolve Customer Report
+  // 7. Resolve Customer Report via resolve_data_report_secure RPC
   const handleResolveReport = async (
     reportId: string,
     status: 'RESOLVED' | 'REJECTED' | 'INVESTIGATING',
@@ -450,16 +444,6 @@ export default function AdminPortalScreen() {
       status,
       resolutionNotes
     );
-
-    await AuditLogRepository.logAction({
-      actorUserId: activeUser.id,
-      adminName: activeUser.fullName || 'Admin',
-      action: 'RESOLVE_REPORT',
-      entityType: 'DATA_REPORT',
-      entityId: reportId,
-      metadata: { status, resolutionNotes },
-    });
-
     await loadPlatformData();
   };
 
@@ -526,47 +510,7 @@ export default function AdminPortalScreen() {
 
 
 
-  // Switch to customer workspace
-  const handleSwitchToCustomer = async () => {
-    try {
-      await switchWorkspace('CUSTOMER');
-      router.replace('/(tabs)');
-    } catch {
-      router.replace('/(tabs)');
-    }
-  };
-
-  // 11. Send Platform Announcement Broadcast
-  const handleSendBroadcast = async (
-    title: string,
-    message: string,
-    audience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS'
-  ) => {
-    if (!activeUser?.id) {
-      throw new Error('Authenticated administrator is required to send broadcasts.');
-    }
-    const { supabase: sbClient, isSupabaseConfigured } = await import('../../lib/supabase');
-    if (!isSupabaseConfigured()) {
-      throw new Error('Supabase is not configured. Cannot dispatch broadcast.');
-    }
-    const { error } = await sbClient.from('platform_announcements').insert({
-      title_en: title,
-      body_en: message,
-      target_audience: audience,
-      priority: 'NORMAL',
-      sent_at: new Date().toISOString(),
-      is_active: true,
-      created_by: activeUser.id,
-    });
-    if (error) {
-      console.error('handleSendBroadcast error:', error.message);
-      throw new Error(`Failed to dispatch announcement: ${error.message}`);
-    }
-    // Refresh platform data so notification counts update
-    await loadPlatformData();
-  };
-
-  // 12. Toggle User Profile Suspension
+  // 11. Toggle User Profile Suspension via suspend_user_profile_secure RPC
   const handleToggleSuspendUser = async (
     userId: string,
     shouldSuspend: boolean,
@@ -581,7 +525,7 @@ export default function AdminPortalScreen() {
     }
     const { error } = await sbClient.rpc('suspend_user_profile_secure', {
       p_user_id: userId,
-      p_suspend: shouldSuspend,
+      p_should_suspend: shouldSuspend,
       p_reason: reason || (shouldSuspend ? 'Administrative suspension' : 'Reinstatement'),
     });
     if (error) {
@@ -593,13 +537,16 @@ export default function AdminPortalScreen() {
 
   // --- STATS & ATTENTION CENTER COMPUTATION (AUTHORITATIVE) ---
 
-  const pendingAppsCount = applications.filter((a) => a.status === 'PENDING').length;
-  const openReportsCount = reports.filter((r) => r.status === 'OPEN').length;
+  const pendingAppsCount = attentionSummary ? attentionSummary.pendingApplications : applications.filter((a) => a.status === 'PENDING').length;
+  const openReportsCount = attentionSummary ? attentionSummary.openDataReports : reports.filter((r) => r.status === 'OPEN').length;
   const suspendedCount = restaurants.filter(
     (r) => r.isSuspended || r.verificationStatus === 'SUSPENDED'
   ).length;
-  const pendingRefundsCount = refunds.filter((r) => r.status === 'REQUESTED').length;
+  const pendingRefundsCount = attentionSummary ? attentionSummary.pendingRefundsCount : refunds.filter((r) => r.status === 'REQUESTED').length;
   const pendingSettlementsCount = settlements.filter((s) => s.status === 'CALCULATED').length;
+  const stalePaymentsCount = attentionSummary ? attentionSummary.stalePayments : 0;
+  const failedOutboxCount = attentionSummary ? attentionSummary.failedOutbox : 0;
+  const unsettledLedgerCount = attentionSummary ? attentionSummary.unsettledLedgerCount : 0;
 
   // Stale spots: calculated only if menu verification data exists, otherwise truthful empty
   const staleSpots = restaurants.filter((r) => {
@@ -610,6 +557,28 @@ export default function AdminPortalScreen() {
 
   // Attention Items
   const attentionItems: AttentionItem[] = [];
+
+  if (stalePaymentsCount > 0) {
+    attentionItems.push({
+      id: 'att-stale-payments',
+      severity: 'CRITICAL',
+      title: `${stalePaymentsCount} Stale Payment(s) Pending Gateway Capture`,
+      description: 'Payments pending gateway capture reconciliation.',
+      targetTab: 'PAYMENTS',
+      count: stalePaymentsCount,
+    });
+  }
+
+  if (failedOutboxCount > 0) {
+    attentionItems.push({
+      id: 'att-failed-outbox',
+      severity: 'CRITICAL',
+      title: `${failedOutboxCount} Dead-Letter / Failed Outbox Notification(s)`,
+      description: 'Outbox messages exceeded retry limit. Review communication channels.',
+      targetTab: 'NOTIFICATIONS',
+      count: failedOutboxCount,
+    });
+  }
 
   if (suspendedCount > 0) {
     attentionItems.push({
@@ -644,14 +613,15 @@ export default function AdminPortalScreen() {
     });
   }
 
-  if (pendingSettlementsCount > 0) {
+  if (pendingSettlementsCount > 0 || unsettledLedgerCount > 0) {
+    const sCount = pendingSettlementsCount > 0 ? pendingSettlementsCount : unsettledLedgerCount;
     attentionItems.push({
       id: 'att-settlements',
       severity: 'MEDIUM',
-      title: `${pendingSettlementsCount} Merchant Settlement(s) Pending`,
-      description: 'Calculated merchant settlement batches awaiting review and payout generation.',
+      title: `${sCount} Merchant Settlement / Ledger Entry(s) Pending`,
+      description: 'Merchant ledger balances awaiting batch calculation and payout generation.',
       targetTab: 'SETTLEMENTS',
-      count: pendingSettlementsCount,
+      count: sCount,
     });
   }
 
@@ -720,7 +690,6 @@ export default function AdminPortalScreen() {
           await logout();
           router.replace('/auth/login');
         }}
-        onSwitchToCustomer={handleSwitchToCustomer}
       />
 
       {/* 2. Mobile Nav when on small screens */}
@@ -882,7 +851,6 @@ export default function AdminPortalScreen() {
           {activeTab === 'NOTIFICATIONS' && (
             <NotificationsCenter
               notifications={notifications}
-              onSendBroadcast={handleSendBroadcast}
               language={language}
             />
           )}

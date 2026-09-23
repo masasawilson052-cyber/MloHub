@@ -59,9 +59,10 @@ export class OrderService {
     items: { unitPriceTzs: number; quantity: number }[];
     diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
     deliveryFeeTzs?: number;
+    serviceFeeTzs?: number;
   }): OrderQuote {
     const subtotalTzs = params.items.reduce((sum, item) => sum + item.unitPriceTzs * item.quantity, 0);
-    const serviceFeeTzs = 1500;
+    const serviceFeeTzs = params.serviceFeeTzs !== undefined ? params.serviceFeeTzs : 1500;
     const deliveryFeeTzs = params.diningOption === 'Delivery' ? (params.deliveryFeeTzs ?? 0) : 0;
     const totalTzs = subtotalTzs + serviceFeeTzs + deliveryFeeTzs;
     const itemCount = params.items.reduce((sum, item) => sum + item.quantity, 0);

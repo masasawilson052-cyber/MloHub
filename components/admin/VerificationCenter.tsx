@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantEntity } from '../../db/types';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 
 import { useTheme } from '../../context/ThemeContext';
 
@@ -29,6 +30,31 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE' | 'NO_CATALOG'>('ALL');
   const [notifiedRestId, setNotifiedRestId] = useState<string | null>(null);
   const [menuMetrics, setMenuMetrics] = useState<Record<string, { activeCount: number; lastUpdated?: string }>>({});
+  const [operationalSettings, setOperationalSettings] = useState({
+    freshDays: 7,
+    recentDays: 14,
+    staleDays: 30,
+  });
+
+  useEffect(() => {
+    let active = true;
+    PlatformSettingsRepository.getOperationalSettings()
+      .then((settings) => {
+        if (active) {
+          setOperationalSettings({
+            freshDays: settings.freshDays || 7,
+            recentDays: settings.recentDays || 14,
+            staleDays: settings.staleDays || 30,
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load operational settings in VerificationCenter:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -56,11 +82,11 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
     let status: 'FRESH' | 'RECENT' | 'AGING' | 'STALE' | 'NO_CATALOG' = 'FRESH';
     if (menuCount === 0) {
       status = 'NO_CATALOG';
-    } else if (daysSince > 30) {
+    } else if (daysSince > operationalSettings.staleDays) {
       status = 'STALE';
-    } else if (daysSince > 14) {
+    } else if (daysSince > operationalSettings.recentDays) {
       status = 'AGING';
-    } else if (daysSince > 7) {
+    } else if (daysSince > operationalSettings.freshDays) {
       status = 'RECENT';
     }
 
@@ -119,25 +145,25 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
       <View style={styles.kpiRow}>
         <View style={styles.kpiCard}>
           <Text style={styles.kpiNumber}>{freshCatalogPct}%</Text>
-          <Text style={styles.kpiLabel}>Catalogs Updated &lt; 14 Days</Text>
+          <Text style={styles.kpiLabel}>Catalogs Updated &lt; {operationalSettings.recentDays} Days</Text>
           <Text style={styles.kpiSub}>Restaurant-level catalog recency</Text>
         </View>
 
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiNumber, { color: '#16a34a' }]}>{freshCount}</Text>
-          <Text style={styles.kpiLabel}>Fresh Spots (&lt; 7 Days)</Text>
+          <Text style={styles.kpiLabel}>Fresh Spots (&lt; {operationalSettings.freshDays} Days)</Text>
           <Text style={styles.kpiSub}>Catalog updated recently</Text>
         </View>
 
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiNumber, { color: '#f59e0b' }]}>{agingCount}</Text>
-          <Text style={styles.kpiLabel}>Aging Spots (14-30 Days)</Text>
+          <Text style={styles.kpiLabel}>Aging Spots ({operationalSettings.recentDays}-{operationalSettings.staleDays} Days)</Text>
           <Text style={styles.kpiSub}>Due for review</Text>
         </View>
 
         <View style={styles.kpiCard}>
           <Text style={[styles.kpiNumber, { color: '#ef4444' }]}>{staleCount}</Text>
-          <Text style={styles.kpiLabel}>Stale Spots (&gt; 30 Days)</Text>
+          <Text style={styles.kpiLabel}>Stale Spots (&gt; {operationalSettings.staleDays} Days)</Text>
           <Text style={styles.kpiSub}>Price confirmation required</Text>
         </View>
       </View>

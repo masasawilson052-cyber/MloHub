@@ -11,7 +11,7 @@ interface StalePayment {
   provider: string;
   provider_reference: string | null;
   merchant_reference: string | null;
-  processing_status: string;
+  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -88,11 +88,11 @@ Deno.serve(async (req: Request) => {
   const orphanThreshold = new Date(now.getTime() - ORPHAN_TIMEOUT_MINUTES * 60 * 1000).toISOString();
 
   try {
-    // Fetch stale PENDING or PROCESSING payments
+    // Fetch stale PENDING payments
     const { data: stalePayments, error: fetchErr } = await adminClient
       .from('payments')
-      .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, processing_status, created_at, updated_at')
-      .in('processing_status', ['PENDING', 'PROCESSING'])
+      .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')
+      .eq('status', 'PENDING')
       .lt('updated_at', staleThreshold)
       .order('updated_at', { ascending: true })
       .limit(BATCH_LIMIT);
@@ -106,6 +106,19 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!stalePayments || stalePayments.length === 0) {
+      try {
+        await adminClient.from('system_worker_heartbeats').upsert({
+          worker_name: 'reconcile-payments',
+          last_heartbeat: new Date().toISOString(),
+          status: 'HEALTHY',
+          details: { processed: 0, confirmed: 0, failed: 0, skipped: 0, errors: 0 },
+          error_count_last_hour: 0,
+          updated_at: new Date().toISOString(),
+        });
+      } catch {
+        // best-effort heartbeat
+      }
+
       return new Response(
         JSON.stringify({ success: true, processed: 0, results: [] }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -174,7 +187,7 @@ async function reconcilePayment(
         await adminClient
           .from('payments')
           .update({
-            processing_status: 'FAILED',
+            status: 'FAILED',
             updated_at: new Date().toISOString(),
           })
           .eq('id', payment.id);
@@ -208,7 +221,7 @@ async function reconcilePayment(
         await adminClient
           .from('payments')
           .update({
-            processing_status: 'FAILED',
+            status: 'FAILED',
             updated_at: new Date().toISOString(),
           })
           .eq('id', payment.id);
@@ -240,7 +253,7 @@ async function reconcilePayment(
       await adminClient
         .from('payments')
         .update({
-          processing_status: gatewayStatus === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
+          status: gatewayStatus === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
           updated_at: new Date().toISOString(),
         })
         .eq('id', payment.id);

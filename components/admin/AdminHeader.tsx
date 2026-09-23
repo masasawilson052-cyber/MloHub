@@ -15,7 +15,6 @@ interface AdminHeaderProps {
   isRefreshing?: boolean;
   onRefresh: () => void;
   onLogout: () => void;
-  onSwitchToCustomer?: () => void;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -24,7 +23,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   isRefreshing = false,
   onRefresh,
   onLogout,
-  onSwitchToCustomer,
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPER_ADMIN || userRole === 'SUPER_ADMIN';
   const isLive = isSupabaseConfigured();
@@ -47,11 +45,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     };
   }, [isRefreshing]);
 
-  const handleSwitchToCustomer = () => {
-    enterPreview();
-    if (onSwitchToCustomer) {
-      onSwitchToCustomer();
-    }
+  const handleSwitchToCustomer = async () => {
+    await enterPreview();
   };
 
   const getStatusBadge = () => {
@@ -77,6 +72,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         pillStyle: styles.livePill,
         dotStyle: styles.liveDot,
         textStyle: styles.liveText,
+      };
+    }
+    if (health.status === 'UNVERIFIED') {
+      return {
+        label: 'BACKEND UNVERIFIED',
+        pillStyle: styles.stagingPill,
+        dotStyle: { backgroundColor: '#eab308' },
+        textStyle: styles.stagingText,
       };
     }
     if (health.status === 'DEGRADED') {

@@ -1,31 +1,7 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Restaurant } from '../types/domain';
 
 export class RestaurantRepository {
-  private static DELETED_IDS_STORAGE_KEY = 'mlohub_deleted_restaurant_ids';
-
-  public static async getDeletedIds(): Promise<Set<string>> {
-    try {
-      const raw = await AsyncStorage.getItem(RestaurantRepository.DELETED_IDS_STORAGE_KEY);
-      if (raw) {
-        const arr = JSON.parse(raw);
-        if (Array.isArray(arr)) return new Set(arr);
-      }
-    } catch {}
-    return new Set();
-  }
-
-  public static async recordDeletedId(id: string): Promise<void> {
-    try {
-      const set = await RestaurantRepository.getDeletedIds();
-      set.add(id);
-      await AsyncStorage.setItem(
-        RestaurantRepository.DELETED_IDS_STORAGE_KEY,
-        JSON.stringify(Array.from(set))
-      );
-    } catch {}
-  }
   /**
    * Map database row (snake_case) to domain Restaurant model (camelCase)
    */
@@ -70,7 +46,7 @@ export class RestaurantRepository {
       lng: row.lng ? Number(row.lng) : undefined,
       supportsOrderAhead: row.supports_order_ahead ?? false,
       archivedAt: row.archived_at ?? null,
-      archivedReason: row.archived_reason ?? null,
+      archivedReason: row.archive_reason ?? row.archived_reason ?? null,
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     };
@@ -348,7 +324,7 @@ export class RestaurantRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    const { error } = await supabase.rpc('suspend_restaurant', {
+    const { error } = await supabase.rpc('suspend_restaurant_secure', {
       p_restaurant_id: restaurantId,
       p_reason: reason,
     });
@@ -367,13 +343,39 @@ export class RestaurantRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    const { error } = await supabase.rpc('reactivate_restaurant', {
+    const { error } = await supabase.rpc('reactivate_restaurant_secure', {
       p_restaurant_id: restaurantId,
     });
 
     if (error) {
       console.error(`RestaurantRepository.reactivateRestaurant(${restaurantId}) error:`, error.message);
       throw new Error(`Failed to reactivate restaurant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify restaurant via server-side security definer RPC
+   */
+  public static async verifyRestaurant(
+    restaurantId: string,
+    tinNumber: string,
+    businessLicenseNumber: string,
+    reason?: string
+  ): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { error } = await supabase.rpc('verify_restaurant_secure', {
+      p_restaurant_id: restaurantId,
+      p_tin_number: tinNumber,
+      p_business_license_number: businessLicenseNumber,
+      p_reason: reason || 'Documents verified',
+    });
+
+    if (error) {
+      console.error(`RestaurantRepository.verifyRestaurant(${restaurantId}) error:`, error.message);
+      throw new Error(`Failed to verify restaurant: ${error.message}`);
     }
   }
 

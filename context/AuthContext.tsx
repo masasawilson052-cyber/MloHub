@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runtimeConfig } from '../lib/runtimeConfig';
@@ -276,6 +277,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setActiveRestaurant(activeRest);
 
     if (userProfile) {
+      if (userProfile.status === 'SUSPENDED') {
+        Alert.alert(
+          'Account Suspended',
+          'Your account has been suspended by administration. Please contact support at support@mlohub.co.tz.'
+        );
+        try {
+          await supabase.auth.signOut();
+        } catch {}
+        setSession(null);
+        setProfile(null);
+        setAuthUser(null);
+        setMemberships([]);
+        setActiveRestaurant(null);
+        setSelectedWorkspace('CUSTOMER');
+        RealtimeService.bindAuthSession(null, null);
+        RealtimeEventEngine.broadcast('auth:session', { activeUserId: null });
+        return;
+      }
+
       const activeWs = userProfile.role === UserRole.ADMIN || userProfile.role === UserRole.SUPER_ADMIN
         ? 'MLOHUB_ADMIN'
         : userProfile.role === UserRole.RESTAURANT_OWNER || userProfile.role === UserRole.RESTAURANT_STAFF

@@ -17,6 +17,7 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ApplicationRepository } from '../../repositories/applications.repository';
+import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const DRAFT_KEY = 'mlohub.restaurant-application-draft.v1';
 
@@ -107,6 +108,18 @@ export default function RegisterRestaurantScreen() {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
+      const opSettings = await PlatformSettingsRepository.getOperationalSettings();
+      if (opSettings.maintenanceMode) {
+        setErrors({ form: 'The platform is currently under maintenance. Please try again later.' });
+        setIsSubmitting(false);
+        return;
+      }
+      if (!opSettings.restaurantApplicationsEnabled) {
+        setErrors({ form: 'Vendor applications are temporarily paused by administration.' });
+        setIsSubmitting(false);
+        return;
+      }
+
       const draft = { businessName, ownerFullName, ownerPhone, ownerEmail, cuisine, neighborhood, address, hasTinOrLicense, tinNumber, notes, savedAt: Date.now(), confirmationPending: false };
       await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
       let currentUserId = authUser?.id;

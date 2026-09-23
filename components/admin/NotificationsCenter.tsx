@@ -20,17 +20,11 @@ import { useTheme } from '../../context/ThemeContext';
 
 interface NotificationsCenterProps {
   notifications: NotificationEntity[];
-  onSendBroadcast?: (
-    title: string,
-    message: string,
-    audience: 'ALL' | 'CUSTOMERS' | 'RESTAURANTS'
-  ) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
 export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   notifications,
-  onSendBroadcast,
   language = 'en',
 }) => {
   const { colors, isDark } = useTheme();
@@ -86,7 +80,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
       setBodySw('');
       setCtaLabel('');
       setCtaUrl('');
-      Alert.alert('Success', 'Announcement broadcast dispatched successfully across all clients.');
+      Alert.alert('Success', 'Announcement published and queued for in-app distribution.');
       await loadAnnouncementsHistory();
     } catch (e: any) {
       Alert.alert('Broadcast Error', e.message || 'Failed to dispatch broadcast.');

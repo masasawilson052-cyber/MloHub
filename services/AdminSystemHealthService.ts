@@ -129,7 +129,7 @@ export class AdminSystemHealthService {
     ];
 
     return {
-      overallStatus: dbStatus === 'DOWN' ? 'DOWN' : dbStatus === 'DEGRADED' ? 'DEGRADED' : 'HEALTHY',
+      overallStatus: dbStatus === 'DOWN' ? 'DOWN' : 'UNVERIFIED',
       checkedAt: now,
       checks: fallbackChecks,
     };

@@ -24,6 +24,9 @@ export const PlatformAnnouncementBanner: React.FC<PlatformAnnouncementBannerProp
         const list = await PlatformAnnouncementsRepository.listActiveForAudience(audience);
         if (isMounted) {
           setAnnouncements(list);
+          if (list.length > 0) {
+            PlatformAnnouncementsRepository.markRead(list[0].id).catch(() => {});
+          }
         }
       } catch (e) {
         console.warn('Failed to load active platform announcements:', e);
