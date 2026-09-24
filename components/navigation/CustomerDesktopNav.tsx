@@ -16,11 +16,32 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   const router = useRouter();
   const pathname = usePathname();
   const { t, language, setLanguage } = useLanguage();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const { totalItems, setIsCartOpen } = useCart();
   const { unreadCount } = useNotifications();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleDesktopLogout = async () => {
+    const title = language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out';
+    const message = language === 'sw'
+      ? 'Je, una uhakika unataka kuondoka kwenye MloHub?'
+      : 'Are you sure you want to sign out of MloHub?';
+
+    const confirmed =
+      typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm(`${title}\n\n${message}`)
+        : true;
+
+    if (confirmed) {
+      try {
+        await logout();
+        router.replace('/auth');
+      } catch (err) {
+        console.error('[CustomerDesktopNav] Logout error:', err);
+      }
+    }
+  };
 
   const navItems = [
     { label: t('tabExplore'), path: '/(tabs)', icon: 'compass-outline', activeIcon: 'compass' },
@@ -165,19 +186,35 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
 
           {/* User Status / Profile Button */}
           {isAuthenticated ? (
-            <TouchableOpacity
-              style={styles.userProfileBtn}
-              onPress={() => router.push('/(tabs)/profile')}
-            >
-              <View style={styles.userAvatar}>
-                <Text style={styles.userAvatarText}>
-                  {(user?.fullName || user?.email || 'U').charAt(0).toUpperCase()}
+            <View style={styles.userSection}>
+              <TouchableOpacity
+                style={styles.userProfileBtn}
+                onPress={() => router.push('/(tabs)/profile')}
+                accessibilityRole="button"
+                accessibilityLabel="Go to Profile"
+              >
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userAvatarText}>
+                    {(user?.fullName || user?.email || 'U').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {user?.fullName?.split(' ')[0] || 'Account'}
                 </Text>
-              </View>
-              <Text style={styles.userName} numberOfLines={1}>
-                {user?.fullName?.split(' ')[0] || 'Account'}
-              </Text>
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.desktopLogoutBtn}
+                onPress={handleDesktopLogout}
+                accessibilityRole="button"
+                accessibilityLabel={language === 'sw' ? 'Ondoka' : 'Sign Out'}
+              >
+                <Ionicons name="log-out-outline" size={16} color="#DC2626" />
+                <Text style={styles.desktopLogoutText}>
+                  {language === 'sw' ? 'Ondoka' : 'Sign Out'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <TouchableOpacity
               style={styles.loginBtn}
@@ -366,11 +403,32 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
   },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   userProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingLeft: 4,
+  },
+  desktopLogoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radii.sm,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  desktopLogoutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626',
   },
   userAvatar: {
     width: 32,

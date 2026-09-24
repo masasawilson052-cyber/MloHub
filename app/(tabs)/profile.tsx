@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -122,19 +123,41 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const title = language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out';
+    const message = language === 'sw'
+      ? 'Je, una uhakika unataka kuondoka kwenye MloHub?'
+      : 'Are you sure you want to sign out of MloHub?';
+
+    const performLogout = async () => {
+      try {
+        await logout();
+        router.replace('/auth');
+      } catch (err: any) {
+        console.error('[Profile] Sign out error:', err);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof window !== 'undefined' && typeof window.confirm === 'function'
+          ? window.confirm(`${title}\n\n${message}`)
+          : true;
+      if (confirmed) {
+        await performLogout();
+      }
+      return;
+    }
+
     Alert.alert(
-      language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out',
-      language === 'sw' ? 'Je, una uhakika unataka kuondoka?' : 'Are you sure you want to sign out of MloHub?',
+      title,
+      message,
       [
         { text: language === 'sw' ? 'Hapana' : 'Cancel', style: 'cancel' },
         {
           text: language === 'sw' ? 'Ndio, Ondoka' : 'Sign Out',
           style: 'destructive',
-          onPress: async () => {
-            await logout();
-            router.replace('/auth');
-          },
+          onPress: performLogout,
         },
       ]
     );

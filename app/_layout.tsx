@@ -1,3 +1,4 @@
+import '../lib/alertPolyfill';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
