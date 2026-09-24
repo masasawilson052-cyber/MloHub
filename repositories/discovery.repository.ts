@@ -125,6 +125,53 @@ export class DiscoveryRepository {
   }
 
   /**
+   * Multi-entity marketplace search (restaurants + dishes + cuisines).
+   */
+  public static async searchMarketplace(
+    query?: string,
+    lat?: number,
+    lng?: number,
+    limit: number = 20
+  ): Promise<{
+    restaurants: any[];
+    dishes: any[];
+    cuisines: string[];
+    query?: string | null;
+  }> {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.rpc('search_marketplace', {
+          p_query: query || null,
+          p_lat: lat || null,
+          p_lng: lng || null,
+          p_limit: limit,
+        });
+
+        if (!error && data) {
+          return {
+            restaurants: Array.isArray(data.restaurants) ? data.restaurants : [],
+            dishes: Array.isArray(data.dishes) ? data.dishes : [],
+            cuisines: Array.isArray(data.cuisines) ? data.cuisines : [],
+            query: data.query || query,
+          };
+        }
+        if (error) {
+          console.warn('DiscoveryRepository: search_marketplace RPC error:', error.message);
+        }
+      } catch (err) {
+        console.warn('DiscoveryRepository: search_marketplace exception:', err);
+      }
+    }
+
+    return {
+      restaurants: [],
+      dishes: [],
+      cuisines: [],
+      query,
+    };
+  }
+
+  /**
    * Deterministic local fallback strictly restricted to test and demo environments.
    */
   public static searchDishesLocalFallback(query: DiscoveryQuery): DishDiscoveryResult[] {

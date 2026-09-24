@@ -329,29 +329,13 @@ export class ReservationRepository {
     return this.mapRowToReservation(data);
   }
 
-  public static async cancel(id: string): Promise<boolean> {
+  public static async cancel(id: string, reason?: string): Promise<boolean> {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase client is not configured.');
     }
 
-    try {
-      await this.cancelSecure(id);
-      return true;
-    } catch {
-      const { error } = await supabase
-        .from('reservations')
-        .update({
-          status: 'CANCELLED',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (error) {
-        console.error(`ReservationRepository.cancel(${id}) error:`, error.message);
-        throw new Error(`Failed to cancel reservation: ${error.message}`);
-      }
-      return true;
-    }
+    const res = await this.cancelSecure(id, reason);
+    return res.success;
   }
 
   public static async updateStatus(id: string, nextStatus: ReservationStatus): Promise<Reservation> {
@@ -359,28 +343,16 @@ export class ReservationRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    try {
-      if (nextStatus === 'CONFIRMED') {
-        await this.restaurantDecide({ reservationId: id, decision: 'ACCEPT' });
-      } else if (nextStatus === 'REJECTED') {
-        await this.restaurantDecide({ reservationId: id, decision: 'REJECT' });
-      } else if (nextStatus === 'SEATED' || nextStatus === 'COMPLETED' || nextStatus === 'NO_SHOW') {
-        await this.transitionAttendance(id, nextStatus as any);
-      } else if (nextStatus === 'CANCELLED') {
-        await this.cancelSecure(id);
-      } else {
-        const { error } = await supabase
-          .from('reservations')
-          .update({ status: nextStatus, updated_at: new Date().toISOString() })
-          .eq('id', id);
-        if (error) throw error;
-      }
-    } catch {
-      const { error } = await supabase
-        .from('reservations')
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
+    if (nextStatus === 'CONFIRMED') {
+      await this.restaurantDecide({ reservationId: id, decision: 'ACCEPT' });
+    } else if (nextStatus === 'REJECTED') {
+      await this.restaurantDecide({ reservationId: id, decision: 'REJECT' });
+    } else if (nextStatus === 'SEATED' || nextStatus === 'COMPLETED' || nextStatus === 'NO_SHOW') {
+      await this.transitionAttendance(id, nextStatus as any);
+    } else if (nextStatus === 'CANCELLED') {
+      await this.cancelSecure(id);
+    } else {
+      throw new Error(`Unsupported reservation status transition to ${nextStatus}. Use server RPCs.`);
     }
 
     const updated = await this.getById(id);

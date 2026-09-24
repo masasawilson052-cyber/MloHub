@@ -13,12 +13,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import { OrderRepository } from '../../repositories/orders.repository';
 import { PaymentRepository } from '../../repositories/payments.repository';
 import { RefundsRepository } from '../../repositories/refunds.repository';
@@ -34,7 +35,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { formatTzs } from '../../utils/formatters';
 import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
 
-const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'];
+const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
 
 export const canRetryOrderPayment = (order: Order): boolean => {
@@ -48,8 +49,10 @@ export const canRetryOrderPayment = (order: Order): boolean => {
 
 export default function OrdersScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ orderId?: string }>();
   const { t, language } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const { addToCart } = useCart();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
@@ -66,6 +69,69 @@ export default function OrdersScreen() {
   const [reviewComment, setReviewComment] = useState('');
   const [paymentAttemptIds, setPaymentAttemptIds] = useState<Record<string, string>>({});
 
+  const handleCancelOrder = async (orderId: string) => {
+    Alert.alert(
+      language === 'sw' ? 'Ghairi Oda' : 'Cancel Order',
+      language === 'sw'
+        ? 'Je, una uhakika unataka kughairi oda hii? Ikiwa ulishalipa, ombi la kurudishiwa pesa litatumwa kiotomatiki.'
+        : 'Are you sure you want to cancel this order? If you already paid, an automatic refund request will be filed.',
+      [
+        { text: language === 'sw' ? 'Hapana' : 'Keep Order', style: 'cancel' },
+        {
+          text: language === 'sw' ? 'Ndio, Ghairi' : 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            setIsActionLoading(true);
+            try {
+              await OrderRepository.cancelCustomerOrder(orderId, 'Cancelled by customer');
+              Alert.alert(
+                language === 'sw' ? 'Oda Imeghairiwa' : 'Order Cancelled',
+                language === 'sw'
+                  ? 'Oda yako imeghairiwa kikamilifu.'
+                  : 'Your order has been cancelled successfully.'
+              );
+              setSelectedOrder(null);
+              await fetchOrders();
+            } catch (err: any) {
+              Alert.alert(
+                language === 'sw' ? 'Hitilafu' : 'Cancellation Error',
+                err.message || 'Unable to cancel order.'
+              );
+            } finally {
+              setIsActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReorder = (order: Order) => {
+    if (!order.items || order.items.length === 0) return;
+    let count = 0;
+    order.items.forEach((it) => {
+      if (it.menuItemId) {
+        addToCart({
+          dishId: it.menuItemId,
+          dishName: it.itemNameSnapshot,
+          priceTzs: it.priceSnapshot,
+          restaurantId: order.restaurantId,
+          restaurantName: order.restaurantName || 'Restaurant',
+          quantity: it.quantity,
+          notes: it.specialNotes,
+        });
+        count += it.quantity;
+      }
+    });
+    Alert.alert(
+      language === 'sw' ? 'Vyakula Vimeongezwa' : 'Items Added to Cart',
+      language === 'sw'
+        ? `Vyakula ${count} vimeongezwa kwenye kikapu chako.`
+        : `${count} items have been added to your cart.`,
+      [{ text: language === 'sw' ? 'Gundua Zaidi' : 'Continue Shopping', onPress: () => router.push('/(tabs)') }]
+    );
+  };
+
   const fetchOrders = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
       setOrders([]);
@@ -77,6 +143,22 @@ export default function OrdersScreen() {
     try {
       const customerOrders = await OrderRepository.listOrdersForCustomer(user.id);
       setOrders(customerOrders);
+
+      // Auto-focus incoming orderId from checkout navigation
+      if (params.orderId && customerOrders.length > 0) {
+        const target = customerOrders.find(
+          (o) => o.id === params.orderId || o.orderNumber === params.orderId
+        );
+        if (target) {
+          setSelectedOrder(target);
+          if (PAST_STATUSES.includes(target.status)) {
+            setActiveTab('past');
+          } else {
+            setActiveTab('active');
+          }
+        }
+      }
+
       const completedOrders = customerOrders.filter((order) => order.status === 'COMPLETED');
       const eligibilityEntries = await Promise.all(completedOrders.map(async (order) => {
         try {
@@ -99,7 +181,7 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, params.orderId]);
 
   useEffect(() => {
     fetchOrders();
@@ -627,6 +709,31 @@ export default function OrdersScreen() {
                     fullWidth={true}
                     disabled={isActionLoading}
                     loading={isActionLoading}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
+                {selectedOrder.status === 'PENDING' && (
+                  <Button
+                    title={language === 'sw' ? 'Ghairi Oda Hii' : 'Cancel This Order'}
+                    onPress={() => handleCancelOrder(selectedOrder.id)}
+                    variant="ghost"
+                    size="md"
+                    fullWidth={true}
+                    disabled={isActionLoading}
+                    loading={isActionLoading}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
+                {selectedOrder.status === 'COMPLETED' && (
+                  <Button
+                    title={language === 'sw' ? 'Agiza Tena' : 'Reorder Items'}
+                    onPress={() => {
+                      handleReorder(selectedOrder);
+                      setSelectedOrder(null);
+                    }}
+                    variant="outline"
+                    size="md"
+                    fullWidth={true}
                     style={{ marginBottom: Spacing.sm }}
                   />
                 )}

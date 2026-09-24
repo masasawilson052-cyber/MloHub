@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { MenuCategory, MenuItem, BranchMenuItem, ItemStockStatus } from '../types/domain';
+import { MenuCategory, MenuItem, BranchMenuItem, ItemStockStatus, MenuModifierGroup, MenuModifierOption } from '../types/domain';
 
 export class MenuRepository {
   private static mapRowToCategory(row: any): MenuCategory {
@@ -554,4 +554,65 @@ export class MenuRepository {
       updatedAt: row.updated_at,
     }));
   }
+
+  /**
+   * Retrieves modifier groups and options for a specific menu item.
+   */
+  public static async getModifiersForItem(menuItemId: string): Promise<MenuModifierGroup[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data: groups, error: groupsError } = await supabase
+      .from('menu_modifier_groups')
+      .select('*')
+      .eq('menu_item_id', menuItemId)
+      .order('sort_order', { ascending: true });
+
+    if (groupsError) {
+      console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, groupsError.message);
+      return [];
+    }
+
+    if (!groups || groups.length === 0) return [];
+
+    const groupIds = groups.map((g: any) => g.id);
+    const { data: options, error: optionsError } = await supabase
+      .from('menu_modifier_options')
+      .select('*')
+      .in('group_id', groupIds)
+      .order('sort_order', { ascending: true });
+
+    if (optionsError) {
+      console.error(`MenuRepository.getModifiersForItem(${menuItemId}) options error:`, optionsError.message);
+      return [];
+    }
+
+    const optionsByGroup: Record<string, MenuModifierOption[]> = {};
+    (options || []).forEach((opt: any) => {
+      if (!optionsByGroup[opt.group_id]) {
+        optionsByGroup[opt.group_id] = [];
+      }
+      optionsByGroup[opt.group_id].push({
+        id: opt.id,
+        groupId: opt.group_id,
+        name: opt.name,
+        priceDeltaTzs: Number(opt.price_delta_tzs || 0),
+        isAvailable: Boolean(opt.is_available),
+        sortOrder: Number(opt.sort_order || 0),
+        createdAt: opt.created_at,
+      });
+    });
+
+    return groups.map((g: any) => ({
+      id: g.id,
+      menuItemId: g.menu_item_id,
+      name: g.name,
+      minSelections: Number(g.min_selections || 0),
+      maxSelections: Number(g.max_selections || 1),
+      isRequired: Boolean(g.is_required),
+      sortOrder: Number(g.sort_order || 0),
+      options: optionsByGroup[g.id] || [],
+      createdAt: g.created_at,
+    }));
+  }
 }
+

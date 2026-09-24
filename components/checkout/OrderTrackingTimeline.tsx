@@ -29,6 +29,7 @@ const STEPS: { status: OrderStatus; label: string; icon: keyof typeof Ionicons.g
   { status: 'ACCEPTED', label: 'Accepted', icon: 'checkmark-circle-outline' },
   { status: 'PREPARING', label: 'Cooking', icon: 'flame-outline' },
   { status: 'READY', label: 'Ready', icon: 'bag-check-outline' },
+  { status: 'OUT_FOR_DELIVERY', label: 'On Way', icon: 'bicycle-outline' },
   { status: 'COMPLETED', label: 'Completed', icon: 'checkmark-done-circle-outline' },
 ];
 
@@ -49,12 +50,14 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
       case 'PREPARING':
         return 2;
       case 'Ready for Pickup':
-      case 'Out for Delivery':
       case 'READY':
         return 3;
+      case 'Out for Delivery':
+      case 'OUT_FOR_DELIVERY':
+        return 4;
       case 'Completed':
       case 'COMPLETED':
-        return 4;
+        return 5;
       default:
         return 0;
     }

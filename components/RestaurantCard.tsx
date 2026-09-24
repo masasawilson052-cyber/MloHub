@@ -35,17 +35,17 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           { backgroundColor: restaurant.bgGradient ? restaurant.bgGradient[0] : '#113a26' },
         ]}
       >
-        {coverImage && (
+        {coverImage ? (
           <Image
             source={{ uri: coverImage }}
-            style={[StyleSheet.absoluteFill, { opacity: 0.55 }]}
+            style={[StyleSheet.absoluteFill, { opacity: 0.9 }]}
             resizeMode="cover"
           />
+        ) : (
+          <View style={styles.emojiCircle}>
+            <Text style={styles.emoji}>{restaurant.emoji || '🍲'}</Text>
+          </View>
         )}
-
-        <View style={styles.emojiCircle}>
-          <Text style={styles.emoji}>{restaurant.emoji || '🍲'}</Text>
-        </View>
 
         {/* Top Badges */}
         <View style={styles.badgeRow}>
@@ -70,17 +70,15 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           </View>
         </View>
 
-        {/* Favorite Heart Button: Rendered only in deterministic demo/test environment */}
-        {runtimeConfig.allowLocalDataFallbacks && (
-          <TouchableOpacity
-            style={styles.favBtn}
-            onPress={onToggleFavorite}
-            activeOpacity={0.8}
-            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Text style={styles.favHeart}>{isFavorite ? '❤️' : '🤍'}</Text>
-          </TouchableOpacity>
-        )}
+        {/* Favorite Heart Button */}
+        <TouchableOpacity
+          style={styles.favBtn}
+          onPress={onToggleFavorite}
+          activeOpacity={0.8}
+          accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Text style={styles.favHeart}>{isFavorite ? '❤️' : '🤍'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Content Info */}
@@ -128,16 +126,6 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
               </View>
             </>
           ) : null}
-          {restaurant.supportsOrderAhead && (
-            <>
-              <Text style={styles.metaDot}>•</Text>
-              <View style={styles.orderAheadPill}>
-                <Text style={styles.orderAheadText}>
-                  {language === 'sw' ? '🗓️ Agiza Mapema' : '🗓️ Order Ahead'}
-                </Text>
-              </View>
-            </>
-          )}
         </View>
 
         {/* Specialty highlight */}
@@ -188,7 +176,7 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   visualHeader: {
-    height: 120,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',

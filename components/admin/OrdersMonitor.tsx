@@ -88,14 +88,14 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
 
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Ufuatiliaji wa Oda za Chakula' : 'Orders Operations Monitor'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Supervise fulfillment pipelines, tracking status from kitchen preparation to customer delivery.
           </Text>
         </View>
@@ -105,19 +105,39 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       <View style={styles.controlsRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusPills}>
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'ALL' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'ALL' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setStatusFilter('ALL')}
           >
-            <Text style={[styles.pillText, statusFilter === 'ALL' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'ALL' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               All ({orders.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'EXCEPTIONS' && { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'EXCEPTIONS' && { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+            ]}
             onPress={() => setStatusFilter('EXCEPTIONS')}
           >
-            <Text style={[styles.pillText, statusFilter === 'EXCEPTIONS' ? { color: '#b91c1c', fontWeight: '800' } : { color: '#dc2626' }]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'EXCEPTIONS' ? { color: '#b91c1c', fontWeight: '800' } : { color: '#dc2626' },
+              ]}
+            >
               Exceptions ({exceptionsCount})
             </Text>
           </TouchableOpacity>
@@ -125,21 +145,32 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
           {(['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'] as const).map((st) => (
             <TouchableOpacity
               key={st}
-              style={[styles.pill, statusFilter === st && styles.pillActive]}
+              style={[
+                styles.pill,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+                statusFilter === st && { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
               onPress={() => setStatusFilter(st)}
             >
-              <Text style={[styles.pillText, statusFilter === st && styles.pillTextActive]}>
+              <Text
+                style={[
+                  styles.pillText,
+                  { color: colors.textSecondary },
+                  statusFilter === st && { color: '#ffffff', fontWeight: '700' },
+                ]}
+              >
                 {st}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={14} color="#94a3b8" />
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search order #, dish, customer..."
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -150,9 +181,9 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="cart-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>No Orders Found</Text>
-            <Text style={styles.emptySubtitle}>No orders match the selected filter criteria.</Text>
+            <Ionicons name="cart-outline" size={48} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Orders Found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>No orders match the selected filter criteria.</Text>
           </View>
         ) : (
           <View style={styles.cardsGrid}>
@@ -164,7 +195,11 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
               return (
                 <TouchableOpacity
                   key={ord.id}
-                  style={[styles.card, exc.isException && styles.cardException]}
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    exc.isException && styles.cardException,
+                  ]}
                   onPress={() => setSelectedOrder(ord)}
                   activeOpacity={0.8}
                 >
@@ -177,8 +212,8 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
 
                   <View style={styles.cardHeader}>
                     <View>
-                      <Text style={styles.orderNumber}>#{ord.orderNumber || ord.id.slice(0, 8)}</Text>
-                      <Text style={styles.restaurantName}>{ord.restaurantName || 'Restaurant'}</Text>
+                      <Text style={[styles.orderNumber, { color: colors.textPrimary }]}>#{ord.orderNumber || ord.id.slice(0, 8)}</Text>
+                      <Text style={[styles.restaurantName, { color: colors.textSecondary }]}>{ord.restaurantName || 'Restaurant'}</Text>
                     </View>
                     <View style={[styles.statusTag, { backgroundColor: statusBadge.bg }]}>
                       <Text style={[styles.statusTagText, { color: statusBadge.color }]}>
@@ -189,19 +224,19 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
 
                   <View style={styles.cardBody}>
                     <View style={styles.dishRow}>
-                      <Ionicons name="fast-food-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.dishName}>{getItemSummary(ord)}</Text>
-                      <Text style={styles.servingsBadge}>({totalItems} items)</Text>
+                      <Ionicons name="fast-food-outline" size={14} color={colors.primary} />
+                      <Text style={[styles.dishName, { color: colors.textPrimary }]}>{getItemSummary(ord)}</Text>
+                      <Text style={[styles.servingsBadge, { color: colors.textMuted }]}>({totalItems} items)</Text>
                     </View>
 
                     <View style={styles.metaGrid}>
                       <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Fulfillment:</Text>
-                        <Text style={styles.metaValue}>{ord.fulfillmentType || 'Delivery'}</Text>
+                        <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Fulfillment:</Text>
+                        <Text style={[styles.metaValue, { color: colors.textPrimary }]}>{ord.fulfillmentType || 'Delivery'}</Text>
                       </View>
                       <View style={styles.metaItem}>
-                        <Text style={styles.metaLabel}>Order Total:</Text>
-                        <Text style={[styles.metaValue, { fontWeight: '800', color: '#0f172a' }]}>
+                        <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Order Total:</Text>
+                        <Text style={[styles.metaValue, { fontWeight: '800', color: colors.textPrimary }]}>
                           {formatTzs(ord.totalTzs || 0)}
                         </Text>
                       </View>
@@ -209,8 +244,8 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
 
                     {ord.deliveryAddress && (
                       <View style={styles.addressRow}>
-                        <Ionicons name="location-outline" size={12} color="#64748b" />
-                        <Text style={styles.addressText} numberOfLines={1}>
+                        <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                        <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>
                           {ord.deliveryAddress}
                         </Text>
                       </View>
@@ -239,14 +274,14 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       {selectedOrder && (
         <Modal visible transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={styles.detailCard}>
-              <View style={styles.detailHeader}>
+            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.detailHeader, { borderBottomColor: colors.border }]}>
                 <View>
-                  <Text style={styles.detailTitle}>Order #{selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)}</Text>
-                  <Text style={styles.detailSubtitle}>{selectedOrder.restaurantName || 'Restaurant'}</Text>
+                  <Text style={[styles.detailTitle, { color: colors.textPrimary }]}>Order #{selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)}</Text>
+                  <Text style={[styles.detailSubtitle, { color: colors.textSecondary }]}>{selectedOrder.restaurantName || 'Restaurant'}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setSelectedOrder(null)} style={styles.closeBtn}>
-                  <Ionicons name="close" size={20} color="#64748b" />
+                  <Ionicons name="close" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -260,56 +295,56 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
                   </View>
                 )}
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionHeader}>Customer & Fulfillment</Text>
+                <View style={[styles.detailSection, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>Customer & Fulfillment</Text>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Customer:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.customerName || 'Customer on file'}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Customer:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedOrder.customerName || 'Customer on file'}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Phone:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.customerPhone || '-'}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Phone:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedOrder.customerPhone || '-'}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Type:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.fulfillmentType || 'Delivery'}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Type:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedOrder.fulfillmentType || 'Delivery'}</Text>
                   </View>
                   {selectedOrder.deliveryAddress && (
                     <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Address:</Text>
-                      <Text style={styles.detailValue}>{selectedOrder.deliveryAddress}</Text>
+                      <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Address:</Text>
+                      <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{selectedOrder.deliveryAddress}</Text>
                     </View>
                   )}
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionHeader}>Items Ordered</Text>
+                <View style={[styles.detailSection, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>Items Ordered</Text>
                   {(selectedOrder.items || []).map((it, idx) => (
                     <View key={idx} style={styles.itemRow}>
-                      <Text style={styles.itemQty}>{it.quantity || 1}x</Text>
-                      <Text style={styles.itemName}>{it.itemNameSnapshot || 'Dish'}</Text>
-                      <Text style={styles.itemPrice}>{formatTzs((it.priceTzsSnapshot || 0) * (it.quantity || 1))}</Text>
+                      <Text style={[styles.itemQty, { color: colors.primary }]}>{it.quantity || 1}x</Text>
+                      <Text style={[styles.itemName, { color: colors.textPrimary }]}>{it.itemNameSnapshot || 'Dish'}</Text>
+                      <Text style={[styles.itemPrice, { color: colors.textPrimary }]}>{formatTzs((it.priceTzsSnapshot || 0) * (it.quantity || 1))}</Text>
                     </View>
                   ))}
                 </View>
 
-                <View style={styles.detailSection}>
-                  <Text style={styles.sectionHeader}>Financial Summary</Text>
+                <View style={[styles.detailSection, { borderBottomColor: colors.border }]}>
+                  <Text style={[styles.sectionHeader, { color: colors.textPrimary }]}>Financial Summary</Text>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Subtotal:</Text>
-                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.subtotalTzs || 0)}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Subtotal:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatTzs(selectedOrder.subtotalTzs || 0)}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Delivery Fee:</Text>
-                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.deliveryFeeTzs || 0)}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Delivery Fee:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatTzs(selectedOrder.deliveryFeeTzs || 0)}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Platform Commission:</Text>
-                    <Text style={styles.detailValue}>{formatTzs(selectedOrder.platformCommissionTzs || 0)}</Text>
+                    <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Platform Commission:</Text>
+                    <Text style={[styles.detailValue, { color: colors.textPrimary }]}>{formatTzs(selectedOrder.platformCommissionTzs || 0)}</Text>
                   </View>
-                  <View style={[styles.detailRow, { borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 6, marginTop: 4 }]}>
-                    <Text style={[styles.detailLabel, { fontWeight: '800', color: '#0f172a' }]}>Total:</Text>
-                    <Text style={[styles.detailValue, { fontWeight: '800', color: '#ea580c', fontSize: 15 }]}>
+                  <View style={[styles.detailRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 6, marginTop: 4 }]}>
+                    <Text style={[styles.detailLabel, { fontWeight: '800', color: colors.textPrimary }]}>Total:</Text>
+                    <Text style={[styles.detailValue, { fontWeight: '800', color: colors.primary, fontSize: 15 }]}>
                       {formatTzs(selectedOrder.totalTzs || 0)}
                     </Text>
                   </View>

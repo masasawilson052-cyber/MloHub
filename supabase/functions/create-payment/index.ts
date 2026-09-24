@@ -289,7 +289,8 @@ Deno.serve(async (req: Request) => {
           `
           id,
           user_id,
-          accepted_quote_id
+          accepted_quote_id,
+          locked_quote_snapshot
         `
         )
         .eq('id', customMealRequestId)
@@ -345,8 +346,12 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      amountTzs = Number(quote.quoted_price_tzs);
-      commissionBaseTzs = amountTzs;
+      // Canonical price: prioritize locked snapshot grand total, fallback to quoted_price_tzs
+      const lockedTotal = (request.locked_quote_snapshot as any)?.grand_total_tzs;
+      const lockedSubtotal = (request.locked_quote_snapshot as any)?.subtotal_tzs;
+
+      amountTzs = Number(lockedTotal || quote.quoted_price_tzs);
+      commissionBaseTzs = Number(lockedSubtotal || quote.quoted_price_tzs);
       restaurantId = quote.restaurant_id;
       restaurantName = (quote.restaurants as any)?.name || '';
     }
@@ -362,19 +367,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const {
-      data: feeRule,
-    } = await adminClient
-      .from('platform_fee_rules')
-      .select('commission_rate')
-      .eq('is_active', true)
-      .order('effective_from', {
-        ascending: false,
-      })
-      .limit(1)
+    // Authoritative platform commission rate from platform_financial_settings
+    let commissionRate = 0.10;
+    const { data: finSettings } = await adminClient
+      .from('platform_financial_settings')
+      .select('default_commission_basis_points')
+      .eq('id', true)
       .maybeSingle();
 
-    const commissionRate = Number(feeRule?.commission_rate ?? 0.1);
+    if (finSettings && finSettings.default_commission_basis_points != null) {
+      commissionRate = Number(finSettings.default_commission_basis_points) / 10000.0;
+    } else {
+      const { data: feeRule } = await adminClient
+        .from('platform_fee_rules')
+        .select('commission_rate')
+        .eq('is_active', true)
+        .order('effective_from', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (feeRule && feeRule.commission_rate != null) {
+        commissionRate = Number(feeRule.commission_rate);
+      }
+    }
+
     const platformCommissionTzs = Math.round(
       commissionBaseTzs * commissionRate
     );

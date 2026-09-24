@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { UserEntity, UserRole } from '../../db/types';
+import { useTheme } from '../../context/ThemeContext';
 
 interface UsersManagerProps {
   users: UserEntity[];
@@ -23,6 +24,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
   onToggleSuspendUser,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedUsers, setRevealedUsers] = useState<Record<string, boolean>>({});
@@ -82,14 +84,14 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Watumiaji wa Mfumo' : 'Users & Customer Accounts Directory'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Inspect customer profiles, vendor owner assignments, and account standing with privacy safeguards.
           </Text>
         </View>
@@ -99,36 +101,67 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
       <View style={styles.controlsRow}>
         <View style={styles.filterPills}>
           <TouchableOpacity
-            style={[styles.pill, roleFilter === 'ALL' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              roleFilter === 'ALL' && styles.pillActive,
+            ]}
             onPress={() => setRoleFilter('ALL')}
           >
-            <Text style={[styles.pillText, roleFilter === 'ALL' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                roleFilter === 'ALL' && styles.pillTextActive,
+              ]}
+            >
               All ({users.filter((u) => u.role !== UserRole.ADMIN && u.role !== UserRole.SUPER_ADMIN).length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.pill, roleFilter === UserRole.CUSTOMER && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              roleFilter === UserRole.CUSTOMER && styles.pillActive,
+            ]}
             onPress={() => setRoleFilter(UserRole.CUSTOMER)}
           >
-            <Text style={[styles.pillText, roleFilter === UserRole.CUSTOMER && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                roleFilter === UserRole.CUSTOMER && styles.pillTextActive,
+              ]}
+            >
               Customers
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.pill, roleFilter === UserRole.RESTAURANT_OWNER && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              roleFilter === UserRole.RESTAURANT_OWNER && styles.pillActive,
+            ]}
             onPress={() => setRoleFilter(UserRole.RESTAURANT_OWNER)}
           >
-            <Text style={[styles.pillText, roleFilter === UserRole.RESTAURANT_OWNER && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                roleFilter === UserRole.RESTAURANT_OWNER && styles.pillTextActive,
+              ]}
+            >
               Restaurant Owners
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={14} color="#94a3b8" />
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search name, phone, email..."
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -139,9 +172,9 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>No Users Found</Text>
-            <Text style={styles.emptySubtitle}>No accounts match the search criteria.</Text>
+            <Ionicons name="people-outline" size={48} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Users Found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>No accounts match the search criteria.</Text>
           </View>
         ) : (
           <View style={styles.cardsGrid}>
@@ -150,14 +183,21 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
               const isRevealed = !!revealedUsers[u.id];
 
               return (
-                <View key={u.id} style={[styles.card, isSuspended && styles.cardSuspended]}>
+                <View
+                  key={u.id}
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isSuspended && styles.cardSuspended,
+                  ]}
+                >
                   <View style={styles.cardHeader}>
                     <View style={styles.avatarPill}>
                       <Text style={styles.avatarEmoji}>{u.avatarEmoji || '👤'}</Text>
                     </View>
                     <View style={styles.titleArea}>
-                      <Text style={styles.userName}>{u.fullName}</Text>
-                      <Text style={styles.userRole}>{u.role}</Text>
+                      <Text style={[styles.userName, { color: colors.textPrimary }]}>{u.fullName}</Text>
+                      <Text style={[styles.userRole, { color: colors.textSecondary }]}>{u.role}</Text>
                     </View>
                     <View style={[styles.statusBadge, isSuspended ? styles.statusSuspended : styles.statusActive]}>
                       <Text style={styles.statusText}>{isSuspended ? 'SUSPENDED' : 'ACTIVE'}</Text>

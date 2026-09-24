@@ -1,25 +1,30 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { AdminPreviewBanner } from '../../components/navigation/AdminPreviewBanner';
 import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
+import { CustomerDesktopNav } from '../../components/navigation/CustomerDesktopNav';
 
 export default function TabLayout() {
   const { t, language } = useLanguage();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
 
   return (
     <View style={styles.container}>
       <AdminPreviewBanner />
       <PlatformAnnouncementBanner audience="CUSTOMERS" language={language === 'sw' ? 'sw' : 'en'} />
+      {isDesktop && <CustomerDesktopNav />}
       <Tabs
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: Colors.primary,
           tabBarInactiveTintColor: Colors.muted,
           tabBarStyle: {
+            display: isDesktop ? 'none' : 'flex',
             backgroundColor: Colors.surface || Colors.white,
             borderTopColor: Colors.borderLight,
             height: Platform.select({ ios: 88, default: 68 }),

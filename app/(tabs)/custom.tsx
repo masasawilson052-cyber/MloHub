@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
@@ -74,6 +75,7 @@ const ALLERGEN_OPTIONS = [
 ];
 
 export default function CustomMealScreen() {
+  const router = useRouter();
   const { language } = useLanguage();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
@@ -215,13 +217,13 @@ export default function CustomMealScreen() {
     }
 
     const cleanBudget = budgetTzs.replace(/[^0-9]/g, '');
-    const budgetNum = parseInt(cleanBudget, 10);
-    if (!cleanBudget || isNaN(budgetNum) || budgetNum < 5000) {
+    const budgetNum = parseInt(cleanBudget, 10) || 0;
+    if (budgetType !== 'OPEN_TO_QUOTES' && (!cleanBudget || isNaN(budgetNum) || budgetNum < 5000)) {
       Alert.alert(
         language === 'sw' ? 'Bajeti Inahitajika' : 'Budget Required',
         language === 'sw'
-          ? 'Tafadhali ingiza makadirio halisi ya bajeti ya chakula chako.'
-          : 'Please enter a budget of at least TZS 5,000.'
+          ? 'Tafadhali ingiza makadirio halisi ya bajeti ya angalau TZS 5,000 au chagua "Open to Quotes".'
+          : 'Please enter a target budget of at least TZS 5,000 or select "Open to Quotes".'
       );
       return;
     }
@@ -768,7 +770,9 @@ export default function CustomMealScreen() {
       <OrderReviewModal
         visible={isOrderReviewOpen}
         onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={() => {}}
+        onOrderConfirmed={(orderId) => {
+          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
+        }}
       />
 
       {/* Custom Meal Quote Payment Modal */}

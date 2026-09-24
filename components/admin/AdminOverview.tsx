@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { AdminTabId } from './AdminSidebar';
-import { FINANCIAL_CONFIG, formatTzs } from '../../config/platformFees';
+import { formatTzs } from '../../config/platformFees';
 
 import { useTheme } from '../../context/ThemeContext';
 import { PlatformHealthStatus } from '../../services/AdminSystemHealthService';
@@ -61,17 +61,17 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       {/* 1. PLATFORM ATTENTION CENTER */}
       <View style={styles.section}>
         <View style={styles.sectionHeaderRow}>
           <View style={styles.sectionTitleWithIcon}>
-            <Ionicons name="notifications-circle-outline" size={22} color={Colors.primary} />
-            <Text style={styles.sectionTitle}>
+            <Ionicons name="notifications-circle-outline" size={22} color={colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
               {language === 'sw' ? 'Kituo cha Hatua za Haraka' : 'Platform Attention Center'}
             </Text>
           </View>
-          <Text style={styles.sectionSubtitle}>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
             {language === 'sw'
               ? 'Mambo yanayohitaji uamuzi wa haraka wa wasimamizi'
               : 'Items requiring operational intervention'}
@@ -79,11 +79,11 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
         </View>
 
         {effectiveAttentionItems.length === 0 ? (
-          <View style={styles.allClearCard}>
+          <View style={[styles.allClearCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="checkmark-done-circle" size={32} color="#10b981" />
             <View>
-              <Text style={styles.allClearTitle}>All Systems Optimal</Text>
-              <Text style={styles.allClearSubtitle}>No outstanding critical issues or unreviewed queues.</Text>
+              <Text style={[styles.allClearTitle, { color: colors.textPrimary }]}>All Systems Optimal</Text>
+              <Text style={[styles.allClearSubtitle, { color: colors.textSecondary }]}>No outstanding critical issues or unreviewed queues.</Text>
             </View>
           </View>
         ) : (
@@ -99,7 +99,11 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               return (
                 <TouchableOpacity
                   key={item.id}
-                  style={[styles.attentionCard, isCrit && styles.attentionCardCritical]}
+                  style={[
+                    styles.attentionCard,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isCrit && (isDark ? { borderColor: '#7f1d1d', backgroundColor: '#2a1215' } : styles.attentionCardCritical),
+                  ]}
                   onPress={() => onNavigateTab(item.targetTab)}
                 >
                   <View style={styles.attentionTopRow}>
@@ -107,14 +111,14 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
                       <Text style={[styles.severityText, { color: badgeColor }]}>{item.severity}</Text>
                     </View>
                     {item.count !== undefined && item.count > 0 && (
-                      <Text style={styles.attentionCount}>+{item.count}</Text>
+                      <Text style={[styles.attentionCount, { color: colors.textMuted }]}>+{item.count}</Text>
                     )}
                   </View>
-                  <Text style={styles.attentionTitle}>{item.title}</Text>
-                  <Text style={styles.attentionDesc}>{item.description}</Text>
+                  <Text style={[styles.attentionTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+                  <Text style={[styles.attentionDesc, { color: colors.textSecondary }]}>{item.description}</Text>
                   <View style={styles.attentionActionRow}>
-                    <Text style={styles.attentionActionText}>Resolve Now</Text>
-                    <Ionicons name="arrow-forward" size={14} color={Colors.primary} />
+                    <Text style={[styles.attentionActionText, { color: colors.primary }]}>Resolve Now</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
                   </View>
                 </TouchableOpacity>
               );
@@ -125,104 +129,125 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
 
       {/* 2. OPERATIONAL KPI METRICS */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           {language === 'sw' ? 'Takwimu za Uendeshaji' : 'Operational Health Metrics'}
         </Text>
 
         <View style={styles.kpiGrid}>
           {/* Active Restaurants */}
-          <View style={styles.kpiCard}>
+          <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.kpiIconWrapper}>
               <Ionicons name="restaurant" size={20} color="#0284c7" />
             </View>
-            <Text style={styles.kpiValue}>{stats.totalRestaurants}</Text>
-            <Text style={styles.kpiLabel}>Registered Restaurants</Text>
-            <Text style={styles.kpiSubLabel}>
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{stats.totalRestaurants}</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Registered Restaurants</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>
               {stats.verifiedSellers} Verified • {stats.basicSellers} Basic
             </Text>
           </View>
 
           {/* Pending Applications */}
-          <TouchableOpacity style={styles.kpiCard} onPress={() => onNavigateTab('APPLICATIONS')}>
+          <TouchableOpacity
+            style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('APPLICATIONS')}
+          >
             <View style={[styles.kpiIconWrapper, { backgroundColor: '#ffedd5' }]}>
               <Ionicons name="document-text" size={20} color="#ea580c" />
             </View>
-            <Text style={[styles.kpiValue, stats.pendingApplications > 0 && { color: '#ea580c' }]}>
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }, stats.pendingApplications > 0 && { color: '#ea580c' }]}>
               {stats.pendingApplications}
             </Text>
-            <Text style={styles.kpiLabel}>Pending Applications</Text>
-            <Text style={styles.kpiSubLabel}>Awaiting review & onboarding</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Pending Applications</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>Awaiting review & onboarding</Text>
           </TouchableOpacity>
 
           {/* Open Customer Reports */}
-          <TouchableOpacity style={styles.kpiCard} onPress={() => onNavigateTab('REPORTS')}>
+          <TouchableOpacity
+            style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('REPORTS')}
+          >
             <View style={[styles.kpiIconWrapper, { backgroundColor: '#fee2e2' }]}>
               <Ionicons name="alert-circle" size={20} color="#dc2626" />
             </View>
-            <Text style={[styles.kpiValue, stats.openReports > 0 && { color: '#dc2626' }]}>
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }, stats.openReports > 0 && { color: '#dc2626' }]}>
               {stats.openReports}
             </Text>
-            <Text style={styles.kpiLabel}>Data Reports</Text>
-            <Text style={styles.kpiSubLabel}>Price / availability reports</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Data Reports</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>Price / availability reports</Text>
           </TouchableOpacity>
 
           {/* Orders Today & Fulfillment */}
-          <View style={styles.kpiCard}>
+          <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.kpiIconWrapper, { backgroundColor: '#dcfce7' }]}>
               <Ionicons name="cart" size={20} color="#16a34a" />
             </View>
-            <Text style={styles.kpiValue}>{stats.totalOrders}</Text>
-            <Text style={styles.kpiLabel}>Total Orders Tracked</Text>
-            <Text style={styles.kpiSubLabel}>
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{stats.totalOrders}</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Total Orders Tracked</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>
               {stats.completedOrders} completed
             </Text>
           </View>
 
           {/* Platform Financials */}
-          <View style={styles.kpiCard}>
+          <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.kpiIconWrapper, { backgroundColor: '#f3e8ff' }]}>
               <Ionicons name="cash" size={20} color="#9333ea" />
             </View>
-            <Text style={styles.kpiValue}>{formatTzs(stats.grossVolumeTzs)}</Text>
-            <Text style={styles.kpiLabel}>Gross Platform Volume</Text>
-            <Text style={styles.kpiSubLabel}>
-              Est. Comm ({FINANCIAL_CONFIG.DEFAULT_PLATFORM_COMMISSION_RATE * 100}%): {formatTzs(stats.platformRevenueTzs)}
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{formatTzs(stats.grossVolumeTzs)}</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Gross Platform Volume</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>
+              Platform Commission: {formatTzs(stats.platformRevenueTzs)}
             </Text>
           </View>
 
           {/* Catalog Freshness */}
-          <TouchableOpacity style={styles.kpiCard} onPress={() => onNavigateTab('VERIFICATION')}>
+          <TouchableOpacity
+            style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('VERIFICATION')}
+          >
             <View style={[styles.kpiIconWrapper, { backgroundColor: '#e0e7ff' }]}>
               <Ionicons name="shield-checkmark" size={20} color="#4338ca" />
             </View>
-            <Text style={styles.kpiValue}>{stats.freshnessScorePct}%</Text>
-            <Text style={styles.kpiLabel}>Catalog Freshness</Text>
-            <Text style={styles.kpiSubLabel}>Verified dishes & prices</Text>
+            <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{stats.freshnessScorePct}%</Text>
+            <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Catalog Freshness</Text>
+            <Text style={[styles.kpiSubLabel, { color: colors.textMuted }]}>Verified dishes & prices</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* 3. QUICK ACTIONS BAR */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           {language === 'sw' ? 'Njia za Mkato' : 'Administrative Quick Actions'}
         </Text>
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onNavigateTab('APPLICATIONS')}>
-            <Ionicons name="person-add-outline" size={18} color={Colors.primary} />
-            <Text style={styles.actionBtnText}>Review Applications</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('APPLICATIONS')}
+          >
+            <Ionicons name="person-add-outline" size={18} color={colors.primary} />
+            <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Review Applications</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onNavigateTab('REPORTS')}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('REPORTS')}
+          >
             <Ionicons name="shield-outline" size={18} color="#0284c7" />
-            <Text style={styles.actionBtnText}>Resolve Reports</Text>
+            <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Resolve Reports</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onNavigateTab('NOTIFICATIONS')}>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('NOTIFICATIONS')}
+          >
             <Ionicons name="megaphone-outline" size={18} color="#16a34a" />
-            <Text style={styles.actionBtnText}>Platform Broadcast</Text>
+            <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Platform Broadcast</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onNavigateTab('AUDIT_LOGS')}>
-            <Ionicons name="list-outline" size={18} color="#64748b" />
-            <Text style={styles.actionBtnText}>Audit Trail</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => onNavigateTab('AUDIT_LOGS')}
+          >
+            <Ionicons name="list-outline" size={18} color={colors.textMuted} />
+            <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Audit Trail</Text>
           </TouchableOpacity>
         </View>
       </View>

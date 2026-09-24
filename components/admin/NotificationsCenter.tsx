@@ -100,56 +100,72 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.headerArea}>
-        <Text style={styles.title}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>
           {language === 'sw' ? 'Kituo cha Matangazo na Taarifa' : 'Platform Announcements & Broadcast Center'}
         </Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           System-wide alerts, operational banners, and targeted stakeholder broadcasts with real receipt tracking.
         </Text>
       </View>
 
       {/* Broadcast Composer */}
-      <View style={styles.composerCard}>
-        <Text style={styles.composerTitle}>Compose Platform Announcement</Text>
+      <View style={[styles.composerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.composerTitle, { color: colors.textPrimary }]}>Compose Platform Announcement</Text>
 
         <View style={styles.audienceRow}>
-          <Text style={styles.audienceLabel}>Target Audience:</Text>
+          <Text style={[styles.audienceLabel, { color: colors.textSecondary }]}>Target Audience:</Text>
           <TouchableOpacity
-            style={[styles.audiencePill, audience === 'ALL' && styles.audiencePillActive]}
+            style={[
+              styles.audiencePill,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              audience === 'ALL' && styles.audiencePillActive,
+            ]}
             onPress={() => setAudience('ALL')}
           >
-            <Text style={[styles.audiencePillText, audience === 'ALL' && styles.audiencePillTextActive]}>
+            <Text style={[styles.audiencePillText, { color: colors.textSecondary }, audience === 'ALL' && styles.audiencePillTextActive]}>
               All Stakeholders
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.audiencePill, audience === 'CUSTOMERS' && styles.audiencePillActive]}
+            style={[
+              styles.audiencePill,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              audience === 'CUSTOMERS' && styles.audiencePillActive,
+            ]}
             onPress={() => setAudience('CUSTOMERS')}
           >
-            <Text style={[styles.audiencePillText, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
+            <Text style={[styles.audiencePillText, { color: colors.textSecondary }, audience === 'CUSTOMERS' && styles.audiencePillTextActive]}>
               Customers Only
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.audiencePill, audience === 'RESTAURANTS' && styles.audiencePillActive]}
+            style={[
+              styles.audiencePill,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              audience === 'RESTAURANTS' && styles.audiencePillActive,
+            ]}
             onPress={() => setAudience('RESTAURANTS')}
           >
-            <Text style={[styles.audiencePillText, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
+            <Text style={[styles.audiencePillText, { color: colors.textSecondary }, audience === 'RESTAURANTS' && styles.audiencePillTextActive]}>
               Restaurant Owners
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.audienceRow}>
-          <Text style={styles.audienceLabel}>Priority:</Text>
+          <Text style={[styles.audienceLabel, { color: colors.textSecondary }]}>Priority:</Text>
           <TouchableOpacity
-            style={[styles.audiencePill, priority === 'NORMAL' && styles.audiencePillActive]}
+            style={[
+              styles.audiencePill,
+              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              priority === 'NORMAL' && styles.audiencePillActive,
+            ]}
             onPress={() => setPriority('NORMAL')}
           >
-            <Text style={[styles.audiencePillText, priority === 'NORMAL' && styles.audiencePillTextActive]}>
+            <Text style={[styles.audiencePillText, { color: colors.textSecondary }, priority === 'NORMAL' && styles.audiencePillTextActive]}>
               Normal
             </Text>
           </TouchableOpacity>
@@ -172,22 +188,25 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
         </View>
 
         <TextInput
-          style={styles.inputTitle}
+          style={[styles.inputTitle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Announcement Title (English) *"
+          placeholderTextColor={colors.textMuted}
           value={titleEn}
           onChangeText={setTitleEn}
         />
 
         <TextInput
-          style={styles.inputTitle}
+          style={[styles.inputTitle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Kichwa cha Tangazo (Kiswahili - Hiari)"
+          placeholderTextColor={colors.textMuted}
           value={titleSw}
           onChangeText={setTitleSw}
         />
 
         <TextInput
-          style={styles.inputBody}
+          style={[styles.inputBody, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Announcement Message (English) *"
+          placeholderTextColor={colors.textMuted}
           value={bodyEn}
           onChangeText={setBodyEn}
           multiline
@@ -195,8 +214,9 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
         />
 
         <TextInput
-          style={styles.inputBody}
+          style={[styles.inputBody, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Maelezo ya Tangazo (Kiswahili - Hiari)"
+          placeholderTextColor={colors.textMuted}
           value={bodySw}
           onChangeText={setBodySw}
           multiline
@@ -205,14 +225,16 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
 
         <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
           <TextInput
-            style={[styles.inputTitle, { flex: 1 }]}
+            style={[styles.inputTitle, { flex: 1, backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="CTA Button Label (Optional)"
+            placeholderTextColor={colors.textMuted}
             value={ctaLabel}
             onChangeText={setCtaLabel}
           />
           <TextInput
-            style={[styles.inputTitle, { flex: 2 }]}
+            style={[styles.inputTitle, { flex: 2, backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="CTA Target URL (e.g. https://mlohub.co.tz/promo)"
+            placeholderTextColor={colors.textMuted}
             value={ctaUrl}
             onChangeText={setCtaUrl}
           />
@@ -239,38 +261,38 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
       {/* Active & Historical Announcements with Receipts */}
       <View style={styles.historySection}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.historyTitle}>Live Banners & Announcement History</Text>
+          <Text style={[styles.historyTitle, { color: colors.textPrimary }]}>Live Banners & Announcement History</Text>
           <TouchableOpacity onPress={loadAnnouncementsHistory} disabled={isLoadingHistory}>
-            <Ionicons name="refresh" size={18} color={Colors.primary} />
+            <Ionicons name="refresh" size={18} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         {announcements.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No platform announcements published yet.</Text>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No platform announcements published yet.</Text>
           </View>
         ) : (
           <View style={styles.notificationsList}>
             {announcements.map((a) => (
-              <View key={a.id} style={styles.notificationCard}>
+              <View key={a.id} style={[styles.notificationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.notifHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[styles.priorityBadge, a.priority === 'URGENT' ? styles.urgentBadge : a.priority === 'HIGH' ? styles.highBadge : styles.normalBadge]}>
                       <Text style={styles.priorityBadgeText}>{a.priority}</Text>
                     </View>
-                    <Text style={styles.notifTitle}>{a.titleEn}</Text>
+                    <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>{a.titleEn}</Text>
                   </View>
-                  <Text style={styles.notifDate}>
+                  <Text style={[styles.notifDate, { color: colors.textMuted }]}>
                     {new Date(a.sentAt || a.createdAt).toLocaleDateString()}
                   </Text>
                 </View>
 
-                {a.titleSw ? <Text style={styles.swSubtitle}>Swahili: {a.titleSw}</Text> : null}
-                <Text style={styles.notifMessage}>{a.bodyEn}</Text>
+                {a.titleSw ? <Text style={[styles.swSubtitle, { color: colors.textSecondary }]}>Swahili: {a.titleSw}</Text> : null}
+                <Text style={[styles.notifMessage, { color: colors.textSecondary }]}>{a.bodyEn}</Text>
 
                 <View style={styles.announcementMetaRow}>
-                  <Text style={styles.announcementMetaText}>Audience: {a.targetAudience}</Text>
-                  <Text style={styles.receiptsText}>
+                  <Text style={[styles.announcementMetaText, { color: colors.textMuted }]}>Audience: {a.targetAudience}</Text>
+                  <Text style={[styles.receiptsText, { color: colors.textMuted }]}>
                     Acknowledged: {a.acknowledgedCount ?? 0} receipts
                   </Text>
 
@@ -293,23 +315,23 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
 
       {/* Recent Dispatches */}
       <View style={styles.historySection}>
-        <Text style={styles.historyTitle}>Recent Dispatches & Notifications</Text>
+        <Text style={[styles.historyTitle, { color: colors.textPrimary }]}>Recent Dispatches & Notifications</Text>
 
         {notifications.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No notifications sent yet.</Text>
+          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>No notifications sent yet.</Text>
           </View>
         ) : (
           <View style={styles.notificationsList}>
             {notifications.slice(0, 10).map((n) => (
-              <View key={n.id} style={styles.notificationCard}>
+              <View key={n.id} style={[styles.notificationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.notifHeader}>
-                  <Text style={styles.notifTitle}>{n.titleEn || n.titleSw}</Text>
-                  <Text style={styles.notifDate}>
+                  <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>{n.titleEn || n.titleSw}</Text>
+                  <Text style={[styles.notifDate, { color: colors.textMuted }]}>
                     {new Date(n.createdAt).toLocaleDateString()}
                   </Text>
                 </View>
-                <Text style={styles.notifMessage}>{n.messageEn || n.messageSw}</Text>
+                <Text style={[styles.notifMessage, { color: colors.textSecondary }]}>{n.messageEn || n.messageSw}</Text>
               </View>
             ))}
           </View>

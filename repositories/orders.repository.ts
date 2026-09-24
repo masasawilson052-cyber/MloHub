@@ -311,6 +311,40 @@ export class OrderRepository {
   }
 
   /**
+   * Authoritative customer-initiated order cancellation for pending orders.
+   */
+  public static async cancelCustomerOrder(
+    orderId: string,
+    reason: string = 'Cancelled by customer'
+  ): Promise<{
+    success: boolean;
+    status: OrderStatus;
+    orderId: string;
+    refundRequestId?: string | null;
+  }> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const { data, error } = await supabase.rpc('cancel_customer_order_secure', {
+      p_order_id: orderId,
+      p_cancellation_reason: reason,
+    });
+
+    if (error) {
+      console.error(`OrderRepository.cancelCustomerOrder(${orderId}) error:`, error.message);
+      throw new Error(error.message);
+    }
+
+    return {
+      success: Boolean(data?.success),
+      status: (data?.status || 'CANCELLED') as OrderStatus,
+      orderId: data?.order_id || orderId,
+      refundRequestId: data?.refund_request_id || null,
+    };
+  }
+
+  /**
    * Records an append-only operational timeline event for an order (received, viewed, accepted, prep, ready, etc.).
    */
   public static async recordOperationalEvent(

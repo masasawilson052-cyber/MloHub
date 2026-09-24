@@ -44,10 +44,15 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
     }
 
     if (isFocused && value.trim().length >= 2) {
-      debounceTimer.current = setTimeout(() => {
-        const list = DiscoveryService.getAutocompleteSuggestions(value);
-        setSuggestions(list);
-      }, 300);
+      debounceTimer.current = setTimeout(async () => {
+        try {
+          const list = await DiscoveryService.getLiveAutocompleteSuggestions(value);
+          setSuggestions(list);
+        } catch {
+          const fallback = DiscoveryService.getAutocompleteSuggestions(value);
+          setSuggestions(fallback);
+        }
+      }, 250);
     } else {
       setSuggestions([]);
     }

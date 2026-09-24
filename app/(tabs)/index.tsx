@@ -415,7 +415,7 @@ export default function HomeScreen() {
         visible={isOrderReviewOpen}
         onClose={() => setIsOrderReviewOpen(false)}
         onOrderConfirmed={(orderId) => {
-          router.push('/(tabs)/bookings');
+          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
         }}
       />
     </SafeAreaView>

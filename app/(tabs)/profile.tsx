@@ -22,6 +22,11 @@ import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { AccountSettingsModal } from '../../components/profile/AccountSettingsModal';
 import { PreferencesModal } from '../../components/profile/PreferencesModal';
 import { LanguageModal } from '../../components/LanguageModal';
+import { SavedAddressesModal } from '../../components/profile/SavedAddressesModal';
+import { SavedFavoritesModal } from '../../components/profile/SavedFavoritesModal';
+import { SupportModal } from '../../components/profile/SupportModal';
+import { PrivacySecurityModal } from '../../components/profile/PrivacySecurityModal';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -38,6 +43,10 @@ export default function ProfileScreen() {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isPreferencesModalOpen, setIsPreferencesModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(params.showLanguage === 'true');
+  const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(false);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
 
   // Profile data
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -61,17 +70,28 @@ export default function ProfileScreen() {
   const handleSaveAccount = async (data: { name: string; email: string; phone: string; location: string }) => {
     try {
       setFullName(data.name);
-      setEmail(data.email);
       setPhone(data.phone);
       setLocation(data.location);
+
       if (updateUser) {
         await updateUser({
           fullName: data.name,
-          email: data.email,
           phone: data.phone,
           location: data.location,
         });
       }
+
+      if (data.email && data.email !== email && isSupabaseConfigured()) {
+        const { error: emailErr } = await supabase.auth.updateUser({ email: data.email });
+        if (emailErr) {
+          Alert.alert('Email Notice', emailErr.message);
+        } else {
+          Alert.alert('Verification Sent', 'A verification email has been sent to confirm your new email address.');
+        }
+      } else {
+        setEmail(data.email);
+      }
+
       Alert.alert('Profile Updated', 'Your account information has been saved.');
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to update account information.');
@@ -83,6 +103,14 @@ export default function ProfileScreen() {
       setPreferences(newPrefs);
       if (updateUser) {
         await updateUser({ dietaryPreferences: newPrefs });
+      }
+      if (user?.id && isSupabaseConfigured()) {
+        const { DietaryRepository } = require('../../repositories/dietary.repository');
+        await DietaryRepository.save({
+          customerId: user.id,
+          preferences: newPrefs,
+          allergies: [],
+        });
       }
       Alert.alert('Preferences Saved', 'Your dietary preferences have been updated.');
     } catch (err: any) {
@@ -149,21 +177,37 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
 
-          <View
-            style={[styles.menuRow, { opacity: 0.65 }]}
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => setIsFavoritesModalOpen(true)}
             accessible={true}
+            accessibilityRole="button"
           >
             <View style={styles.rowIconCircle}>
-              <Ionicons name="heart-outline" size={20} color={Colors.muted} />
+              <Ionicons name="heart-outline" size={20} color={Colors.primary} />
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>Saved Favorites</Text>
-              <Text style={styles.rowSubtitle}>Deferred • Coming in future update</Text>
+              <Text style={styles.rowSubtitle}>View and manage your favorite restaurants</Text>
             </View>
-            <View style={styles.deferredBadge}>
-              <Text style={styles.deferredBadgeText}>Deferred</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => setIsAddressesModalOpen(true)}
+            accessible={true}
+            accessibilityRole="button"
+          >
+            <View style={styles.rowIconCircle}>
+              <Ionicons name="location-outline" size={20} color={Colors.primary} />
             </View>
-          </View>
+            <View style={styles.rowTextCol}>
+              <Text style={styles.rowTitle}>Saved Delivery Addresses</Text>
+              <Text style={styles.rowSubtitle}>Dar es Salaam delivery locations</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.menuRow}
@@ -261,7 +305,7 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => Alert.alert('Customer Care', 'Contact MloHub Dar es Salaam team at support@mlohub.tz or +255 754 000 111.')}
+            onPress={() => setIsSupportModalOpen(true)}
             accessible={true}
             accessibilityRole="button"
           >
@@ -270,14 +314,14 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>Help & Customer Support</Text>
-              <Text style={styles.rowSubtitle}>Chat with our Dar es Salaam team</Text>
+              <Text style={styles.rowSubtitle}>Phone, WhatsApp & email desk</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => Alert.alert('Privacy Policy', 'MloHub respects customer privacy and does not track or sell raw GPS locations.')}
+            onPress={() => setIsPrivacyModalOpen(true)}
             accessible={true}
             accessibilityRole="button"
           >
@@ -316,6 +360,27 @@ export default function ProfileScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Modals */}
+      <SavedAddressesModal
+        visible={isAddressesModalOpen}
+        onClose={() => setIsAddressesModalOpen(false)}
+      />
+
+      <SavedFavoritesModal
+        visible={isFavoritesModalOpen}
+        onClose={() => setIsFavoritesModalOpen(false)}
+      />
+
+      <SupportModal
+        visible={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+      />
+
+      <PrivacySecurityModal
+        visible={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+      />
 
       {/* Account Settings Modal */}
       <AccountSettingsModal

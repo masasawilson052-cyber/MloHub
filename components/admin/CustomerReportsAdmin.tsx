@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { DataReport, DataReportStatus, DataReportType } from '../../types/domain';
+import { useTheme } from '../../context/ThemeContext';
 
 interface CustomerReportsAdminProps {
   reports: DataReport[];
@@ -28,6 +29,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   onResolveReport,
   language = 'en',
 }) => {
+  const { colors, isDark } = useTheme();
   const [statusFilter, setStatusFilter] = useState<'ALL' | DataReportStatus>('OPEN');
   const [typeFilter, setTypeFilter] = useState<'ALL' | DataReportType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,14 +100,14 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Ripoti za Hitilafu za Bei na Upatikanaji' : 'Customer Data Discrepancy Reports'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             Investigate customer feedback on inaccurate menu prices, out-of-stock dishes, and operating hours.
           </Text>
         </View>
@@ -115,44 +117,85 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
       <View style={styles.controlsRow}>
         <View style={styles.statusPills}>
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'OPEN' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'OPEN' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setStatusFilter('OPEN')}
           >
-            <Text style={[styles.pillText, statusFilter === 'OPEN' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'OPEN' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               Open ({openCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'INVESTIGATING' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'INVESTIGATING' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setStatusFilter('INVESTIGATING')}
           >
-            <Text style={[styles.pillText, statusFilter === 'INVESTIGATING' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'INVESTIGATING' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               Investigating ({investigatingCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'RESOLVED' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'RESOLVED' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setStatusFilter('RESOLVED')}
           >
-            <Text style={[styles.pillText, statusFilter === 'RESOLVED' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'RESOLVED' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               Resolved ({resolvedCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.pill, statusFilter === 'ALL' && styles.pillActive]}
+            style={[
+              styles.pill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              statusFilter === 'ALL' && { backgroundColor: colors.primary, borderColor: colors.primary },
+            ]}
             onPress={() => setStatusFilter('ALL')}
           >
-            <Text style={[styles.pillText, statusFilter === 'ALL' && styles.pillTextActive]}>
+            <Text
+              style={[
+                styles.pillText,
+                { color: colors.textSecondary },
+                statusFilter === 'ALL' && { color: '#ffffff', fontWeight: '700' },
+              ]}
+            >
               All ({reports.length})
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={14} color="#94a3b8" />
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search report, restaurant, dish..."
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -164,8 +207,8 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="shield-checkmark-outline" size={48} color="#10b981" />
-            <Text style={styles.emptyTitle}>No Data Reports in Queue</Text>
-            <Text style={styles.emptySubtitle}>
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Data Reports in Queue</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
               {statusFilter === 'OPEN'
                 ? 'All customer pricing and availability reports have been resolved!'
                 : 'No reports found matching your criteria.'}
@@ -180,7 +223,11 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
               return (
                 <View
                   key={report.id}
-                  style={[styles.card, isSelected && styles.cardSelected]}
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isSelected && { borderColor: colors.primary, backgroundColor: isDark ? '#261b14' : '#fffaf5' },
+                  ]}
                 >
                   <View style={styles.cardHeader}>
                     <View style={[styles.typeBadge, { backgroundColor: typeBadge.bg }]}>
@@ -202,20 +249,20 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                   </View>
 
                   <View style={styles.cardMain}>
-                    <Text style={styles.restaurantName}>
+                    <Text style={[styles.restaurantName, { color: colors.textPrimary }]}>
                       {report.restaurantName || report.restaurantId}
                     </Text>
                     {report.menuItemName && (
-                      <Text style={styles.dishName}>Dish: {report.menuItemName}</Text>
+                      <Text style={[styles.dishName, { color: colors.textSecondary }]}>Dish: {report.menuItemName}</Text>
                     )}
-                    <Text style={styles.messageText}>"{report.message}"</Text>
+                    <Text style={[styles.messageText, { color: colors.textPrimary }]}>"{report.message}"</Text>
                   </View>
 
                   {/* Side-by-Side Comparison if values present */}
                   {(report.reportedValue || report.catalogValue) && (
-                    <View style={styles.comparisonBox}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}>
                       <View style={styles.compColumn}>
-                        <Text style={styles.compLabel}>Catalog Value:</Text>
+                        <Text style={[styles.compLabel, { color: colors.textMuted }]}>Catalog Value:</Text>
                         <Text style={styles.compCatalog}>{report.catalogValue || 'Unknown'}</Text>
                       </View>
                       <Ionicons name="arrow-forward" size={14} color="#94a3b8" />

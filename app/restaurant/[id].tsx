@@ -610,7 +610,9 @@ export default function RestaurantDetailScreen() {
       <OrderReviewModal
         visible={isOrderReviewOpen}
         onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={() => router.push('/(tabs)/bookings')}
+        onOrderConfirmed={(orderId) => {
+          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
+        }}
         isVerifiedRestaurant={(restaurant as any)?.isVerified || false}
       />
 

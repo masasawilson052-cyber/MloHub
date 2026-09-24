@@ -102,42 +102,92 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
       <View style={styles.controlsRow}>
         <View style={styles.filterPills}>
           <TouchableOpacity
-            style={[styles.filterPill, filter === 'ALL' && styles.filterPillActive]}
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === 'ALL' && styles.filterPillActive,
+            ]}
             onPress={() => setFilter('ALL')}
           >
-            <Text style={[styles.filterPillText, filter === 'ALL' && styles.filterPillTextActive]}>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'ALL' && styles.filterPillTextActive,
+              ]}
+            >
               All ({allCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterPill, filter === 'VERIFIED' && styles.filterPillActive]}
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === 'VERIFIED' && styles.filterPillActive,
+            ]}
             onPress={() => setFilter('VERIFIED')}
           >
-            <Text style={[styles.filterPillText, filter === 'VERIFIED' && styles.filterPillTextActive]}>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'VERIFIED' && styles.filterPillTextActive,
+              ]}
+            >
               Verified ({verifiedCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterPill, filter === 'BASIC_SELLER' && styles.filterPillActive]}
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === 'BASIC_SELLER' && styles.filterPillActive,
+            ]}
             onPress={() => setFilter('BASIC_SELLER')}
           >
-            <Text style={[styles.filterPillText, filter === 'BASIC_SELLER' && styles.filterPillTextActive]}>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'BASIC_SELLER' && styles.filterPillTextActive,
+              ]}
+            >
               Basic Sellers ({basicCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterPill, filter === 'SUSPENDED' && styles.filterPillActive]}
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === 'SUSPENDED' && styles.filterPillActive,
+            ]}
             onPress={() => setFilter('SUSPENDED')}
           >
-            <Text style={[styles.filterPillText, filter === 'SUSPENDED' && styles.filterPillTextActive]}>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'SUSPENDED' && styles.filterPillTextActive,
+              ]}
+            >
               Suspended ({suspendedCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.filterPill, filter === 'ARCHIVED' && styles.filterPillActive]}
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              filter === 'ARCHIVED' && styles.filterPillActive,
+            ]}
             onPress={() => setFilter('ARCHIVED')}
           >
-            <Text style={[styles.filterPillText, filter === 'ARCHIVED' && styles.filterPillTextActive]}>
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'ARCHIVED' && styles.filterPillTextActive,
+              ]}
+            >
               Archived ({archivedCount})
             </Text>
           </TouchableOpacity>
@@ -146,7 +196,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Ionicons name="search" size={16} color={colors.textSecondary} />
           <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search name, owner, neighborhood..."
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
@@ -160,14 +210,13 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         </View>
       </View>
 
-
       {/* Grid of Restaurant Cards */}
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="restaurant-outline" size={48} color="#cbd5e1" />
-            <Text style={styles.emptyTitle}>No Restaurants Found</Text>
-            <Text style={styles.emptySubtitle}>No spots match the selected criteria.</Text>
+            <Ionicons name="restaurant-outline" size={48} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No Restaurants Found</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>No spots match the selected criteria.</Text>
           </View>
         ) : (
           <View style={styles.cardsGrid}>
@@ -179,15 +228,20 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
               return (
                 <TouchableOpacity
                   key={r.id}
-                  style={[styles.card, isSuspended && styles.cardSuspended, isArchived && { borderColor: '#fca5a5', opacity: 0.85 }]}
+                  style={[
+                    styles.card,
+                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    isSuspended && styles.cardSuspended,
+                    isArchived && { borderColor: '#fca5a5', opacity: 0.85 },
+                  ]}
                   onPress={() => setActiveRestaurant(r)}
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.cardTitleArea}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>
+                      <Text style={[styles.cardTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                         {r.name}
                       </Text>
-                      <Text style={styles.cardSubtitle}>
+                      <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
                         {r.cuisine} • {r.neighborhood}
                       </Text>
                     </View>
@@ -216,8 +270,8 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
 
                   <View style={styles.cardBody}>
                     <View style={styles.metaRow}>
-                      <Ionicons name="person-outline" size={13} color="#64748b" />
-                      <Text style={styles.metaText}>
+                      <Ionicons name="person-outline" size={13} color={colors.textMuted} />
+                      <Text style={[styles.metaText, { color: colors.textSecondary }]}>
                         {r.ownerName || 'Owner on file'} ({r.ownerPhone || r.phone || '-'})
                       </Text>
                     </View>

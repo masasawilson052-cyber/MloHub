@@ -162,6 +162,60 @@ export class DiscoveryService {
   }
 
   /**
+   * Authoritative live multi-entity autocomplete querying real PostgreSQL restaurants, dishes, and cuisines.
+   */
+  public static async getLiveAutocompleteSuggestions(
+    q: string,
+    lat?: number,
+    lng?: number
+  ): Promise<SearchAutocompleteSuggestion[]> {
+    const trimmed = (q || '').trim();
+    if (trimmed.length < 2) {
+      return this.getAutocompleteSuggestions(trimmed);
+    }
+
+    try {
+      const data = await DiscoveryRepository.searchMarketplace(trimmed, lat, lng, 6);
+      const suggestions: SearchAutocompleteSuggestion[] = [];
+
+      // 1. Matching dishes
+      (data.dishes || []).slice(0, 3).forEach((d) => {
+        suggestions.push({
+          text: d.name,
+          type: 'dish',
+          subtext: `${d.restaurant_name} • ${d.price_tzs?.toLocaleString()} TZS`,
+        });
+      });
+
+      // 2. Matching restaurants
+      (data.restaurants || []).slice(0, 2).forEach((r) => {
+        suggestions.push({
+          text: r.name,
+          type: 'popular',
+          subtext: `${r.cuisine || 'Restaurant'} • ${r.neighborhood || 'Dar es Salaam'}`,
+        });
+      });
+
+      // 3. Matching cuisines
+      (data.cuisines || []).slice(0, 2).forEach((c) => {
+        suggestions.push({
+          text: c,
+          type: 'cuisine',
+          subtext: 'Cuisine category',
+        });
+      });
+
+      if (suggestions.length > 0) {
+        return suggestions;
+      }
+    } catch (err) {
+      console.warn('[DiscoveryService] getLiveAutocompleteSuggestions error:', err);
+    }
+
+    return this.getAutocompleteSuggestions(trimmed);
+  }
+
+  /**
    * Suggests alternative / similar dishes when exact query yields no results.
    */
   public static async getSimilarDishes(dishName: string, budget?: number): Promise<DishDiscoveryResult[]> {

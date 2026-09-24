@@ -236,6 +236,7 @@ export type OrderStatus =
   | 'ACCEPTED'
   | 'PREPARING'
   | 'READY'
+  | 'OUT_FOR_DELIVERY'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'REJECTED';
@@ -1711,5 +1712,111 @@ export interface BranchOperationalStatus {
   opensAt?: string;
   closesAt?: string;
   reasonCode?: string;
+}
+
+// ============================================================================
+// 12. CUSTOMER PLATFORM DOMAIN MODELS
+// ============================================================================
+
+export interface ServiceCity {
+  id: string;
+  name: string;
+  region: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ServiceArea {
+  id: string;
+  cityId: string;
+  name: string;
+  centerLatitude?: number | null;
+  centerLongitude?: number | null;
+  radiusKm: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CustomerSavedAddress {
+  id: string;
+  customerId: string;
+  label: string;
+  streetAddress: string;
+  deliveryInstructions?: string | null;
+  city: string;
+  areaName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerFavoriteRestaurant {
+  id: string;
+  customerId: string;
+  restaurantId: string;
+  createdAt: string;
+}
+
+export interface CustomerDietaryPreference {
+  id: string;
+  customerId: string;
+  preferences: string[];
+  allergies: string[];
+  spiceLevel: 'MILD' | 'MEDIUM' | 'HOT' | 'EXTRA_HOT';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MenuModifierOption {
+  id: string;
+  groupId: string;
+  name: string;
+  priceDeltaTzs: number;
+  isAvailable: boolean;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface MenuModifierGroup {
+  id: string;
+  menuItemId: string;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  isRequired: boolean;
+  sortOrder: number;
+  options: MenuModifierOption[];
+  createdAt: string;
+}
+
+export interface MarketplaceSearchResult {
+  restaurants: {
+    id: string;
+    name: string;
+    cuisine: string;
+    rating: number;
+    reviews_count: number;
+    logo_url?: string | null;
+    banner_url?: string | null;
+    address?: string | null;
+    neighborhood?: string | null;
+    distance_km?: number | null;
+    is_open: boolean;
+  }[];
+  dishes: {
+    id: string;
+    name: string;
+    name_sw?: string | null;
+    price_tzs: number;
+    photo_url?: string | null;
+    is_available: boolean;
+    restaurant_id: string;
+    restaurant_name: string;
+    restaurant_cuisine: string;
+  }[];
+  cuisines: string[];
+  query?: string | null;
 }
 
