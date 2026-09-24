@@ -219,6 +219,9 @@ export default function OrdersScreen() {
   };
 
   const retryPayment = (order: Order) => {
+    const attemptId = paymentAttemptIds[order.id] || globalThis.crypto?.randomUUID?.() || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    setPaymentAttemptIds((current) => ({ ...current, [order.id]: attemptId }));
+    const _idempotencyKey = `order_payment_${order.id}_${attemptId}`;
     setRetryPaymentOrder(order);
   };
 

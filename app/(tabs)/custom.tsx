@@ -247,13 +247,14 @@ export default function CustomMealScreen() {
       return;
     }
 
-    if (!customerArea.trim()) {
+    const location = customerArea;
+    if (!location.trim() || !customerArea.trim()) {
       setFormStep(5);
       Alert.alert(
         language === 'sw' ? 'Eneo Linahitajika' : 'Area Required',
         language === 'sw'
-          ? 'Tafadhali ingiza eneo lako (mf. Mikocheni, Sinza).'
-          : 'Please enter your neighborhood area (e.g. Mikocheni, Sinza).'
+          ? 'Tafadhali ingiza eneo lako (mf. Mikocheni B, Mtaa wa Chuo).'
+          : 'Please enter your neighborhood area (e.g. Mikocheni B, Mtaa wa Chuo).'
       );
       return;
     }
@@ -754,7 +755,7 @@ export default function CustomMealScreen() {
                       style={styles.textInput}
                       value={customerArea}
                       onChangeText={setCustomerArea}
-                      placeholder="e.g. Mikocheni B, Sinza"
+                      placeholder="e.g. Mikocheni B, Mtaa wa Chuo"
                     />
                   </View>
 

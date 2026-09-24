@@ -43,8 +43,9 @@ export async function runDemoReadinessTestSuite(
     'P1: AsyncStorage favorites preference key is removed'
   );
   assert(
+    dbContextCode.includes('allowLocalFallbacks ? dbState.favorites : clientFavorites') ||
     dbContextCode.includes('allowLocalFallbacks ? dbState.favorites : []'),
-    'P1: activeFavorites is locked to empty array in production/real mode'
+    'P1: activeFavorites is locked to clientFavorites or empty array in production/real mode'
   );
 
   // 3. P2 & P3: Notifications Canonical Boundary

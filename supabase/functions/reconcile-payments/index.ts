@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
   const orphanThreshold = new Date(now.getTime() - ORPHAN_TIMEOUT_MINUTES * 60 * 1000).toISOString();
 
   try {
-    // Fetch stale PENDING payments
+    // Fetch stale PENDING / PROCESSING payments (canonical DB enum status is PENDING)
     const { data: stalePayments, error: fetchErr } = await adminClient
       .from('payments')
       .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')

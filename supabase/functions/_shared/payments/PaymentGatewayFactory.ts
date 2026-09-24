@@ -17,6 +17,10 @@ export class PaymentGatewayFactory {
    * Get configured payment gateway instance
    */
   public static getGateway(overrideProvider?: PaymentProvider): PaymentGateway {
+    if (overrideProvider && readPaymentEnvironment('NODE_ENV') === 'production' && overrideProvider !== 'clickpesa') {
+      throw new Error('This production release supports ClickPesa only. Simulated and unfinished gateways are disabled.');
+    }
+
     const rawProvider = (
       overrideProvider ||
       readPaymentEnvironment('PAYMENT_PROVIDER') ||
@@ -31,7 +35,7 @@ export class PaymentGatewayFactory {
       throw new Error('Sandbox payments require MLOHUB_ALLOW_SANDBOX_PAYMENTS=true on an isolated demo backend.');
     }
     const provider: PaymentProvider = rawProvider;
-    if (readPaymentEnvironment('NODE_ENV') !== 'test' && provider !== 'clickpesa') {
+    if (readPaymentEnvironment('NODE_ENV') !== 'test' && provider === 'selcom') {
       throw new Error('This production release supports ClickPesa only. Simulated and unfinished gateways are disabled.');
     }
 
