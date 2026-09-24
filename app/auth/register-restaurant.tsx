@@ -18,6 +18,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ApplicationRepository } from '../../repositories/applications.repository';
 import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { runtimeConfig } from '../../lib/runtimeConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 const DRAFT_KEY = 'mlohub.restaurant-application-draft.v1';
 
@@ -34,6 +36,9 @@ export default function RegisterRestaurantScreen() {
   const [ownerPhone, setOwnerPhone] = useState(authUser?.phone || '+255 ');
   const [ownerEmail, setOwnerEmail] = useState(authUser?.email || '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [customPortalPassword, setCustomPortalPassword] = useState(false);
   const [cuisine, setCuisine] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
   const [address, setAddress] = useState('');
@@ -92,6 +97,14 @@ export default function RegisterRestaurantScreen() {
       }
       if (!password.trim() || password.length < 6) {
         errs.password = 'Password must be at least 6 characters';
+      } else if (password !== confirmPassword) {
+        errs.confirmPassword = 'Passwords do not match';
+      }
+    } else if (customPortalPassword) {
+      if (!password.trim() || password.length < 6) {
+        errs.password = 'Password must be at least 6 characters';
+      } else if (password !== confirmPassword) {
+        errs.confirmPassword = 'Passwords do not match';
       }
     }
     if (!address.trim()) errs.address = 'Physical operating address is required';
@@ -140,6 +153,14 @@ export default function RegisterRestaurantScreen() {
           return;
         }
         currentUserId = signupRes.session.user.id;
+      } else if (customPortalPassword && password) {
+        if (!runtimeConfig.allowLocalDataFallbacks && isSupabaseConfigured()) {
+          try {
+            await supabase.auth.updateUser({ password });
+          } catch (pwErr: any) {
+            console.warn('[RegisterRestaurant] Could not update password on auth user:', pwErr?.message);
+          }
+        }
       }
 
       if (!currentUserId) {
@@ -196,6 +217,32 @@ export default function RegisterRestaurantScreen() {
             <View style={styles.appRefBox}>
               <Text style={styles.appRefLabel}>Application Reference:</Text>
               <Text style={styles.appRefCode}>{applicationId}</Text>
+            </View>
+
+            <View style={styles.credentialsCard}>
+              <View style={styles.credentialsHeader}>
+                <Ionicons name="key-outline" size={17} color="#0f766e" />
+                <Text style={styles.credentialsTitle}>
+                  {language === 'sw' ? 'Taarifa Zako za Kuingia Jikoni' : 'Your Kitchen Login Credentials'}
+                </Text>
+              </View>
+              <Text style={styles.credentialsItem}>
+                <Text style={{ fontWeight: '700', color: Colors.text }}>
+                  {language === 'sw' ? 'Kitambulisho (Email/Simu): ' : 'Login ID (Email/Phone): '}
+                </Text>
+                {ownerEmail || ownerPhone}
+              </Text>
+              <Text style={styles.credentialsItem}>
+                <Text style={{ fontWeight: '700', color: Colors.text }}>
+                  {language === 'sw' ? 'Nenosiri: ' : 'Password: '}
+                </Text>
+                {password ? '•••••••• (Nenosiri uliloweka)' : (language === 'sw' ? 'Nenosiri la akaunti yako ya sasa' : 'Your current account password')}
+              </Text>
+              <Text style={styles.credentialsNote}>
+                {language === 'sw'
+                  ? 'Mara tu msimamizi atakapoidhinisha, utaingia kwenye Kitchen Portal kupitia /partner au /auth/login ukitumia taarifa hizi.'
+                  : 'Once administrator approves, log in to the Kitchen Portal at /partner or /auth/login using these credentials.'}
+              </Text>
             </View>
 
             <View style={styles.nextStepsBox}>
@@ -316,16 +363,21 @@ export default function RegisterRestaurantScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>2. Taarifa za Mmiliki / Owner Contact</Text>
 
-          {authUser && (
-            <View style={styles.sessionBadgeRow}>
-              <Ionicons name="person-circle" size={16} color="#0f766e" />
-              <Text style={styles.sessionBadgeText}>
+          {authUser ? (
+            <View style={styles.authLinkedCard}>
+              <View style={styles.authLinkedHeader}>
+                <Ionicons name="shield-checkmark" size={18} color="#1d6637" />
+                <Text style={styles.authLinkedTitle}>
+                  {language === 'sw' ? 'Akaunti ya Mmiliki Iliyounganishwa' : 'Linked Owner Identity'}
+                </Text>
+              </View>
+              <Text style={styles.authLinkedDesc}>
                 {language === 'sw'
-                  ? `Umeingia kama: ${authUser.fullName || authUser.email}`
-                  : `Signed in as: ${authUser.fullName || authUser.email}`}
+                  ? `Mgahawa wako utaunganishwa na akaunti yako: ${authUser.fullName || authUser.email || authUser.phone}. Utatumia akaunti hii kuingia Kitchen Portal pindi ombi litakapoidhinishwa.`
+                  : `Your restaurant will be linked to your signed-in identity: ${authUser.fullName || authUser.email || authUser.phone}. You will use this account to access the Kitchen Portal once approved.`}
               </Text>
             </View>
-          )}
+          ) : null}
 
           <Text style={styles.inputLabel}>Jina Kamili la Mmiliki (Owner Full Name) *</Text>
           <TextInput
@@ -366,19 +418,92 @@ export default function RegisterRestaurantScreen() {
           />
           {errors.ownerEmail && <Text style={styles.fieldError}>{errors.ownerEmail}</Text>}
 
-          {!authUser && (
+          {!authUser ? (
             <>
               <Text style={styles.inputLabel}>Nenosiri la Akaunti ya Mmiliki (Password) *</Text>
-              <TextInput
-                style={[styles.input, errors.password && styles.inputError]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Weka nenosiri salama (angalau herufi 6)"
-                placeholderTextColor="#94a3b8"
-                secureTextEntry
-              />
+              <View style={styles.passwordInputWrap}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }, errors.password && styles.inputError]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Weka nenosiri salama (angalau herufi 6)"
+                  placeholderTextColor="#94a3b8"
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>Thibitisha Nenosiri (Confirm Password) *</Text>
+              <TextInput
+                style={[styles.input, errors.confirmPassword && styles.inputError]}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Rudia nenosiri uliloweka"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry={!showPassword}
+              />
+              {errors.confirmPassword && <Text style={styles.fieldError}>{errors.confirmPassword}</Text>}
             </>
+          ) : (
+            <View style={{ marginTop: 4 }}>
+              <TouchableOpacity
+                style={styles.toggleCustomPassBtn}
+                onPress={() => setCustomPortalPassword(!customPortalPassword)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={customPortalPassword ? 'checkbox' : 'square-outline'}
+                  size={18}
+                  color={customPortalPassword ? '#1d6637' : '#64748b'}
+                />
+                <Text style={styles.toggleCustomPassText}>
+                  {language === 'sw'
+                    ? 'Weka nenosiri jipya maalum la Kitchen Portal'
+                    : 'Set a new dedicated Kitchen Portal password'}
+                </Text>
+              </TouchableOpacity>
+              {customPortalPassword && (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.inputLabel}>Nenosiri Jipya (New Password) *</Text>
+                  <View style={styles.passwordInputWrap}>
+                    <TextInput
+                      style={[styles.input, { flex: 1, marginBottom: 0 }, errors.password && styles.inputError]}
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Angalau herufi 6"
+                      placeholderTextColor="#94a3b8"
+                      secureTextEntry={!showPassword}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeBtn}
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                  {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
+
+                  <Text style={[styles.inputLabel, { marginTop: 10 }]}>Thibitisha Nenosiri (Confirm Password) *</Text>
+                  <TextInput
+                    style={[styles.input, errors.confirmPassword && styles.inputError]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Rudia nenosiri jipya"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry={!showPassword}
+                  />
+                  {errors.confirmPassword && <Text style={styles.fieldError}>{errors.confirmPassword}</Text>}
+                </View>
+              )}
+            </View>
           )}
 
           <View style={styles.verifiedBadgeRow}>
@@ -823,5 +948,84 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#0f766e',
+  },
+  authLinkedCard: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: Radii.lg,
+    padding: 12,
+    marginBottom: 12,
+  },
+  authLinkedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  authLinkedTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  authLinkedDesc: {
+    fontSize: 12,
+    color: '#15803d',
+    lineHeight: 17,
+  },
+  toggleCustomPassBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  toggleCustomPassText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  passwordInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radii.md,
+    paddingRight: 10,
+  },
+  eyeBtn: {
+    padding: 6,
+  },
+  credentialsCard: {
+    backgroundColor: '#f0fdfa',
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+    borderRadius: Radii.lg,
+    padding: 12,
+    width: '100%',
+    gap: 4,
+  },
+  credentialsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  credentialsTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: '#0f766e',
+  },
+  credentialsItem: {
+    fontSize: 12,
+    color: '#134e4a',
+  },
+  credentialsNote: {
+    fontSize: 11,
+    color: '#0f766e',
+    lineHeight: 15,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

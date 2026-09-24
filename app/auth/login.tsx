@@ -167,13 +167,13 @@ export default function LoginScreen() {
         <View style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              {enablePhoneAuth
+              {enablePhoneAuth || isRestaurantLogin
                 ? (language === 'sw' ? 'Barua Pepe au Namba ya Simu' : 'Email or Phone Number')
                 : (language === 'sw' ? 'Barua Pepe' : 'Email Address')}
             </Text>
             <View style={[styles.inputWrap, isEmailFocused && styles.inputWrapFocused]}>
               <Ionicons
-                name={enablePhoneAuth && !emailOrPhone.includes('@') ? 'call-outline' : 'mail-outline'}
+                name={(enablePhoneAuth || isRestaurantLogin) && !emailOrPhone.includes('@') ? 'call-outline' : 'mail-outline'}
                 size={18}
                 color={isEmailFocused ? Colors.primary : Colors.muted}
                 style={styles.inputIcon}
@@ -185,8 +185,8 @@ export default function LoginScreen() {
                 onFocus={() => setIsEmailFocused(true)}
                 onBlur={() => setIsEmailFocused(false)}
                 placeholder={
-                  enablePhoneAuth
-                    ? (language === 'sw' ? 'frank.mlaki@mlohub.tz au 0754...' : 'name@example.com or +255...')
+                  enablePhoneAuth || isRestaurantLogin
+                    ? (language === 'sw' ? 'email au namba ya simu (+255...)' : 'name@example.com or +255...')
                     : 'name@example.com'
                 }
                 placeholderTextColor={Colors.subtle}
@@ -233,15 +233,30 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* Forgot Password */}
-          <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => router.push('/auth/forgot-password')}
-          >
-            <Text style={styles.forgotText}>
-              {language === 'sw' ? 'Umesahau nenosiri?' : 'Forgot password?'}
-            </Text>
-          </TouchableOpacity>
+          {/* Forgot Password & Activation Links */}
+          <View style={styles.passwordHelpersRow}>
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={() => router.push(isRestaurantLogin ? '/auth/forgot-password?type=restaurant' : '/auth/forgot-password')}
+            >
+              <Text style={styles.forgotText}>
+                {language === 'sw' ? 'Umesahau nenosiri?' : 'Forgot password?'}
+              </Text>
+            </TouchableOpacity>
+
+            {isRestaurantLogin && (
+              <TouchableOpacity
+                style={styles.activateLinkBtn}
+                onPress={() => router.push('/auth/activate-restaurant')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="sparkles" size={13} color="#0f766e" style={{ marginRight: 4 }} />
+                <Text style={styles.activateLinkText}>
+                  {language === 'sw' ? 'Washa Akaunti ya Mgahawa' : 'Activate Restaurant'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Sign In CTA */}
           <Button
@@ -502,13 +517,28 @@ const styles = StyleSheet.create({
   eyeBtn: {
     padding: 6,
   },
-  forgotBtn: {
-    alignSelf: 'flex-end',
+  passwordHelpersRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.md,
+  },
+  forgotBtn: {
+    paddingVertical: 2,
   },
   forgotText: {
     fontSize: 12,
     color: Colors.primary,
+    fontWeight: '700',
+  },
+  activateLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  activateLinkText: {
+    fontSize: 12,
+    color: '#0f766e',
     fontWeight: '700',
   },
   signInBtn: {

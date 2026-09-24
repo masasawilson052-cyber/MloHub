@@ -118,9 +118,35 @@ export default function ActivateRestaurantScreen() {
       if (runtimeConfig.allowLocalDataFallbacks) {
         const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
         const db = DemoAuthAdapter.getSnapshot();
-        const user = (db.users || []).find(
+        let user = (db.users || []).find(
           (u: any) => normalizeTanzanianPhone(u.phone).e164 === norm.e164
         );
+
+        if (!user) {
+          const app = (db.restaurantApplications || []).find(
+            (a: any) => normalizeTanzanianPhone(a.ownerPhone || a.owner_phone || '').e164 === norm.e164
+          );
+          if (app) {
+            user = {
+              id: app.applicantUserId || `usr_chef_${Date.now()}`,
+              fullName: app.ownerName,
+              email: app.ownerEmail || `${norm.e164.replace('+', '')}@mlohub.vendor`,
+              phone: norm.e164,
+              passwordHash: CryptoEngine.hashPassword(password),
+              role: 'RESTAURANT_OWNER',
+              roles: ['RESTAURANT_OWNER'],
+              activeRole: 'RESTAURANT_OWNER',
+              activeWorkspace: 'RESTAURANT_OWNER',
+              status: 'ACTIVE',
+              isPhoneVerified: true,
+              phoneVerifiedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            db.users = db.users || [];
+            db.users.push(user);
+          }
+        }
 
         if (!user) {
           throw new Error(
@@ -144,8 +170,31 @@ export default function ActivateRestaurantScreen() {
 
         await login({ emailOrPhone: user.email || norm.e164, password });
       } else {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) {
+          const { error } = await supabase.auth.updateUser({ password });
+          if (error) throw error;
+        } else {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('phone', norm.e164)
+            .maybeSingle();
+
+          if (!profile?.email) {
+            throw new Error(
+              language === 'sw'
+                ? 'Namba hii haijaunganishwa na barua pepe ya mgahawa. Wasiliana na usaidizi.'
+                : 'No registered restaurant profile was found for this phone number. Please contact support.'
+            );
+          }
+
+          throw new Error(
+            language === 'sw'
+              ? `Tafadhali tumia barua pepe yako (${profile.email}) kuweka nenosiri kupitia ukurasa wa 'Umesahau Nenosiri'.`
+              : `Please use your registered email (${profile.email}) to set your password via 'Forgot Password'.`
+          );
+        }
 
         setSuccessMessage(
           language === 'sw'

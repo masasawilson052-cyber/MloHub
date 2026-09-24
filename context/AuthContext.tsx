@@ -579,11 +579,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           throw new Error('Account with this phone number was not found.');
         }
       } else {
-        const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
-        if (!enablePhoneAuth) {
-          throw new Error('Please sign in using your account email address.');
+        const { normalizeTanzaniaPhone } = require('../utils/phone');
+        const norm = normalizeTanzaniaPhone(dto.emailOrPhone);
+        let matchedEmail: string | null = null;
+        if (norm) {
+          try {
+            const { data: pMatch } = await supabase
+              .from('profiles')
+              .select('email')
+              .or(`phone.eq.${norm},phone.eq.${dto.emailOrPhone.trim()}`)
+              .maybeSingle();
+            if (pMatch?.email) {
+              matchedEmail = pMatch.email.toLowerCase();
+            }
+          } catch {}
         }
-        throw new Error('Phone sign-in requires SMS OTP verification. Please sign in with email.');
+        if (matchedEmail) {
+          emailToUse = matchedEmail;
+        } else {
+          const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
+          if (!enablePhoneAuth) {
+            throw new Error('No account found for this phone number. Please sign in with your email address or activate your account.');
+          }
+          throw new Error('Phone sign-in requires SMS OTP verification. Please sign in with email.');
+        }
       }
     }
 

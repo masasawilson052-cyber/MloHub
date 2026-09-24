@@ -118,6 +118,7 @@ export default function AdminPortalScreen() {
     businessName: string;
     ownerName: string;
     ownerPhone: string;
+    ownerEmail?: string;
     restaurantId: string;
     activationDispatched: boolean;
   } | null>(null);
@@ -347,6 +348,7 @@ export default function AdminPortalScreen() {
       businessName: updated.businessName,
       ownerName: updated.ownerName,
       ownerPhone: updated.ownerPhone,
+      ownerEmail: updated.ownerEmail,
       // Use the server-returned restaurant ID, not the application ID
       restaurantId: updated.restaurantId || updated.id,
       activationDispatched: false, // Truthful: delivery is pending server dispatch
@@ -899,11 +901,19 @@ export default function AdminPortalScreen() {
                 <Text style={styles.credLabel}>Owner Full Name:</Text>
                 <Text style={styles.credValue}>{createdVendorModal.ownerName}</Text>
 
+                <Text style={styles.credLabel}>Login Email / Username:</Text>
+                <Text style={styles.credValue}>{createdVendorModal.ownerEmail || 'Registered via application'}</Text>
+
                 <Text style={styles.credLabel}>Login Phone Number:</Text>
                 <Text style={styles.credValue}>{createdVendorModal.ownerPhone}</Text>
 
                 <Text style={styles.credLabel}>Application / Restaurant ID:</Text>
                 <Text style={styles.credValue}>{createdVendorModal.restaurantId}</Text>
+
+                <Text style={styles.credLabel}>Portal Access & Login:</Text>
+                <Text style={[styles.credValue, { color: '#0f766e', fontSize: 12.5 }]}>
+                  Owner can sign in at /auth/login (Kitchen Portal) or activate via /auth/activate-restaurant
+                </Text>
 
                 <Text style={styles.credLabel}>Status & Visibility:</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>

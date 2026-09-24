@@ -5,11 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../db/types';
 import { Colors } from '../../constants/theme';
+import { ApplicationRepository } from '../../repositories/applications.repository';
+import { RestaurantApplication } from '../../types/domain';
 
 export default function PartnerIndexRoute() {
   const router = useRouter();
-  const { isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace } = useAuth();
+  const { isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace, refreshProfile } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [pendingApp, setPendingApp] = useState<RestaurantApplication | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -21,6 +24,13 @@ export default function PartnerIndexRoute() {
         // 1. Unauthenticated -> Partner Login
         router.replace('/auth/login?type=restaurant');
         return;
+      }
+
+      // Check if user has updated roles in profile
+      if (refreshProfile) {
+        try {
+          await refreshProfile();
+        } catch {}
       }
 
       const restaurantId = (user as any)?.restaurantId;
@@ -48,7 +58,33 @@ export default function PartnerIndexRoute() {
           router.replace('/restaurant-portal');
         }
       } else {
-        // 3. Authenticated customer (non-member) -> Restaurant Onboarding Wizard
+        // 3. Check for recently approved or pending applications before routing to register
+        try {
+          const myApps = await ApplicationRepository.listMine();
+          const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
+          if (pending && !isCancelled) {
+            setPendingApp(pending);
+            return;
+          }
+          const approved = myApps.find((a) => a.status === 'APPROVED');
+          if (approved && approved.restaurantId) {
+            if (activeWorkspace !== 'RESTAURANT_OWNER' && switchWorkspace) {
+              try {
+                await switchWorkspace('RESTAURANT_OWNER', approved.restaurantId);
+              } catch (err: any) {
+                console.warn('[PartnerIndexRoute] Workspace switch error:', err);
+              }
+            }
+            if (!isCancelled) {
+              router.replace('/restaurant-portal');
+              return;
+            }
+          }
+        } catch (appErr) {
+          console.warn('[PartnerIndexRoute] Error querying my applications:', appErr);
+        }
+
+        // 4. Authenticated customer with no pending/approved application -> Onboarding
         if (!isCancelled) {
           router.replace('/auth/register-restaurant');
         }
@@ -60,7 +96,31 @@ export default function PartnerIndexRoute() {
     return () => {
       isCancelled = true;
     };
-  }, [isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace]);
+  }, [isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace, refreshProfile]);
+
+  if (pendingApp) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.statusCard}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="time-outline" size={40} color="#d97706" />
+          </View>
+          <Text style={styles.statusBadge}>OMBI LAKO LINAKAGULIWA • UNDER REVIEW</Text>
+          <Text style={styles.statusTitle}>"{pendingApp.businessName}"</Text>
+          <Text style={styles.statusSub}>
+            Maombi ya mgahawa wako yamepokelewa na yanakaguliwa na Usimamizi wa MloHub. Utaarifiwa pindi yatakapoidhinishwa na utaweza kuingia moja kwa moja kwenye Kitchen Portal kwa kutumia nenosiri lako.
+          </Text>
+          <View style={styles.appRefBox}>
+            <Text style={styles.appRefLabel}>Kumbukumbu ya Ombi / Reference ID:</Text>
+            <Text style={styles.appRefCode}>{pendingApp.id}</Text>
+          </View>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
+            <Text style={styles.backBtnText}>Rudi Nyumbani / Return to Home</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   if (error) {
     return (
@@ -90,6 +150,71 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     padding: 24,
   },
+  statusCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 440,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  iconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#fef3c7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  statusBadge: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#d97706',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.brandInk,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  statusSub: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  appRefBox: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 20,
+  },
+  appRefLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  appRefCode: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1d6637',
+    marginTop: 2,
+    letterSpacing: 1,
+  },
   errorTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -109,10 +234,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
   },
   backBtnText: {
     color: '#ffffff',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 14,
   },
 });
