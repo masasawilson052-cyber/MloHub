@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const isLargeScreen = width > 768;
 
   const [isRestaurantLogin, setIsRestaurantLogin] = useState(params.type === 'restaurant');
+  const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,9 +49,9 @@ export default function LoginScreen() {
     setErrorMsg(null);
     if (!emailOrPhone.trim()) {
       setErrorMsg(
-        language === 'sw'
-          ? 'Tafadhali weka barua pepe au namba ya simu.'
-          : 'Please enter your email or phone.'
+        enablePhoneAuth
+          ? (language === 'sw' ? 'Tafadhali weka barua pepe au namba ya simu.' : 'Please enter your email or phone.')
+          : (language === 'sw' ? 'Tafadhali weka barua pepe yako.' : 'Please enter your email address.')
       );
       return;
     }
@@ -166,11 +167,13 @@ export default function LoginScreen() {
         <View style={styles.formCard}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>
-              {language === 'sw' ? 'Barua Pepe au Namba ya Simu' : 'Email or Phone Number'}
+              {enablePhoneAuth
+                ? (language === 'sw' ? 'Barua Pepe au Namba ya Simu' : 'Email or Phone Number')
+                : (language === 'sw' ? 'Barua Pepe' : 'Email Address')}
             </Text>
             <View style={[styles.inputWrap, isEmailFocused && styles.inputWrapFocused]}>
               <Ionicons
-                name={emailOrPhone.includes('@') ? 'mail-outline' : 'call-outline'}
+                name={enablePhoneAuth && !emailOrPhone.includes('@') ? 'call-outline' : 'mail-outline'}
                 size={18}
                 color={isEmailFocused ? Colors.primary : Colors.muted}
                 style={styles.inputIcon}
@@ -181,7 +184,11 @@ export default function LoginScreen() {
                 onChangeText={setEmailOrPhone}
                 onFocus={() => setIsEmailFocused(true)}
                 onBlur={() => setIsEmailFocused(false)}
-                placeholder={language === 'sw' ? 'frank.mlaki@mlohub.tz au 0754...' : 'name@example.com or +255...'}
+                placeholder={
+                  enablePhoneAuth
+                    ? (language === 'sw' ? 'frank.mlaki@mlohub.tz au 0754...' : 'name@example.com or +255...')
+                    : 'name@example.com'
+                }
                 placeholderTextColor={Colors.subtle}
                 keyboardType="email-address"
                 autoCapitalize="none"

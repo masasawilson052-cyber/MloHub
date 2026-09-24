@@ -26,6 +26,8 @@ import { SavedAddressesModal } from '../../components/profile/SavedAddressesModa
 import { SavedFavoritesModal } from '../../components/profile/SavedFavoritesModal';
 import { SupportModal } from '../../components/profile/SupportModal';
 import { PrivacySecurityModal } from '../../components/profile/PrivacySecurityModal';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 export default function ProfileScreen() {
@@ -37,6 +39,8 @@ export default function ProfileScreen() {
 
   const { logout, user: authUser } = useAuth();
   const { user: dbUser, favorites, toggleFavorite, updateUser, restaurants } = useMloHubDB();
+  const { location: customerLocation } = useCustomerLocation();
+  const { mode: themeMode, setMode: setThemeMode, isDark } = useTheme();
   const user = authUser || dbUser;
 
   // Modal States
@@ -153,7 +157,11 @@ export default function ProfileScreen() {
           fullName={fullName}
           email={email}
           phone={phone}
-          location={location}
+          location={
+            customerLocation.addressLine
+              ? `${customerLocation.addressLine}${customerLocation.serviceAreaName ? `, ${customerLocation.serviceAreaName}` : ''}`
+              : (location || 'Dar es Salaam')
+          }
           onEditProfile={() => setIsAccountModalOpen(true)}
         />
 
@@ -204,7 +212,31 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.rowTextCol}>
               <Text style={styles.rowTitle}>Saved Delivery Addresses</Text>
-              <Text style={styles.rowSubtitle}>Dar es Salaam delivery locations</Text>
+              <Text style={styles.rowSubtitle} numberOfLines={1}>
+                {customerLocation.addressLine
+                  ? `${customerLocation.addressLine}${customerLocation.serviceAreaName ? `, ${customerLocation.serviceAreaName}` : ''}`
+                  : 'Manage delivery addresses'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => router.push('/payments' as any)}
+            accessible={true}
+            accessibilityRole="button"
+          >
+            <View style={styles.rowIconCircle}>
+              <Ionicons name="card-outline" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.rowTextCol}>
+              <Text style={styles.rowTitle}>
+                {language === 'sw' ? 'Historia ya Malipo' : 'Payment History & Receipts'}
+              </Text>
+              <Text style={styles.rowSubtitle}>
+                {language === 'sw' ? 'Miamala ya simu na stakabadhi' : 'Mobile money records and receipts'}
+              </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -223,6 +255,31 @@ export default function ProfileScreen() {
               <Text style={styles.rowSubtitle}>Order updates and alerts</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuRow}
+            onPress={() => {
+              const nextMode = themeMode === 'LIGHT' ? 'DARK' : themeMode === 'DARK' ? 'SYSTEM' : 'LIGHT';
+              setThemeMode(nextMode);
+            }}
+            accessible={true}
+            accessibilityRole="button"
+          >
+            <View style={styles.rowIconCircle}>
+              <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.rowTextCol}>
+              <Text style={styles.rowTitle}>Appearance / Mwonekano</Text>
+              <Text style={styles.rowSubtitle}>
+                {themeMode === 'LIGHT'
+                  ? 'Light Theme (Mchana)'
+                  : themeMode === 'DARK'
+                  ? 'Dark Theme (Usiku)'
+                  : 'System Default (Kulingana na Simu)'}
+              </Text>
+            </View>
+            <Ionicons name="swap-horizontal" size={18} color={Colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -389,7 +446,12 @@ export default function ProfileScreen() {
         initialName={fullName}
         initialEmail={email}
         initialPhone={phone}
-        initialLocation={location}
+        initialLocation={
+          customerLocation.addressLine
+            ? `${customerLocation.addressLine}${customerLocation.serviceAreaName ? `, ${customerLocation.serviceAreaName}` : ''}`
+            : location
+        }
+        onOpenManageAddresses={() => setIsAddressesModalOpen(true)}
         onSave={handleSaveAccount}
       />
 

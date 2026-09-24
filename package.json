@@ -36,7 +36,8 @@
     "test:production": "node tests/productionPayments.cjs",
     "test:final-hardening": "tsx tests/finalBlockerClosure.test.ts",
     "test:admin-truth": "tsx tests/adminFinalTruthClosure.test.ts",
-    "test:customer-closure": "tsx tests/customerFinalClosure.test.ts"
+    "test:customer-closure": "tsx tests/customerFinalClosure.test.ts",
+    "test:runtime-closure": "tsx tests/runtimeClosureFinal.test.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -50,6 +51,7 @@
     "expo-image-manipulator": "~57.0.19",
     "expo-image-picker": "~57.0.19",
     "expo-linking": "~57.0.10",
+    "expo-location": "~57.0.19",
     "expo-router": "~57.0.22",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",

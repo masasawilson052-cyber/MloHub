@@ -62,6 +62,7 @@ export class RestaurantRepository {
     publishedOnly?: boolean;
     search?: string;
     includeArchived?: boolean;
+    customerVisibleOnly?: boolean;
   }): Promise<Restaurant[]> {
     if (!isSupabaseConfigured()) {
       return [];
@@ -69,12 +70,26 @@ export class RestaurantRepository {
 
     let query = supabase.from('restaurants').select('*');
 
-    if (filters?.publishedOnly === true) {
-      query = query.eq('is_published', true);
+    if (filters?.customerVisibleOnly) {
+      query = query
+        .eq('is_active', true)
+        .eq('is_published', true)
+        .eq('is_verified', true)
+        .eq('verification_status', 'VERIFIED')
+        .is('archived_at', null)
+        .not('name', 'ilike', '[DELETED]%');
+    } else {
+      if (filters?.publishedOnly === true) {
+        query = query.eq('is_published', true);
+      }
+      if (filters?.verifiedOnly) {
+        query = query.eq('is_verified', true);
+      }
+      if (!filters?.includeArchived) {
+        query = query.is('archived_at', null);
+      }
     }
-    if (filters?.verifiedOnly) {
-      query = query.eq('is_verified', true);
-    }
+
     if (filters?.neighborhood && filters.neighborhood !== 'All') {
       query = query.ilike('neighborhood', `%${filters.neighborhood}%`);
     }
@@ -84,9 +99,6 @@ export class RestaurantRepository {
     if (filters?.search && filters.search.trim()) {
       const q = filters.search.trim();
       query = query.or(`name.ilike.%${q}%,cuisine.ilike.%${q}%,neighborhood.ilike.%${q}%,specialty.ilike.%${q}%`);
-    }
-    if (!filters?.includeArchived) {
-      query = query.is('archived_at', null);
     }
 
     let { data, error } = await query.order('rating', { ascending: false });
@@ -121,6 +133,49 @@ export class RestaurantRepository {
     }
 
     return (data || []).map(this.mapRowToRestaurant);
+  }
+
+  /**
+   * List customer-visible restaurants that support table reservations (Phase 34)
+   */
+  public static async listBookable(filters?: {
+    latitude?: number;
+    longitude?: number;
+    cityId?: string;
+    serviceAreaId?: string;
+  }): Promise<Restaurant[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('restaurant_branches')
+        .select('restaurant_id, restaurants!inner(*)')
+        .eq('is_active', true)
+        .eq('reservations_enabled', true)
+        .eq('restaurants.is_active', true)
+        .eq('restaurants.is_published', true)
+        .eq('restaurants.is_verified', true)
+        .eq('restaurants.verification_status', 'VERIFIED')
+        .is('restaurants.archived_at', null)
+        .not('restaurants.name', 'ilike', '[DELETED]%');
+
+      if (error) {
+        console.warn('RestaurantRepository.listBookable query notice:', error.message);
+        return await this.list({ customerVisibleOnly: true });
+      }
+
+      const uniqueMap = new Map<string, any>();
+      (data || []).forEach((row: any) => {
+        if (row.restaurants && !uniqueMap.has(row.restaurants.id)) {
+          uniqueMap.set(row.restaurants.id, row.restaurants);
+        }
+      });
+
+      return Array.from(uniqueMap.values()).map(this.mapRowToRestaurant);
+    } catch (err: any) {
+      console.warn('RestaurantRepository.listBookable error:', err.message);
+      return await this.list({ customerVisibleOnly: true });
+    }
   }
 
   /**
@@ -421,4 +476,5 @@ export class RestaurantRepository {
       throw new Error(error.message);
     }
   }
+
 }

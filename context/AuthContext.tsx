@@ -76,6 +76,9 @@ export interface AuthContextType {
 
   // Backward-Compatible Screen Aliases
   login: (dto: LoginDTO) => Promise<AuthSessionResponse>;
+  loginWithEmail: (email: string, password: string) => Promise<AuthSessionResponse>;
+  hydrateAuthenticatedSession: () => Promise<void>;
+  loginWithPhoneOtp?: (phone: string, token: string) => Promise<AuthSessionResponse>;
   registerCustomer: (dto: RegisterCustomerDTO) => Promise<AuthSessionResponse>;
   registerRestaurant: (dto: RegisterRestaurantDTO) => Promise<AuthSessionResponse>;
   sendCustomerOtp: (phone: string) => Promise<{ success: boolean; carrierName: string; message: string; error?: string }>;
@@ -572,23 +575,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const matched = db.users?.find((u: any) => u.phone.replace(/[^0-9]/g, '') === cleanInput);
         if (matched?.email) {
           emailToUse = matched.email.toLowerCase();
+        } else {
+          throw new Error('Account with this phone number was not found.');
         }
       } else {
-        // Resolve email from public.profiles by phone number
-        try {
-          const rawPhone = dto.emailOrPhone.trim();
-          const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-          const { data: profileWithPhone } = await supabase
-            .from('profiles')
-            .select('email')
-            .or(`phone.eq.${rawPhone},phone.eq.+${cleanPhone},phone.eq.${cleanPhone}`)
-            .maybeSingle();
-          if (profileWithPhone?.email) {
-            emailToUse = profileWithPhone.email.toLowerCase();
-          }
-        } catch (e) {
-          console.warn('[AuthContext] Phone to email resolution error:', e);
+        const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
+        if (!enablePhoneAuth) {
+          throw new Error('Please sign in using your account email address.');
         }
+        throw new Error('Phone sign-in requires SMS OTP verification. Please sign in with email.');
       }
     }
 
@@ -652,6 +647,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const demoRes = await DemoAuthAdapter.login(dto);
     await fallbackBootstrap();
     return demoRes;
+  };
+
+  const loginWithEmail = async (email: string, password: string): Promise<AuthSessionResponse> => {
+    return login({ emailOrPhone: email, password, rememberMe: true });
+  };
+
+  const loginWithPhoneOtp = async (phone: string, token: string): Promise<AuthSessionResponse> => {
+    const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
+    if (!enablePhoneAuth) {
+      throw new Error('Phone OTP authentication is not enabled on this platform instance.');
+    }
+    const { normalizeTanzaniaPhone } = require('../utils/phone');
+    const normalizedPhone = normalizeTanzaniaPhone(phone);
+    const { data, error } = await supabase.auth.verifyOtp({
+      phone: normalizedPhone,
+      token,
+      type: 'sms',
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (data.session) {
+      await applyAuthState(data.session);
+    }
+    const { profile: p, memberships: m, activeRest: r } = data.session?.user
+      ? await fetchProfileAndMemberships(data.session.user)
+      : { profile: null, memberships: [], activeRest: null };
+    return {
+      user: (p || data.session?.user) as any,
+      memberships: m,
+      activeRestaurant: r || undefined,
+      token: data.session?.access_token || '',
+    };
   };
 
   const registerCustomer = async (dto: RegisterCustomerDTO): Promise<AuthSessionResponse> => {
@@ -897,6 +925,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Screen aliases
     login,
+    loginWithEmail,
+    hydrateAuthenticatedSession: refreshProfile,
+    loginWithPhoneOtp,
     registerCustomer,
     registerRestaurant,
     sendCustomerOtp,

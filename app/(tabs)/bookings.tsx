@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
   View,
@@ -18,6 +18,7 @@ import { ReservationModal } from '../../components/ReservationModal';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
+import { RestaurantRepository } from '../../repositories/restaurants.repository';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 
@@ -32,6 +33,32 @@ export default function BookingsScreen() {
 
   const [activeTab, setActiveTab] = useState<BookingStatusTab>('UPCOMING');
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [bookableRestaurants, setBookableRestaurants] = useState<Restaurant[]>([]);
+  const [loadingBookable, setLoadingBookable] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingBookable(true);
+    RestaurantRepository.listBookable()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.length > 0) {
+          setBookableRestaurants(res);
+        } else {
+          setBookableRestaurants((restaurants || []).slice(0, 6) as any);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to load bookable restaurants:', err);
+        if (isMounted) setBookableRestaurants((restaurants || []).slice(0, 6) as any);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingBookable(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [restaurants]);
 
   const filteredReservations = reservations.filter((r) => {
     const st = (r.status || '').toLowerCase();
@@ -52,7 +79,9 @@ export default function BookingsScreen() {
   });
 
   const handleDirections = (address: string) => {
-    const encoded = encodeURIComponent(address + ', Dar es Salaam');
+    const cleanAddress = address.trim();
+    if (!cleanAddress) return;
+    const encoded = encodeURIComponent(cleanAddress);
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`);
   };
 
@@ -228,7 +257,9 @@ export default function BookingsScreen() {
               icon="calendar-outline"
               actionLabel={language === 'sw' ? 'Weka Meza Sasa' : 'Book a Table'}
               onAction={() => {
-                if (restaurants && restaurants.length > 0) {
+                if (bookableRestaurants && bookableRestaurants.length > 0) {
+                  setSelectedRestaurant(bookableRestaurants[0] as any);
+                } else if (restaurants && restaurants.length > 0) {
                   setSelectedRestaurant(restaurants[0] as any);
                 }
               }}
@@ -242,17 +273,22 @@ export default function BookingsScreen() {
               {language === 'sw' ? 'Weka Meza Kwenye Migahawa Hii' : 'Book a Table Nearby'}
             </Text>
             <View style={styles.restaurantList}>
-              {restaurants && restaurants.length > 0 ? (
-                restaurants.slice(0, 4).map((r) => (
+              {bookableRestaurants.length > 0 ? (
+                bookableRestaurants.slice(0, 6).map((r) => (
                   <View key={r.id} style={styles.restaurantRow}>
                     <View style={styles.restaurantInfo}>
                       <Text style={styles.rName}>{r.emoji || '🍽️'} {r.name}</Text>
-                      <Text style={styles.rSub}>{r.cuisine} • {r.distance || 'Dar es Salaam'}</Text>
+                      <Text style={styles.rSub}>
+                        {r.cuisine || 'Restaurant'}{r.neighborhood ? ` • ${r.neighborhood}` : (r.regionCity ? ` • ${r.regionCity}` : '')}
+                      </Text>
                     </View>
                     <TouchableOpacity
                       style={styles.bookNowBtn}
                       onPress={() => setSelectedRestaurant(r as any)}
                       activeOpacity={0.85}
+                      accessible={true}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Book table at ${r.name}`}
                     >
                       <Text style={styles.bookNowText}>
                         {language === 'sw' ? 'Weka Meza' : 'Book Table'}
@@ -260,7 +296,11 @@ export default function BookingsScreen() {
                     </TouchableOpacity>
                   </View>
                 ))
-              ) : null}
+              ) : (
+                <Text style={{ fontSize: 13, color: Colors.muted, paddingVertical: 8 }}>
+                  {language === 'sw' ? 'Inatafuta migahawa inayopatikana...' : 'Looking for available restaurants...'}
+                </Text>
+              )}
             </View>
           </View>
         </View>

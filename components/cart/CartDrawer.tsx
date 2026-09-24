@@ -104,51 +104,64 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 contentContainerStyle={styles.itemListContent}
                 showsVerticalScrollIndicator={false}
               >
-                {items.map((item) => (
-                  <View key={item.dishId} style={styles.itemRow}>
-                    <View style={styles.itemDetails}>
-                      <Text style={styles.dishName}>{item.dishName}</Text>
-                      {item.dishNameSwahili ? (
-                        <Text style={styles.dishSwahili}>{item.dishNameSwahili}</Text>
-                      ) : null}
-                      <PriceText
-                        amountTzs={item.priceTzs}
-                        size="sm"
-                        color={Colors.primary}
-                        style={styles.itemPrice}
-                      />
-                    </View>
-
-                    {/* Quantity Controls */}
-                    <View style={styles.qtyContainer}>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => updateQuantity(item.dishId, item.quantity - 1)}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        accessible={true}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Decrease quantity of ${item.dishName}`}
-                      >
-                        <Ionicons
-                          name={item.quantity === 1 ? 'trash-outline' : 'remove'}
-                          size={16}
-                          color={item.quantity === 1 ? Colors.error : Colors.primaryDark}
+                {items.map((item) => {
+                  const lineId = item.cartLineId || item.dishId;
+                  return (
+                    <View key={lineId} style={styles.itemRow}>
+                      <View style={styles.itemDetails}>
+                        <Text style={styles.dishName}>{item.dishName}</Text>
+                        {item.dishNameSwahili ? (
+                          <Text style={styles.dishSwahili}>{item.dishNameSwahili}</Text>
+                        ) : null}
+                        {item.selectedModifiers && item.selectedModifiers.length > 0 ? (
+                          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>
+                            + {item.selectedModifiers.map((m) => m.option_name).join(', ')}
+                          </Text>
+                        ) : null}
+                        {item.notes ? (
+                          <Text style={{ fontSize: 11, fontStyle: 'italic', color: Colors.muted, marginTop: 2 }}>
+                            Note: {item.notes}
+                          </Text>
+                        ) : null}
+                        <PriceText
+                          amountTzs={item.priceTzs}
+                          size="sm"
+                          color={Colors.primary}
+                          style={styles.itemPrice}
                         />
-                      </TouchableOpacity>
-                      <Text style={styles.qtyText}>{item.quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.qtyBtn}
-                        onPress={() => updateQuantity(item.dishId, item.quantity + 1)}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        accessible={true}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Increase quantity of ${item.dishName}`}
-                      >
-                        <Ionicons name="add" size={16} color={Colors.primaryDark} />
-                      </TouchableOpacity>
+                      </View>
+
+                      {/* Quantity Controls */}
+                      <View style={styles.qtyContainer}>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => updateQuantity(lineId, item.quantity - 1)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          accessible={true}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Decrease quantity of ${item.dishName}`}
+                        >
+                          <Ionicons
+                            name={item.quantity === 1 ? 'trash-outline' : 'remove'}
+                            size={16}
+                            color={item.quantity === 1 ? Colors.error : Colors.primaryDark}
+                          />
+                        </TouchableOpacity>
+                        <Text style={styles.qtyText}>{item.quantity}</Text>
+                        <TouchableOpacity
+                          style={styles.qtyBtn}
+                          onPress={() => updateQuantity(lineId, item.quantity + 1)}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          accessible={true}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Increase quantity of ${item.dishName}`}
+                        >
+                          <Ionicons name="add" size={16} color={Colors.primaryDark} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </ScrollView>
 
               {/* Fee Breakdown & Checkout Footer */}

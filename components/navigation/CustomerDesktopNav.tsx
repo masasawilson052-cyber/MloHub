@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 interface CustomerDesktopNavProps {
   onOpenCart?: () => void;
@@ -17,6 +18,9 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   const { t, language, setLanguage } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const { totalItems, setIsCartOpen } = useCart();
+  const { unreadCount } = useNotifications();
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const navItems = [
     { label: t('tabExplore'), path: '/(tabs)', icon: 'compass-outline', activeIcon: 'compass' },
@@ -29,6 +33,15 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   const isActive = (itemPath: string) => {
     if (itemPath === '/(tabs)' && (pathname === '/' || pathname === '/(tabs)' || pathname === '')) return true;
     return pathname.startsWith(itemPath) && itemPath !== '/(tabs)';
+  };
+
+  const handleSearchSubmit = () => {
+    const trimmed = searchQuery.trim();
+    if (trimmed) {
+      router.push(`/(tabs)/explore?q=${encodeURIComponent(trimmed)}` as any);
+    } else {
+      router.push('/(tabs)/explore' as any);
+    }
   };
 
   return (
@@ -50,6 +63,32 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           </View>
         </TouchableOpacity>
 
+        {/* Desktop Search Bar */}
+        <View style={styles.searchBarContainer}>
+          <Ionicons name="search-outline" size={17} color="#64748B" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={
+              language === 'sw'
+                ? 'Tafuta chakula, mgahawa au eneo...'
+                : 'Search dishes, restaurants, areas...'
+            }
+            placeholderTextColor="#94A3B8"
+            returnKeyType="search"
+            onSubmitEditing={handleSearchSubmit}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearchBtn}
+            >
+              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Central Nav Links */}
         <View style={styles.navLinksRow}>
           {navItems.map((item) => {
@@ -64,7 +103,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
               >
                 <Ionicons
                   name={(active ? item.activeIcon : item.icon) as any}
-                  size={18}
+                  size={17}
                   color={active ? Colors.primary : Colors.textMuted}
                 />
                 <Text style={[styles.navLinkLabel, active && styles.navLinkLabelActive]}>
@@ -75,7 +114,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           })}
         </View>
 
-        {/* Right Actions: Language, Cart, Auth */}
+        {/* Right Actions: Language, Notifications, Cart, Auth */}
         <View style={styles.rightActionsRow}>
           {/* Language Switch */}
           <TouchableOpacity
@@ -86,6 +125,27 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           >
             <Ionicons name="globe-outline" size={16} color={Colors.text} />
             <Text style={styles.langBtnText}>{language === 'en' ? 'SW' : 'EN'}</Text>
+          </TouchableOpacity>
+
+          {/* Notifications Bell */}
+          <TouchableOpacity
+            style={styles.iconActionBtn}
+            onPress={() => router.push('/notifications')}
+            accessibilityRole="button"
+            accessibilityLabel={`Notifications with ${unreadCount} unread`}
+          >
+            <Ionicons
+              name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
+              size={20}
+              color={unreadCount > 0 ? Colors.primary : '#475569'}
+            />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Cart Button */}
@@ -141,7 +201,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   innerContainer: {
-    maxWidth: 1200,
+    maxWidth: 1280,
     width: '100%',
     height: 64,
     alignSelf: 'center',
@@ -149,6 +209,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
+    gap: 12,
   },
   logoBtn: {
     flexDirection: 'row',
@@ -177,24 +238,48 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '500',
   },
+  searchBarContainer: {
+    flex: 1,
+    maxWidth: 320,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    height: 38,
+  },
+  searchIcon: {
+    marginRight: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0F172A',
+    paddingVertical: 0,
+  },
+  clearSearchBtn: {
+    padding: 2,
+  },
   navLinksRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   navLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: Radii.md,
   },
   navLinkActive: {
     backgroundColor: '#F0FDF4',
   },
   navLinkLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#64748B',
   },
@@ -205,7 +290,7 @@ const styles = StyleSheet.create({
   rightActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   langBtn: {
     flexDirection: 'row',
@@ -222,6 +307,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
+  },
+  iconActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: Colors.primary,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  notifBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   cartBtn: {
     width: 38,
@@ -243,6 +358,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   cartBadgeText: {
     fontSize: 10,
@@ -253,26 +370,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingLeft: 6,
+    paddingLeft: 4,
   },
   userAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userAvatarText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   userName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#1E293B',
-    maxWidth: 90,
+    maxWidth: 80,
   },
   loginBtn: {
     backgroundColor: Colors.primary,

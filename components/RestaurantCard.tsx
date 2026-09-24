@@ -143,16 +143,25 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           </View>
 
           <View style={styles.actionBtns}>
-            <TouchableOpacity
-              style={styles.reserveBtn}
-              onPress={onReserve}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.reserveBtnText}>{t('reserveBtn')}</Text>
-            </TouchableOpacity>
+            {((restaurant as any).reservationsEnabled ||
+              (restaurant as any).reservations_enabled ||
+              restaurant.branches?.some((b) => b.reservationsEnabled)) && (
+              <TouchableOpacity
+                style={styles.reserveBtn}
+                onPress={onReserve}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.reserveBtnText}>{t('reserveBtn')}</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
-              style={styles.menuBtn}
+              style={[
+                styles.menuBtn,
+                !((restaurant as any).reservationsEnabled ||
+                  (restaurant as any).reservations_enabled ||
+                  restaurant.branches?.some((b) => b.reservationsEnabled)) && { flex: 1, paddingHorizontal: 16 },
+              ]}
               onPress={onViewMenu}
               activeOpacity={0.8}
             >

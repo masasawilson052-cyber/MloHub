@@ -1723,6 +1723,7 @@ export interface ServiceCity {
   name: string;
   region: string;
   isActive: boolean;
+  marketStatus?: 'LIVE' | 'COMING_SOON' | 'DISABLED';
   createdAt: string;
 }
 

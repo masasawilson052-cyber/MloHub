@@ -20,6 +20,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { CryptoEngine } from '../../db/auth/crypto';
 import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
+import { isValidTanzaniaPhone, normalizeTanzaniaPhone } from '../../utils/phone';
 
 export default function RegisterCustomerScreen() {
   const router = useRouter();
@@ -73,9 +74,10 @@ export default function RegisterCustomerScreen() {
       errs.email = language === 'sw' ? 'Barua pepe si sahihi' : 'Please enter a valid email address';
     }
 
-    const cleanPhoneDigits = phone.replace(/[^0-9]/g, '');
-    if (!cleanPhoneDigits || cleanPhoneDigits.length < 9) {
-      errs.phone = language === 'sw' ? 'Namba ya simu inahitajika (+255...)' : 'Phone number is required (+255...)';
+    if (!phone.trim() || !isValidTanzaniaPhone(phone)) {
+      errs.phone = language === 'sw'
+        ? 'Weka namba sahihi ya simu ya Tanzania (mfano: 0754 123 456 au +255 754 123 456)'
+        : 'Enter a valid Tanzania phone number (e.g. 0754 123 456 or +255 754 123 456)';
     }
 
     if (!password || password.length < 6) {
@@ -94,7 +96,6 @@ export default function RegisterCustomerScreen() {
     return Object.keys(errs).length === 0;
   };
 
-  // Direct Customer Registration (No SMS OTP required)
   const handleDirectRegister = async () => {
     setGeneralError(null);
     setSuccessMessage(null);
@@ -125,7 +126,7 @@ export default function RegisterCustomerScreen() {
       await registerCustomer({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
-        phone: phone.trim(),
+        phone: normalizeTanzaniaPhone(phone) || phone.trim(),
         password,
         location: location.trim(),
         agreeTerms,

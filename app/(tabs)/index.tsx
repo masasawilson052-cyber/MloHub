@@ -29,6 +29,7 @@ import { DiscoveryService } from '../../services/DiscoveryService';
 import { DishDiscoveryResult } from '../../types/discovery';
 import { AnalyticsService } from '../../services/AnalyticsService';
 import { useCart } from '../../context/CartContext';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
 import { CartDrawer } from '../../components/cart/CartDrawer';
 import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
@@ -53,16 +54,17 @@ export default function HomeScreen() {
   const [isLoadingDishes, setIsLoadingDishes] = useState(true);
   const [comparedDishes, setComparedDishes] = useState<DishDiscoveryResult[]>([]);
 
-  // Location
-  const profileLocation = profile?.location || user?.location || '';
-  const [currentLocation, setCurrentLocation] = useState(profileLocation);
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  // Authoritative Customer Location
+  const {
+    location: customerLocation,
+    isLocationModalOpen,
+    setIsLocationModalOpen,
+    openLocationSelector,
+  } = useCustomerLocation();
 
-  useEffect(() => {
-    if (profileLocation && !currentLocation) {
-      setCurrentLocation(profileLocation);
-    }
-  }, [profileLocation]);
+  const currentLocation = customerLocation.serviceAreaName
+    ? `${customerLocation.serviceAreaName}, ${customerLocation.cityName || 'Dar es Salaam'}`
+    : (customerLocation.cityName || profile?.location || user?.location || 'Dar es Salaam');
 
   // Reservation Modal
   const [selectedReserveRestaurant, setSelectedReserveRestaurant] = useState<Restaurant | null>(null);
@@ -77,8 +79,16 @@ export default function HomeScreen() {
     setIsLoadingDishes(true);
 
     Promise.all([
-      DiscoveryService.getPopularDishes({ neighborhood: currentLocation }),
-      DiscoveryService.getRecommendedDishes({ neighborhood: currentLocation }),
+      DiscoveryService.getPopularDishes({
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        latitude: customerLocation.latitude,
+        longitude: customerLocation.longitude,
+      }),
+      DiscoveryService.getRecommendedDishes({
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        latitude: customerLocation.latitude,
+        longitude: customerLocation.longitude,
+      }),
     ])
       .then(([pop, rec]) => {
         if (isMounted) {
@@ -95,12 +105,12 @@ export default function HomeScreen() {
     return () => {
       isMounted = false;
     };
-  }, [currentLocation]);
+  }, [customerLocation.serviceAreaName, customerLocation.cityName, customerLocation.latitude, customerLocation.longitude]);
 
   const handleSearchSubmit = () => {
     AnalyticsService.trackEvent('SEARCH_STARTED', {
       query: searchQuery,
-      neighborhood: currentLocation,
+      neighborhood: customerLocation.serviceAreaName || currentLocation,
       filterValue: selectedQuickBudget,
     });
 
@@ -111,7 +121,9 @@ export default function HomeScreen() {
         budget: selectedQuickBudget ? String(selectedQuickBudget) : undefined,
         dist: selectedQuickDistance ? String(selectedQuickDistance) : undefined,
         openNow: isOpenNowOnly ? 'true' : undefined,
-        neighborhood: currentLocation,
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        lat: customerLocation.latitude ? String(customerLocation.latitude) : undefined,
+        lng: customerLocation.longitude ? String(customerLocation.longitude) : undefined,
       },
     });
   };
@@ -187,7 +199,7 @@ export default function HomeScreen() {
       {/* Header */}
       <Header
         location={currentLocation}
-        onOpenLocation={() => setIsLocationModalOpen(true)}
+        onOpenLocation={openLocationSelector}
         onOpenProfile={() => router.push('/(tabs)/profile')}
       />
 
@@ -210,8 +222,12 @@ export default function HomeScreen() {
 
           <Text style={styles.heroSub}>
             {language === 'sw'
-              ? 'Tafuta vyakula halisi, bei zilizothibitishwa, na umbali kutoka ulipo Dar es Salaam.'
-              : 'Discover real dishes, verified prices, and exact distance across Dar es Salaam.'}
+              ? (customerLocation.latitude && customerLocation.longitude
+                  ? `Tafuta vyakula halisi na bei zilizothibitishwa karibu nawe (${customerLocation.serviceAreaName || customerLocation.cityName || 'ulipo'}).`
+                  : `Tafuta vyakula halisi na bei zilizothibitishwa ndani ya ${customerLocation.serviceAreaName || customerLocation.cityName || 'Dar es Salaam'}.`)
+              : (customerLocation.latitude && customerLocation.longitude
+                  ? `Discover real dishes and verified prices near you (${customerLocation.serviceAreaName || customerLocation.cityName || 'your location'}).`
+                  : `Discover real dishes and verified prices in ${customerLocation.serviceAreaName || customerLocation.cityName || 'Dar es Salaam'}.`)}
           </Text>
 
           {/* Hero Search Bar */}
@@ -220,12 +236,19 @@ export default function HomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmit={handleSearchSubmit}
+              latitude={customerLocation.latitude}
+              longitude={customerLocation.longitude}
               placeholder={language === 'sw' ? 'Tafuta chakula (mf. Chicken Biryani, Chipsi Kuku)...' : 'Search food (e.g. Chicken Biryani, Chipsi Kuku)...'}
               onSelectSuggestion={(sug) => {
                 setSearchQuery(sug.text);
                 router.push({
                   pathname: '/(tabs)/explore',
-                  params: { q: sug.text, neighborhood: currentLocation },
+                  params: {
+                    q: sug.text,
+                    neighborhood: customerLocation.serviceAreaName || currentLocation,
+                    lat: customerLocation.latitude ? String(customerLocation.latitude) : undefined,
+                    lng: customerLocation.longitude ? String(customerLocation.longitude) : undefined,
+                  },
                 });
               }}
             />
@@ -388,8 +411,6 @@ export default function HomeScreen() {
       {/* Location Modal */}
       <LocationModal
         visible={isLocationModalOpen}
-        selectedLocation={currentLocation}
-        onSelect={setCurrentLocation}
         onClose={() => setIsLocationModalOpen(false)}
       />
 

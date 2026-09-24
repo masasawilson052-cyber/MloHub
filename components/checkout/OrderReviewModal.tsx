@@ -23,8 +23,10 @@ import { Button } from '../ui/Button';
 import { PriceText } from '../ui/PriceText';
 import { Badge } from '../ui/Badge';
 import { PaymentMethodCode, PaymentTransactionEntity } from '../../db/types';
-import { Order, BranchDeliveryZone } from '../../types/domain';
+import { Order, BranchDeliveryZone, CustomerSavedAddress } from '../../types/domain';
 import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
+import { CustomerAddressesRepository } from '../../repositories/customerAddresses.repository';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { PaymentCheckoutModal } from '../PaymentCheckoutModal';
 
 export interface OrderReviewModalProps {
@@ -57,7 +59,14 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
   const [step, setStep] = useState<CheckoutStep>('REVIEW');
   const [fulfillment, setFulfillment] = useState<'Delivery' | 'Takeaway' | 'Dine-In'>('Delivery');
-  const [deliveryAddress, setDeliveryAddress] = useState(user?.location || '');
+  const { location: customerLocation, openLocationSelector } = useCustomerLocation();
+  const [savedAddresses, setSavedAddresses] = useState<CustomerSavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(customerLocation.savedAddressId || null);
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    customerLocation.addressLine
+      ? `${customerLocation.addressLine}${customerLocation.landmark ? ` (${customerLocation.landmark})` : ''}${customerLocation.serviceAreaName ? `, ${customerLocation.serviceAreaName}` : ''}`
+      : (user?.location || '')
+  );
   const [payerPhone, setPayerPhone] = useState(user?.phone || '');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode>('MPESA');
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
@@ -72,6 +81,29 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
   const effectiveBranchId = branchId || (items.length > 0 ? items[0].branchId : null);
 
+  // Load customer saved addresses
+  useEffect(() => {
+    let isMounted = true;
+    if (visible && user?.id) {
+      CustomerAddressesRepository.list(user.id)
+        .then((addrs) => {
+          if (!isMounted) return;
+          setSavedAddresses(addrs);
+          if (!deliveryAddress && addrs.length > 0) {
+            const def = addrs.find((a) => a.isDefault) || addrs[0];
+            setSelectedAddressId(def.id);
+            setDeliveryAddress(
+              `${def.streetAddress}${def.deliveryInstructions ? ` (${def.deliveryInstructions})` : ''}${def.areaName ? `, ${def.areaName}` : ''}`
+            );
+          }
+        })
+        .catch((err) => console.warn('OrderReviewModal: Failed to load saved addresses', err));
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, user?.id]);
+
   useEffect(() => {
     let isMounted = true;
     if (visible && fulfillment === 'Delivery' && effectiveBranchId) {
@@ -85,6 +117,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
             setSelectedDeliveryZone((prev) => {
               if (prev && zones.some((z) => z.id === prev.id)) {
                 return zones.find((z) => z.id === prev.id) || zones[0];
+              }
+              // If customer location matches a zone name, auto-select it
+              if (customerLocation.serviceAreaName) {
+                const match = zones.find(
+                  (z) => z.zoneName.toLowerCase() === customerLocation.serviceAreaName?.toLowerCase()
+                );
+                if (match) return match;
               }
               return zones[0];
             });
@@ -108,16 +147,18 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [visible, fulfillment, effectiveBranchId]);
+  }, [visible, fulfillment, effectiveBranchId, customerLocation.serviceAreaName]);
 
   useEffect(() => {
-    if (user?.location && !deliveryAddress) {
-      setDeliveryAddress(user.location);
+    if (!deliveryAddress && customerLocation.addressLine) {
+      setDeliveryAddress(
+        `${customerLocation.addressLine}${customerLocation.landmark ? ` (${customerLocation.landmark})` : ''}${customerLocation.serviceAreaName ? `, ${customerLocation.serviceAreaName}` : ''}`
+      );
     }
     if (user?.phone && !payerPhone) {
       setPayerPhone(user.phone);
     }
-  }, [user]);
+  }, [user, customerLocation]);
 
   const currentQuote = React.useMemo(() => {
     const fee = fulfillment === 'Delivery' ? (selectedDeliveryZone?.feeTzs ?? 0) : 0;
@@ -205,6 +246,9 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           unitPriceTzs: it.priceTzs,
           quantity: it.quantity,
           totalPriceTzs: it.priceTzs * it.quantity,
+          selected_modifiers: it.rpcModifiersPayload || null,
+          selectedModifiers: it.selectedModifiers || null,
+          special_instructions: it.notes || undefined,
         })),
         diningOption: fulfillment,
         deliveryAddress: fulfillment === 'Delivery' ? deliveryAddress.trim() : undefined,
@@ -319,11 +363,62 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 {fulfillment === 'Delivery' && (
                   <>
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Delivery Address (Dar es Salaam)</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={styles.inputLabel}>
+                          Delivery Address ({customerLocation.cityName || 'Tanzania'})
+                        </Text>
+                        <TouchableOpacity onPress={openLocationSelector}>
+                          <Text style={{ fontSize: 12, color: Colors.primary, fontWeight: '600' }}>
+                            📍 Change Location
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Saved Addresses quick pills */}
+                      {savedAddresses.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                          {savedAddresses.map((addr) => {
+                            const isSelected = selectedAddressId === addr.id;
+                            return (
+                              <TouchableOpacity
+                                key={addr.id}
+                                style={[
+                                  styles.pillBtn,
+                                  isSelected && styles.pillBtnActive,
+                                  { paddingHorizontal: 10, paddingVertical: 5 },
+                                ]}
+                                onPress={() => {
+                                  setSelectedAddressId(addr.id);
+                                  setDeliveryAddress(
+                                    `${addr.streetAddress}${addr.deliveryInstructions ? ` (${addr.deliveryInstructions})` : ''}${addr.areaName ? `, ${addr.areaName}` : ''}`
+                                  );
+                                  if (addr.areaName && deliveryZones.length > 0) {
+                                    const matched = deliveryZones.find(
+                                      (z) =>
+                                        z.zoneName.toLowerCase() === addr.areaName?.toLowerCase() ||
+                                        (z.supportedWards &&
+                                          z.supportedWards.some((w) => w.toLowerCase() === addr.areaName?.toLowerCase()))
+                                    );
+                                    if (matched) setSelectedDeliveryZone(matched);
+                                  }
+                                }}
+                              >
+                                <Text style={[styles.pillText, isSelected && styles.pillTextActive, { fontSize: 12 }]}>
+                                  {addr.label === 'HOME' ? '🏠 Home' : addr.label === 'WORK' ? '🏢 Work' : `📍 ${addr.label || 'Saved'}`}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+
                       <TextInput
                         style={styles.textInput}
                         value={deliveryAddress}
-                        onChangeText={setDeliveryAddress}
+                        onChangeText={(txt) => {
+                          setDeliveryAddress(txt);
+                          setSelectedAddressId(null);
+                        }}
                         placeholder="e.g. Street name, House/Flat number, Landmark"
                       />
                     </View>

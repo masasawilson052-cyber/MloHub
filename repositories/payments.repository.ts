@@ -112,6 +112,23 @@ export class PaymentRepository {
     return (data || []).map(this.mapRowToPayment);
   }
 
+  public static async listByCustomer(customerId: string): Promise<Payment[]> {
+    if (!isSupabaseConfigured() || !customerId) return [];
+
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', customerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(`PaymentRepository.listByCustomer(${customerId}) error:`, error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToPayment);
+  }
+
   public static async listAll(filter?: {
     restaurantId?: string;
     status?: string;

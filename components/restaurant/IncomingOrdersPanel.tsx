@@ -39,7 +39,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   language = 'en',
   userRole,
 }) => {
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PREPARING' | 'READY' | 'COMPLETED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'COMPLETED'>('ALL');
 
   // Accept Modal State
   const [acceptingOrder, setAcceptingOrder] = useState<Order | null>(null);
@@ -57,6 +57,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
     if (statusFilter === 'PENDING') return o.status === 'PENDING';
     if (statusFilter === 'PREPARING') return o.status === 'ACCEPTED' || o.status === 'PREPARING';
     if (statusFilter === 'READY') return o.status === 'READY';
+    if (statusFilter === 'OUT_FOR_DELIVERY') return o.status === 'OUT_FOR_DELIVERY';
     if (statusFilter === 'COMPLETED') return o.status === 'COMPLETED';
     return true;
   };
@@ -97,6 +98,8 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
         return <Badge label="Cooking" variant="accent" size="sm" />;
       case 'READY':
         return <Badge label="Ready" variant="success" size="sm" />;
+      case 'OUT_FOR_DELIVERY':
+        return <Badge label="Dispatched" variant="info" size="sm" />;
       case 'COMPLETED':
         return <Badge label="Completed" variant="neutral" size="sm" />;
       case 'REJECTED':
@@ -269,12 +272,38 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                   )}
 
                   {order.status === 'READY' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
+                    order.fulfillmentType === 'Delivery' ? (
+                      <TouchableOpacity
+                        style={[styles.actionTransitionBtn, { backgroundColor: '#2563eb' }]}
+                        onPress={() => onUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Dispatch Order"
+                      >
+                        <Ionicons name="bicycle" size={16} color={Colors.white} />
+                        <Text style={styles.actionTransitionText}>Dispatch Order</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={[styles.actionTransitionBtn, { backgroundColor: Colors.primaryDark }]}
+                        onPress={() => onUpdateStatus(order.id, 'COMPLETED')}
+                        accessibilityRole="button"
+                        accessibilityLabel="Hand to Customer"
+                      >
+                        <Ionicons name="checkmark-done" size={16} color={Colors.white} />
+                        <Text style={styles.actionTransitionText}>Hand to Customer</Text>
+                      </TouchableOpacity>
+                    )
+                  )}
+
+                  {order.status === 'OUT_FOR_DELIVERY' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     <TouchableOpacity
                       style={[styles.actionTransitionBtn, { backgroundColor: Colors.primaryDark }]}
                       onPress={() => onUpdateStatus(order.id, 'COMPLETED')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Delivered / Complete"
                     >
                       <Ionicons name="checkmark-done" size={16} color={Colors.white} />
-                      <Text style={styles.actionTransitionText}>Complete Order</Text>
+                      <Text style={styles.actionTransitionText}>Delivered / Complete</Text>
                     </TouchableOpacity>
                   )}
                 </View>

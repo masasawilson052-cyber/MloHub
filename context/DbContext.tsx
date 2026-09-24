@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   MloHubDB,
@@ -20,6 +21,7 @@ import { OrderRepository } from '../repositories/orders.repository';
 import { CustomMealRepository } from '../repositories/customMeals.repository';
 import { NotificationRepository } from '../repositories/notifications.repository';
 import { ReviewRepository } from '../repositories/reviews.repository';
+import { FavoritesRepository } from '../repositories/favorites.repository';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { RealtimeService } from '../services/RealtimeService';
 import { Restaurant, Reservation, Order, CustomMealRequest, Notification } from '../types/domain';
@@ -286,8 +288,8 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
           throw new Error('Supabase client is not configured in this environment.');
         }
 
-        // 1. Authoritative Restaurants
-        const restaurants = await RestaurantRepository.list();
+        // 1. Authoritative Customer-Visible Restaurants (Phase 16)
+        const restaurants = await RestaurantRepository.list({ customerVisibleOnly: true });
         setCloudRestaurants((restaurants || []).map(mapDomainRestaurantToEntity));
 
         // 2. Client preference for onboarding completion
@@ -339,8 +341,8 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             setCloudUser(undefined);
           }
 
-          // Fetch authenticated user's reservations, orders, and notifications
-          const [reservations, standardOrders, customOrders, notifications] = await Promise.all([
+          // Fetch authenticated user's reservations, orders, notifications, and favorites (Phase 23)
+          const [reservations, standardOrders, customOrders, notifications, favorites] = await Promise.all([
             ReservationRepository.listByCustomer(authUser.id).catch((err) => {
               console.warn('[DbContext] Error loading reservations:', err.message);
               return [];
@@ -357,15 +359,21 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
               console.warn('[DbContext] Error loading notifications:', err.message);
               return [];
             }),
+            FavoritesRepository.listFavorites(authUser.id).catch((err) => {
+              console.warn('[DbContext] Error loading favorites:', err.message);
+              return [];
+            }),
           ]);
 
           setCloudReservations(reservations.map(mapDomainReservationToEntity));
           setCloudStandardOrders(standardOrders);
           setCloudCustomOrders(customOrders.map(mapDomainCustomMealToEntity));
           setCloudNotifications(notifications.map(mapDomainNotificationToEntity));
+          setClientFavorites(favorites);
         } else {
           setCloudUser(undefined);
           setCloudReservations([]);
+          setClientFavorites([]);
           setCloudStandardOrders([]);
           setCloudCustomOrders([]);
           setCloudNotifications([]);
@@ -495,8 +503,28 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       refreshState();
       return isFav;
     }
-    // Real mode: Favorites persistence is deferred until canonical backend exists
-    return false;
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser?.id) {
+      throw new Error('Authentication required to save favorites.');
+    }
+    const wasFavorite = clientFavorites.includes(restaurantId);
+    setClientFavorites((prev) =>
+      wasFavorite ? prev.filter((id) => id !== restaurantId) : [...prev, restaurantId]
+    );
+    try {
+      if (wasFavorite) {
+        await FavoritesRepository.removeFavorite(authUser.id, restaurantId);
+        return false;
+      } else {
+        await FavoritesRepository.addFavorite(authUser.id, restaurantId);
+        return true;
+      }
+    } catch (err) {
+      setClientFavorites((prev) =>
+        wasFavorite ? [...prev, restaurantId] : prev.filter((id) => id !== restaurantId)
+      );
+      throw err;
+    }
   };
 
   const createReservation = async (
@@ -680,7 +708,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const activeNotifications = allowLocalFallbacks ? dbState.notifications : cloudNotifications;
   const activePayments = allowLocalFallbacks ? dbState.payments : [];
   const activeUsers = allowLocalFallbacks ? dbState.users : (cloudUser ? [cloudUser] : []);
-  const activeFavorites = allowLocalFallbacks ? dbState.favorites : [];
+  const activeFavorites = allowLocalFallbacks ? dbState.favorites : clientFavorites;
   const activeOnboarding = allowLocalFallbacks ? !!dbState.hasCompletedOnboarding : onboardingState;
 
   // Legacy compatibility shape only; not a production source of truth.

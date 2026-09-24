@@ -22,6 +22,8 @@ interface HeroSearchBarProps {
   activeFilterCount?: number;
   filtersOpen?: boolean;
   onSelectSuggestion?: (suggestion: SearchAutocompleteSuggestion) => void;
+  latitude?: number;
+  longitude?: number;
 }
 
 export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
@@ -33,6 +35,8 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
   activeFilterCount = 0,
   filtersOpen = false,
   onSelectSuggestion,
+  latitude,
+  longitude,
 }) => {
   const [suggestions, setSuggestions] = useState<SearchAutocompleteSuggestion[]>([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -46,7 +50,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
     if (isFocused && value.trim().length >= 2) {
       debounceTimer.current = setTimeout(async () => {
         try {
-          const list = await DiscoveryService.getLiveAutocompleteSuggestions(value);
+          const list = await DiscoveryService.getLiveAutocompleteSuggestions(value, latitude, longitude);
           setSuggestions(list);
         } catch {
           const fallback = DiscoveryService.getAutocompleteSuggestions(value);
@@ -60,7 +64,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-  }, [value, isFocused]);
+  }, [value, isFocused, latitude, longitude]);
 
   const handleClear = () => {
     onChangeText('');

@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (payment.status === 'PENDING' || payment.status === 'PROCESSING') {
+    if (payment.status === 'PENDING') {
       const paymentAgeMs = Date.now() - new Date(payment.created_at || payment.updated_at || 0).getTime();
       if (paymentAgeMs < 30_000) {
         return new Response(JSON.stringify({ success: true, payment, reconciled: false, recoveryEligibleAt: new Date(Date.now() + (30_000 - paymentAgeMs)).toISOString() }), {
@@ -169,7 +169,7 @@ Deno.serve(async (req: Request) => {
           .from('payments')
           .update({ status: providerStatus.status, updated_at: new Date().toISOString() })
           .eq('id', payment.id)
-          .in('status', ['PENDING', 'PROCESSING']);
+          .eq('status', 'PENDING');
         if (updateError) throw updateError;
       }
 

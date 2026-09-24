@@ -34,6 +34,7 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatTzs } from '../../utils/formatters';
 import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
+import { PaymentRetryModal } from '../../components/checkout/PaymentRetryModal';
 
 const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
@@ -68,6 +69,7 @@ export default function OrdersScreen() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [paymentAttemptIds, setPaymentAttemptIds] = useState<Record<string, string>>({});
+  const [retryPaymentOrder, setRetryPaymentOrder] = useState<Order | null>(null);
 
   const handleCancelOrder = async (orderId: string) => {
     Alert.alert(
@@ -216,44 +218,8 @@ export default function OrdersScreen() {
     fetchOrders();
   };
 
-  const retryPayment = async (order: Order) => {
-    if (!user?.phone) {
-      Alert.alert('Phone number required', 'Add a mobile-money phone number to your profile before paying.');
-      return;
-    }
-    const attemptId = paymentAttemptIds[order.id] || globalThis.crypto?.randomUUID?.() || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-    setPaymentAttemptIds((current) => ({ ...current, [order.id]: attemptId }));
-    setIsActionLoading(true);
-    try {
-      const result = await PaymentRepository.createForOrder({
-        orderId: order.id,
-        methodCode: 'MPESA',
-        payerPhone: user.phone,
-        idempotencyKey: `order_payment_${order.id}_${attemptId}`,
-      });
-      Alert.alert(
-        result.success ? 'Payment started' : 'Payment failed',
-        result.success ? 'Check your phone and approve the mobile-money request.' : (result.error || 'Could not start payment.')
-      );
-      if (result.success) {
-        await fetchOrders();
-      } else {
-        setPaymentAttemptIds((current) => {
-          const next = { ...current };
-          delete next[order.id];
-          return next;
-        });
-      }
-    } catch (error: any) {
-      setPaymentAttemptIds((current) => {
-        const next = { ...current };
-        delete next[order.id];
-        return next;
-      });
-      Alert.alert('Payment failed', error?.message || 'Could not start payment.');
-    } finally {
-      setIsActionLoading(false);
-    }
+  const retryPayment = (order: Order) => {
+    setRetryPaymentOrder(order);
   };
 
   const submitReview = async () => {
@@ -542,6 +508,19 @@ export default function OrdersScreen() {
                   </View>
 
                   <View style={styles.cardActionsRow}>
+                    {canRetryOrderPayment(order) && (
+                      <TouchableOpacity
+                        style={styles.payNowBtn}
+                        onPress={() => setRetryPaymentOrder(order)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="card-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.payNowBtnText}>
+                          {language === 'sw' ? 'Lipa Sasa' : 'Pay Now'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity
                       style={styles.detailsBtn}
                       onPress={() => setSelectedOrder(order)}
@@ -702,13 +681,19 @@ export default function OrdersScreen() {
               <View style={styles.modalFooter}>
                 {canRetryOrderPayment(selectedOrder) && (
                   <Button
-                    title={selectedOrder.paymentStatus === 'FAILED' ? 'Retry Payment' : 'Complete Payment'}
-                    onPress={() => retryPayment(selectedOrder)}
-                    variant="outline"
+                    title={
+                      selectedOrder.paymentStatus === 'FAILED'
+                        ? (language === 'sw' ? 'Jaribu Tena Kulipa' : 'Retry Payment')
+                        : (language === 'sw' ? 'Kamilisha Malipo' : 'Complete Payment')
+                    }
+                    onPress={() => {
+                      const ord = selectedOrder;
+                      setSelectedOrder(null);
+                      setRetryPaymentOrder(ord);
+                    }}
+                    variant="primary"
                     size="md"
                     fullWidth={true}
-                    disabled={isActionLoading}
-                    loading={isActionLoading}
                     style={{ marginBottom: Spacing.sm }}
                   />
                 )}
@@ -791,6 +776,17 @@ export default function OrdersScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Multi-Provider Payment Retry Modal */}
+      <PaymentRetryModal
+        visible={!!retryPaymentOrder}
+        order={retryPaymentOrder}
+        onClose={() => setRetryPaymentOrder(null)}
+        onPaymentSuccess={() => {
+          setRetryPaymentOrder(null);
+          fetchOrders();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -974,6 +970,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#142033',
+  },
+  payNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#15803D',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radii.full,
+  },
+  payNowBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   trackBtn: {
     flexDirection: 'row',

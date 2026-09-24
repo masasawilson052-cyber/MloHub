@@ -35,6 +35,7 @@ import { PriceText } from '../../components/ui/PriceText';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../../components/trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../../components/trust/ReportDiscrepancyModal';
+import { MenuItemCustomizationModal } from '../../components/menu/MenuItemCustomizationModal';
 
 function parsePriceTzs(priceStr: string | number): number {
   if (typeof priceStr === 'number') return priceStr;
@@ -56,6 +57,7 @@ export default function RestaurantDetailScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [customizingItem, setCustomizingItem] = useState<any | null>(null);
 
   const matched = restaurants.find((r) => r.id === id);
   const restaurant: any = matched;
@@ -137,9 +139,17 @@ export default function RestaurantDetailScreen() {
       verificationStatus: (restaurant as any)?.verificationStatus ?? 'PENDING_VERIFICATION',
       totalOrders: (restaurant as any)?.totalOrders ?? 0,
       completedOrders: (restaurant as any)?.completedOrders ?? 0,
-      menuLastVerifiedAt: (restaurant as any)?.menuUpdatedAt || new Date().toISOString(),
+      menuLastVerifiedAt: (restaurant as any)?.menuUpdatedAt || (restaurant as any)?.menuLastVerifiedAt || undefined,
     });
   }, [restaurant]);
+
+  const supportsReservations = useMemo(() => {
+    return (
+      (restaurant as any)?.reservationsEnabled === true ||
+      (restaurant as any)?.reservations_enabled === true ||
+      branches.some((b) => b.reservationsEnabled === true || b.reservations_enabled === true)
+    );
+  }, [restaurant, branches]);
 
   // Extract Categories
   const categories = useMemo(() => {
@@ -349,17 +359,19 @@ export default function RestaurantDetailScreen() {
 
           {/* Action CTAs */}
           <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={styles.bookTableBtn}
-              onPress={() => setIsReserveModalOpen(true)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="calendar-outline" size={16} color={Colors.primaryDark} style={{ marginRight: 6 }} />
-              <Text style={styles.bookTableText}>{t('reserveBtn')}</Text>
-            </TouchableOpacity>
+            {supportsReservations && (
+              <TouchableOpacity
+                style={styles.bookTableBtn}
+                onPress={() => setIsReserveModalOpen(true)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="calendar-outline" size={16} color={Colors.primaryDark} style={{ marginRight: 6 }} />
+                <Text style={styles.bookTableText}>{t('reserveBtn')}</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
-              style={styles.customMealBtn}
+              style={[styles.customMealBtn, !supportsReservations && { flex: 1 }]}
               onPress={() => router.push('/(tabs)/custom')}
               activeOpacity={0.85}
             >
@@ -399,7 +411,15 @@ export default function RestaurantDetailScreen() {
                 {language === 'sw' ? 'Usajili wa Kisheria' : 'Legal Verification'}
               </Text>
               <Text style={styles.trustMetricVal}>
-                {restaurantAssessment.legalVerificationStatus === 'VERIFIED' ? '✓ BRELA & TIN' : 'Pending'}
+                {restaurant?.verificationStatus === 'VERIFIED'
+                  ? (restaurant.tinNumber && restaurant.businessLicenseNumber
+                      ? '✓ BRELA & TIN'
+                      : restaurant.tinNumber
+                      ? '✓ TIN Verified'
+                      : '✓ Verified')
+                  : (restaurant?.verificationStatus === 'REJECTED'
+                      ? 'Rejected'
+                      : 'Pending Review')}
               </Text>
             </View>
             <View style={styles.trustMetricCol}>
@@ -446,7 +466,9 @@ export default function RestaurantDetailScreen() {
               <Text style={styles.highlightedEyebrow}>
                 {language === 'sw' ? 'CHAKULA ULICHOTAFUTA' : 'YOU SEARCHED FOR THIS DISH'}
               </Text>
-              <FreshnessBadge tier="FRESH" label="Verified 2h ago" size="sm" />
+              {(highlightedItem?.freshnessTier || (highlightedItem as any)?.verificationTier) ? (
+                <FreshnessBadge tier={(highlightedItem.freshnessTier || (highlightedItem as any).verificationTier) as any} size="sm" />
+              ) : null}
             </View>
             <View style={styles.highlightedCard}>
               <View style={styles.highlightedLeft}>
@@ -517,7 +539,28 @@ export default function RestaurantDetailScreen() {
               const priceVal = parsePriceTzs(item.price);
 
               return (
-                <View key={item.id} style={styles.menuCard}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.menuCard}
+                  activeOpacity={0.88}
+                  onPress={() =>
+                    setCustomizingItem({
+                      id: item.id,
+                      name: item.name,
+                      nameSw: item.nameSw,
+                      description: item.desc,
+                      price: priceVal,
+                      imageUrl: coverImage,
+                      restaurantId: restaurant.id,
+                      restaurantName: restaurant.name,
+                      branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
+                      branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
+                    })
+                  }
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select and customize ${item.name}`}
+                >
                   <View style={styles.menuItemLeft}>
                     <View style={styles.menuTitleRow}>
                       <Text style={styles.itemName}>{item.name}</Text>
@@ -534,27 +577,29 @@ export default function RestaurantDetailScreen() {
                   <TouchableOpacity
                     style={[styles.menuAddBtn, inCart && styles.menuAddBtnInCart]}
                     onPress={() =>
-                      addToCart({
-                        dishId: item.id,
-                        dishName: item.name,
+                      setCustomizingItem({
+                        id: item.id,
+                        name: item.name,
+                        nameSw: item.nameSw,
+                        description: item.desc,
+                        price: priceVal,
+                        imageUrl: coverImage,
                         restaurantId: restaurant.id,
                         restaurantName: restaurant.name,
                         branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
                         branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
-                        priceTzs: priceVal,
-                        imageUrl: coverImage,
                       })
                     }
                     activeOpacity={0.85}
                     accessible={true}
                     accessibilityRole="button"
-                    accessibilityLabel={`Add ${item.name} to meal order`}
+                    accessibilityLabel={`Add or customize ${item.name}`}
                   >
                     <Text style={[styles.menuAddBtnText, inCart && styles.menuAddBtnTextInCart]}>
                       {inCart ? `✓ ${inCart.quantity}` : '+ Add'}
                     </Text>
                   </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -638,6 +683,32 @@ export default function RestaurantDetailScreen() {
         restaurantId={restaurant.id}
         restaurantName={restaurant.name}
         dishName={restaurant.name + ' Listing'}
+      />
+
+      {/* Menu Item Customization Modal */}
+      <MenuItemCustomizationModal
+        visible={!!customizingItem}
+        menuItem={customizingItem}
+        onClose={() => setCustomizingItem(null)}
+        onAddToCart={(customizedItem) => {
+          addToCart({
+            dishId: customizedItem.dishId,
+            dishName: customizedItem.dishName,
+            dishNameSwahili: customizedItem.dishNameSwahili,
+            restaurantId: customizedItem.restaurantId,
+            restaurantName: customizedItem.restaurantName,
+            branchId: customizedItem.branchId,
+            branchName: customizedItem.branchName,
+            priceTzs: customizedItem.priceTzs,
+            basePriceTzs: customizedItem.basePriceTzs,
+            quantity: customizedItem.quantity,
+            selectedModifiers: customizedItem.selectedModifiers,
+            rpcModifiersPayload: customizedItem.rpcModifiersPayload,
+            notes: customizedItem.notes,
+            imageUrl: customizedItem.imageUrl,
+          });
+          setCustomizingItem(null);
+        }}
       />
     </SafeAreaView>
   );

@@ -111,15 +111,41 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
         )}
 
         {order.status === 'READY' && (
+          order.fulfillmentType === 'Delivery' ? (
+            <TouchableOpacity
+              style={[styles.bigActionBtn, { backgroundColor: '#2563eb' }]}
+              onPress={() => onAdvanceStatus(order.id, 'OUT_FOR_DELIVERY')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Dispatch order ${order.orderNumber} for delivery`}
+            >
+              <Ionicons name="bicycle" size={20} color={Colors.white} />
+              <Text style={styles.bigActionBtnText}>Dispatch Delivery 🛵</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.bigActionBtn, { backgroundColor: Colors.primaryDark }]}
+              onPress={() => onAdvanceStatus(order.id, 'COMPLETED')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`Hand order ${order.orderNumber} to customer`}
+            >
+              <Ionicons name="checkmark-done" size={20} color={Colors.white} />
+              <Text style={styles.bigActionBtnText}>Hand to Customer ✅</Text>
+            </TouchableOpacity>
+          )
+        )}
+
+        {order.status === 'OUT_FOR_DELIVERY' && (
           <TouchableOpacity
             style={[styles.bigActionBtn, { backgroundColor: Colors.primaryDark }]}
             onPress={() => onAdvanceStatus(order.id, 'COMPLETED')}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`Complete order ${order.orderNumber}`}
+            accessibilityLabel={`Mark delivery complete for order ${order.orderNumber}`}
           >
             <Ionicons name="checkmark-done" size={20} color={Colors.white} />
-            <Text style={styles.bigActionBtnText}>Complete & Dispatch 🚀</Text>
+            <Text style={styles.bigActionBtnText}>Delivered / Complete ✅</Text>
           </TouchableOpacity>
         )}
       </View>

@@ -377,17 +377,6 @@ Deno.serve(async (req: Request) => {
 
     if (finSettings && finSettings.default_commission_basis_points != null) {
       commissionRate = Number(finSettings.default_commission_basis_points) / 10000.0;
-    } else {
-      const { data: feeRule } = await adminClient
-        .from('platform_fee_rules')
-        .select('commission_rate')
-        .eq('is_active', true)
-        .order('effective_from', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (feeRule && feeRule.commission_rate != null) {
-        commissionRate = Number(feeRule.commission_rate);
-      }
     }
 
     const platformCommissionTzs = Math.round(

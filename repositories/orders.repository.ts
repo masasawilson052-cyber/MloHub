@@ -72,6 +72,7 @@ export class OrderRepository {
             menu_item_id: i.menuItemId,
             quantity: i.quantity || 1,
             special_notes: i.specialNotes || null,
+            selected_modifiers: (i as any).selectedModifiers || (i as any).selected_modifiers || null,
           };
         }),
         p_fulfillment_type: order.fulfillmentType || 'Delivery',
@@ -145,6 +146,7 @@ export class OrderRepository {
       quantity: item.quantity || 1,
       total_price_tzs: item.subtotal || ((item.priceSnapshot || 0) * (item.quantity || 1)),
       special_notes: item.specialNotes,
+      selected_modifiers: (item as any).selectedModifiers || (item as any).selected_modifiers || null,
     }));
 
     const { data: insertedItems, error: itemsError } = await supabase

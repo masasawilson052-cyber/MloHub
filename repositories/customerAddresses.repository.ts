@@ -179,6 +179,7 @@ export class CustomerAddressesRepository {
       name: row.name,
       region: row.region || 'Tanzania',
       isActive: Boolean(row.is_active),
+      marketStatus: row.market_status || (row.name?.toLowerCase().includes('dar es salaam') ? 'LIVE' : 'COMING_SOON'),
       createdAt: row.created_at,
     }));
   }

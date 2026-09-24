@@ -22,6 +22,7 @@ export interface AccountSettingsModalProps {
   initialEmail: string;
   initialPhone: string;
   initialLocation: string;
+  onOpenManageAddresses?: () => void;
   onSave: (data: { name: string; email: string; phone: string; location: string }) => void;
 }
 
@@ -32,12 +33,13 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   initialEmail,
   initialPhone,
   initialLocation,
+  onOpenManageAddresses,
   onSave,
 }) => {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
-  const [location, setLocation] = useState(initialLocation);
+  const [location] = useState(initialLocation);
 
   if (!visible) return null;
 
@@ -99,13 +101,25 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Default Delivery Location</Text>
-              <TextInput
-                style={styles.input}
-                value={location}
-                onChangeText={setLocation}
-                placeholder="e.g. Mikocheni B, Dar es Salaam"
-              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <Text style={styles.label}>Default Delivery Address</Text>
+                {onOpenManageAddresses && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClose();
+                      onOpenManageAddresses();
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: '600' }}>Manage Addresses</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={[styles.input, { justifyContent: 'center', backgroundColor: '#f8fafc' }]}>
+                <Text style={{ color: location ? Colors.textPrimary : Colors.textMuted, fontSize: 14 }}>
+                  {location || 'No saved address selected'}
+                </Text>
+              </View>
             </View>
 
             <Button

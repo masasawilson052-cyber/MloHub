@@ -19,6 +19,9 @@ export interface SubmitMenuOrderDTO {
     unitPriceTzs: number;
     quantity: number;
     totalPriceTzs: number;
+    selected_modifiers?: { group_id: string; option_ids: string[] }[] | any;
+    selectedModifiers?: any;
+    special_instructions?: string;
   }[];
   diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
   deliveryAddress?: string;
@@ -124,12 +127,14 @@ export class OrderService {
         specialInstructions: dto.specialInstructions?.trim() || undefined,
       };
 
-      const itemsData: Partial<OrderItem>[] = dto.items.map((it) => ({
+      const itemsData: (Partial<OrderItem> & { selectedModifiers?: any })[] = dto.items.map((it) => ({
         menuItemId: it.menuItemId,
         itemNameSnapshot: it.name,
         priceSnapshot: it.unitPriceTzs,
         quantity: it.quantity,
         subtotal: it.totalPriceTzs,
+        specialNotes: it.special_instructions,
+        selectedModifiers: it.selected_modifiers || it.selectedModifiers || null,
       }));
 
       // Persisted order MUST be priced authoritatively by create_order_secure RPC via OrderRepository

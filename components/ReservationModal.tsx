@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -38,6 +38,24 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   const [guests, setGuests] = useState('2');
   const [dateStr, setDateStr] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [dateLabel, setDateLabel] = useState<string>('Today');
+
+  const next14Days = useMemo(() => {
+    const days: { iso: string; label: string; weekday: string; dayNum: number; month: string }[] = [];
+    const today = new Date();
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const iso = d.toISOString().split('T')[0];
+      const weekday = d.toLocaleDateString(language === 'sw' ? 'sw-TZ' : 'en-US', { weekday: 'short' });
+      const month = d.toLocaleDateString(language === 'sw' ? 'sw-TZ' : 'en-US', { month: 'short' });
+      const dayNum = d.getDate();
+      let label = `${weekday} ${dayNum} ${month}`;
+      if (i === 0) label = language === 'sw' ? `Leo (${dayNum})` : `Today (${dayNum})`;
+      else if (i === 1) label = language === 'sw' ? `Kesho (${dayNum})` : `Tomorrow (${dayNum})`;
+      days.push({ iso, label, weekday, dayNum, month });
+    }
+    return days;
+  }, [language]);
   const [availableSlots, setAvailableSlots] = useState<ReservationSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<ReservationSlot | null>(null);
   const [areaPref, setAreaPref] = useState<AreaPreference>('ANY');
@@ -232,34 +250,44 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   ))}
                 </View>
 
-                {/* Date Selector */}
-                <Text style={styles.label}>{t('dateLabel')}</Text>
-                <View style={styles.pillRow}>
-                  <TouchableOpacity
-                    style={[styles.pill, dateLabel === 'Today' && styles.pillActive]}
-                    onPress={() => handleDateSelect(0, 'Today')}
-                  >
-                    <Text style={[styles.pillText, dateLabel === 'Today' && styles.pillTextActive]}>
-                      {language === 'sw' ? 'Leo' : 'Today'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.pill, dateLabel === 'Tomorrow' && styles.pillActive]}
-                    onPress={() => handleDateSelect(1, 'Tomorrow')}
-                  >
-                    <Text style={[styles.pillText, dateLabel === 'Tomorrow' && styles.pillTextActive]}>
-                      {language === 'sw' ? 'Kesho' : 'Tomorrow'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.pill, dateLabel === '+2 Days' && styles.pillActive]}
-                    onPress={() => handleDateSelect(2, '+2 Days')}
-                  >
-                    <Text style={[styles.pillText, dateLabel === '+2 Days' && styles.pillTextActive]}>
-                      {language === 'sw' ? 'Keshokutwa' : '+2 Days'}
-                    </Text>
-                  </TouchableOpacity>
+                {/* 14-Day Date Selector */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs }}>
+                  <Text style={styles.label}>{t('dateLabel')}</Text>
+                  <Text style={{ fontSize: 11, color: Colors.muted, fontWeight: '600' }}>{dateLabel}</Text>
                 </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.horizontalDateList}
+                  style={{ marginBottom: Spacing.sm }}
+                >
+                  {next14Days.map((dayItem) => {
+                    const isSelected = dateStr === dayItem.iso;
+                    return (
+                      <TouchableOpacity
+                        key={dayItem.iso}
+                        style={[styles.dateCardPill, isSelected && styles.dateCardPillActive]}
+                        onPress={() => {
+                          setDateStr(dayItem.iso);
+                          setDateLabel(dayItem.label);
+                        }}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={dayItem.label}
+                      >
+                        <Text style={[styles.dateCardWeekday, isSelected && styles.dateCardTextActive]}>
+                          {dayItem.weekday}
+                        </Text>
+                        <Text style={[styles.dateCardDayNum, isSelected && styles.dateCardTextActive]}>
+                          {dayItem.dayNum}
+                        </Text>
+                        <Text style={[styles.dateCardMonth, isSelected && styles.dateCardTextActive]}>
+                          {dayItem.month}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
 
                 {/* Area Preference */}
                 <Text style={styles.label}>{language === 'sw' ? 'Eneo la Meza (Hiari)' : 'Seating Area Preference'}</Text>
@@ -488,6 +516,44 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.xs,
     marginBottom: Spacing.sm,
+  },
+  horizontalDateList: {
+    paddingVertical: 4,
+    gap: 8,
+  },
+  dateCardPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: Radii.md,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    minWidth: 58,
+  },
+  dateCardPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  dateCardWeekday: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.muted,
+    textTransform: 'uppercase',
+  },
+  dateCardDayNum: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.text,
+    marginVertical: 2,
+  },
+  dateCardMonth: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: Colors.muted,
+  },
+  dateCardTextActive: {
+    color: Colors.white,
   },
   pill: {
     paddingVertical: 6,

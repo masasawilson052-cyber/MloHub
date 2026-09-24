@@ -4,8 +4,17 @@ import { OrderService, OrderQuote } from '../services/OrderService';
 import { RealtimeService } from '../services/RealtimeService';
 import { PlatformSettingsRepository } from '../repositories/platformSettings.repository';
 
+export interface ModifierOptionSelection {
+  group_id: string;
+  group_name: string;
+  option_id: string;
+  option_name: string;
+  price_delta_tzs: number;
+}
+
 export interface CartItem {
   dishId: string;
+  cartLineId?: string;
   dishName: string;
   dishNameSwahili?: string;
   restaurantId: string;
@@ -13,9 +22,35 @@ export interface CartItem {
   branchId?: string;
   branchName?: string;
   priceTzs: number;
+  basePriceTzs?: number;
   quantity: number;
   imageUrl?: string;
   notes?: string;
+  selectedModifiers?: ModifierOptionSelection[];
+  rpcModifiersPayload?: {
+    group_id: string;
+    option_ids: string[];
+  }[];
+}
+
+export function createCartLineSignature(
+  dishId: string,
+  selectedModifiers?: ModifierOptionSelection[] | { group_id: string; option_ids: string[] }[],
+  notes?: string
+): string {
+  const modParts: string[] = [];
+  if (selectedModifiers && Array.isArray(selectedModifiers)) {
+    for (const m of selectedModifiers) {
+      if ('option_id' in m) {
+        modParts.push(`${m.group_id}:${m.option_id}`);
+      } else if ('option_ids' in m && Array.isArray((m as any).option_ids)) {
+        modParts.push(`${m.group_id}:${(m as any).option_ids.sort().join(',')}`);
+      }
+    }
+  }
+  const modStr = modParts.sort().join('|');
+  const noteStr = (notes || '').trim().toLowerCase();
+  return `${dishId}::${modStr}::${noteStr}`;
 }
 
 interface CartContextType {
@@ -28,8 +63,8 @@ interface CartContextType {
   customerServiceFeeTzs: number;
   minimumOrderValueTzs: number;
   addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
-  removeFromCart: (dishId: string) => void;
-  updateQuantity: (dishId: string, quantity: number) => void;
+  removeFromCart: (cartLineIdOrDishId: string) => void;
+  updateQuantity: (cartLineIdOrDishId: string, quantity: number) => void;
   clearCart: () => void;
   totalItems: number;
   subtotalTzs: number;
@@ -135,6 +170,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addToCart = (newItem: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
     const qty = newItem.quantity && newItem.quantity > 0 ? newItem.quantity : 1;
+    const lineSignature = newItem.cartLineId || createCartLineSignature(
+      newItem.dishId,
+      newItem.selectedModifiers || newItem.rpcModifiersPayload,
+      newItem.notes
+    );
+    const itemWithLineId: CartItem = {
+      ...newItem,
+      cartLineId: lineSignature,
+      quantity: qty,
+    };
 
     // Check if adding from a different restaurant or different branch
     const isDifferentRestaurant = restaurantId && restaurantId !== newItem.restaurantId;
@@ -155,7 +200,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             text: 'Start New Order',
             style: 'destructive',
             onPress: () => {
-              setItems([{ ...newItem, quantity: qty }]);
+              setItems([itemWithLineId]);
               setRestaurantId(newItem.restaurantId);
               setRestaurantName(newItem.restaurantName);
               setBranchId(newItem.branchId || null);
@@ -168,7 +213,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     setItems((prev) => {
-      const existingIndex = prev.findIndex((i) => i.dishId === newItem.dishId);
+      const existingIndex = prev.findIndex((i) => {
+        const itemLineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
+        return itemLineId === lineSignature;
+      });
+
       if (existingIndex > -1) {
         const updated = [...prev];
         updated[existingIndex] = {
@@ -177,21 +226,35 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         return updated;
       }
-      return [...prev, { ...newItem, quantity: qty }];
+      return [...prev, itemWithLineId];
     });
   };
 
-  const removeFromCart = (dishId: string) => {
-    setItems((prev) => prev.filter((i) => i.dishId !== dishId));
+  const removeFromCart = (cartLineIdOrDishId: string) => {
+    setItems((prev) =>
+      prev.filter((i) => {
+        const lineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
+        if (lineId === cartLineIdOrDishId) return false;
+        // Legacy fallback: if passed pure dishId and line doesn't match, also match on dishId if no custom lineId
+        if (i.dishId === cartLineIdOrDishId && !i.selectedModifiers?.length && !i.notes) return false;
+        return true;
+      })
+    );
   };
 
-  const updateQuantity = (dishId: string, quantity: number) => {
+  const updateQuantity = (cartLineIdOrDishId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(dishId);
+      removeFromCart(cartLineIdOrDishId);
       return;
     }
     setItems((prev) =>
-      prev.map((i) => (i.dishId === dishId ? { ...i, quantity } : i))
+      prev.map((i) => {
+        const lineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
+        if (lineId === cartLineIdOrDishId || (i.dishId === cartLineIdOrDishId && !i.selectedModifiers?.length && !i.notes)) {
+          return { ...i, quantity };
+        }
+        return i;
+      })
     );
   };
 

@@ -14,6 +14,7 @@ import { ConnectionNotice } from '../components/ConnectionNotice';
 
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { AdminPreviewProvider } from '../context/AdminPreviewContext';
+import { CustomerLocationProvider } from '../context/CustomerLocationContext';
 
 function RootNavigationLayout() {
   const router = useRouter();
@@ -151,9 +152,11 @@ export default function RootLayout() {
             <AdminPreviewProvider>
               <LanguageProvider>
                 <NotificationProvider>
-                  <CartProvider>
-                    <RootNavigationLayout />
-                  </CartProvider>
+                  <CustomerLocationProvider>
+                    <CartProvider>
+                      <RootNavigationLayout />
+                    </CartProvider>
+                  </CustomerLocationProvider>
                 </NotificationProvider>
               </LanguageProvider>
             </AdminPreviewProvider>

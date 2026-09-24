@@ -144,6 +144,7 @@ export class CustomMealRepository {
       throw new Error('Supabase client is not configured.');
     }
 
+    const isOpenToQuotes = params.budgetType === 'OPEN_TO_QUOTES';
     const { data, error } = await supabase.rpc('create_structured_custom_meal_request', {
       p_title: params.title,
       p_description: params.description,
@@ -151,8 +152,8 @@ export class CustomMealRepository {
       p_servings: params.servings,
       p_cuisine_type: params.cuisineType,
       p_budget_type: params.budgetType,
-      p_budget_min_tzs: params.budgetMinTzs || 15000,
-      p_budget_max_tzs: params.budgetMaxTzs || params.budgetMinTzs || 25000,
+      p_budget_min_tzs: isOpenToQuotes ? null : (params.budgetMinTzs || null),
+      p_budget_max_tzs: isOpenToQuotes ? null : (params.budgetMaxTzs || params.budgetMinTzs || null),
       p_spice_level: params.spiceLevel,
       p_ingredients_requested: params.ingredientsRequested || [],
       p_ingredients_to_avoid: params.ingredientsToAvoid || [],
@@ -498,17 +499,20 @@ export class CustomMealRepository {
     const desiredAt = request.desiredAt;
     const desiredMs = desiredAt ? Date.parse(desiredAt) : NaN;
     const now = Date.now();
+    const isOpenToQuotes = request.budgetType === 'OPEN_TO_QUOTES';
     if (!title) throw new Error('Enter the food you want to request.');
     if (!Number.isSafeInteger(servings) || servings < 1) throw new Error('Enter a valid number of servings.');
-    if (!Number.isSafeInteger(budget) || (budget as number) < 5000) throw new Error('Enter a budget of at least TZS 5,000.');
+    if (!isOpenToQuotes) {
+      if (!Number.isSafeInteger(budget) || (budget as number) < 5000) throw new Error('Enter a budget of at least TZS 5,000.');
+    }
     if (!Number.isFinite(desiredMs) || desiredMs <= now + 30 * 60 * 1000) throw new Error('Choose a meal time more than 30 minutes from now.');
     if (!request.customerArea?.trim()) throw new Error('Enter your delivery area.');
     const quoteDeadline = request.quoteDeadline || new Date(now + Math.min(12 * 3600 * 1000, (desiredMs - now) / 2)).toISOString();
     const result = await this.createStructuredRequest({
       title, description: request.specialInstructions || request.description || '',
       occasion: request.occasion || 'PERSONAL', servings,
-      cuisineType: request.cuisineType || '', budgetType: request.budgetType || 'FIXED',
-      budgetMinTzs: budget, budgetMaxTzs: request.budgetMaxTzs ?? budget,
+      cuisineType: request.cuisineType || '', budgetType: request.budgetType || (budget ? 'FIXED' : 'OPEN_TO_QUOTES'),
+      budgetMinTzs: isOpenToQuotes ? undefined : budget, budgetMaxTzs: isOpenToQuotes ? undefined : (request.budgetMaxTzs ?? budget),
       spiceLevel: request.spiceLevel || 'MEDIUM',
       dietaryTags: request.dietaryTags || [], allergens: request.allergens || [],
       ingredientsRequested: request.ingredientsRequested || [], ingredientsToAvoid: request.ingredientsToAvoid || [],

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   Linking,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { PlatformSettingsRepository, PlatformOperationalSettings } from '../../repositories/platformSettings.repository';
 import { Button } from '../ui/Button';
 
 interface SupportModalProps {
@@ -18,18 +21,43 @@ interface SupportModalProps {
 }
 
 export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) => {
+  const { language } = useLanguage();
+  const [settings, setSettings] = useState<PlatformOperationalSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (visible) {
+      setIsLoading(true);
+      PlatformSettingsRepository.getOperationalSettings()
+        .then((res) => {
+          if (isMounted) {
+            setSettings(res);
+            setIsLoading(false);
+          }
+        })
+        .catch(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [visible]);
+
   if (!visible) return null;
 
+  const phone = settings?.supportPhone || '+255 700 000 000';
+  const email = settings?.supportEmail || 'support@mlohub.co.tz';
+  const hours = settings?.supportHours || '07:00 AM - 11:00 PM EAT';
+
   const handleCall = () => {
-    Linking.openURL('tel:+255754000111');
+    const cleanPhone = phone.replace(/[^\d+]/g, '');
+    Linking.openURL(`tel:${cleanPhone}`);
   };
 
   const handleEmail = () => {
-    Linking.openURL('mailto:support@mlohub.co.tz?subject=MloHub%20Customer%20Support');
-  };
-
-  const handleWhatsApp = () => {
-    Linking.openURL('https://wa.me/255754000111?text=Hello%20MloHub%20Support');
+    Linking.openURL(`mailto:${email}?subject=MloHub%20Customer%20Support`);
   };
 
   return (
@@ -38,8 +66,12 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
         <View style={styles.sheet}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Help & Customer Support</Text>
-              <Text style={styles.subtitle}>Dar es Salaam Local Support Team</Text>
+              <Text style={styles.title}>
+                {language === 'sw' ? 'Msaada na Huduma kwa Wateja' : 'Help & Customer Support'}
+              </Text>
+              <Text style={styles.subtitle}>
+                {language === 'sw' ? 'Timu ya Huduma Tanzania' : 'Official Tanzania Operations Support'}
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={Colors.text} />
@@ -47,71 +79,91 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Real Support Notice */}
             <View style={styles.infoBanner}>
               <Ionicons name="shield-checkmark" size={22} color={Colors.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.bannerTitle}>Direct Human Assistance</Text>
+                <Text style={styles.bannerTitle}>
+                  {language === 'sw' ? 'Msaada wa Moja kwa Moja' : 'Direct Customer Support Desk'}
+                </Text>
                 <Text style={styles.bannerText}>
-                  We believe in real answers, not artificial chatbot loops. Connect directly with our operations desk.
+                  {language === 'sw'
+                    ? 'Wasiliana moja kwa moja na dawati letu la huduma kwa wateja kwa usaidizi wa haraka kuhusu oda na malipo.'
+                    : 'Reach out directly to our dedicated customer operations team for prompt assistance regarding orders and payments.'}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.card}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="call-outline" size={22} color={Colors.primary} />
+            {isLoading ? (
+              <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>
+                  {language === 'sw' ? 'Inapakia maelezo...' : 'Loading support details...'}
+                </Text>
               </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Phone Support</Text>
-                <Text style={styles.cardVal}>+255 754 000 111</Text>
-                <Text style={styles.cardSub}>Daily: 08:00 AM – 11:00 PM EAT</Text>
-              </View>
-              <TouchableOpacity onPress={handleCall} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>Call</Text>
-              </TouchableOpacity>
-            </View>
+            ) : (
+              <>
+                {/* Phone Support */}
+                <View style={styles.card}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="call-outline" size={22} color={Colors.primary} />
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text style={styles.cardTitle}>
+                      {language === 'sw' ? 'Simu ya Huduma' : 'Telephone Desk'}
+                    </Text>
+                    <Text style={styles.cardVal}>{phone}</Text>
+                    <Text style={styles.cardSub}>{hours}</Text>
+                  </View>
+                  <TouchableOpacity onPress={handleCall} style={styles.actionBtn}>
+                    <Text style={styles.actionBtnText}>
+                      {language === 'sw' ? 'Piga' : 'Call'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.card}>
-              <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
-                <Ionicons name="logo-whatsapp" size={22} color="#15803D" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>WhatsApp Desk</Text>
-                <Text style={styles.cardVal}>+255 754 000 111</Text>
-                <Text style={styles.cardSub}>Fast response for live orders</Text>
-              </View>
-              <TouchableOpacity onPress={handleWhatsApp} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>Chat</Text>
-              </TouchableOpacity>
-            </View>
+                {/* Email Support */}
+                <View style={styles.card}>
+                  <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
+                    <Ionicons name="mail-outline" size={22} color="#0369A1" />
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text style={styles.cardTitle}>
+                      {language === 'sw' ? 'Barua Pepe Rasmi' : 'Official Support Email'}
+                    </Text>
+                    <Text style={styles.cardVal}>{email}</Text>
+                    <Text style={styles.cardSub}>
+                      {language === 'sw' ? 'Maswali, risiti na marejesho' : 'Inquiries, billing, and receipts'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={handleEmail} style={styles.actionBtn}>
+                    <Text style={styles.actionBtnText}>Email</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.card}>
-              <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="mail-outline" size={22} color="#0369A1" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Official Email</Text>
-                <Text style={styles.cardVal}>support@mlohub.co.tz</Text>
-                <Text style={styles.cardSub}>Inquiries, billing, and receipts</Text>
-              </View>
-              <TouchableOpacity onPress={handleEmail} style={styles.actionBtn}>
-                <Text style={styles.actionBtnText}>Email</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.card}>
-              <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
-                <Ionicons name="location-outline" size={22} color="#B45309" />
-              </View>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Physical Operations Desk</Text>
-                <Text style={styles.cardVal}>Masaki, Dar es Salaam</Text>
-                <Text style={styles.cardSub}>Tanzania Platform Headquarters</Text>
-              </View>
-            </View>
+                {/* Operating Hours & Availability */}
+                <View style={styles.operatingHoursCard}>
+                  <Ionicons name="time-outline" size={20} color="#0F172A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.operatingHoursTitle}>
+                      {language === 'sw' ? 'Saa za Huduma' : 'Support Hours'}
+                    </Text>
+                    <Text style={styles.operatingHoursText}>{hours}</Text>
+                  </View>
+                  <View style={styles.activeStatusPill}>
+                    <View style={styles.activeDot} />
+                    <Text style={styles.activeStatusText}>
+                      {settings?.maintenanceMode
+                        ? (language === 'sw' ? 'Matengenezo' : 'Maintenance')
+                        : (language === 'sw' ? 'Wazi' : 'Active')}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            )}
 
             <Button
-              title="Close"
+              title={language === 'sw' ? 'Funga' : 'Close'}
               onPress={onClose}
               variant="outline"
               size="md"
@@ -177,11 +229,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#166534',
+    marginBottom: 2,
   },
   bannerText: {
     fontSize: 12,
     color: '#15803D',
-    marginTop: 2,
     lineHeight: 18,
   },
   card: {
@@ -193,46 +245,88 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    gap: 12,
   },
   iconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#E8F5E9',
-    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cardContent: {
     flex: 1,
-    marginLeft: Spacing.md,
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
   },
   cardVal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginVertical: 2,
   },
   cardSub: {
     fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
+    color: '#94A3B8',
   },
   actionBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: Radii.sm,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: Radii.full,
   },
   actionBtnText: {
+    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '700',
+  },
+  operatingHoursCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radii.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 12,
+    marginTop: 4,
+    marginBottom: Spacing.md,
+  },
+  operatingHoursTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  operatingHoursText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  activeStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radii.full,
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
+  },
+  activeStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#166534',
   },
 });
