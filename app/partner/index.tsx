@@ -10,7 +10,17 @@ import { RestaurantApplication } from '../../types/domain';
 
 export default function PartnerIndexRoute() {
   const router = useRouter();
-  const { isAuthenticated, isAuthLoading, currentRole, activeWorkspace, user, switchWorkspace, refreshProfile } = useAuth();
+  const {
+    isAuthenticated,
+    isAuthLoading,
+    currentRole,
+    activeWorkspace,
+    user,
+    memberships,
+    activeRestaurant,
+    switchWorkspace,
+    refreshProfile,
+  } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [pendingApp, setPendingApp] = useState<RestaurantApplication | null>(null);
 
@@ -33,12 +43,21 @@ export default function PartnerIndexRoute() {
         } catch {}
       }
 
-      const restaurantId = (user as any)?.restaurantId;
+      const restaurantId =
+        user?.activeRestaurantId ||
+        (user as any)?.restaurantId ||
+        activeRestaurant?.id ||
+        memberships?.[0]?.restaurantId;
+
       const isRestaurantMember =
         currentRole === UserRole.RESTAURANT_OWNER ||
         currentRole === UserRole.RESTAURANT_STAFF ||
         user?.role === UserRole.RESTAURANT_OWNER ||
         user?.activeRole === UserRole.RESTAURANT_OWNER ||
+        (Array.isArray(user?.roles) &&
+          (user.roles.includes(UserRole.RESTAURANT_OWNER) ||
+            user.roles.includes(UserRole.RESTAURANT_STAFF))) ||
+        (memberships && memberships.length > 0) ||
         Boolean(restaurantId);
 
       if (isRestaurantMember) {
@@ -67,10 +86,11 @@ export default function PartnerIndexRoute() {
             return;
           }
           const approved = myApps.find((a) => a.status === 'APPROVED');
-          if (approved && approved.restaurantId) {
+          if (approved) {
+            const targetId = approved.restaurantId || restaurantId;
             if (activeWorkspace !== 'RESTAURANT_OWNER' && switchWorkspace) {
               try {
-                await switchWorkspace('RESTAURANT_OWNER', approved.restaurantId);
+                await switchWorkspace('RESTAURANT_OWNER', targetId);
               } catch (err: any) {
                 console.warn('[PartnerIndexRoute] Workspace switch error:', err);
               }

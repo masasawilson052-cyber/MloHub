@@ -28,7 +28,7 @@ export default function RegisterRestaurantScreen() {
   const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
-  const { user: authUser, signUpCustomer } = useAuth();
+  const { user: authUser, signUpCustomer, login } = useAuth();
 
   // Form Fields
   const [businessName, setBusinessName] = useState('');
@@ -139,20 +139,51 @@ export default function RegisterRestaurantScreen() {
 
       // If user is not authenticated yet, register account in Supabase
       if (!currentUserId) {
-        const signupRes = await signUpCustomer({
-          email: ownerEmail.trim(),
-          password: password,
-          fullName: ownerFullName.trim(),
-          phone: ownerPhone.trim(),
-          location: neighborhood.trim(),
-        });
-        if (!signupRes.session) {
-          await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, confirmationPending: true }));
-          setConfirmationPending(true);
-          setErrors({ form: 'Check your email to confirm the account, then use Sign In Here below. Your application draft is saved; it has not yet been sent to the administrator.' });
-          return;
+        try {
+          const signupRes = await signUpCustomer({
+            email: ownerEmail.trim(),
+            password: password,
+            fullName: ownerFullName.trim(),
+            phone: ownerPhone.trim(),
+            location: neighborhood.trim(),
+          });
+          if (!signupRes.session) {
+            await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, confirmationPending: true }));
+            setConfirmationPending(true);
+            setErrors({ form: 'Check your email to confirm the account, then use Sign In Here below. Your application draft is saved; it has not yet been sent to the administrator.' });
+            return;
+          }
+          currentUserId = signupRes.session.user.id;
+        } catch (signupErr: any) {
+          const errMsg = (signupErr?.message || '').toLowerCase();
+          // If the error indicates user already exists or trigger unique violation (Database error saving new user)
+          if (
+            errMsg.includes('already registered') ||
+            errMsg.includes('already exists') ||
+            errMsg.includes('database error saving new user') ||
+            errMsg.includes('unique constraint') ||
+            errMsg.includes('profiles_email_key')
+          ) {
+            try {
+              const loginRes = await login({ emailOrPhone: ownerEmail.trim(), password });
+              if (loginRes?.user?.id) {
+                currentUserId = loginRes.user.id;
+              } else {
+                throw new Error('Akaunti ipo lakini nenosiri si sahihi');
+              }
+            } catch (loginErr: any) {
+              setErrors({
+                form: language === 'sw'
+                  ? 'Akaunti yenye barua pepe hii tayari ipo. Tafadhali hakiki nenosiri uliloweka au ingia kwanza kwenye akaunti yako.'
+                  : 'An account with this email already exists. Please verify the password entered or sign in first.'
+              });
+              setIsSubmitting(false);
+              return;
+            }
+          } else {
+            throw signupErr;
+          }
         }
-        currentUserId = signupRes.session.user.id;
       } else if (customPortalPassword && password) {
         if (!runtimeConfig.allowLocalDataFallbacks && isSupabaseConfigured()) {
           try {

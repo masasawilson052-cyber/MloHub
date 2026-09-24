@@ -230,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // 3. Resolve active restaurant
       let activeRest: RestaurantEntity | null = null;
-      const targetRestId = parsedProfile.activeRestaurantId || (userMemberships[0]?.restaurantId);
+      let targetRestId = parsedProfile.activeRestaurantId || (userMemberships[0]?.restaurantId);
       if (targetRestId) {
         if (runtimeConfig.allowLocalDataFallbacks) {
           const { DemoAuthAdapter } = require('../services/demo/DemoAuthAdapter');
@@ -249,6 +249,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             console.warn('[AuthContext] Error loading active restaurant:', e);
           }
         }
+      }
+
+      // If active restaurant was not resolved, check if this user is owner of any restaurant
+      if (!activeRest && !runtimeConfig.allowLocalDataFallbacks && isSupabaseConfigured()) {
+        try {
+          const { data: ownedRest } = await supabase
+            .from('restaurants')
+            .select('*')
+            .eq('owner_id', sbUser.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (ownedRest) {
+            activeRest = mapRestaurantRowToEntity(ownedRest);
+            if (!userMemberships.some((m) => m.restaurantId === ownedRest.id)) {
+              userMemberships.push({
+                id: `mem_${ownedRest.id}_${sbUser.id}`,
+                userId: sbUser.id,
+                restaurantId: ownedRest.id,
+                role: 'OWNER',
+                status: 'ACTIVE',
+                permissions: ['all'],
+                isPrimaryOwner: true,
+                createdAt: ownedRest.created_at || new Date().toISOString(),
+              });
+            }
+            parsedProfile.activeRestaurantId = ownedRest.id;
+          }
+        } catch (restErr) {
+          console.warn('[AuthContext] Error looking up owned restaurant:', restErr);
+        }
+      }
+
+      // If user has memberships or active restaurant, ensure role and accountType reflect RESTAURANT_OWNER
+      if (userMemberships.length > 0 || activeRest) {
+        if (parsedProfile.role === UserRole.CUSTOMER) {
+          parsedProfile.role = UserRole.RESTAURANT_OWNER;
+        }
+        if (!parsedProfile.roles.includes(UserRole.RESTAURANT_OWNER)) {
+          parsedProfile.roles.push(UserRole.RESTAURANT_OWNER);
+        }
+        parsedProfile.accountType = 'RESTAURANT';
       }
 
       return { profile: parsedProfile, memberships: userMemberships, activeRest };
@@ -299,9 +341,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
+      const hasRestaurantPrivilege =
+        userProfile.role === UserRole.RESTAURANT_OWNER ||
+        userProfile.role === UserRole.RESTAURANT_STAFF ||
+        userMems.length > 0 ||
+        Boolean(activeRest) ||
+        (Array.isArray(userProfile.roles) && (userProfile.roles.includes(UserRole.RESTAURANT_OWNER) || userProfile.roles.includes(UserRole.RESTAURANT_STAFF)));
+
       const activeWs = userProfile.role === UserRole.ADMIN || userProfile.role === UserRole.SUPER_ADMIN
         ? 'MLOHUB_ADMIN'
-        : userProfile.role === UserRole.RESTAURANT_OWNER || userProfile.role === UserRole.RESTAURANT_STAFF
+        : hasRestaurantPrivilege
         ? 'RESTAURANT_OWNER'
         : 'CUSTOMER';
 
@@ -625,11 +674,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const profileRoles = freshProfile?.roles || [roleToUse];
         const isAdminSession = roleToUse === UserRole.ADMIN || roleToUse === UserRole.SUPER_ADMIN ||
           profileRoles.includes(UserRole.ADMIN) || profileRoles.includes(UserRole.SUPER_ADMIN);
+        const hasRestaurantPrivilege =
+          roleToUse === UserRole.RESTAURANT_OWNER ||
+          roleToUse === UserRole.RESTAURANT_STAFF ||
+          freshMemberships.length > 0 ||
+          Boolean(freshActiveRest) ||
+          profileRoles.includes(UserRole.RESTAURANT_OWNER) ||
+          profileRoles.includes(UserRole.RESTAURANT_STAFF);
+
         const activeWs = isAdminSession
           ? 'MLOHUB_ADMIN'
-          : (roleToUse === UserRole.RESTAURANT_OWNER || roleToUse === UserRole.RESTAURANT_STAFF)
+          : hasRestaurantPrivilege
           ? 'RESTAURANT_OWNER'
           : 'CUSTOMER';
+
+        if (hasRestaurantPrivilege) {
+          setSelectedWorkspace('RESTAURANT_OWNER');
+        }
 
         const authenticatedUser = freshProfile ? {
           ...freshProfile,

@@ -22,6 +22,7 @@ export class ApplicationRepository {
       notes: row.notes,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
+      restaurantId: row.restaurant_id || row.restaurantId,
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     };
@@ -62,7 +63,25 @@ export class ApplicationRepository {
       throw new Error(`Failed to list your applications: ${error.message}`);
     }
 
-    return (data || []).map(this.mapRowToApplication);
+    const apps = (data || []).map(this.mapRowToApplication);
+    const approvedWithoutRest = apps.find((a) => a.status === 'APPROVED' && !a.restaurantId);
+    if (approvedWithoutRest) {
+      try {
+        const { data: restRow } = await supabase
+          .from('restaurants')
+          .select('id')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (restRow?.id) {
+          approvedWithoutRest.restaurantId = restRow.id;
+        }
+      } catch (e) {
+        console.warn('[ApplicationRepository] listMine restaurant lookup warning:', e);
+      }
+    }
+    return apps;
   }
 
   public static async getById(id: string): Promise<RestaurantApplication | null> {
@@ -154,6 +173,24 @@ export class ApplicationRepository {
       const restaurantId: string | undefined = rpcData?.restaurant_id ?? undefined;
       const app = await this.getById(id);
       if (!app) throw new Error('Application approved but could not be re-fetched.');
+
+      // Explicitly activate applicant's profile for the restaurant portal
+      if (app.applicantUserId) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              role: 'RESTAURANT_OWNER',
+              active_workspace: 'RESTAURANT_OWNER',
+              active_restaurant_id: restaurantId,
+              account_type: 'RESTAURANT',
+            })
+            .eq('id', app.applicantUserId);
+        } catch (profErr) {
+          console.warn('[ApplicationRepository] Profile role update warning:', profErr);
+        }
+      }
+
       // Attach the server-generated restaurant ID so callers can reference the new restaurant
       return { ...app, restaurantId };
     }

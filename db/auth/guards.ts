@@ -593,6 +593,10 @@ export function resolvePortalAccess(params: {
 
   const userRoles = getUserRoles(user);
   const isAdmin = userRoles.includes(UserRole.ADMIN) || userRoles.includes(UserRole.SUPER_ADMIN);
+  const isRestaurantOwnerOrStaff =
+    userRoles.includes(UserRole.RESTAURANT_OWNER) ||
+    userRoles.includes(UserRole.RESTAURANT_STAFF) ||
+    (user as any)?.accountType === 'RESTAURANT';
 
   const activeMemberships = (memberships || []).filter(
     (m) => m.userId === user.id && isMembershipActive(m)
@@ -603,12 +607,13 @@ export function resolvePortalAccess(params: {
       ? restaurants.filter(
           (r) => activeMemberships.some((m) => m.restaurantId === r.id) || (isAdmin && r.id === user.activeRestaurantId)
         )
-      : activeRestaurant && activeMemberships.some((m) => m.restaurantId === activeRestaurant.id)
+      : activeRestaurant
       ? [activeRestaurant]
       : [];
 
   if (
     !isAdmin &&
+    !isRestaurantOwnerOrStaff &&
     activeMemberships.length === 0 &&
     (user.role === UserRole.CUSTOMER || !user.roles || user.roles.every((r) => r === UserRole.CUSTOMER))
   ) {
@@ -623,7 +628,12 @@ export function resolvePortalAccess(params: {
   }
 
   let resolved: RestaurantEntity | undefined = undefined;
-  if (activeRestaurant && (activeMemberships.some((m) => m.restaurantId === activeRestaurant.id) || isAdmin)) {
+  if (
+    activeRestaurant &&
+    (activeMemberships.some((m) => m.restaurantId === activeRestaurant.id) ||
+      isAdmin ||
+      activeRestaurant.ownerId === user.id)
+  ) {
     resolved = activeRestaurant;
   } else if (activeMemberships.length > 0 && restaurants.length > 0) {
     const memRestId = activeMemberships[0].restaurantId;

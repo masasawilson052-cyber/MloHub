@@ -26,7 +26,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string; returnTo?: string }>();
   const { language } = useLanguage();
-  const { login, logout, isAuthLoading } = useAuth();
+  const { login, logout, switchWorkspace, isAuthLoading } = useAuth();
   const isAdminLogin = params.type === 'admin';
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
@@ -89,13 +89,26 @@ export default function LoginScreen() {
         return;
       }
       const role = res.user.activeRole || res.user.role;
+      const hasRestaurantAccess =
+        role === UserRole.RESTAURANT_OWNER ||
+        role === UserRole.RESTAURANT_STAFF ||
+        (res.memberships && res.memberships.length > 0) ||
+        Boolean(res.activeRestaurant) ||
+        (Array.isArray(res.user?.roles) &&
+          (res.user.roles.includes(UserRole.RESTAURANT_OWNER) ||
+            res.user.roles.includes(UserRole.RESTAURANT_STAFF)));
+
       if (hasAdminAccess(res.user)) {
         router.replace('/admin');
-      } else if (
-        isRestaurantLogin ||
-        role === UserRole.RESTAURANT_OWNER ||
-        role === UserRole.RESTAURANT_STAFF
-      ) {
+      } else if (isRestaurantLogin || hasRestaurantAccess) {
+        if (hasRestaurantAccess && switchWorkspace) {
+          const restId = res.activeRestaurant?.id || res.memberships?.[0]?.restaurantId || (res.user as any)?.activeRestaurantId;
+          try {
+            await switchWorkspace('RESTAURANT_OWNER', restId);
+          } catch (wsErr) {
+            console.warn('[Login] switchWorkspace warning:', wsErr);
+          }
+        }
         router.replace('/restaurant-portal');
       } else {
         router.replace('/(tabs)');

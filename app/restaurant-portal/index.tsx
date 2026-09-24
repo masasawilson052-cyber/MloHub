@@ -53,6 +53,7 @@ import {
   RestaurantCustomMealSettingsRepository,
   ReviewResponsesRepository,
   BranchOperationsRepository,
+  ApplicationRepository,
 } from '../../repositories';
 import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
 
@@ -95,7 +96,11 @@ export default function RestaurantPortalScreen() {
     activeRestaurant: authActiveRestaurant,
     activeWorkspace,
     switchWorkspace,
+    refreshProfile,
   } = useAuth();
+
+  const [checkingApp, setCheckingApp] = useState(false);
+  const [userApp, setUserApp] = useState<any | null>(null);
 
   const access = resolvePortalAccess({
     isAuthLoading,
@@ -103,9 +108,55 @@ export default function RestaurantPortalScreen() {
     memberships,
     activeRestaurant: authActiveRestaurant,
     activeWorkspace,
+    restaurants: authActiveRestaurant ? [authActiveRestaurant] : [],
   });
 
-  if (access.status === 'LOADING') {
+  // Auto-switch to RESTAURANT_OWNER workspace if user has available restaurant
+  useEffect(() => {
+    if (access.status === 'CUSTOMER_WORKSPACE') {
+      const restId = access.availableRestaurants?.[0]?.id || authActiveRestaurant?.id || memberships?.[0]?.restaurantId;
+      if (restId && switchWorkspace) {
+        switchWorkspace('RESTAURANT_OWNER', restId).catch(console.warn);
+      }
+    }
+  }, [access.status, access.availableRestaurants, authActiveRestaurant?.id, memberships]);
+
+  // If awaiting assignment or denied, check if there is an approved or pending application
+  useEffect(() => {
+    if (!authUser || access.status === 'AUTHORIZED' || access.status === 'LOADING') return;
+
+    let isMounted = true;
+    (async () => {
+      try {
+        setCheckingApp(true);
+        const myApps = await ApplicationRepository.listMine();
+        if (!isMounted) return;
+        const approved = myApps.find((a) => a.status === 'APPROVED');
+        if (approved) {
+          if (refreshProfile) await refreshProfile();
+          const targetRestId = approved.restaurantId || authActiveRestaurant?.id || memberships?.[0]?.restaurantId;
+          if (targetRestId && switchWorkspace) {
+            await switchWorkspace('RESTAURANT_OWNER', targetRestId);
+          }
+          return;
+        }
+        const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
+        if (pending) {
+          setUserApp(pending);
+        }
+      } catch (e) {
+        console.warn('[RestaurantPortal] Application check warning:', e);
+      } finally {
+        if (isMounted) setCheckingApp(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authUser?.id, access.status]);
+
+  if (access.status === 'LOADING' || checkingApp) {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <ActivityIndicator size="large" color={Colors.primary} />
@@ -202,6 +253,53 @@ export default function RestaurantPortalScreen() {
   }
 
   if (access.status === 'AWAITING_ASSIGNMENT' || !access.restaurant) {
+    if (userApp) {
+      return (
+        <SafeAreaView style={styles.gateContainer}>
+          <View style={styles.gateCard}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="time-outline" size={36} color="#d97706" />
+            </View>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+              OMBI LAKO LINAKAGULIWA • UNDER ADMIN REVIEW
+            </Text>
+            <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
+            <Text style={styles.gateSubtitle}>
+              Maombi ya mgahawa wako yamepokelewa na yanakaguliwa na msimamizi wa MloHub. Utaweza kufungua ukurasa huu moja kwa moja pindi yatakapoidhinishwa.
+            </Text>
+            <TouchableOpacity
+              style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
+              onPress={async () => {
+                try {
+                  if (refreshProfile) await refreshProfile();
+                  const myApps = await ApplicationRepository.listMine();
+                  const app = myApps.find((a) => a.id === userApp.id);
+                  if (app?.status === 'APPROVED') {
+                    if (refreshProfile) await refreshProfile();
+                    if (app.restaurantId && switchWorkspace) {
+                      await switchWorkspace('RESTAURANT_OWNER', app.restaurantId);
+                    }
+                  } else {
+                    Alert.alert('Hali ya Ombi', 'Ombi lako bado linakaguliwa na msimamizi.');
+                  }
+                } catch (e: any) {
+                  Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuangalia upya.');
+                }
+              }}
+            >
+              <Text style={styles.gatePrimaryBtnText}>Angalia Tena / Refresh Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.gateSecondaryBtn}
+              onPress={() => router.replace('/')}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
