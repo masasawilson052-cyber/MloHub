@@ -20,6 +20,7 @@ import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { RealtimeService } from '../services/RealtimeService';
 import { OtpApi } from '../services/api/OtpApi';
 import { RestaurantCredentialsService } from '../lib/restaurantCredentials';
+import { getPasswordResetRedirectUrl } from '../utils/authUrls';
 
 export interface AuthorizedWorkspaceOption {
   type: 'CUSTOMER' | 'RESTAURANT_OWNER' | 'MLOHUB_ADMIN';
@@ -909,17 +910,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const resetPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
     const cleanEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Enter a valid email address.');
-    if (!isSupabaseConfigured()) throw new Error('Password recovery needs a connected account service.');
-    const configuredRedirect = process.env.EXPO_PUBLIC_AUTH_RESET_REDIRECT_URL?.trim();
-    const redirectTo = configuredRedirect || (
-      typeof window !== 'undefined' && window.location?.origin
-        ? window.location.origin + '/auth/reset-password'
-        : Linking.createURL('auth/reset-password')
-    );
-    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
-    if (error) throw new Error('Recovery is temporarily unavailable. Please try again later.');
-    return { success: true, message: 'If the account exists, check its email for a recovery link.' };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new Error('Enter a valid email address.');
+    }
+    if (!isSupabaseConfigured()) {
+      throw new Error('Password recovery needs a connected account service.');
+    }
+
+    const redirectTo = getPasswordResetRedirectUrl();
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo,
+    });
+
+    if (error) {
+      const lowerMsg = (error.message || '').toLowerCase();
+      const status = (error as any).status;
+      if (
+        status === 429 ||
+        lowerMsg.includes('rate limit') ||
+        lowerMsg.includes('too many') ||
+        lowerMsg.includes('only request this once every') ||
+        lowerMsg.includes('for security purposes')
+      ) {
+        throw new Error('Please wait a moment before requesting another reset email.');
+      }
+      // Never leak whether an account exists
+      if (lowerMsg.includes('user not found') || lowerMsg.includes('no user')) {
+        return {
+          success: true,
+          message: 'If an MloHub account exists for this email address, password reset instructions have been sent.',
+        };
+      }
+      throw new Error('Recovery is temporarily unavailable. Please try again later.');
+    }
+
+    return {
+      success: true,
+      message: 'If an MloHub account exists for this email address, password reset instructions have been sent.',
+    };
   };
 
   const refreshProfile = async (): Promise<void> => {

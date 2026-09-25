@@ -262,7 +262,7 @@ export default function AdminPortalScreen() {
 
         return {
           ...r,
-          ownerName: r.ownerName || matchedApp?.ownerName || matchedOwner?.fullName || matchedOwner?.name || undefined,
+          ownerName: r.ownerName || matchedApp?.ownerName || matchedOwner?.fullName || (matchedOwner as any)?.name || undefined,
           ownerPhone: r.ownerPhone || r.phone || matchedApp?.ownerPhone || matchedOwner?.phone || r.payoutPhoneNumber || undefined,
           ownerEmail: r.ownerEmail || matchedApp?.ownerEmail || matchedOwner?.email || undefined,
           isSuspended,
@@ -401,7 +401,7 @@ export default function AdminPortalScreen() {
       throw new Error('Authenticated administrator is required.');
     }
     await RestaurantRepository.suspendRestaurant(restaurantId, reason);
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'SUSPENDED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'SUSPENDED' });
     await loadPlatformData();
   };
 
@@ -411,7 +411,7 @@ export default function AdminPortalScreen() {
       throw new Error('Authenticated administrator is required.');
     }
     await RestaurantRepository.reactivateRestaurant(restaurantId);
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'VERIFIED' });
     await loadPlatformData();
   };
 
@@ -421,7 +421,7 @@ export default function AdminPortalScreen() {
     setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
     // 2. Perform authoritative backend deletion & persistence
     await RestaurantRepository.deleteRestaurant(restaurantId);
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'ARCHIVED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'ARCHIVED' });
     // 3. Reload authoritative data
     await loadPlatformData();
   };
@@ -429,14 +429,14 @@ export default function AdminPortalScreen() {
   // 5c. Archive Restaurant (non-destructive soft delete)
   const handleArchiveRestaurant = async (restaurantId: string, reason: string) => {
     await RestaurantRepository.archiveRestaurant(restaurantId, reason);
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'ARCHIVED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'ARCHIVED' });
     await loadPlatformData();
   };
 
   // 5d. Unarchive Restaurant
   const handleUnarchiveRestaurant = async (restaurantId: string) => {
     await RestaurantRepository.unarchiveRestaurant(restaurantId);
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'VERIFIED' });
     await loadPlatformData();
   };
 
@@ -454,7 +454,7 @@ export default function AdminPortalScreen() {
       docs.businessLicenseNumber,
       'Administrative document verification'
     );
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'VERIFIED' });
     await loadPlatformData();
   };
 

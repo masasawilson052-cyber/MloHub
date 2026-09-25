@@ -898,6 +898,11 @@ export async function runAuthTestSuite() {
     'switchUser blocks arbitrary account switching when allowLocalDataFallbacks is false'
   );
 
+  const { runAuthUrlsAndRecoveryTestSuite } = require('../utils/authUrls.test');
+  const recoveryRes = runAuthUrlsAndRecoveryTestSuite();
+  passedCount += recoveryRes.passedCount;
+  failedCount += recoveryRes.failedCount;
+
   console.log('\n======================================================');
   console.log(`🏁 AUTH TEST SUITE RESULTS: ${passedCount} Passed | ${failedCount} Failed`);
   console.log('======================================================\n');

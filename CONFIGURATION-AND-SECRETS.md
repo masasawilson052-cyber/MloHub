@@ -8,7 +8,7 @@
 
 These values are compiled into the client web bundle and mobile binaries. They use the `EXPO_PUBLIC_` prefix and are strictly restricted to public publishable identifiers.
 
-### Production Settings (`production-public.json` / `.env.local`)
+### Production Settings (`production-public.json` / Production Environment)
 ```env
 # Public Supabase Gateway (Hosted)
 EXPO_PUBLIC_SUPABASE_URL=https://rrebkpeumvqffuwtqvje.supabase.co
@@ -17,11 +17,23 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_WGyFGbo78W5YMZCy0ytaAw_Q-YDvhrg
 # Environment Mode
 EXPO_PUBLIC_APP_ENV=production
 
-# Password Recovery Callback URL
+# Production Application & Password Recovery Callback URLs
+EXPO_PUBLIC_APP_URL=https://mlohub.expo.app
+EXPO_PUBLIC_AUTH_RESET_REDIRECT_URL=https://mlohub.expo.app/auth/reset-password
+```
+
+### Local Development Settings (`.env.local` — Same-Computer Testing Only)
+```env
+EXPO_PUBLIC_APP_ENV=development
+EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<YOUR_LOCAL_PUBLISHABLE_KEY>
+
+# Local Same-Computer Callback URLs
+EXPO_PUBLIC_APP_URL=http://127.0.0.1:5512
 EXPO_PUBLIC_AUTH_RESET_REDIRECT_URL=http://127.0.0.1:5512/auth/reset-password
 ```
 
-> **Security Rule**: Never place `SUPABASE_SERVICE_ROLE_KEY` or any merchant API secrets in `.env`, `.env.local`, or client code. The build pipeline automatically rejects builds if secret keys are detected.
+> **Security Rule**: Never place `SUPABASE_SERVICE_ROLE_KEY`, SMTP passwords/API keys, or any merchant API secrets in `.env`, `.env.local`, or client code. Never configure `127.0.0.1` or `localhost` as a production recovery redirect URL.
 
 ---
 
@@ -77,21 +89,22 @@ To receive real-time mobile money payment notifications (M-Pesa, Airtel Money, T
 
 ## 4. Supabase Authentication & URL Configuration
 
-In your Supabase Dashboard (`Authentication` → `URL Configuration`):
+In your Hosted Supabase Dashboard (`Authentication` → `URL Configuration`):
 
-### Site URL:
+### Site URL (Production):
 ```
-https://app.mlohub.co.tz (or http://127.0.0.1:5512 for local staging)
+https://mlohub.expo.app
 ```
 
 ### Redirect URLs (Allowed Callback URLs):
-Add all of the following:
 ```
-http://127.0.0.1:5512/**
-http://127.0.0.1:5512/auth/reset-password
-https://*.mlohub.co.tz/**
-https://*.mlohub.co.tz/auth/reset-password
+https://mlohub.expo.app/auth/reset-password
+https://mlohub.expo.app/**
+mlohub://auth/reset-password
 ```
+*(For local same-computer development only, you may also allow `http://127.0.0.1:5512/**` and `http://localhost:5512/**`.)*
+
+See [`SUPABASE_AUTH_PRODUCTION_SETUP.md`](./SUPABASE_AUTH_PRODUCTION_SETUP.md) for the complete hosted URL, Email Template, and Custom SMTP checklist.
 
 ---
 
