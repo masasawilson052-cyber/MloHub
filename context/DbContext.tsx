@@ -148,6 +148,8 @@ function mapDomainRestaurantToEntity(r: Restaurant): RestaurantEntity {
     isVerified: r.isVerified ?? false,
     isPublished: r.isPublished ?? false,
     isActive: r.isActive ?? true,
+    isSuspended: r.isSuspended ?? r.verificationStatus === 'SUSPENDED',
+    suspensionReason: r.suspensionReason ?? r.archivedReason ?? undefined,
     verificationStatus: r.verificationStatus || 'PENDING_VERIFICATION',
     tinNumber: r.tinNumber,
     businessLicenseNumber: r.businessLicenseNumber,

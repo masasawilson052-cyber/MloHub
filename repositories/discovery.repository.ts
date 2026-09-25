@@ -95,7 +95,38 @@ export class DiscoveryRepository {
 
         const { data, error } = await supabase.rpc('search_food_discovery', payload);
         if (!error && Array.isArray(data)) {
-          return data.map(this.mapRpcRowToResult);
+          let mapped = data.map(this.mapRpcRowToResult);
+          if (mapped.length > 0) {
+            try {
+              const restIds = Array.from(new Set(mapped.map((d) => d.restaurantId).filter(Boolean)));
+              if (restIds.length > 0 && typeof supabase.from === 'function') {
+                const { data: restRows } = await supabase
+                  .from('restaurants')
+                  .select('id, name, is_active, is_published, verification_status')
+                  .in('id', restIds);
+                if (Array.isArray(restRows) && restRows.length > 0) {
+                  const blockedIds = new Set(
+                    restRows
+                      .filter(
+                        (r: any) =>
+                          r.verification_status === 'SUSPENDED' ||
+                          r.verification_status === 'REJECTED' ||
+                          r.is_active === false ||
+                          r.is_published === false ||
+                          (r.name || '').toUpperCase().startsWith('[DELETED]')
+                      )
+                      .map((r: any) => r.id)
+                  );
+                  if (blockedIds.size > 0) {
+                    mapped = mapped.filter((d) => !blockedIds.has(d.restaurantId));
+                  }
+                }
+              }
+            } catch {
+              // Ignore in mock/test environments where supabase.from is stubbed
+            }
+          }
+          return mapped;
         }
         if (error) {
           console.warn('DiscoveryRepository: Supabase RPC returned error:', error.message);
@@ -148,9 +179,35 @@ export class DiscoveryRepository {
         });
 
         if (!error && data) {
+          const rawRestaurants = Array.isArray(data.restaurants) ? data.restaurants : [];
+          const visibleRestaurants = rawRestaurants.filter(
+            (r: any) =>
+              r.verification_status !== 'SUSPENDED' &&
+              r.verification_status !== 'REJECTED' &&
+              r.is_active !== false &&
+              r.is_published !== false &&
+              !(r.name || '').toUpperCase().startsWith('[DELETED]')
+          );
+          const blockedRestIds = new Set(
+            rawRestaurants
+              .filter(
+                (r: any) =>
+                  r.verification_status === 'SUSPENDED' ||
+                  r.verification_status === 'REJECTED' ||
+                  r.is_active === false ||
+                  r.is_published === false ||
+                  (r.name || '').toUpperCase().startsWith('[DELETED]')
+              )
+              .map((r: any) => r.id)
+          );
+          const rawDishes = Array.isArray(data.dishes) ? data.dishes : [];
+          const visibleDishes = rawDishes.filter(
+            (d: any) => !blockedRestIds.has(d.restaurant_id || d.restaurantId)
+          );
+
           return {
-            restaurants: Array.isArray(data.restaurants) ? data.restaurants : [],
-            dishes: Array.isArray(data.dishes) ? data.dishes : [],
+            restaurants: visibleRestaurants,
+            dishes: visibleDishes,
             cuisines: Array.isArray(data.cuisines) ? data.cuisines : [],
             query: data.query || query,
           };

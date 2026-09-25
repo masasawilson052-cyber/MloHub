@@ -56,6 +56,8 @@ export interface Restaurant {
   branches?: RestaurantBranch[];
   archivedAt?: string | null;
   archivedReason?: string | null;
+  isSuspended?: boolean;
+  suspensionReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }

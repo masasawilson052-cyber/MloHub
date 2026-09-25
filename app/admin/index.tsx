@@ -249,7 +249,28 @@ export default function AdminPortalScreen() {
       );
 
       setStandardOrders(orders);
-      setRestaurants(rests as any);
+
+      const enrichedRests = (rests || []).map((r: any) => {
+        const matchedApp = (apps || []).find(
+          (a: any) =>
+            (a.restaurantId && a.restaurantId === r.id) ||
+            (a.businessName && r.name && a.businessName.trim().toLowerCase() === r.name.trim().toLowerCase()) ||
+            (a.applicantUserId && r.ownerId && a.applicantUserId === r.ownerId)
+        );
+        const matchedOwner = (profileUsers || []).find((u: any) => r.ownerId && u.id === r.ownerId);
+        const isSuspended = r.verificationStatus === 'SUSPENDED' || r.isSuspended === true;
+
+        return {
+          ...r,
+          ownerName: r.ownerName || matchedApp?.ownerName || matchedOwner?.fullName || matchedOwner?.name || undefined,
+          ownerPhone: r.ownerPhone || r.phone || matchedApp?.ownerPhone || matchedOwner?.phone || r.payoutPhoneNumber || undefined,
+          ownerEmail: r.ownerEmail || matchedApp?.ownerEmail || matchedOwner?.email || undefined,
+          isSuspended,
+          suspensionReason: r.suspensionReason || r.archivedReason || undefined,
+        };
+      });
+
+      setRestaurants(enrichedRests as any);
 
     } catch (err: any) {
       console.error('Error loading admin platform data:', err);
@@ -380,6 +401,7 @@ export default function AdminPortalScreen() {
       throw new Error('Authenticated administrator is required.');
     }
     await RestaurantRepository.suspendRestaurant(restaurantId, reason);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'SUSPENDED' });
     await loadPlatformData();
   };
 
@@ -389,6 +411,7 @@ export default function AdminPortalScreen() {
       throw new Error('Authenticated administrator is required.');
     }
     await RestaurantRepository.reactivateRestaurant(restaurantId);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
     await loadPlatformData();
   };
 
@@ -398,6 +421,7 @@ export default function AdminPortalScreen() {
     setRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
     // 2. Perform authoritative backend deletion & persistence
     await RestaurantRepository.deleteRestaurant(restaurantId);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'ARCHIVED' });
     // 3. Reload authoritative data
     await loadPlatformData();
   };
@@ -405,12 +429,14 @@ export default function AdminPortalScreen() {
   // 5c. Archive Restaurant (non-destructive soft delete)
   const handleArchiveRestaurant = async (restaurantId: string, reason: string) => {
     await RestaurantRepository.archiveRestaurant(restaurantId, reason);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'ARCHIVED' });
     await loadPlatformData();
   };
 
   // 5d. Unarchive Restaurant
   const handleUnarchiveRestaurant = async (restaurantId: string) => {
     await RestaurantRepository.unarchiveRestaurant(restaurantId);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
     await loadPlatformData();
   };
 
@@ -428,6 +454,7 @@ export default function AdminPortalScreen() {
       docs.businessLicenseNumber,
       'Administrative document verification'
     );
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, status: 'VERIFIED' });
     await loadPlatformData();
   };
 

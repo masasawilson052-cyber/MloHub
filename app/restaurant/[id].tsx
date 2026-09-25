@@ -60,7 +60,14 @@ export default function RestaurantDetailScreen() {
   const [customizingItem, setCustomizingItem] = useState<any | null>(null);
 
   const matched = restaurants.find((r) => r.id === id);
-  const restaurant: any = matched;
+  const isAvailableForCustomers =
+    matched &&
+    !matched.isSuspended &&
+    matched.verificationStatus !== 'SUSPENDED' &&
+    matched.verificationStatus !== 'REJECTED' &&
+    matched.isActive !== false &&
+    matched.isPublished !== false;
+  const restaurant: any = isAvailableForCustomers ? matched : undefined;
 
   const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
   const [isMenuLoading, setIsMenuLoading] = useState(false);

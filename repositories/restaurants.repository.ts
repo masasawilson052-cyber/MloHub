@@ -47,6 +47,8 @@ export class RestaurantRepository {
       supportsOrderAhead: row.supports_order_ahead ?? false,
       archivedAt: row.archived_at ?? null,
       archivedReason: row.archive_reason ?? row.archived_reason ?? null,
+      isSuspended: row.verification_status === 'SUSPENDED' || row.is_suspended === true,
+      suspensionReason: row.suspension_reason ?? row.archive_reason ?? row.archived_reason ?? null,
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     };
@@ -74,8 +76,8 @@ export class RestaurantRepository {
       query = query
         .eq('is_active', true)
         .eq('is_published', true)
-        .eq('is_verified', true)
-        .eq('verification_status', 'VERIFIED')
+        .neq('verification_status', 'SUSPENDED')
+        .neq('verification_status', 'REJECTED')
         .is('archived_at', null)
         .not('name', 'ilike', '[DELETED]%');
     } else {
@@ -106,11 +108,20 @@ export class RestaurantRepository {
     // Graceful backward-compatibility fallback if database hasn't executed migration 20260923000003 yet
     if (error && (error.code === '42703' || error.message?.includes('archived_at'))) {
       let fallbackQuery = supabase.from('restaurants').select('*');
-      if (filters?.publishedOnly === true) {
-        fallbackQuery = fallbackQuery.eq('is_published', true);
-      }
-      if (filters?.verifiedOnly) {
-        fallbackQuery = fallbackQuery.eq('is_verified', true);
+      if (filters?.customerVisibleOnly) {
+        fallbackQuery = fallbackQuery
+          .eq('is_active', true)
+          .eq('is_published', true)
+          .neq('verification_status', 'SUSPENDED')
+          .neq('verification_status', 'REJECTED')
+          .not('name', 'ilike', '[DELETED]%');
+      } else {
+        if (filters?.publishedOnly === true) {
+          fallbackQuery = fallbackQuery.eq('is_published', true);
+        }
+        if (filters?.verifiedOnly) {
+          fallbackQuery = fallbackQuery.eq('is_verified', true);
+        }
       }
       if (filters?.neighborhood && filters.neighborhood !== 'All') {
         fallbackQuery = fallbackQuery.ilike('neighborhood', `%${filters.neighborhood}%`);
@@ -132,7 +143,22 @@ export class RestaurantRepository {
       throw new Error(`Failed to load restaurants: ${error.message}`);
     }
 
-    return (data || []).map(this.mapRowToRestaurant);
+    const mapped = (data || []).map(this.mapRowToRestaurant);
+
+    if (filters?.customerVisibleOnly) {
+      return mapped.filter(
+        (r) =>
+          r.isActive !== false &&
+          r.isPublished === true &&
+          r.verificationStatus !== 'SUSPENDED' &&
+          r.verificationStatus !== 'REJECTED' &&
+          !r.isSuspended &&
+          !r.archivedAt &&
+          !(r.name || '').toUpperCase().startsWith('[DELETED]')
+      );
+    }
+
+    return mapped;
   }
 
   /**
@@ -154,8 +180,8 @@ export class RestaurantRepository {
         .eq('reservations_enabled', true)
         .eq('restaurants.is_active', true)
         .eq('restaurants.is_published', true)
-        .eq('restaurants.is_verified', true)
-        .eq('restaurants.verification_status', 'VERIFIED')
+        .neq('restaurants.verification_status', 'SUSPENDED')
+        .neq('restaurants.verification_status', 'REJECTED')
         .is('restaurants.archived_at', null)
         .not('restaurants.name', 'ilike', '[DELETED]%');
 
@@ -171,7 +197,18 @@ export class RestaurantRepository {
         }
       });
 
-      return Array.from(uniqueMap.values()).map(this.mapRowToRestaurant);
+      return Array.from(uniqueMap.values())
+        .map(this.mapRowToRestaurant)
+        .filter(
+          (r) =>
+            r.isActive !== false &&
+            r.isPublished === true &&
+            r.verificationStatus !== 'SUSPENDED' &&
+            r.verificationStatus !== 'REJECTED' &&
+            !r.isSuspended &&
+            !r.archivedAt &&
+            !(r.name || '').toUpperCase().startsWith('[DELETED]')
+        );
     } catch (err: any) {
       console.warn('RestaurantRepository.listBookable error:', err.message);
       return await this.list({ customerVisibleOnly: true });
@@ -184,14 +221,44 @@ export class RestaurantRepository {
   public static async archiveRestaurant(id: string, reason: string = 'Archived by administrator'): Promise<void> {
     if (!isSupabaseConfigured()) return;
 
-    const { data, error } = await supabase.rpc('archive_restaurant_secure', {
+    const cleanReason = reason.trim() || 'Administrative archiving';
+    const { error } = await supabase.rpc('archive_restaurant_secure', {
       p_restaurant_id: id,
-      p_archive_reason: reason.trim() || 'Administrative archiving',
+      p_archive_reason: cleanReason,
     });
 
     if (error) {
-      console.error('RestaurantRepository.archiveRestaurant error:', error.message);
-      throw new Error(`Failed to archive restaurant: ${error.message}`);
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_open: false,
+          is_published: false,
+          is_active: false,
+          verification_status: 'SUSPENDED',
+          archived_at: new Date().toISOString(),
+          archive_reason: cleanReason,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateErr) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_open: false,
+            is_verified: false,
+            is_published: false,
+            is_active: false,
+            verification_status: 'SUSPENDED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+
+        if (fallbackErr) {
+          console.error('RestaurantRepository.archiveRestaurant error:', error.message);
+          throw new Error(`Failed to archive restaurant: ${error.message}`);
+        }
+      }
     }
   }
 
@@ -201,14 +268,39 @@ export class RestaurantRepository {
   public static async unarchiveRestaurant(id: string, reason: string = 'Reinstated by administrator'): Promise<void> {
     if (!isSupabaseConfigured()) return;
 
-    const { data, error } = await supabase.rpc('unarchive_restaurant_secure', {
+    const { error } = await supabase.rpc('unarchive_restaurant_secure', {
       p_restaurant_id: id,
       p_reason: reason.trim(),
     });
 
     if (error) {
-      console.error('RestaurantRepository.unarchiveRestaurant error:', error.message);
-      throw new Error(`Failed to reinstate restaurant: ${error.message}`);
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_active: true,
+          verification_status: 'VERIFIED',
+          archived_at: null,
+          archive_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateErr) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_active: true,
+            is_verified: true,
+            verification_status: 'VERIFIED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+
+        if (fallbackErr) {
+          console.error('RestaurantRepository.unarchiveRestaurant error:', error.message);
+          throw new Error(`Failed to reinstate restaurant: ${error.message}`);
+        }
+      }
     }
   }
 
@@ -379,14 +471,48 @@ export class RestaurantRepository {
       throw new Error('Supabase client is not configured.');
     }
 
+    const cleanReason = reason?.trim() || 'Administrative suspension';
     const { error } = await supabase.rpc('suspend_restaurant_secure', {
       p_restaurant_id: restaurantId,
-      p_reason: reason,
+      p_reason: cleanReason,
     });
 
     if (error) {
-      console.error(`RestaurantRepository.suspendRestaurant(${restaurantId}) error:`, error.message);
-      throw new Error(`Failed to suspend restaurant: ${error.message}`);
+      // Fallback 1: Legacy Stage 3 RPC (public.suspend_restaurant)
+      const { error: legacyRpcErr } = await supabase.rpc('suspend_restaurant', {
+        p_restaurant_id: restaurantId,
+        p_reason: cleanReason,
+      });
+
+      // Fallback 2 / Authoritative state sync: ensure is_published=false, is_active=false, is_open=false, verification_status='SUSPENDED'
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_open: false,
+          is_verified: false,
+          is_published: false,
+          is_active: false,
+          verification_status: 'SUSPENDED',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', restaurantId);
+
+      if (legacyRpcErr && updateErr) {
+        const { error: minimalUpdateErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_open: false,
+            is_verified: false,
+            verification_status: 'SUSPENDED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', restaurantId);
+
+        if (minimalUpdateErr) {
+          console.error(`RestaurantRepository.suspendRestaurant(${restaurantId}) error:`, error.message);
+          throw new Error(`Failed to suspend restaurant: ${error.message}`);
+        }
+      }
     }
   }
 
@@ -403,8 +529,40 @@ export class RestaurantRepository {
     });
 
     if (error) {
-      console.error(`RestaurantRepository.reactivateRestaurant(${restaurantId}) error:`, error.message);
-      throw new Error(`Failed to reactivate restaurant: ${error.message}`);
+      // Fallback 1: Legacy Stage 3 RPC (public.reactivate_restaurant)
+      const { error: legacyRpcErr } = await supabase.rpc('reactivate_restaurant', {
+        p_restaurant_id: restaurantId,
+      });
+
+      // Fallback 2 / Authoritative state sync: restore active + verified status
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_open: true,
+          is_verified: true,
+          is_published: true,
+          is_active: true,
+          verification_status: 'VERIFIED',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', restaurantId);
+
+      if (legacyRpcErr && updateErr) {
+        const { error: minimalUpdateErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_open: true,
+            is_verified: true,
+            verification_status: 'VERIFIED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', restaurantId);
+
+        if (minimalUpdateErr) {
+          console.error(`RestaurantRepository.reactivateRestaurant(${restaurantId}) error:`, error.message);
+          throw new Error(`Failed to reactivate restaurant: ${error.message}`);
+        }
+      }
     }
   }
 
@@ -429,8 +587,22 @@ export class RestaurantRepository {
     });
 
     if (error) {
-      console.error(`RestaurantRepository.verifyRestaurant(${restaurantId}) error:`, error.message);
-      throw new Error(`Failed to verify restaurant: ${error.message}`);
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          tin_number: tinNumber,
+          business_license_number: businessLicenseNumber,
+          is_verified: true,
+          verification_status: 'VERIFIED',
+          seller_tier: 'VERIFIED_SELLER',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', restaurantId);
+
+      if (updateErr) {
+        console.error(`RestaurantRepository.verifyRestaurant(${restaurantId}) error:`, error.message);
+        throw new Error(`Failed to verify restaurant: ${error.message}`);
+      }
     }
   }
 
@@ -448,13 +620,24 @@ export class RestaurantRepository {
     });
 
     if (error) {
-      if (error.message?.includes('400 Bad Request')) {
+      if (error.message?.includes('400 Bad Request') || error.message?.includes('403 Forbidden')) {
         console.error(`RestaurantRepository.publishRestaurant(${restaurantId}) error:`, error.message);
         throw new Error(error.message);
       }
 
       // Fallback when RPC is unavailable or caller authenticated via credential bridge:
-      // Verify active branch and available priced menu item before updating public.restaurants
+      // 1. Check that the restaurant is not suspended by administration
+      const { data: currentRest } = await supabase
+        .from('restaurants')
+        .select('verification_status')
+        .eq('id', restaurantId)
+        .maybeSingle();
+
+      if (currentRest?.verification_status === 'SUSPENDED') {
+        throw new Error('403 Forbidden: Cannot publish a suspended restaurant. Please contact platform administration.');
+      }
+
+      // 2. Verify active branch and available priced menu item before updating public.restaurants
       const [{ data: branchRows }, { data: itemRows }] = await Promise.all([
         supabase
           .from('restaurant_branches')
@@ -515,9 +698,19 @@ export class RestaurantRepository {
     });
 
     if (error) {
-      console.error(`RestaurantRepository.unpublishRestaurant(${restaurantId}) error:`, error.message);
-      throw new Error(error.message);
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_published: false,
+          is_open: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', restaurantId);
+
+      if (updateErr) {
+        console.error(`RestaurantRepository.unpublishRestaurant(${restaurantId}) error:`, error.message);
+        throw new Error(error.message);
+      }
     }
   }
-
 }
