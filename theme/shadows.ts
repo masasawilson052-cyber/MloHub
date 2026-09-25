@@ -1,13 +1,7 @@
 import type { ViewStyle } from 'react-native';
 
 const isNativeRuntime =
-  (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') ||
-  (typeof globalThis !== 'undefined' &&
-    Boolean(
-      (globalThis as any).__fbBatchedBridgeConfig ||
-        (globalThis as any).nativeFabricUIManager ||
-        (globalThis as any).RN$Bridgeless
-    ));
+  typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative';
 
 const isWeb =
   !isNativeRuntime ||
