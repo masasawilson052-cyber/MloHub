@@ -448,8 +448,51 @@ export class RestaurantRepository {
     });
 
     if (error) {
-      console.error(`RestaurantRepository.publishRestaurant(${restaurantId}) error:`, error.message);
-      throw new Error(error.message);
+      if (error.message?.includes('400 Bad Request')) {
+        console.error(`RestaurantRepository.publishRestaurant(${restaurantId}) error:`, error.message);
+        throw new Error(error.message);
+      }
+
+      // Fallback when RPC is unavailable or caller authenticated via credential bridge:
+      // Verify active branch and available priced menu item before updating public.restaurants
+      const [{ data: branchRows }, { data: itemRows }] = await Promise.all([
+        supabase
+          .from('restaurant_branches')
+          .select('id')
+          .eq('restaurant_id', restaurantId)
+          .eq('is_active', true)
+          .limit(1),
+        supabase
+          .from('menu_items')
+          .select('id')
+          .eq('restaurant_id', restaurantId)
+          .eq('is_archived', false)
+          .eq('is_available', true)
+          .gt('price_tzs', 0)
+          .limit(1),
+      ]);
+
+      if (!branchRows || branchRows.length === 0) {
+        throw new Error('400 Bad Request: Restaurant must have at least one active branch before publication.');
+      }
+      if (!itemRows || itemRows.length === 0) {
+        throw new Error('400 Bad Request: Restaurant must have at least one available menu item with a valid price before publication.');
+      }
+
+      const { error: updateErr } = await supabase
+        .from('restaurants')
+        .update({
+          is_published: true,
+          is_open: true,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', restaurantId);
+
+      if (updateErr) {
+        console.error(`RestaurantRepository.publishRestaurant(${restaurantId}) error:`, error.message);
+        throw new Error(error.message);
+      }
     }
 
     return {

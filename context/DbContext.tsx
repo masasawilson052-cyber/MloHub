@@ -146,6 +146,8 @@ function mapDomainRestaurantToEntity(r: Restaurant): RestaurantEntity {
     time: r.estimatedPrepTimeMinutes ? `${r.estimatedPrepTimeMinutes} mins` : undefined,
     isOpen: r.isOpen ?? false,
     isVerified: r.isVerified ?? false,
+    isPublished: r.isPublished ?? false,
+    isActive: r.isActive ?? true,
     verificationStatus: r.verificationStatus || 'PENDING_VERIFICATION',
     tinNumber: r.tinNumber,
     businessLicenseNumber: r.businessLicenseNumber,

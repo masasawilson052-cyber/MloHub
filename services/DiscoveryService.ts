@@ -98,6 +98,16 @@ export class DiscoveryService {
       availableOnly: true,
       limit: 6,
     });
+    if (res.length === 0 && location?.neighborhood) {
+      return DiscoveryRepository.searchDishes({
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+        neighborhood: undefined,
+        sortBy: 'RECOMMENDED',
+        availableOnly: true,
+        limit: 6,
+      });
+    }
     return res;
   }
 
@@ -117,6 +127,16 @@ export class DiscoveryService {
       availableOnly: true,
       limit: 6,
     });
+    if (res.length === 0 && location?.neighborhood) {
+      return DiscoveryRepository.searchDishes({
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+        neighborhood: undefined,
+        sortBy: 'HIGHEST_RATED',
+        availableOnly: true,
+        limit: 6,
+      });
+    }
     return res;
   }
 

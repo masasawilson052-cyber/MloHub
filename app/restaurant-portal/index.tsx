@@ -420,6 +420,8 @@ function mapDomainRestaurantToEntity(rest: any): RestaurantEntity {
     estimatedPrepTimeMinutes: rest.estimatedPrepTimeMinutes || 20,
     isOpen: rest.isOpen ?? false,
     isVerified: rest.isVerified ?? false,
+    isPublished: rest.isPublished ?? false,
+    isActive: rest.isActive ?? true,
     verificationStatus: rest.verificationStatus || 'PENDING_VERIFICATION',
     logoUrl: rest.logoUrl,
     coverImageUrl: rest.coverImageUrl,
@@ -1223,7 +1225,42 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       return;
     }
     try {
+      const targetBranchId = selectedBranchId || branches.find((b) => b.isActive)?.id || branches[0]?.id;
+      if (!hasConfiguredHours && targetBranchId) {
+        try {
+          const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+            dayOfWeek,
+            opensAt: '08:00:00',
+            closesAt: '22:00:00',
+            isClosed: false,
+          }));
+          await BranchOperationsRepository.upsertOperatingHours(targetBranchId, defaultHours);
+          await BranchRepository.update(targetBranchId, {
+            openingHours: {
+              monday: '08:00-22:00',
+              tuesday: '08:00-22:00',
+              wednesday: '08:00-22:00',
+              thursday: '08:00-22:00',
+              friday: '08:00-22:00',
+              saturday: '08:00-22:00',
+              sunday: '08:00-22:00',
+            } as any,
+          }).catch(() => {});
+          setHasConfiguredHoursState(true);
+        } catch {}
+      }
+
       await RestaurantRepository.publishRestaurant(activeRestaurant.id);
+      setActiveRestaurant((prev) => ({
+        ...prev,
+        isPublished: true,
+        isOpen: true,
+        isActive: true,
+      }));
+      RealtimeEventEngine.publish('restaurants:updated', {
+        restaurantId: activeRestaurant.id,
+        data: { isPublished: true, isOpen: true },
+      });
       await loadRestaurantWorkspace();
       Alert.alert(
         language === 'sw' ? 'Mgahawa Umezinduliwa!' : 'Restaurant Published!',
@@ -1237,7 +1274,16 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         err.message || 'Prerequisites not met. Please ensure you have added a branch and a menu item with price.'
       );
     }
-  }, [activeRestaurant.id, hasActiveBranch, hasValidMenuItem, loadRestaurantWorkspace, language]);
+  }, [
+    activeRestaurant.id,
+    hasActiveBranch,
+    hasValidMenuItem,
+    hasConfiguredHours,
+    selectedBranchId,
+    branches,
+    loadRestaurantWorkspace,
+    language,
+  ]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -1257,7 +1303,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       <PlatformAnnouncementBanner audience="RESTAURANTS" language={language === 'sw' ? 'sw' : 'en'} />
 
       {/* Publication Warning Banner for Unpublished Restaurants */}
-      {activeRestaurant.isPublished === false && (
+      {!activeRestaurant.isPublished && (
         <View style={styles.publishBanner}>
           <View style={styles.publishBannerContent}>
             <Ionicons name="alert-circle" size={24} color="#b45309" />
@@ -1377,7 +1423,15 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         {language === 'sw' ? 'Weka angalau chakula 1 chenye bei halali kwenye menyu' : 'Add at least one menu item with valid price'}
                       </Text>
                     </TouchableOpacity>
-                    <View style={styles.setupItem}>
+                    <TouchableOpacity
+                      style={styles.setupItem}
+                      onPress={() => {
+                        if (!activeRestaurant.isPublished) {
+                          handlePublishRestaurant();
+                        }
+                      }}
+                      activeOpacity={activeRestaurant.isPublished ? 1 : 0.75}
+                    >
                       <Ionicons
                         name={activeRestaurant.isPublished ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
@@ -1386,8 +1440,87 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <Text style={[styles.setupItemText, activeRestaurant.isPublished && styles.setupItemTextDone]}>
                         {language === 'sw' ? 'Tayari kuzindua / Mgahawa umezinduliwa mtandaoni' : 'Ready to publish / Live online'}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   </View>
+
+                  {/* Step 5 Action Footer inside Setup Progress Card */}
+                  {!activeRestaurant.isPublished ? (
+                    <View
+                      style={{
+                        marginTop: 14,
+                        paddingTop: 12,
+                        borderTopWidth: 1,
+                        borderTopColor: Colors.borderLight,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: Colors.textSecondary, flex: 1 }}>
+                        {!hasActiveBranch
+                          ? (language === 'sw' ? 'Hatua inayofuata: Ongeza tawi kwenye Mipangilio (Hatua ya 2).' : 'Next step: Add an operating branch in Settings (Step 2).')
+                          : !hasValidMenuItem
+                          ? (language === 'sw' ? 'Hatua inayofuata: Ongeza chakula chenye bei kwenye Menyu (Hatua ya 4).' : 'Next step: Add a menu item with a valid price in Menu (Step 4).')
+                          : (language === 'sw' ? 'Mgahawa wako uko tayari kuzinduliwa mtandaoni!' : 'Your restaurant is ready to go live online!')}
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.publishActionBtn,
+                          { backgroundColor: isPublishPrerequisitesMet ? '#16a34a' : '#94a3b8' },
+                          !isPublishPrerequisitesMet && { opacity: 0.6 },
+                        ]}
+                        onPress={handlePublishRestaurant}
+                        disabled={!isPublishPrerequisitesMet}
+                        activeOpacity={0.85}
+                      >
+                        <Text style={styles.publishActionBtnText}>
+                          {language === 'sw' ? 'Zindua Mgahawa Sasa' : 'Publish Restaurant Now'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View
+                      style={{
+                        marginTop: 14,
+                        paddingTop: 12,
+                        borderTopWidth: 1,
+                        borderTopColor: '#dcfce7',
+                        backgroundColor: '#f0fdf4',
+                        paddingHorizontal: 12,
+                        paddingBottom: 10,
+                        borderRadius: Radii.md,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <Ionicons name="radio-button-on" size={16} color="#16a34a" />
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534', flex: 1 }}>
+                          {language === 'sw'
+                            ? 'Mgahawa wako uko LIVE mtandaoni! Wateja wanaweza kuona menyu na kuagiza sasa.'
+                            : 'Your restaurant is LIVE online! Customers can now discover your menu and place orders.'}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: '#16a34a',
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderRadius: Radii.md,
+                        }}
+                        onPress={() => router.push(`/restaurant/${activeRestaurant.id}` as any)}
+                      >
+                        <Text style={{ color: '#ffffff', fontSize: 11.5, fontWeight: '700' }}>
+                          {language === 'sw' ? 'Tazama Ukurasa wa Wateja →' : 'View Customer Storefront →'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
                 <DashboardOverview
