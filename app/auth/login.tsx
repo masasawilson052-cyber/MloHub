@@ -92,6 +92,7 @@ export default function LoginScreen() {
       const hasRestaurantAccess =
         role === UserRole.RESTAURANT_OWNER ||
         role === UserRole.RESTAURANT_STAFF ||
+        (res.user as any)?.accountType === 'RESTAURANT' ||
         (res.memberships && res.memberships.length > 0) ||
         Boolean(res.activeRestaurant) ||
         (Array.isArray(res.user?.roles) &&

@@ -121,7 +121,7 @@ export default function RestaurantPortalScreen() {
     }
   }, [access.status, access.availableRestaurants, authActiveRestaurant?.id, memberships]);
 
-  // If awaiting assignment or denied, check if there is an approved or pending application
+  // If awaiting assignment or denied, check if there is an approved, pending, or rejected application
   useEffect(() => {
     if (!authUser || access.status === 'AUTHORIZED' || access.status === 'LOADING') return;
 
@@ -129,7 +129,7 @@ export default function RestaurantPortalScreen() {
     (async () => {
       try {
         setCheckingApp(true);
-        const myApps = await ApplicationRepository.listMine();
+        const myApps = await ApplicationRepository.listMine(authUser.email);
         if (!isMounted) return;
         const approved = myApps.find((a) => a.status === 'APPROVED');
         if (approved) {
@@ -143,6 +143,11 @@ export default function RestaurantPortalScreen() {
         const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
         if (pending) {
           setUserApp(pending);
+          return;
+        }
+        const rejected = myApps.find((a) => a.status === 'REJECTED');
+        if (rejected) {
+          setUserApp(rejected);
         }
       } catch (e) {
         console.warn('[RestaurantPortal] Application check warning:', e);
@@ -154,7 +159,7 @@ export default function RestaurantPortalScreen() {
     return () => {
       isMounted = false;
     };
-  }, [authUser?.id, access.status]);
+  }, [authUser?.id, authUser?.email, access.status]);
 
   if (access.status === 'LOADING' || checkingApp) {
     return (
@@ -176,15 +181,124 @@ export default function RestaurantPortalScreen() {
           </Text>
           <TouchableOpacity
             style={styles.gatePrimaryBtn}
-            onPress={() => router.replace('/auth')}
+            onPress={() => router.replace('/auth/login?type=restaurant')}
           >
-            <Text style={styles.gatePrimaryBtnText}>Ingia / Jisajili</Text>
+            <Text style={styles.gatePrimaryBtnText}>Ingia Kama Mgahawa</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.gateSecondaryBtn}
             onPress={() => router.replace('/')}
           >
             <Text style={styles.gateSecondaryBtnText}>Rudi Mwanzo</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If the user has a pending or rejected restaurant application, show its exact status before any generic DENIED gate
+  if (access.status !== 'AUTHORIZED' && userApp) {
+    if (userApp.status === 'REJECTED') {
+      return (
+        <SafeAreaView style={styles.gateContainer}>
+          <View style={styles.gateCard}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="close-circle-outline" size={38} color="#dc2626" />
+            </View>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: '#dc2626', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+              OMBI LIMEKATALIWA • APPLICATION REJECTED
+            </Text>
+            <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
+            <Text style={styles.gateSubtitle}>
+              Ombi lako la kusajili mgahawa huu limekaguliwa na msimamizi wa MloHub na halijaidhinishwa kwa sasa.
+            </Text>
+            <View style={{ width: '100%', backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 12, padding: 14, marginBottom: 18 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#991b1b', marginBottom: 4 }}>
+                Sababu kutoka kwa Msimamizi / Administrator Feedback:
+              </Text>
+              <Text style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 19, fontWeight: '600' }}>
+                {userApp.rejectionReason || 'Taarifa za biashara hazijakidhi vigezo vya usajili wa MloHub.'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
+              onPress={() => router.replace('/auth/register-restaurant')}
+            >
+              <Text style={styles.gatePrimaryBtnText}>Rekebisha na Tuma Ombi Upya</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.gateSecondaryBtn, { marginBottom: 6 }]}
+              onPress={async () => {
+                try {
+                  if (refreshProfile) await refreshProfile();
+                  const myApps = await ApplicationRepository.listMine(authUser?.email);
+                  const latest = myApps.find((a) => a.id === userApp.id) || myApps[0];
+                  if (latest?.status === 'APPROVED') {
+                    if (refreshProfile) await refreshProfile();
+                    if (latest.restaurantId && switchWorkspace) {
+                      await switchWorkspace('RESTAURANT_OWNER', latest.restaurantId);
+                    }
+                  } else if (latest) {
+                    setUserApp(latest);
+                  }
+                } catch {}
+              }}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Angalia Tena / Refresh Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.gateSecondaryBtn}
+              onPress={() => router.replace('/')}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <SafeAreaView style={styles.gateContainer}>
+        <View style={styles.gateCard}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <Ionicons name="time-outline" size={36} color="#d97706" />
+          </View>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+            OMBI LAKO LINAKAGULIWA • UNDER ADMIN REVIEW
+          </Text>
+          <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
+          <Text style={styles.gateSubtitle}>
+            Maombi ya mgahawa wako yamepokelewa na yanakaguliwa na msimamizi wa MloHub. Utaweza kufungua ukurasa huu moja kwa moja pindi yatakapoidhinishwa.
+          </Text>
+          <TouchableOpacity
+            style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
+            onPress={async () => {
+              try {
+                if (refreshProfile) await refreshProfile();
+                const myApps = await ApplicationRepository.listMine(authUser?.email);
+                const app = myApps.find((a) => a.id === userApp.id) || myApps[0];
+                if (app?.status === 'APPROVED') {
+                  if (refreshProfile) await refreshProfile();
+                  if (app.restaurantId && switchWorkspace) {
+                    await switchWorkspace('RESTAURANT_OWNER', app.restaurantId);
+                  }
+                } else if (app?.status === 'REJECTED') {
+                  setUserApp(app);
+                } else {
+                  Alert.alert('Hali ya Ombi', 'Ombi lako bado linakaguliwa na msimamizi.');
+                }
+              } catch (e: any) {
+                Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuangalia upya.');
+              }
+            }}
+          >
+            <Text style={styles.gatePrimaryBtnText}>Angalia Tena / Refresh Status</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateSecondaryBtn}
+            onPress={() => router.replace('/')}
+          >
+            <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -253,53 +367,6 @@ export default function RestaurantPortalScreen() {
   }
 
   if (access.status === 'AWAITING_ASSIGNMENT' || !access.restaurant) {
-    if (userApp) {
-      return (
-        <SafeAreaView style={styles.gateContainer}>
-          <View style={styles.gateCard}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-              <Ionicons name="time-outline" size={36} color="#d97706" />
-            </View>
-            <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
-              OMBI LAKO LINAKAGULIWA • UNDER ADMIN REVIEW
-            </Text>
-            <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
-            <Text style={styles.gateSubtitle}>
-              Maombi ya mgahawa wako yamepokelewa na yanakaguliwa na msimamizi wa MloHub. Utaweza kufungua ukurasa huu moja kwa moja pindi yatakapoidhinishwa.
-            </Text>
-            <TouchableOpacity
-              style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
-              onPress={async () => {
-                try {
-                  if (refreshProfile) await refreshProfile();
-                  const myApps = await ApplicationRepository.listMine();
-                  const app = myApps.find((a) => a.id === userApp.id);
-                  if (app?.status === 'APPROVED') {
-                    if (refreshProfile) await refreshProfile();
-                    if (app.restaurantId && switchWorkspace) {
-                      await switchWorkspace('RESTAURANT_OWNER', app.restaurantId);
-                    }
-                  } else {
-                    Alert.alert('Hali ya Ombi', 'Ombi lako bado linakaguliwa na msimamizi.');
-                  }
-                } catch (e: any) {
-                  Alert.alert('Hitilafu', e?.message || 'Imeshindikana kuangalia upya.');
-                }
-              }}
-            >
-              <Text style={styles.gatePrimaryBtnText}>Angalia Tena / Refresh Status</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.gateSecondaryBtn}
-              onPress={() => router.replace('/')}
-            >
-              <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>

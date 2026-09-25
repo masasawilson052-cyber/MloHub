@@ -1,9 +1,12 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { RestaurantApplication } from '../types/domain';
+import { RestaurantCredentialsService, RestaurantCredentialRecord } from '../lib/restaurantCredentials';
 
 export class ApplicationRepository {
   private static mapRowToApplication(row: any): RestaurantApplication {
-    return {
+    const { cleanNotes, credHash } = RestaurantCredentialsService.extractHashAndCleanNotes(row.notes);
+    const status = row.status || 'PENDING';
+    const mapped: RestaurantApplication = {
       id: row.id,
       applicantUserId: row.applicant_user_id,
       businessName: row.business_name,
@@ -17,19 +20,91 @@ export class ApplicationRepository {
       hasTinOrLicense: row.has_tin_or_license ?? false,
       tinNumber: row.tin_number,
       licenseNumber: row.business_license_number,
-      status: row.status || 'PENDING',
-      rejectionReason: row.rejection_reason || row.notes,
-      notes: row.notes,
+      status,
+      rejectionReason: row.rejection_reason || (status === 'REJECTED' ? cleanNotes : undefined),
+      notes: cleanNotes,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
       restaurantId: row.restaurant_id || row.restaurantId,
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
     };
+
+    if (mapped.ownerEmail) {
+      void RestaurantCredentialsService.syncFromApplicationRow(mapped, credHash);
+    }
+
+    return mapped;
+  }
+
+  private static mapCredentialRecordToApplication(rec: RestaurantCredentialRecord): RestaurantApplication {
+    return {
+      id: rec.applicationId,
+      applicantUserId: rec.applicantUserId,
+      businessName: rec.businessName,
+      ownerName: rec.ownerName,
+      ownerPhone: rec.ownerPhone,
+      ownerEmail: rec.email,
+      cuisineType: rec.cuisineType || '',
+      neighborhood: rec.neighborhood || '',
+      address: rec.address || '',
+      hasTinOrLicense: rec.hasTinOrLicense ?? false,
+      tinNumber: rec.tinNumber,
+      status: rec.status || 'PENDING',
+      rejectionReason: rec.rejectionReason,
+      notes: rec.notes,
+      restaurantId: rec.restaurantId,
+      createdAt: rec.createdAt,
+      updatedAt: rec.updatedAt,
+    };
+  }
+
+  public static async flushPendingQueue(): Promise<void> {
+    if (!isSupabaseConfigured()) return;
+    try {
+      const unsynced = await RestaurantCredentialsService.getUnsyncedApplications();
+      if (unsynced.length === 0) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      for (const item of unsynced) {
+        try {
+          const row = {
+            id: item.applicationId,
+            applicant_user_id: user.id,
+            business_name: item.businessName,
+            owner_name: item.ownerName,
+            owner_phone: item.ownerPhone,
+            owner_email: item.email || null,
+            cuisine_type: item.cuisineType || null,
+            neighborhood: item.neighborhood || null,
+            address: item.address || null,
+            has_tin_or_license: item.hasTinOrLicense ?? false,
+            tin_number: item.tinNumber || null,
+            status: item.status || 'PENDING',
+            notes: RestaurantCredentialsService.embedHashInNotes(item.notes, item.passwordHash),
+            updated_at: new Date().toISOString(),
+          };
+          const { error } = await supabase
+            .from('restaurant_applications')
+            .upsert(row, { onConflict: 'id' });
+          if (!error) {
+            await RestaurantCredentialsService.markApplicationSynced(item.applicationId, user.id);
+          }
+        } catch (flushErr) {
+          console.warn('[ApplicationRepository] Pending queue item flush warning:', flushErr);
+        }
+      }
+    } catch (e) {
+      console.warn('[ApplicationRepository] flushPendingQueue warning:', e);
+    }
   }
 
   public static async listAll(status?: string): Promise<RestaurantApplication[]> {
     if (!isSupabaseConfigured()) return [];
+
+    await this.flushPendingQueue();
 
     let query = supabase.from('restaurant_applications').select('*');
 
@@ -43,39 +118,118 @@ export class ApplicationRepository {
       throw new Error(`Failed to list applications: ${error.message}`);
     }
 
-    return (data || []).map(this.mapRowToApplication);
-  }
-
-  public static async listMine(): Promise<RestaurantApplication[]> {
-    if (!isSupabaseConfigured()) return [];
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    const { data, error } = await supabase
-      .from('restaurant_applications')
-      .select('*')
-      .eq('applicant_user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('ApplicationRepository.listMine error:', error.message);
-      throw new Error(`Failed to list your applications: ${error.message}`);
+    const remoteApps = (data || []).map((r) => this.mapRowToApplication(r));
+    const unsynced = await RestaurantCredentialsService.getUnsyncedApplications();
+    const remoteIds = new Set(remoteApps.map((a) => a.id));
+    for (const localRec of unsynced) {
+      if (!remoteIds.has(localRec.applicationId)) {
+        if (!status || status === 'ALL' || localRec.status === status) {
+          remoteApps.unshift(this.mapCredentialRecordToApplication(localRec));
+        }
+      }
     }
 
-    const apps = (data || []).map(this.mapRowToApplication);
+    return remoteApps;
+  }
+
+  public static async listMine(ownerEmailOverride?: string): Promise<RestaurantApplication[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    await this.flushPendingQueue();
+
+    const activeRestEmail =
+      ownerEmailOverride?.trim().toLowerCase() ||
+      (await RestaurantCredentialsService.getActiveRestaurantLoginEmail());
+
+    let { data: { user } } = await supabase.auth.getUser();
+    if (!user && activeRestEmail) {
+      await RestaurantCredentialsService.ensureSupabaseBridgeSession(supabase);
+      const retryUser = await supabase.auth.getUser();
+      user = retryUser.data.user;
+    }
+
+    let apps: RestaurantApplication[] = [];
+
+    if (user) {
+      const { data, error } = await supabase
+        .from('restaurant_applications')
+        .select('*')
+        .eq('applicant_user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('ApplicationRepository.listMine error:', error.message);
+      } else if (data) {
+        apps = data.map((r) => this.mapRowToApplication(r));
+      }
+
+      // If we are looking for a specific restaurant email (e.g. logged in as restaurant owner),
+      // also check by owner_email in case applicant_user_id was bound to a different session
+      const targetEmail = activeRestEmail || user.email?.toLowerCase();
+      if (targetEmail) {
+        const emailMatched = apps.filter(
+          (a) => a.ownerEmail && a.ownerEmail.trim().toLowerCase() === targetEmail
+        );
+        if (emailMatched.length > 0) {
+          apps = emailMatched;
+        } else {
+          try {
+            const { data: byEmailData } = await supabase
+              .from('restaurant_applications')
+              .select('*')
+              .ilike('owner_email', targetEmail)
+              .order('created_at', { ascending: false });
+            if (byEmailData && byEmailData.length > 0) {
+              apps = byEmailData.map((r) => this.mapRowToApplication(r));
+            } else if (activeRestEmail) {
+              // Do not leak another applicant's applications when logged in with a specific restaurant email
+              apps = [];
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // Merge / fallback to locally synced credential record for this restaurant email
+    if (apps.length === 0 && activeRestEmail) {
+      const localRec = await RestaurantCredentialsService.getRecordByEmail(activeRestEmail);
+      if (localRec) {
+        apps = [this.mapCredentialRecordToApplication(localRec)];
+      }
+    }
+
     const approvedWithoutRest = apps.find((a) => a.status === 'APPROVED' && !a.restaurantId);
     if (approvedWithoutRest) {
       try {
-        const { data: restRow } = await supabase
+        let restQuery = supabase
           .from('restaurants')
-          .select('id')
-          .eq('owner_id', user.id)
+          .select('id, name, owner_id')
+          .ilike('name', approvedWithoutRest.businessName)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (restRow?.id) {
-          approvedWithoutRest.restaurantId = restRow.id;
+          .limit(1);
+
+        const { data: matchedByName } = await restQuery.maybeSingle();
+        if (matchedByName?.id) {
+          approvedWithoutRest.restaurantId = matchedByName.id;
+        } else if (approvedWithoutRest.applicantUserId || user?.id) {
+          const { data: restRow } = await supabase
+            .from('restaurants')
+            .select('id')
+            .eq('owner_id', approvedWithoutRest.applicantUserId || user!.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (restRow?.id) {
+            approvedWithoutRest.restaurantId = restRow.id;
+          }
+        }
+        if (approvedWithoutRest.restaurantId && approvedWithoutRest.ownerEmail) {
+          await RestaurantCredentialsService.saveCredentialRecord({
+            email: approvedWithoutRest.ownerEmail,
+            applicationId: approvedWithoutRest.id,
+            restaurantId: approvedWithoutRest.restaurantId,
+            status: 'APPROVED',
+          });
         }
       } catch (e) {
         console.warn('[ApplicationRepository] listMine restaurant lookup warning:', e);
@@ -101,7 +255,9 @@ export class ApplicationRepository {
     return data ? this.mapRowToApplication(data) : null;
   }
 
-  public static async submit(app: Partial<RestaurantApplication>): Promise<RestaurantApplication> {
+  public static async submit(
+    app: Partial<RestaurantApplication> & { passwordHash?: string }
+  ): Promise<RestaurantApplication> {
     if (!app.businessName?.trim()) {
       throw new Error('Business name is required.');
     }
@@ -116,25 +272,58 @@ export class ApplicationRepository {
       throw new Error('Supabase client is not configured.');
     }
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Confirm your email and sign in before submitting the application.');
-    if (app.applicantUserId && app.applicantUserId !== user.id) throw new Error('Application identity does not match your signed-in account.');
+    const appId = app.id || `app_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const cleanEmail = app.ownerEmail?.trim().toLowerCase() || '';
+
+    // Save credential record locally first so login credentials are never lost
+    let existingRec = cleanEmail ? await RestaurantCredentialsService.getRecordByEmail(cleanEmail) : null;
+    const passwordHash = app.passwordHash || existingRec?.passwordHash;
+
+    let { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      await RestaurantCredentialsService.ensureSupabaseBridgeSession(supabase);
+      const retryAuth = await supabase.auth.getUser();
+      user = retryAuth.data.user;
+    }
+
+    if (!user) {
+      // Queue locally for automatic sync on next authenticated session so submission never fails
+      const queued = await RestaurantCredentialsService.saveCredentialRecord({
+        email: cleanEmail || app.ownerPhone.trim(),
+        passwordHash,
+        applicationId: appId,
+        businessName: app.businessName.trim(),
+        ownerName: app.ownerName.trim(),
+        ownerPhone: app.ownerPhone.trim(),
+        cuisineType: app.cuisineType?.trim() || 'Swahili',
+        neighborhood: app.neighborhood?.trim() || 'Dar es Salaam',
+        address: app.address?.trim() || 'Dar es Salaam',
+        hasTinOrLicense: app.hasTinOrLicense ?? false,
+        tinNumber: app.tinNumber?.trim() || undefined,
+        notes: app.notes?.trim() || undefined,
+        status: 'PENDING',
+        syncedToServer: false,
+      });
+      return this.mapCredentialRecordToApplication(queued);
+    }
+
     const applicantUserId = user.id;
+    const embeddedNotes = RestaurantCredentialsService.embedHashInNotes(app.notes?.trim(), passwordHash);
 
     const row = {
-      id: app.id || `app_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: appId,
       applicant_user_id: applicantUserId,
       business_name: app.businessName.trim(),
       owner_name: app.ownerName.trim(),
       owner_phone: app.ownerPhone.trim(),
-      owner_email: app.ownerEmail?.trim() || null,
+      owner_email: cleanEmail || null,
       cuisine_type: app.cuisineType?.trim() || null,
       neighborhood: app.neighborhood?.trim() || null,
       address: app.address?.trim() || null,
       has_tin_or_license: app.hasTinOrLicense ?? false,
       tin_number: app.tinNumber?.trim() || null,
       status: 'PENDING',
-      notes: app.notes?.trim() || null,
+      notes: embeddedNotes,
       updated_at: new Date().toISOString(),
     };
 
@@ -147,6 +336,26 @@ export class ApplicationRepository {
     if (error) {
       console.error('ApplicationRepository.submit error:', error.message);
       throw new Error(`Failed to submit application: ${error.message}`);
+    }
+
+    if (cleanEmail) {
+      await RestaurantCredentialsService.saveCredentialRecord({
+        email: cleanEmail,
+        passwordHash,
+        applicationId: data.id,
+        applicantUserId,
+        businessName: app.businessName.trim(),
+        ownerName: app.ownerName.trim(),
+        ownerPhone: app.ownerPhone.trim(),
+        cuisineType: app.cuisineType?.trim() || '',
+        neighborhood: app.neighborhood?.trim() || '',
+        address: app.address?.trim() || '',
+        hasTinOrLicense: app.hasTinOrLicense ?? false,
+        tinNumber: app.tinNumber?.trim() || undefined,
+        notes: app.notes?.trim() || undefined,
+        status: 'PENDING',
+        syncedToServer: true,
+      });
     }
 
     return this.mapRowToApplication(data);
@@ -162,6 +371,8 @@ export class ApplicationRepository {
       throw new Error('Supabase client is not configured.');
     }
 
+    await this.flushPendingQueue();
+
     if (status === 'APPROVED') {
       const { data: rpcData, error: rpcError } = await supabase.rpc('approve_restaurant_application', {
         p_application_id: id,
@@ -174,7 +385,7 @@ export class ApplicationRepository {
       const app = await this.getById(id);
       if (!app) throw new Error('Application approved but could not be re-fetched.');
 
-      // Explicitly activate applicant's profile for the restaurant portal
+      // Explicitly activate applicant's profile ONLY if they are a CUSTOMER (never downgrade ADMIN)
       if (app.applicantUserId) {
         try {
           await supabase
@@ -185,10 +396,25 @@ export class ApplicationRepository {
               active_restaurant_id: restaurantId,
               account_type: 'RESTAURANT',
             })
-            .eq('id', app.applicantUserId);
+            .eq('id', app.applicantUserId)
+            .eq('role', 'CUSTOMER');
         } catch (profErr) {
           console.warn('[ApplicationRepository] Profile role update warning:', profErr);
         }
+      }
+
+      if (app.ownerEmail) {
+        await RestaurantCredentialsService.saveCredentialRecord({
+          email: app.ownerEmail,
+          applicationId: app.id,
+          applicantUserId: app.applicantUserId,
+          businessName: app.businessName,
+          ownerName: app.ownerName,
+          ownerPhone: app.ownerPhone,
+          status: 'APPROVED',
+          restaurantId,
+          syncedToServer: true,
+        });
       }
 
       // Attach the server-generated restaurant ID so callers can reference the new restaurant
@@ -196,9 +422,10 @@ export class ApplicationRepository {
     }
 
     if (status === 'REJECTED') {
+      const reasonToUse = rejectionReason || 'Application does not meet platform requirements';
       const { error: rpcError } = await supabase.rpc('reject_restaurant_application', {
         p_application_id: id,
-        p_reason: rejectionReason || 'Application does not meet platform requirements',
+        p_reason: reasonToUse,
       });
       if (rpcError) {
         console.error('reject_restaurant_application RPC error:', rpcError.message);
@@ -206,6 +433,21 @@ export class ApplicationRepository {
       }
       const app = await this.getById(id);
       if (!app) throw new Error('Application rejected but could not be re-fetched.');
+
+      if (app.ownerEmail) {
+        await RestaurantCredentialsService.saveCredentialRecord({
+          email: app.ownerEmail,
+          applicationId: app.id,
+          applicantUserId: app.applicantUserId,
+          businessName: app.businessName,
+          ownerName: app.ownerName,
+          ownerPhone: app.ownerPhone,
+          status: 'REJECTED',
+          rejectionReason: app.rejectionReason || reasonToUse,
+          syncedToServer: true,
+        });
+      }
+
       return app;
     }
 
@@ -217,7 +459,6 @@ export class ApplicationRepository {
     };
     if (rejectionReason) {
       updates.rejection_reason = rejectionReason;
-      updates.notes = rejectionReason;
     }
 
     const { data, error } = await supabase
@@ -235,3 +476,4 @@ export class ApplicationRepository {
     return this.mapRowToApplication(data);
   }
 }
+

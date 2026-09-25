@@ -77,14 +77,9 @@ export default function PartnerIndexRoute() {
           router.replace('/restaurant-portal');
         }
       } else {
-        // 3. Check for recently approved or pending applications before routing to register
+        // 3. Check for recently approved, pending, or rejected applications before routing to register
         try {
-          const myApps = await ApplicationRepository.listMine();
-          const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
-          if (pending && !isCancelled) {
-            setPendingApp(pending);
-            return;
-          }
+          const myApps = await ApplicationRepository.listMine(user?.email);
           const approved = myApps.find((a) => a.status === 'APPROVED');
           if (approved) {
             const targetId = approved.restaurantId || restaurantId;
@@ -99,6 +94,16 @@ export default function PartnerIndexRoute() {
               router.replace('/restaurant-portal');
               return;
             }
+          }
+          const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
+          if (pending && !isCancelled) {
+            setPendingApp(pending);
+            return;
+          }
+          const rejected = myApps.find((a) => a.status === 'REJECTED');
+          if (rejected && !isCancelled) {
+            router.replace('/restaurant-portal');
+            return;
           }
         } catch (appErr) {
           console.warn('[PartnerIndexRoute] Error querying my applications:', appErr);
