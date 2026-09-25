@@ -300,7 +300,11 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
         // 3. Current Authenticated Supabase User
         const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
-        if (authErr) {
+        if (
+          authErr &&
+          authErr.name !== 'AuthSessionMissingError' &&
+          !String(authErr.message || '').toLowerCase().includes('auth session missing')
+        ) {
           console.warn('[DbContext] Supabase auth.getUser notice:', authErr.message);
         }
 

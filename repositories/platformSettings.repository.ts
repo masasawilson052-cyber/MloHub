@@ -40,7 +40,15 @@ export class PlatformSettingsRepository {
     try {
       const { data, error } = await supabase.rpc('get_public_platform_financial_settings');
       if (error || !data || data.length === 0) {
-        console.warn('Could not read platform financial settings from DB, using fallback defaults:', error?.message);
+        const errMsg = String(error?.message || '');
+        const isSchemaCacheMiss =
+          (error as any)?.code === 'PGRST202' ||
+          (error as any)?.code === '42883' ||
+          errMsg.includes('Could not find the function') ||
+          errMsg.includes('schema cache');
+        if (error && !isSchemaCacheMiss) {
+          console.warn('Could not read platform financial settings from DB, using fallback defaults:', error.message);
+        }
         return {
           currency: FINANCIAL_CONFIG.CURRENCY,
           customerServiceFeeTzs: FINANCIAL_CONFIG.SERVICE_FEE_TZS,

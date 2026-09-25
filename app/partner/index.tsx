@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../db/types';
-import { Colors } from '../../constants/theme';
+import { Colors, Shadows } from '../../constants/theme';
 import { ApplicationRepository } from '../../repositories/applications.repository';
 import { RestaurantApplication } from '../../types/domain';
 
@@ -182,11 +182,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     maxWidth: 440,
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    ...Shadows.card,
   },
   iconCircle: {
     width: 68,

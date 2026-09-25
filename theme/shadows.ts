@@ -1,6 +1,16 @@
 import type { ViewStyle } from 'react-native';
 
+const isNativeRuntime =
+  (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative') ||
+  (typeof globalThis !== 'undefined' &&
+    Boolean(
+      (globalThis as any).__fbBatchedBridgeConfig ||
+        (globalThis as any).nativeFabricUIManager ||
+        (globalThis as any).RN$Bridgeless
+    ));
+
 const isWeb =
+  !isNativeRuntime ||
   typeof window !== 'undefined' ||
   (typeof process !== 'undefined' &&
     (process.env?.EXPO_OS === 'web' ||
