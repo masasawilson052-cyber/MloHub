@@ -2,11 +2,17 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii } from '../../constants/theme';
+import { Spacing, Radii } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeQuickSwitcher } from '../theme/ThemeQuickSwitcher';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 interface CustomerDesktopNavProps {
   onOpenCart?: () => void;
@@ -19,14 +25,16 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   const { user, isAuthenticated, logout } = useAuth();
   const { totalItems, setIsCartOpen } = useCart();
   const { unreadCount } = useNotifications();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleDesktopLogout = async () => {
     const title = language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out';
-    const message = language === 'sw'
-      ? 'Je, una uhakika unataka kuondoka kwenye MloHub?'
-      : 'Are you sure you want to sign out of MloHub?';
+    const message =
+      language === 'sw'
+        ? 'Je, una uhakika unataka kuondoka kwenye MloHub?'
+        : 'Are you sure you want to sign out of MloHub?';
 
     const confirmed =
       typeof window !== 'undefined' && typeof window.confirm === 'function'
@@ -52,7 +60,9 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   ];
 
   const isActive = (itemPath: string) => {
-    if (itemPath === '/(tabs)' && (pathname === '/' || pathname === '/(tabs)' || pathname === '')) return true;
+    if (itemPath === '/(tabs)' && (pathname === '/' || pathname === '/(tabs)' || pathname === '')) {
+      return true;
+    }
     return pathname.startsWith(itemPath) && itemPath !== '/(tabs)';
   };
 
@@ -66,7 +76,15 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   };
 
   return (
-    <View style={styles.outerContainer}>
+    <View
+      style={[
+        styles.outerContainer,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.innerContainer}>
         {/* Brand Logo */}
         <TouchableOpacity
@@ -75,20 +93,35 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           accessibilityRole="button"
           accessibilityLabel="MloHub Home"
         >
-          <View style={styles.logoIconCircle}>
+          <View style={[styles.logoIconCircle, { backgroundColor: colors.primarySoft }]}>
             <Text style={styles.logoEmoji}>🍲</Text>
           </View>
           <View>
-            <Text style={styles.logoBrand}>MloHub</Text>
-            <Text style={styles.logoTagline}>Tanzania Food Marketplace</Text>
+            <Text style={[styles.logoBrand, { color: colors.textPrimary }]}>MloHub</Text>
+            <Text style={[styles.logoTagline, { color: colors.textMuted }]}>
+              Tanzania Food Marketplace
+            </Text>
           </View>
         </TouchableOpacity>
 
         {/* Desktop Search Bar */}
-        <View style={styles.searchBarContainer}>
-          <Ionicons name="search-outline" size={17} color="#64748B" style={styles.searchIcon} />
+        <View
+          style={[
+            styles.searchBarContainer,
+            {
+              backgroundColor: colors.inputBackground,
+              borderColor: colors.inputBorder,
+            },
+          ]}
+        >
+          <Ionicons
+            name="search-outline"
+            size={17}
+            color={colors.textMuted}
+            style={styles.searchIcon}
+          />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textPrimary }]}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder={
@@ -96,7 +129,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
                 ? 'Tafuta chakula, mgahawa au eneo...'
                 : 'Search dishes, restaurants, areas...'
             }
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={colors.inputPlaceholder}
             returnKeyType="search"
             onSubmitEditing={handleSearchSubmit}
           />
@@ -105,7 +138,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
               onPress={() => setSearchQuery('')}
               style={styles.clearSearchBtn}
             >
-              <Ionicons name="close-circle" size={16} color="#94A3B8" />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -117,7 +150,10 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
             return (
               <TouchableOpacity
                 key={item.path}
-                style={[styles.navLink, active && styles.navLinkActive]}
+                style={[
+                  styles.navLink,
+                  active && { backgroundColor: colors.navActiveBackground },
+                ]}
                 onPress={() => router.push(item.path as any)}
                 accessibilityRole="link"
                 accessibilityState={{ selected: active }}
@@ -125,9 +161,15 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
                 <Ionicons
                   name={(active ? item.activeIcon : item.icon) as any}
                   size={17}
-                  color={active ? Colors.primary : Colors.textMuted}
+                  color={active ? colors.primary : colors.navText}
                 />
-                <Text style={[styles.navLinkLabel, active && styles.navLinkLabelActive]}>
+                <Text
+                  style={[
+                    styles.navLinkLabel,
+                    { color: active ? colors.navActiveText : colors.navText },
+                    active && styles.navLinkLabelActive,
+                  ]}
+                >
                   {item.label}
                 </Text>
               </TouchableOpacity>
@@ -135,33 +177,58 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           })}
         </View>
 
-        {/* Right Actions: Language, Notifications, Cart, Auth */}
+        {/* Right Actions: Language, Theme, Notifications, Cart, Profile */}
         <View style={styles.rightActionsRow}>
           {/* Language Switch */}
           <TouchableOpacity
-            style={styles.langBtn}
+            style={[
+              styles.langBtn,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
             onPress={() => setLanguage(language === 'en' ? 'sw' : 'en')}
             accessibilityRole="button"
             accessibilityLabel="Switch Language"
           >
-            <Ionicons name="globe-outline" size={16} color={Colors.text} />
-            <Text style={styles.langBtnText}>{language === 'en' ? 'SW' : 'EN'}</Text>
+            <Ionicons name="globe-outline" size={15} color={colors.textPrimary} />
+            <Text style={[styles.langBtnText, { color: colors.textPrimary }]}>
+              {language === 'en' ? 'SW' : 'EN'}
+            </Text>
           </TouchableOpacity>
+
+          {/* Theme Quick Switcher directly after Language */}
+          <ThemeQuickSwitcher />
 
           {/* Notifications Bell */}
           <TouchableOpacity
-            style={styles.iconActionBtn}
+            style={[
+              styles.iconActionBtn,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
             onPress={() => router.push('/notifications')}
             accessibilityRole="button"
             accessibilityLabel={`Notifications with ${unreadCount} unread`}
           >
             <Ionicons
               name={unreadCount > 0 ? 'notifications' : 'notifications-outline'}
-              size={20}
-              color={unreadCount > 0 ? Colors.primary : '#475569'}
+              size={19}
+              color={unreadCount > 0 ? colors.primary : colors.textPrimary}
             />
             {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
+              <View
+                style={[
+                  styles.notifBadge,
+                  {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.topbarBackground,
+                  },
+                ]}
+              >
                 <Text style={styles.notifBadgeText}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </Text>
@@ -171,14 +238,28 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
 
           {/* Cart Button */}
           <TouchableOpacity
-            style={styles.cartBtn}
+            style={[
+              styles.cartBtn,
+              {
+                backgroundColor: colors.primarySoft,
+                borderColor: colors.border,
+              },
+            ]}
             onPress={() => (onOpenCart ? onOpenCart() : setIsCartOpen(true))}
             accessibilityRole="button"
             accessibilityLabel={`Cart with ${totalItems} items`}
           >
-            <Ionicons name="cart-outline" size={20} color={Colors.primary} />
+            <Ionicons name="cart-outline" size={19} color={colors.primary} />
             {totalItems > 0 && (
-              <View style={styles.cartBadge}>
+              <View
+                style={[
+                  styles.cartBadge,
+                  {
+                    backgroundColor: colors.danger,
+                    borderColor: colors.topbarBackground,
+                  },
+                ]}
+              >
                 <Text style={styles.cartBadgeText}>{totalItems}</Text>
               </View>
             )}
@@ -193,31 +274,40 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
                 accessibilityRole="button"
                 accessibilityLabel="Go to Profile"
               >
-                <View style={styles.userAvatar}>
+                <View style={[styles.userAvatar, { backgroundColor: colors.primary }]}>
                   <Text style={styles.userAvatarText}>
                     {(user?.fullName || user?.email || 'U').charAt(0).toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.userName} numberOfLines={1}>
+                <Text
+                  style={[styles.userName, { color: colors.textPrimary }]}
+                  numberOfLines={1}
+                >
                   {user?.fullName?.split(' ')[0] || 'Account'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.desktopLogoutBtn}
+                style={[
+                  styles.desktopLogoutBtn,
+                  {
+                    backgroundColor: colors.dangerSoft,
+                    borderColor: colors.danger,
+                  },
+                ]}
                 onPress={handleDesktopLogout}
                 accessibilityRole="button"
                 accessibilityLabel={language === 'sw' ? 'Ondoka' : 'Sign Out'}
               >
-                <Ionicons name="log-out-outline" size={16} color="#DC2626" />
-                <Text style={styles.desktopLogoutText}>
+                <Ionicons name="log-out-outline" size={15} color={colors.danger} />
+                <Text style={[styles.desktopLogoutText, { color: colors.danger }]}>
                   {language === 'sw' ? 'Ondoka' : 'Sign Out'}
                 </Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity
-              style={styles.loginBtn}
+              style={[styles.loginBtn, { backgroundColor: colors.primary }]}
               onPress={() => router.push('/auth/login?type=customer')}
             >
               <Text style={styles.loginBtnText}>Sign In</Text>
@@ -229,11 +319,9 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   outerContainer: {
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
     width: '100%',
     zIndex: 100,
   },
@@ -256,8 +344,7 @@ const styles = StyleSheet.create({
   logoIconCircle: {
     width: 38,
     height: 38,
-    borderRadius: Radii.md,
-    backgroundColor: '#DCFCE7',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -267,12 +354,10 @@ const styles = StyleSheet.create({
   logoBrand: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
     letterSpacing: -0.5,
   },
   logoTagline: {
     fontSize: 10,
-    color: '#64748B',
     fontWeight: '500',
   },
   searchBarContainer: {
@@ -280,10 +365,8 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     paddingHorizontal: 12,
     height: 38,
   },
@@ -293,7 +376,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0F172A',
     paddingVertical: 0,
   },
   clearSearchBtn: {
@@ -310,48 +392,38 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: Radii.md,
-  },
-  navLinkActive: {
-    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
   },
   navLinkLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
   },
   navLinkLabelActive: {
-    color: Colors.primary,
     fontWeight: '700',
   },
   rightActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   langBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: Radii.sm,
-    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 9,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   langBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
   },
   iconActionBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -360,7 +432,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -3,
     right: -3,
-    backgroundColor: Colors.primary,
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -368,18 +439,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
   },
   notifBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   cartBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F0FDF4',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -388,7 +457,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -3,
     right: -3,
-    backgroundColor: '#EF4444',
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -396,12 +464,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
   },
   cartBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   userSection: {
     flexDirection: 'row',
@@ -419,45 +486,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: Radii.sm,
-    backgroundColor: '#FEF2F2',
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FECACA',
   },
   desktopLogoutText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#DC2626',
   },
   userAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userAvatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   userName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E293B',
     maxWidth: 80,
   },
   loginBtn: {
-    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: Radii.md,
+    borderRadius: 10,
   },
   loginBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

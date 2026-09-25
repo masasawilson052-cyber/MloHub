@@ -10,6 +10,11 @@ import { DishDiscoveryResult } from '../../types/discovery';
 import { formatTzs, formatDistance } from '../../utils/formatters';
 import { DishCard } from './DishCard';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface NoResultsViewProps {
   queryText?: string;
   maxBudget?: number;
@@ -29,6 +34,7 @@ export const NoResultsView: React.FC<NoResultsViewProps> = ({
   onClearFilters,
   similarDishes = [],
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>🔍</Text>
@@ -74,7 +80,7 @@ export const NoResultsView: React.FC<NoResultsViewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     padding: Spacing.xl,
     alignItems: 'center',
@@ -86,13 +92,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.xs,
     textAlign: 'center',
   },
   message: {
     fontSize: 14,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: Spacing.lg,
@@ -106,36 +112,37 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   actionChip: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   actionChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   clearChip: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   clearChipText: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   similarSection: {
     width: '100%',
     marginTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.lg,
   },
   similarTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);

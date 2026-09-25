@@ -6,6 +6,10 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface SearchQueryRow {
   query: string;
   count: number;
@@ -24,7 +28,7 @@ interface PlatformAnalyticsProps {
 export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [loading, setLoading] = useState(true);
   const [totalSearches, setTotalSearches] = useState(0);
   const [zeroResultCount, setZeroResultCount] = useState(0);
@@ -179,7 +183,7 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
 
       {loading && (
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading search telemetry…</Text>
         </View>
       )}
@@ -206,7 +210,7 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
               </Text>
             </View>
             <View style={styles.kpiCard}>
-              <Text style={[styles.kpiValue, { color: '#0284c7' }]}>
+              <Text style={[styles.kpiValue, { color: colors.info }]}>
                 {matchRatePct !== null ? `${matchRatePct}%` : '—'}
               </Text>
               <Text style={styles.kpiLabel}>
@@ -261,7 +265,7 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
             </View>
           ) : (
             <View style={styles.emptyStateCard}>
-              <Ionicons name="search-outline" size={40} color="#94a3b8" />
+              <Ionicons name="search-outline" size={40} color={colors.textMuted} />
               <Text style={styles.emptyStateTitle}>
                 {language === 'sw' ? 'Hakuna Data ya Utafutaji' : 'No Search Data Yet'}
               </Text>
@@ -316,10 +320,10 @@ export const PlatformAnalytics: React.FC<PlatformAnalyticsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   content: {
     padding: Spacing.lg,
@@ -331,45 +335,45 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   loadingCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     gap: Spacing.md,
   },
   loadingText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 8,
   },
   errorCard: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     borderRadius: Radii.lg,
     padding: Spacing.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: colors.danger,
     gap: Spacing.sm,
   },
   errorTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: colors.danger,
   },
   errorText: {
     fontSize: 13,
-    color: '#7f1d1d',
+    color: colors.danger,
     textAlign: 'center',
   },
   kpiRow: {
@@ -380,34 +384,34 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     minWidth: 160,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   kpiValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   kpiLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   kpiSub: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   sectionCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.lg,
     gap: Spacing.md,
     ...Shadows.sm,
@@ -415,31 +419,31 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   table: {
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: colors.divider,
     overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   th: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
   },
   tableRow: {
@@ -447,18 +451,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.divider,
     alignItems: 'center',
   },
   tdBold: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     textTransform: 'capitalize',
   },
   td: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   gapHeader: {
     flexDirection: 'row',
@@ -468,17 +472,17 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   onboardingOpportunityPill: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: colors.warning,
   },
   opportunityText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ea580c',
+    color: colors.primary,
   },
   gapGrid: {
     flexDirection: 'row',
@@ -488,10 +492,10 @@ const styles = StyleSheet.create({
   gapCard: {
     flex: 1,
     minWidth: 240,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: 6,
   },
@@ -503,10 +507,10 @@ const styles = StyleSheet.create({
   gapNeighborhood: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   demandPill: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
@@ -514,36 +518,37 @@ const styles = StyleSheet.create({
   demandScoreText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#1d4ed8',
+    color: colors.info,
   },
   gapDish: {
     fontSize: 12,
-    color: '#334155',
+    color: colors.textSecondary,
     fontWeight: '500',
     textTransform: 'capitalize',
   },
   emptyStateCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     marginTop: Spacing.xl,
     gap: Spacing.sm,
   },
   emptyStateTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginTop: Spacing.xs,
   },
   emptyStateText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     maxWidth: 480,
     lineHeight: 18,
   },
 });
+let styles = createStyles(lightColors);

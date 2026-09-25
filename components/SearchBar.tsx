@@ -3,6 +3,11 @@ import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-nativ
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface SearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
@@ -18,6 +23,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   activeFilterCount,
   onToggleFilters,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
 
   return (
@@ -27,7 +33,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <TextInput
           style={styles.input}
           placeholder={t('searchPlaceholder')}
-          placeholderTextColor={Colors.subtle}
+          placeholderTextColor={colors.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
           accessibilityLabel="Search restaurants or cuisines"
@@ -70,16 +76,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     padding: Spacing.xs,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.md,
   },
   searchBox: {
@@ -95,7 +101,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.textPrimary,
     paddingVertical: Spacing.sm,
   },
   clearBtn: {
@@ -103,39 +109,40 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontSize: 12,
-    color: Colors.subtle,
+    color: colors.textMuted,
   },
   filterBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: Radii.lg,
   },
   filterBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   filterBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   filterBtnTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   badge: {
     width: 16,
     height: 16,
     borderRadius: Radii.full,
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 9,
     fontWeight: '900',
   },
 });
+let styles = createStyles(lightColors);

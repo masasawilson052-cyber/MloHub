@@ -14,6 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantApplicationEntity } from '../../db/types';
 
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface ApplicationDetailProps {
   application: RestaurantApplicationEntity | null;
   visible: boolean;
@@ -33,6 +38,7 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
   onRequestChanges,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -104,7 +110,7 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={onClose} disabled={isProcessing}>
-              <Ionicons name="close" size={22} color="#64748b" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -213,7 +219,7 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <Text style={styles.promptConfirmText}>Confirm Rejection</Text>
                     )}
@@ -248,7 +254,7 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <Text style={styles.promptConfirmText}>Send Instructions</Text>
                     )}
@@ -285,10 +291,10 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
                 disabled={isProcessing}
               >
                 {isProcessing ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
+                    <Ionicons name="checkmark-circle" size={18} color={colors.onPrimary} />
                     <Text style={styles.approveBtnText}>Approve & Activate</Text>
                   </>
                 )}
@@ -301,7 +307,7 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -310,7 +316,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     width: '100%',
     maxWidth: 640,
     maxHeight: '90%',
@@ -325,22 +331,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   modalSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     padding: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   modalContent: {
     padding: Spacing.lg,
@@ -361,48 +367,48 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   statusPending: {
-    backgroundColor: '#ffedd5',
+    backgroundColor: colors.warningSoft,
   },
   statusApproved: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   statusRejected: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   statusPillText: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   tierPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   tierPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   cardSection: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     gap: Spacing.xs,
   },
   sectionHeader: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#64748b',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: Spacing.xs,
@@ -414,38 +420,38 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   infoValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.textPrimary,
     maxWidth: '65%',
     textAlign: 'right',
   },
   notesText: {
     fontSize: 13,
-    color: '#334155',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   inputPromptBox: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.primarySoft,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: colors.warning,
     gap: Spacing.sm,
   },
   promptTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9a3412',
+    color: colors.primary,
   },
   textInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: colors.warning,
     padding: Spacing.sm,
     fontSize: 13,
     minHeight: 70,
@@ -463,7 +469,7 @@ const styles = StyleSheet.create({
   },
   promptCancelText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   promptRejectConfirmBtn: {
@@ -481,7 +487,7 @@ const styles = StyleSheet.create({
   promptConfirmText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -490,7 +496,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.border,
     gap: Spacing.sm,
   },
   rejectBtn: {
@@ -501,13 +507,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#fca5a5',
-    backgroundColor: '#fef2f2',
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
   },
   rejectBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#ef4444',
+    color: colors.danger,
   },
   requestChangesBtn: {
     flexDirection: 'row',
@@ -517,13 +523,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#bae6fd',
-    backgroundColor: '#f0f9ff',
+    borderColor: colors.info,
+    backgroundColor: colors.infoSoft,
   },
   requestChangesText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0284c7',
+    color: colors.info,
   },
   approveBtn: {
     flexDirection: 'row',
@@ -537,6 +543,7 @@ const styles = StyleSheet.create({
   approveBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

@@ -6,6 +6,11 @@ import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { FreshnessTier } from '../../types/discovery';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface FreshnessBadgeProps {
   tier: FreshnessTier;
   label?: string;
@@ -19,41 +24,42 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
   style,
   size = 'md',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getConfig = () => {
     switch (tier) {
       case 'FRESH':
         return {
           iconName: 'checkmark-circle' as const,
-          iconColor: Colors.success,
-          bgColor: Colors.successLight,
-          textColor: Colors.success,
+          iconColor: colors.success,
+          bgColor: colors.successLight,
+          textColor: colors.success,
           borderColor: '#C6F6D5',
           defaultLabel: 'Verified today',
         };
       case 'RECENT':
         return {
           iconName: 'checkmark-circle-outline' as const,
-          iconColor: Colors.primary,
-          bgColor: Colors.primaryMuted,
-          textColor: Colors.primaryDark,
+          iconColor: colors.primary,
+          bgColor: colors.primaryMuted,
+          textColor: colors.primaryDark,
           borderColor: '#D4EDDA',
           defaultLabel: 'Verified recently',
         };
       case 'AGING':
         return {
           iconName: 'time-outline' as const,
-          iconColor: Colors.warning,
-          bgColor: Colors.warningLight,
-          textColor: Colors.warning,
+          iconColor: colors.warning,
+          bgColor: colors.warningLight,
+          textColor: colors.warning,
           borderColor: '#FEEBC8',
           defaultLabel: 'Updated this month',
         };
       case 'STALE':
         return {
           iconName: 'alert-circle-outline' as const,
-          iconColor: Colors.error,
-          bgColor: Colors.errorLight,
-          textColor: Colors.error,
+          iconColor: colors.error,
+          bgColor: colors.errorLight,
+          textColor: colors.error,
           borderColor: '#FED7D7',
           defaultLabel: 'Price may be outdated',
         };
@@ -61,10 +67,10 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
       default:
         return {
           iconName: 'help-circle-outline' as const,
-          iconColor: Colors.textMuted,
-          bgColor: Colors.surfaceSecondary,
-          textColor: Colors.textSecondary,
-          borderColor: Colors.borderLight,
+          iconColor: colors.textMuted,
+          bgColor: colors.surfaceSecondary,
+          textColor: colors.textSecondary,
+          borderColor: colors.divider,
           defaultLabel: 'Not recently verified',
         };
     }
@@ -112,7 +118,7 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -128,3 +134,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+let styles = createStyles(lightColors);

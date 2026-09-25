@@ -18,9 +18,15 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { LanguageModal } from '../../components/LanguageModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const APP_ICON = require('../../assets/icon.png');
 
 export default function AuthLandingScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language, setLanguage } = useLanguage();
   const { width } = useWindowDimensions();
@@ -30,7 +36,7 @@ export default function AuthLandingScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F3" />
+      <StatusBar barStyle="default" backgroundColor={colors.appBackground} />
 
       {/* Top Header with App Logo & Language Toggle */}
       <View style={styles.topBar}>
@@ -76,7 +82,7 @@ export default function AuthLandingScreen() {
         <View style={styles.featureCard}>
           {/* Item 1: Dine & Reserve */}
           <View style={styles.featureRow}>
-            <View style={[styles.iconCircle, { backgroundColor: '#EAF4EE' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.successSoft }]}>
               <Ionicons name="restaurant-outline" size={20} color="#246B39" />
             </View>
             <View style={styles.featureTextCol}>
@@ -95,7 +101,7 @@ export default function AuthLandingScreen() {
 
           {/* Item 2: Custom Advance Meals */}
           <View style={styles.featureRow}>
-            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.warningSoft }]}>
               <Ionicons name="flash-outline" size={20} color="#D97706" />
             </View>
             <View style={styles.featureTextCol}>
@@ -114,7 +120,7 @@ export default function AuthLandingScreen() {
 
           {/* Item 3: Verified & Transparent */}
           <View style={styles.featureRow}>
-            <View style={[styles.iconCircle, { backgroundColor: '#EFF6FF' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.infoSoft }]}>
               <Ionicons name="shield-checkmark-outline" size={20} color="#2B6CB0" />
             </View>
             <View style={styles.featureTextCol}>
@@ -139,7 +145,7 @@ export default function AuthLandingScreen() {
             activeOpacity={0.88}
             accessibilityRole="button"
           >
-            <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Ionicons name="sparkles" size={18} color={colors.onPrimary} style={{ marginRight: 8 }} />
             <Text style={styles.primaryBtnText}>
               {language === 'sw' ? 'Fungua Akaunti ya Mteja' : 'Create Customer Account'}
             </Text>
@@ -211,10 +217,10 @@ export default function AuthLandingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.appBackground,
   },
   topBar: {
     flexDirection: 'row',
@@ -222,7 +228,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.appBackground,
   },
   logoRow: {
     flexDirection: 'row',
@@ -237,13 +243,13 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FA541C',
+    color: colors.primary,
     letterSpacing: -0.2,
   },
   langPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
   langPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -276,7 +282,7 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
     letterSpacing: -0.4,
     marginBottom: 8,
   },
@@ -286,7 +292,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   featureCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: Spacing.lg,
     borderWidth: 1,
@@ -313,12 +319,12 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   featureSubtitle: {
     fontSize: 12,
-    color: '#718096',
+    color: colors.textMuted,
     lineHeight: 18,
   },
   featureDivider: {
@@ -342,7 +348,7 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -350,7 +356,7 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     width: '100%',
     height: 52,
-    backgroundColor: '#EAF4EE',
+    backgroundColor: colors.successSoft,
     borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
@@ -359,7 +365,7 @@ const styles = StyleSheet.create({
     borderColor: '#C6E6D1',
   },
   secondaryBtnText: {
-    color: '#246B39',
+    color: colors.success,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.2,
@@ -370,7 +376,7 @@ const styles = StyleSheet.create({
   guestLinkText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     textDecorationLine: 'underline',
   },
   partnerCard: {
@@ -406,7 +412,7 @@ const styles = StyleSheet.create({
   },
   partnerDesc: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textMuted,
     marginBottom: 6,
   },
   partnerLinkBtn: {
@@ -418,3 +424,4 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
 });
+let styles = createStyles(lightColors);

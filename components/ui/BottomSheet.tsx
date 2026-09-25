@@ -13,11 +13,15 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { Shadows } from '../../theme/shadows';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -27,7 +31,7 @@ export interface BottomSheetProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  maxHeightRatio?: number; // default 0.85
+  maxHeightRatio?: number;
   showHandle?: boolean;
 }
 
@@ -45,6 +49,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   const { height, width } = useWindowDimensions();
   const isDesktop = width >= 768;
   const maxHeight = height * maxHeightRatio;
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   return (
     <RNModal
@@ -54,44 +59,55 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       onRequestClose={onClose}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={[styles.backdrop, isDesktop ? styles.desktopBackdrop : styles.mobileBackdrop]}>
+        <View
+          style={[
+            styles.backdrop,
+            { backgroundColor: colors.modalBackdrop },
+            isDesktop ? styles.desktopBackdrop : styles.mobileBackdrop,
+          ]}
+        >
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
             <View
               style={[
                 styles.sheetContainer,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.borderStrong,
+                },
                 isDesktop ? styles.desktopContainer : styles.mobileContainer,
                 { maxHeight },
                 style,
               ]}
             >
-              {/* Drag handle for mobile */}
               {!isDesktop && showHandle ? (
                 <View style={styles.handleContainer}>
-                  <View style={styles.handle} />
+                  <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />
                 </View>
               ) : null}
 
-              {/* Header */}
               {title ? (
-                <View style={styles.header}>
+                <View style={[styles.header, { borderBottomColor: colors.divider }]}>
                   <View style={styles.headerTitles}>
-                    <Text style={styles.title}>{title}</Text>
-                    {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                    <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+                    {subtitle ? (
+                      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                        {subtitle}
+                      </Text>
+                    ) : null}
                   </View>
                   <TouchableOpacity
                     onPress={onClose}
-                    style={styles.closeBtn}
+                    style={[styles.closeBtn, { backgroundColor: colors.surfaceInteractive }]}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel="Close bottom sheet"
                   >
-                    <Ionicons name="close" size={22} color={Colors.brandInk} />
+                    <Ionicons name="close" size={22} color={colors.textPrimary} />
                   </TouchableOpacity>
                 </View>
               ) : null}
 
-              {/* Scrollable Body */}
               <ScrollView
                 style={styles.body}
                 contentContainerStyle={styles.bodyContent}
@@ -100,8 +116,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 {children}
               </ScrollView>
 
-              {/* Footer */}
-              {footer ? <View style={styles.footer}>{footer}</View> : null}
+              {footer ? (
+                <View style={[styles.footer, { borderTopColor: colors.divider }]}>{footer}</View>
+              ) : null}
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -110,10 +127,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: Colors.overlay,
   },
   mobileBackdrop: {
     justifyContent: 'flex-end',
@@ -124,7 +140,6 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   sheetContainer: {
-    backgroundColor: Colors.surface,
     overflow: 'hidden',
     ...Shadows.modal,
   },
@@ -139,7 +154,6 @@ const styles = StyleSheet.create({
     maxWidth: 580,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
   },
   handleContainer: {
     alignItems: 'center',
@@ -149,7 +163,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -159,7 +172,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
   },
   headerTitles: {
     flex: 1,
@@ -167,17 +179,14 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.heading2,
-    color: Colors.brandInk,
   },
   subtitle: {
     ...Typography.bodySmall,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     padding: Spacing.xxs,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
   },
   body: {
     flexGrow: 0,
@@ -191,6 +200,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
   },
 });
+let styles = createStyles(lightColors);

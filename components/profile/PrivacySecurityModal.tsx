@@ -12,6 +12,11 @@ import { Colors, Spacing, Radii } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface PrivacySecurityModalProps {
   visible: boolean;
   onClose: () => void;
@@ -21,6 +26,7 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
   if (!visible) return null;
 
@@ -38,13 +44,13 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             <View style={styles.item}>
-              <Ionicons name="lock-closed-outline" size={24} color={Colors.primary} />
+              <Ionicons name="lock-closed-outline" size={24} color={colors.primary} />
               <View style={styles.itemTextCol}>
                 <Text style={styles.itemTitle}>
                   {language === 'sw' ? 'Hakuna Ufuatiliaji wa GPS Kisiri' : 'Zero Background GPS Tracking'}
@@ -58,7 +64,7 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
             </View>
 
             <View style={styles.item}>
-              <Ionicons name="card-outline" size={24} color={Colors.primary} />
+              <Ionicons name="card-outline" size={24} color={colors.primary} />
               <View style={styles.itemTextCol}>
                 <Text style={styles.itemTitle}>
                   {language === 'sw' ? 'Ulinzi wa Malipo ya Simu' : 'Authoritative Payment Protection'}
@@ -72,7 +78,7 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
             </View>
 
             <View style={styles.item}>
-              <Ionicons name="receipt-outline" size={24} color={Colors.primary} />
+              <Ionicons name="receipt-outline" size={24} color={colors.primary} />
               <View style={styles.itemTextCol}>
                 <Text style={styles.itemTitle}>
                   {language === 'sw' ? 'Kumbukumbu Zisizobadilika' : 'Immutable Audit Trails'}
@@ -86,7 +92,7 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
             </View>
 
             <View style={styles.item}>
-              <Ionicons name="shield-outline" size={24} color={Colors.primary} />
+              <Ionicons name="shield-outline" size={24} color={colors.primary} />
               <View style={styles.itemTextCol}>
                 <Text style={styles.itemTitle}>
                   {language === 'sw' ? 'Sheria ya Data ya Tanzania (PDPA 2022)' : 'Tanzania Data Sovereignty'}
@@ -114,14 +120,14 @@ export const PrivacySecurityModal: React.FC<PrivacySecurityModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '85%',
@@ -133,16 +139,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -154,12 +160,12 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     gap: 12,
   },
   itemTextCol: {
@@ -168,12 +174,13 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   itemDesc: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
     marginTop: 4,
     lineHeight: 18,
   },
 });
+let styles = createStyles(lightColors);

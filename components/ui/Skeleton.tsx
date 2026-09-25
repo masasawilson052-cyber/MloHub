@@ -1,7 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '../../theme/colors';
+import { Animated, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Radii } from '../../theme/radius';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface SkeletonProps {
   width?: number | `${number}%`;
@@ -16,7 +20,8 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius = Radii.sm,
   style,
 }) => {
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const opacity = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -27,7 +32,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
-          toValue: 0.3,
+          toValue: 0.35,
           duration: 750,
           useNativeDriver: true,
         }),
@@ -42,6 +47,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
       style={[
         styles.skeleton,
         {
+          backgroundColor: colors.surfaceHover,
           width: width as any,
           height,
           borderRadius,
@@ -53,8 +59,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  skeleton: {
-    backgroundColor: Colors.border,
-  },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  skeleton: {},
 });
+let styles = createStyles(lightColors);

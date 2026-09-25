@@ -6,6 +6,11 @@ import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface RatingProps {
   rating: number;
   reviewCount?: number;
@@ -23,6 +28,7 @@ export const Rating: React.FC<RatingProps> = ({
   showCount = true,
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   if (rating === undefined || rating === null || rating <= 0) {
     return null;
   }
@@ -44,7 +50,7 @@ export const Rating: React.FC<RatingProps> = ({
   return (
     <View style={[styles.container, style]} accessible={true} accessibilityLabel={`Rated ${formattedRating} out of 5 stars`}>
       <View style={styles.starRow}>
-        <Ionicons name="star" size={getStarSize()} color={Colors.saffron} />
+        <Ionicons name="star" size={getStarSize()} color={colors.saffron} />
         <Text
           style={[
             styles.ratingText,
@@ -70,7 +76,7 @@ export const Rating: React.FC<RatingProps> = ({
 
       {isVerified ? (
         <View style={styles.verifiedBadge} accessible={true} accessibilityLabel="Verified reviews">
-          <Ionicons name="checkmark-circle" size={size === 'sm' ? 10 : 12} color={Colors.botanicalGreen} />
+          <Ionicons name="checkmark-circle" size={size === 'sm' ? 10 : 12} color={colors.botanicalGreen} />
         </View>
       ) : null}
     </View>
@@ -80,7 +86,7 @@ export const Rating: React.FC<RatingProps> = ({
 // Also export RatingBadge for backward compatibility
 export const RatingBadge = Rating;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -93,7 +99,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     ...Typography.bodyMedium,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -105,7 +111,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     ...Typography.bodySmall,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 12,
   },
   countSm: {
@@ -118,3 +124,4 @@ const styles = StyleSheet.create({
     marginLeft: 1,
   },
 });
+let styles = createStyles(lightColors);

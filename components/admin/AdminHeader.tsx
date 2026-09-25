@@ -1,33 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  useWindowDimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { UserRole } from '../../db/types';
 import { isSupabaseConfigured } from '../../lib/supabase';
-import { runtimeConfig } from '../../lib/runtimeConfig';
 import { AdminSystemHealthService, PlatformHealthStatus } from '../../services/AdminSystemHealthService';
 import { useAdminPreview } from '../../context/AdminPreviewContext';
 import { useTheme } from '../../context/ThemeContext';
+import { ThemeQuickSwitcher } from '../theme/ThemeQuickSwitcher';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 interface AdminHeaderProps {
   userName?: string;
   userRole?: UserRole | string;
+  activeSectionTitle?: string;
   isRefreshing?: boolean;
   onRefresh: () => void;
   onLogout: () => void;
+  onToggleSidebar?: () => void;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
   userName = 'Platform Operator',
   userRole = UserRole.ADMIN,
+  activeSectionTitle,
   isRefreshing = false,
   onRefresh,
   onLogout,
+  onToggleSidebar,
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPER_ADMIN || userRole === 'SUPER_ADMIN';
   const isLive = isSupabaseConfigured();
   const { enterPreview } = useAdminPreview();
-  const { colors, isDark } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { width } = useWindowDimensions();
+  const isCompact = width < 960;
 
   const [health, setHealth] = useState<PlatformHealthStatus | null>(null);
 
@@ -49,314 +65,324 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     await enterPreview();
   };
 
-  const getStatusBadge = () => {
+  const getHealthBadge = () => {
     if (!isLive) {
       return {
-        label: 'OFFLINE BUS',
-        pillStyle: styles.mockPill,
-        dotStyle: styles.mockDot,
-        textStyle: styles.mockText,
+        label: 'DEGRADED',
+        bg: colors.warningSoft,
+        color: colors.warning,
       };
     }
     if (!health) {
       return {
-        label: 'CONNECTING...',
-        pillStyle: styles.devPill,
-        dotStyle: { backgroundColor: '#0284c7' },
-        textStyle: styles.devText,
+        label: 'UNVERIFIED',
+        bg: colors.infoSoft,
+        color: colors.info,
       };
     }
     if (health.status === 'HEALTHY') {
       return {
-        label: 'BACKEND HEALTHY',
-        pillStyle: styles.livePill,
-        dotStyle: styles.liveDot,
-        textStyle: styles.liveText,
+        label: 'HEALTHY',
+        bg: colors.successSoft,
+        color: colors.success,
       };
     }
     if (health.status === 'UNVERIFIED') {
       return {
-        label: 'BACKEND UNVERIFIED',
-        pillStyle: styles.stagingPill,
-        dotStyle: { backgroundColor: '#eab308' },
-        textStyle: styles.stagingText,
+        label: 'UNVERIFIED',
+        bg: colors.warningSoft,
+        color: colors.warning,
       };
     }
     if (health.status === 'DEGRADED') {
       return {
-        label: 'SYSTEM DEGRADED',
-        pillStyle: styles.stagingPill,
-        dotStyle: styles.mockDot,
-        textStyle: styles.stagingText,
+        label: 'DEGRADED',
+        bg: colors.warningSoft,
+        color: colors.warning,
       };
     }
     return {
-      label: 'BACKEND DOWN',
-      pillStyle: styles.prodPill,
-      dotStyle: { backgroundColor: '#ef4444' },
-      textStyle: styles.prodText,
+      label: 'DOWN',
+      bg: colors.dangerSoft,
+      color: colors.danger,
     };
   };
 
-  const badge = getStatusBadge();
+  const badge = getHealthBadge();
 
   return (
-    <View style={[styles.headerContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-      <View style={styles.brandingRow}>
-        <View style={styles.logoBadge}>
-          <Ionicons name="shield-checkmark" size={24} color={Colors.primary} />
+    <View
+      style={[
+        styles.headerContainer,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
+      {/* Left: Brand / Workbench Breadcrumb */}
+      <View style={styles.leftCluster}>
+        {onToggleSidebar && (
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={onToggleSidebar}
+            accessibilityLabel="Toggle navigation menu"
+          >
+            <Ionicons name="menu-outline" size={18} color={colors.textPrimary} />
+          </TouchableOpacity>
+        )}
+
+        <View style={[styles.logoBadge, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
         </View>
-        <View>
+
+        <View style={styles.titleBlock}>
           <View style={styles.titleRow}>
-            <Text style={[styles.portalTitle, { color: colors.text }]}>MloHub Governance</Text>
-            <View style={[styles.envPill, runtimeConfig.isProduction ? styles.prodPill : runtimeConfig.isStaging ? styles.stagingPill : styles.devPill]}>
-              <Text style={[styles.envText, runtimeConfig.isProduction ? styles.prodText : runtimeConfig.isStaging ? styles.stagingText : styles.devText]}>
-                {runtimeConfig.environmentLabel}
-              </Text>
-            </View>
-            <View style={[styles.realtimePill, badge.pillStyle]}>
-              <View style={[styles.pulseDot, badge.dotStyle]} />
-              <Text style={[styles.realtimeText, badge.textStyle]}>
-                {badge.label}
-              </Text>
-            </View>
+            <Text style={[styles.portalTitle, { color: colors.textPrimary }]}>
+              MloHub Governance
+            </Text>
+            {activeSectionTitle && !isCompact && (
+              <>
+                <Ionicons name="chevron-forward" size={13} color={colors.textMuted} />
+                <Text style={[styles.breadcrumbCurrent, { color: colors.textSecondary }]}>
+                  {activeSectionTitle}
+                </Text>
+              </>
+            )}
           </View>
-          <Text style={[styles.portalSubtitle, { color: colors.textSecondary }]}>Platform Operations & Control Center</Text>
+          <Text style={[styles.portalSubtitle, { color: colors.textMuted }]}>
+            Platform Operations & Control Center
+          </Text>
         </View>
       </View>
 
+      {/* Right: [Backend Health] [Admin Identity] [Theme] [Refresh] [Preview Customer] [Logout] */}
       <View style={styles.controlsRow}>
-        <View style={[styles.userBadge, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}>
-          <View style={[styles.roleTag, isSuperAdmin ? styles.superAdminTag : styles.adminTag]}>
-            <Text style={[styles.roleTagText, isSuperAdmin ? styles.superAdminText : styles.adminText]}>
-              {isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN'}
-            </Text>
-          </View>
-          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
-            {userName}
+        {/* Compact Backend Health Pill */}
+        <View style={[styles.healthPill, { backgroundColor: badge.bg }]}>
+          <View style={[styles.healthDot, { backgroundColor: badge.color }]} />
+          <Text style={[styles.healthLabel, { color: badge.color }]}>
+            {isCompact ? badge.label : `BACKEND ${badge.label}`}
           </Text>
         </View>
 
+        {/* Admin Identity */}
+        {!isCompact && (
+          <View
+            style={[
+              styles.userBadge,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.roleTag,
+                {
+                  backgroundColor: isSuperAdmin ? colors.primarySoft : colors.infoSoft,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.roleTagText,
+                  { color: isSuperAdmin ? colors.primary : colors.info },
+                ]}
+              >
+                {isSuperAdmin ? 'SUPER ADMIN' : 'ADMIN'}
+              </Text>
+            </View>
+            <Text
+              style={[styles.userName, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
+              {userName}
+            </Text>
+          </View>
+        )}
+
+        {/* Top-Right Theme Quick Switcher */}
+        <ThemeQuickSwitcher />
+
+        {/* Refresh */}
         <TouchableOpacity
-          style={[styles.actionIconButton, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}
+          style={[
+            styles.iconButton,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={onRefresh}
           disabled={isRefreshing}
           accessibilityLabel="Refresh portal data"
         >
           {isRefreshing ? (
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
-            <Ionicons name="refresh" size={20} color={colors.text} />
+            <Ionicons name="refresh-outline" size={18} color={colors.textPrimary} />
           )}
         </TouchableOpacity>
 
+        {/* Preview Customer App */}
         <TouchableOpacity
-          style={[styles.switchButton, { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border }]}
+          style={[
+            styles.switchButton,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={handleSwitchToCustomer}
           accessibilityLabel="Preview customer app"
         >
-          <Ionicons name="storefront-outline" size={16} color={Colors.primary} />
-          <Text style={[styles.switchButtonText, { color: colors.text }]}>Preview Customer App</Text>
+          <Ionicons name="storefront-outline" size={15} color={colors.primary} />
+          {!isCompact && (
+            <Text style={[styles.switchButtonText, { color: colors.textPrimary }]}>
+              Preview Customer
+            </Text>
+          )}
         </TouchableOpacity>
 
+        {/* Logout */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[
+            styles.iconButton,
+            {
+              backgroundColor: colors.dangerSoft,
+              borderColor: 'transparent',
+            },
+          ]}
           onPress={onLogout}
           accessibilityLabel="Log out of admin portal"
         >
-          <Ionicons name="log-out-outline" size={18} color="#ef4444" />
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerContainer: {
-    backgroundColor: '#ffffff',
+    minHeight: 64,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-    gap: Spacing.md,
-    ...Shadows.sm,
+    gap: 12,
   },
-  brandingRow: {
+  leftCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 12,
   },
   logoBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: Radii.md,
-    backgroundColor: '#fff7ed',
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleBlock: {
     justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: 6,
   },
   portalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
     letterSpacing: -0.3,
   },
-  envPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: Radii.full,
-  },
-  prodPill: {
-    backgroundColor: '#fee2e2',
-  },
-  stagingPill: {
-    backgroundColor: '#fef3c7',
-  },
-  devPill: {
-    backgroundColor: '#e0f2fe',
-  },
-  envText: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  prodText: {
-    color: '#b91c1c',
-  },
-  stagingText: {
-    color: '#b45309',
-  },
-  devText: {
-    color: '#0369a1',
-  },
-  realtimePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: Radii.full,
-    gap: 4,
-  },
-  livePill: {
-    backgroundColor: '#ecfdf5',
-  },
-  mockPill: {
-    backgroundColor: '#fffbeb',
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveDot: {
-    backgroundColor: '#10b981',
-  },
-  mockDot: {
-    backgroundColor: '#f59e0b',
-  },
-  realtimeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  liveText: {
-    color: '#047857',
-  },
-  mockText: {
-    color: '#b45309',
+  breadcrumbCurrent: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   portalSubtitle: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 11,
     marginTop: 1,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 8,
+  },
+  healthPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    gap: 6,
+  },
+  healthDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  healthLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   userBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-    borderRadius: Radii.full,
+    paddingHorizontal: 10,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: Spacing.xs,
+    gap: 8,
   },
   roleTag: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: Radii.sm,
-  },
-  superAdminTag: {
-    backgroundColor: '#fdf2f8',
-  },
-  adminTag: {
-    backgroundColor: '#eff6ff',
+    borderRadius: 6,
   },
   roleTagText: {
     fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  superAdminText: {
-    color: '#be185d',
-  },
-  adminText: {
-    color: '#1d4ed8',
+    letterSpacing: 0.4,
   },
   userName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
     maxWidth: 130,
   },
-  actionIconButton: {
+  iconButton: {
     width: 36,
     height: 36,
-    borderRadius: Radii.full,
-    backgroundColor: '#f8fafc',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   switchButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 7,
-    borderRadius: Radii.md,
-    backgroundColor: '#f8fafc',
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
   },
   switchButtonText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
-  },
-  logoutButton: {
-    width: 36,
-    height: 36,
-    borderRadius: Radii.full,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fee2e2',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
+let styles = createStyles(lightColors);

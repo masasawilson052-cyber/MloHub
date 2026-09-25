@@ -6,6 +6,11 @@ import {
   PlatformAnnouncement,
 } from '../../repositories/platformAnnouncements.repository';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface PlatformAnnouncementBannerProps {
   audience: 'CUSTOMERS' | 'RESTAURANTS';
   language?: 'en' | 'sw';
@@ -15,6 +20,7 @@ export const PlatformAnnouncementBanner: React.FC<PlatformAnnouncementBannerProp
   audience,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [announcements, setAnnouncements] = useState<PlatformAnnouncement[]>([]);
 
   useEffect(() => {
@@ -108,7 +114,7 @@ export const PlatformAnnouncementBanner: React.FC<PlatformAnnouncementBannerProp
             accessibilityRole="button"
             accessibilityLabel="Dismiss Announcement"
           >
-            <Ionicons name="close" size={18} color="#64748B" />
+            <Ionicons name="close" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -116,7 +122,7 @@ export const PlatformAnnouncementBanner: React.FC<PlatformAnnouncementBannerProp
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     width: '100%',
     paddingVertical: 10,
@@ -125,16 +131,16 @@ const styles = StyleSheet.create({
     zIndex: 900,
   },
   urgentBg: {
-    backgroundColor: '#FEF2F2',
-    borderBottomColor: '#FCA5A5',
+    backgroundColor: colors.dangerSoft,
+    borderBottomColor: colors.danger,
   },
   importantBg: {
-    backgroundColor: '#FFF7ED',
-    borderBottomColor: '#FDBA74',
+    backgroundColor: colors.primarySoft,
+    borderBottomColor: colors.warning,
   },
   normalBg: {
-    backgroundColor: '#F0F9FF',
-    borderBottomColor: '#BAE6FD',
+    backgroundColor: colors.infoSoft,
+    borderBottomColor: colors.info,
   },
   contentRow: {
     flexDirection: 'row',
@@ -159,12 +165,12 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   bodyText: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   actionsRow: {
@@ -187,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FA541C',
   },
   ctaText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -199,3 +205,4 @@ const styles = StyleSheet.create({
     }),
   },
 });
+let styles = createStyles(lightColors);

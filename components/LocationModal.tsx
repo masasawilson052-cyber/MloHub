@@ -16,6 +16,11 @@ import { useCustomerLocation } from '../context/CustomerLocationContext';
 import { CustomerAddressesRepository } from '../repositories/customerAddresses.repository';
 import { ServiceCity, ServiceArea, CustomerSavedAddress } from '../types/domain';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface LocationModalProps {
   visible?: boolean;
   onClose?: () => void;
@@ -30,6 +35,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   selectedLocation,
   onSelect,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const {
@@ -145,7 +151,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-              <Ionicons name="close" size={22} color={Colors.text} />
+              <Ionicons name="close" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -159,9 +165,9 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             >
               <View style={styles.deviceIconCircle}>
                 {isLoadingLocation ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Ionicons name="navigate" size={18} color={Colors.primary} />
+                  <Ionicons name="navigate" size={18} color={colors.primary} />
                 )}
               </View>
               <View style={{ flex: 1 }}>
@@ -202,7 +208,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                         <Ionicons
                           name={addr.label.toLowerCase().includes('work') ? 'briefcase-outline' : 'home-outline'}
                           size={18}
-                          color={isCurrent ? Colors.primary : Colors.textMuted}
+                          color={isCurrent ? colors.primary : colors.textMuted}
                         />
                       </View>
                       <View style={{ flex: 1 }}>
@@ -218,7 +224,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                           {addr.streetAddress} {addr.areaName ? `• ${addr.areaName}` : ''}
                         </Text>
                       </View>
-                      {isCurrent && <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />}
+                      {isCurrent && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
                     </TouchableOpacity>
                   );
                 })}
@@ -267,7 +273,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   {language === 'sw' ? `Maeneo ya ${selectedCity.name}` : `${selectedCity.name} Areas`}
                 </Text>
                 {loading ? (
-                  <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 12 }} />
+                  <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
                 ) : areas.length === 0 ? (
                   <Text style={styles.emptyAreaText}>
                     {language === 'sw' ? 'Hakuna maeneo maalum yaliyopatikana.' : 'No active service zones found.'}
@@ -287,7 +293,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                           <Text style={[styles.areaPillText, isCurrent && styles.areaPillTextActive]}>
                             {area.name}
                           </Text>
-                          {isCurrent && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                          {isCurrent && <Ionicons name="checkmark" size={14} color={colors.onPrimary} />}
                         </TouchableOpacity>
                       );
                     })}
@@ -302,7 +308,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.65)',
@@ -311,7 +317,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalBox: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     width: '100%',
     maxWidth: 520,
@@ -325,22 +331,22 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     padding: 4,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
   },
   scrollList: {
     padding: Spacing.lg,
@@ -349,9 +355,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#fed7aa',
+    borderColor: colors.warning,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     marginBottom: Spacing.md,
@@ -360,32 +366,32 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#ffedd5',
+    backgroundColor: colors.warningSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
   deviceBtnTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   deviceBtnSub: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   errorNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.sm,
     borderRadius: Radii.md,
     marginBottom: Spacing.md,
   },
   errorText: {
     fontSize: 12,
-    color: '#b91c1c',
+    color: colors.danger,
   },
   section: {
     marginBottom: Spacing.lg,
@@ -395,44 +401,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginBottom: Spacing.sm,
   },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginBottom: Spacing.xs,
   },
   itemCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: '#fff7ed',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   itemIconCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
   itemTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   itemSub: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   defaultBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: Radii.full,
@@ -440,7 +446,7 @@ const styles = StyleSheet.create({
   defaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#15803d',
+    color: colors.success,
   },
   cityGrid: {
     flexDirection: 'row',
@@ -450,32 +456,32 @@ const styles = StyleSheet.create({
   cityCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     justifyContent: 'space-between',
   },
   cityCardActive: {
-    borderColor: Colors.primary,
-    backgroundColor: '#fff7ed',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   cityCardDisabled: {
     opacity: 0.6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   cityName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   cityNameActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   cityNameDisabled: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   cityBadge: {
     alignSelf: 'flex-start',
@@ -484,24 +490,24 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   cityBadgeLive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   cityBadgeSoon: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.divider,
   },
   cityBadgeText: {
     fontSize: 11,
     fontWeight: '600',
   },
   cityBadgeTextLive: {
-    color: '#15803d',
+    color: colors.success,
   },
   cityBadgeTextSoon: {
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   emptyAreaText: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   areasGrid: {
@@ -513,23 +519,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
   },
   areaPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   areaPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   areaPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

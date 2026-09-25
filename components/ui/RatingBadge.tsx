@@ -5,6 +5,11 @@ import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface RatingBadgeProps {
   rating: number;
   reviewCount?: number;
@@ -18,6 +23,7 @@ export const RatingBadge: React.FC<RatingBadgeProps> = ({
   size = 'md',
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const isSmall = size === 'sm';
   const displayRating = rating > 0 ? rating.toFixed(1) : 'New';
 
@@ -53,14 +59,14 @@ export const RatingBadge: React.FC<RatingBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
     alignSelf: 'flex-start',
   },
   star: {
@@ -69,15 +75,16 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#92400E',
+    color: colors.warning,
     marginRight: 2,
   },
   countText: {
     fontSize: 11,
-    color: '#B45309',
+    color: colors.warning,
     fontWeight: '500',
   },
   textSm: {
     fontSize: 11,
   },
 });
+let styles = createStyles(lightColors);

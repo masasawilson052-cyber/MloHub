@@ -37,6 +37,11 @@ import {
   RestaurantQuote,
 } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const OCCASIONS: { id: CustomMealOccasion; label: string; labelSw: string }[] = [
   { id: 'PERSONAL', label: 'Personal / Daily', labelSw: 'Mlo Binafsi' },
   { id: 'FAMILY', label: 'Family Feast', labelSw: 'Sherehe ya Familia' },
@@ -75,6 +80,7 @@ const ALLERGEN_OPTIONS = [
 ];
 
 export default function CustomMealScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { user } = useAuth();
@@ -716,7 +722,7 @@ export default function CustomMealScreen() {
 
                 {budgetType === 'OPEN_TO_QUOTES' && (
                   <View style={styles.openBudgetNotice}>
-                    <Ionicons name="information-circle-outline" size={20} color={Colors.primaryDark} />
+                    <Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} />
                     <Text style={styles.openBudgetText}>
                       {language === 'sw'
                         ? 'Wapishi na migahawa iliyothibitishwa watatuma makadirio na ofa zao kulingana na viungo na idadi ya watu. Utachagua ofa inayokufaa zaidi bila vikwazo vya bajeti.'
@@ -732,7 +738,7 @@ export default function CustomMealScreen() {
               <View style={styles.stepContainer}>
                 {/* Privacy Guarantee Banner */}
                 <View style={styles.privacyBanner}>
-                  <Ionicons name="shield-checkmark" size={20} color={Colors.primary} />
+                  <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
                   <View style={{ flex: 1, marginLeft: Spacing.xs }}>
                     <Text style={styles.privacyHeading}>
                       {language === 'sw' ? '🔒 Faragha ya Anwani Imehakikishwa' : '🔒 Delayed Exact Address Privacy'}
@@ -811,7 +817,7 @@ export default function CustomMealScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Back to previous step"
                 >
-                  <Ionicons name="arrow-back" size={16} color={Colors.textPrimary} style={{ marginRight: 6 }} />
+                  <Ionicons name="arrow-back" size={16} color={colors.textPrimary} style={{ marginRight: 6 }} />
                   <Text style={styles.wizardBackBtnText}>
                     {language === 'sw' ? 'Nyuma' : 'Back'}
                   </Text>
@@ -829,7 +835,7 @@ export default function CustomMealScreen() {
                   <Text style={styles.wizardNextBtnText}>
                     {language === 'sw' ? 'Endelea' : 'Next Step'}
                   </Text>
-                  <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ marginLeft: 6 }} />
+                  <Ionicons name="arrow-forward" size={16} color={colors.white} style={{ marginLeft: 6 }} />
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -855,7 +861,7 @@ export default function CustomMealScreen() {
         {activeTab === 'QUOTES' && (
           <View style={styles.quotesSection}>
             {isLoadingQuotes && (
-              <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 12 }} />
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
             )}
 
             <View style={styles.quotesHeaderRow}>
@@ -872,7 +878,7 @@ export default function CustomMealScreen() {
                   }
                 }}
               >
-                <Ionicons name="refresh" size={18} color={Colors.primary} />
+                <Ionicons name="refresh" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -1036,10 +1042,10 @@ export default function CustomMealScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.md,
@@ -1056,23 +1062,23 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginTop: 2,
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.lg,
     padding: 4,
     marginBottom: Spacing.md,
@@ -1084,39 +1090,39 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
   },
   tabBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tabTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   formCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   privacyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: colors.info,
     marginBottom: Spacing.md,
     gap: 8,
   },
   privacyText: {
     fontSize: 12,
-    color: '#1e40af',
+    color: colors.info,
     flex: 1,
     lineHeight: 16,
     fontWeight: '600',
@@ -1127,18 +1133,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   textArea: {
     minHeight: 70,
@@ -1154,31 +1160,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   chip: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipWarning: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#f87171',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   chipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   chipWarningText: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   submitBtn: {
     marginTop: Spacing.md,
@@ -1195,20 +1201,20 @@ const styles = StyleSheet.create({
   quotesEyebrow: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   quoteCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   quoteCardAccepted: {
     borderColor: '#10b981',
     borderWidth: 2,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: colors.successSoft,
   },
   quoteCardSuperseded: {
     opacity: 0.6,
@@ -1222,7 +1228,7 @@ const styles = StyleSheet.create({
   quoteRestaurantName: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   quoteRatingRow: {
     flexDirection: 'row',
@@ -1237,10 +1243,10 @@ const styles = StyleSheet.create({
   },
   quoteReviews: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   lineItemsCard: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: Spacing.xs,
@@ -1248,7 +1254,7 @@ const styles = StyleSheet.create({
   lineItemsHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
@@ -1259,30 +1265,30 @@ const styles = StyleSheet.create({
   },
   lineItemName: {
     fontSize: 13,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   lineItemPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   pricingSummaryRow: {
     marginVertical: 4,
   },
   subtotalText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   grandTotalText: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginTop: 2,
   },
   quoteMessage: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginVertical: 6,
   },
   quoteFooter: {
@@ -1291,40 +1297,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
   },
   prepTimeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   acceptedPill: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
   acceptedPillText: {
-    color: '#065f46',
+    color: colors.success,
     fontWeight: '700',
     fontSize: 12,
   },
   supersededText: {
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 12,
     fontStyle: 'italic',
   },
   wizardProgressTrack: {
     height: 4,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.divider,
     borderRadius: 2,
     marginBottom: Spacing.md,
     overflow: 'hidden',
   },
   wizardProgressFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   wizardHeaderRow: {
     flexDirection: 'row',
@@ -1335,8 +1341,8 @@ const styles = StyleSheet.create({
   wizardStepBadge: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
-    backgroundColor: '#f0fdf4',
+    color: colors.primary,
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,
@@ -1344,7 +1350,7 @@ const styles = StyleSheet.create({
   wizardStepTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   stepContainer: {
     marginBottom: Spacing.sm,
@@ -1352,7 +1358,7 @@ const styles = StyleSheet.create({
   openBudgetNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
     borderRadius: Radii.md,
     padding: Spacing.md,
     gap: 8,
@@ -1361,13 +1367,13 @@ const styles = StyleSheet.create({
   openBudgetText: {
     flex: 1,
     fontSize: 13,
-    color: '#1e40af',
+    color: colors.info,
     lineHeight: 18,
   },
   privacyHeading: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   wizardFooterRow: {
@@ -1384,13 +1390,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
+    borderColor: colors.divider,
+    backgroundColor: colors.card,
   },
   wizardBackBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   wizardNextBtn: {
     flex: 1,
@@ -1399,12 +1405,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: Radii.md,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   wizardNextBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   wizardSubmitBtn: {
     flex: 1,
@@ -1413,14 +1419,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     borderRadius: Radii.md,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
   },
   wizardSubmitBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   btnDisabled: {
     opacity: 0.6,
   },
 });
+let styles = createStyles(lightColors);

@@ -7,6 +7,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { Badge } from '../ui/Badge';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface ProfileHeaderProps {
   fullName: string;
   email: string;
@@ -22,6 +27,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   location,
   onEditProfile,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const initials = fullName
     .split(' ')
     .map((n) => n[0])
@@ -49,7 +55,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Edit profile"
         >
-          <Ionicons name="pencil" size={16} color={Colors.primary} />
+          <Ionicons name="pencil" size={16} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -61,13 +67,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
   },
   topRow: {
@@ -78,7 +84,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
@@ -86,28 +92,28 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   detailsCol: {
     flex: 1,
   },
   nameText: {
     ...Typography.H2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   emailText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   phoneText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
   locationText: {
     fontSize: 11,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '500',
     marginTop: 2,
   },
@@ -115,7 +121,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -125,6 +131,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
 });
+let styles = createStyles(lightColors);

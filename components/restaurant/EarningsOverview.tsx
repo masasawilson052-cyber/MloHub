@@ -15,6 +15,11 @@ import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 import { Badge } from '../ui/Badge';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface EarningsRecord {
   orderId: string;
   orderNumber: string;
@@ -43,6 +48,7 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
   transactions,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [filter, setFilter] = useState<'ALL' | 'SUCCESS' | 'PENDING'>('ALL');
 
   const todayNet = todayNetTzs !== undefined
@@ -101,7 +107,7 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
       {/* Payout & Settlement Info Banner */}
       <View style={styles.payoutNoticeBanner}>
         <View style={styles.payoutNoticeLeft}>
-          <Ionicons name="information-circle-outline" size={20} color={Colors.primaryDark} />
+          <Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} />
           <View>
             <Text style={styles.payoutNoticeTitle}>Restaurant Earnings & Settlement Records</Text>
             <Text style={styles.payoutNoticeSub}>
@@ -159,7 +165,7 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -174,40 +180,40 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   summaryCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     flex: 1,
     minWidth: 240,
     ...Shadows.sm,
   },
   summaryLabel: {
     fontSize: Typography.Caption.fontSize,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: Typography.H2.fontSize,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   summarySub: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   payoutNoticeBanner: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoSoft,
     borderRadius: Radii.md,
     padding: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.info,
   },
   payoutNoticeLeft: {
     flexDirection: 'row',
@@ -218,11 +224,11 @@ const styles = StyleSheet.create({
   payoutNoticeTitle: {
     fontSize: Typography.BodyMedium.fontSize,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   payoutNoticeSub: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
     lineHeight: 16,
   },
@@ -235,21 +241,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterChipText: {
     fontSize: Typography.Caption.fontSize,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   tableList: {
@@ -260,24 +266,24 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   emptyText: {
     fontSize: Typography.BodyMedium.fontSize,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   txLeft: {
@@ -286,11 +292,11 @@ const styles = StyleSheet.create({
   txOrderNum: {
     fontSize: Typography.BodyMedium.fontSize,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   txDate: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   txMiddle: {
@@ -302,7 +308,7 @@ const styles = StyleSheet.create({
   },
   txMethod: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   txRight: {
@@ -312,11 +318,12 @@ const styles = StyleSheet.create({
   txNetPrice: {
     fontSize: Typography.BodyMedium.fontSize,
     fontWeight: '700',
-    color: '#059669', // Emerald/Green for net payout
+    color: colors.success, // Emerald/Green for net payout
   },
   txGross: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
 });
+let styles = createStyles(lightColors);

@@ -18,6 +18,11 @@ import { Typography } from '../../theme/typography';
 import { RestaurantRole } from '../../types/auth';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface StaffMember {
   id: string;
   userId: string;
@@ -54,6 +59,7 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
   onDeactivateStaff,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
@@ -191,10 +197,10 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
 
                 {member.userId !== currentUserId && member.isActive && (
                   <TouchableOpacity
-                    style={[styles.actionBtn, { borderColor: Colors.error }]}
+                    style={[styles.actionBtn, { borderColor: colors.danger }]}
                     onPress={() => handleDeactivate(member)}
                   >
-                    <Text style={[styles.actionBtnText, { color: Colors.error }]}>Deactivate</Text>
+                    <Text style={[styles.actionBtnText, { color: colors.danger }]}>Deactivate</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -210,7 +216,7 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Invite Team Member</Text>
               <TouchableOpacity onPress={() => setInviteModalVisible(false)}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -279,7 +285,7 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Update Role for {editingMember?.fullName}</Text>
               <TouchableOpacity onPress={() => setEditingMember(null)}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -321,7 +327,7 @@ export const StaffManager: React.FC<StaffManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -340,11 +346,11 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.H2,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   sub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   listContainer: {
@@ -355,11 +361,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   memberLeft: {
@@ -372,13 +378,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: Radii.full,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     ...Typography.H3,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '800',
   },
   memberDetails: {
@@ -392,10 +398,10 @@ const styles = StyleSheet.create({
   memberName: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   youBadge: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: Radii.sm,
@@ -404,22 +410,22 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 9,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   memberEmail: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   memberPhone: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   memberRight: {
     alignItems: 'flex-end',
     gap: 6,
   },
   rolePill: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
@@ -428,7 +434,7 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontWeight: '700',
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -438,13 +444,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     borderRadius: Radii.sm,
   },
   actionBtnText: {
     ...Typography.Caption,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 11,
   },
   modalOverlay: {
@@ -455,7 +461,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     maxWidth: 500,
     width: '100%',
@@ -478,12 +484,12 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     ...Typography.Body,
@@ -498,24 +504,24 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surfaceSecondary,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceInteractive,
     gap: Spacing.sm,
   },
   roleOptionActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryMuted,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   radioDot: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   radioDotActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   roleTextCol: {
     flex: 1,
@@ -523,11 +529,11 @@ const styles = StyleSheet.create({
   roleTitle: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   roleDesc: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   modalActionsRow: {
     flexDirection: 'row',
@@ -535,3 +541,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);

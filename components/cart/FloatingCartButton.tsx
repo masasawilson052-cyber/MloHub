@@ -14,7 +14,13 @@ import { Radii } from '../../theme/radius';
 import { Shadows } from '../../theme/shadows';
 import { PriceText } from '../ui/PriceText';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export const FloatingCartButton: React.FC = () => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { totalItems, subtotalTzs, setIsCartOpen } = useCart();
 
   if (totalItems === 0) return null;
@@ -40,17 +46,17 @@ export const FloatingCartButton: React.FC = () => {
           <PriceText
             amountTzs={subtotalTzs}
             size="sm"
-            color={Colors.white}
+            color={colors.white}
             style={styles.price}
           />
-          <Ionicons name="arrow-forward" size={16} color={Colors.white} style={styles.arrow} />
+          <Ionicons name="arrow-forward" size={16} color={colors.white} style={styles.arrow} />
         </View>
       </TouchableOpacity>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: Platform.OS === 'ios' ? 95 : 75,
@@ -64,7 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.xl,
     paddingVertical: 12,
     paddingHorizontal: Spacing.md,
@@ -77,7 +83,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countBadge: {
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -86,12 +92,12 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   countText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
   viewCartText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '600',
     fontSize: 15,
   },
@@ -106,3 +112,4 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
 });
+let styles = createStyles(lightColors);

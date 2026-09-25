@@ -2,7 +2,13 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export const DishCardSkeleton: React.FC = () => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   return (
     <View style={styles.card}>
       <View style={styles.imagePlaceholder} />
@@ -21,12 +27,12 @@ export const DishCardSkeleton: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
     overflow: 'hidden',
     ...Shadows.sm,
@@ -70,7 +76,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   ratingPlaceholder: {
     width: 60,
@@ -85,3 +91,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#edf1ee',
   },
 });
+let styles = createStyles(lightColors);

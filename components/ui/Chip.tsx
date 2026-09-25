@@ -8,9 +8,13 @@ import {
   StyleProp,
   View,
 } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface ChipProps {
   label: string;
@@ -31,11 +35,21 @@ export const Chip: React.FC<ChipProps> = ({
   textStyle,
   accessibilityLabel,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   return (
     <TouchableOpacity
       style={[
         styles.base,
-        selected ? styles.selected : styles.unselected,
+        selected
+          ? {
+              backgroundColor: colors.primary,
+              borderColor: colors.primary,
+            }
+          : {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
         style,
       ]}
       onPress={onPress}
@@ -49,7 +63,7 @@ export const Chip: React.FC<ChipProps> = ({
       <Text
         style={[
           styles.text,
-          selected ? styles.selectedText : styles.unselectedText,
+          { color: selected ? colors.card : colors.textPrimary },
           textStyle,
         ]}
       >
@@ -59,7 +73,7 @@ export const Chip: React.FC<ChipProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -69,14 +83,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: 38,
   },
-  selected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  unselected: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
-  },
   iconContainer: {
     marginRight: 6,
   },
@@ -84,10 +90,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  selectedText: {
-    color: Colors.white,
-  },
-  unselectedText: {
-    color: Colors.textPrimary,
-  },
 });
+let styles = createStyles(lightColors);

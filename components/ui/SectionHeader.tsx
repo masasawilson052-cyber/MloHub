@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface SectionHeaderProps {
   title: string;
@@ -19,11 +23,15 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   onAction,
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   return (
     <View style={[styles.container, style]}>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+        {subtitle ? (
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
+        ) : null}
       </View>
       {actionText && onAction ? (
         <TouchableOpacity
@@ -34,14 +42,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           accessibilityRole="button"
           accessibilityLabel={actionText}
         >
-          <Text style={styles.actionText}>{actionText}</Text>
+          <Text style={[styles.actionText, { color: colors.primary }]}>{actionText}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -55,16 +63,14 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.H2,
-    color: Colors.textPrimary,
   },
   subtitle: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
   actionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
   },
 });
+let styles = createStyles(lightColors);

@@ -16,6 +16,11 @@ import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../trust/ReportDiscrepancyModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface DishCardProps {
   dish: DishDiscoveryResult;
   onPress?: () => void;
@@ -31,6 +36,7 @@ export const DishCard: React.FC<DishCardProps> = ({
   isCompared = false,
   showCompareButton = true,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const [showTrustModal, setShowTrustModal] = useState(false);
@@ -258,12 +264,12 @@ export const DishCard: React.FC<DishCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
     overflow: 'hidden',
     ...Shadows.sm,
@@ -292,7 +298,7 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 12,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -333,16 +339,16 @@ const styles = StyleSheet.create({
   availText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#065f46',
+    color: colors.success,
   },
   lowStockPill: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.warningSoft,
   },
   lowStockDot: {
     backgroundColor: '#f59e0b',
   },
   lowStockText: {
-    color: '#b45309',
+    color: colors.warning,
   },
   unavailPill: {
     backgroundColor: 'rgba(254, 226, 226, 0.95)',
@@ -353,7 +359,7 @@ const styles = StyleSheet.create({
   unavailText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: colors.danger,
   },
   distanceTag: {
     position: 'absolute',
@@ -367,7 +373,7 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   body: {
     padding: Spacing.md,
@@ -385,18 +391,18 @@ const styles = StyleSheet.create({
   dishName: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   dishNameSw: {
     fontSize: 12,
     fontWeight: '500',
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   priceText: {
     fontSize: 16,
     fontWeight: '900',
-    color: Colors.primary,
+    color: colors.primary,
   },
   restaurantRow: {
     flexDirection: 'row',
@@ -406,17 +412,17 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
     maxWidth: '65%',
   },
   dotSeparator: {
     marginHorizontal: 6,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontSize: 12,
   },
   neighborhood: {
     fontSize: 12,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontWeight: '500',
     flexShrink: 1,
   },
@@ -426,50 +432,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   ratingBox: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   starIcon: {
-    color: '#f59e0b',
+    color: colors.warning,
     fontSize: 14,
     marginRight: 3,
   },
   ratingNumber: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginRight: 4,
   },
   reviewsCount: {
     fontSize: 12,
-    color: Colors.subtle,
+    color: colors.textMuted,
   },
   newBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   compareBtn: {
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.divider,
   },
   compareBtnActive: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   compareBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   compareBtnTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   actionBtnsRow: {
     flexDirection: 'row',
@@ -480,50 +486,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   addOrderBtnInCart: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   addOrderBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   addOrderBtnTextInCart: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   trustPillPositive: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#86EFAC',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
   },
   trustPillWarning: {
-    backgroundColor: '#FEF3C7',
-    borderColor: '#FDE68A',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   trustPillCritical: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   trustPillNeutral: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.surfaceInteractive,
+    borderColor: colors.border,
   },
   trustPillText: {
     fontWeight: '700',
   },
   trustTextPositive: {
-    color: '#15803D',
+    color: colors.success,
   },
   trustTextWarning: {
-    color: '#B45309',
+    color: colors.warning,
   },
   trustTextCritical: {
-    color: '#B91C1C',
+    color: colors.danger,
   },
   trustTextNeutral: {
-    color: '#475569',
+    color: colors.textSecondary,
   },
 });
+let styles = createStyles(lightColors);

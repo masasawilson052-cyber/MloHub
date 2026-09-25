@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface DividerProps {
   label?: string;
@@ -16,27 +20,32 @@ export const Divider: React.FC<DividerProps> = ({
   label,
   orientation = 'horizontal',
   style,
-  color = Colors.borderLight,
+  color,
   marginVertical = Spacing.md,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const dividerColor = color || colors.divider;
+
   if (orientation === 'vertical') {
-    return <View style={[styles.vertical, { backgroundColor: color }, style]} />;
+    return <View style={[styles.vertical, { backgroundColor: dividerColor }, style]} />;
   }
 
   if (label) {
     return (
       <View style={[styles.labelWrapper, { marginVertical }, style]}>
-        <View style={[styles.line, { backgroundColor: color }]} />
-        <Text style={styles.label}>{label}</Text>
-        <View style={[styles.line, { backgroundColor: color }]} />
+        <View style={[styles.line, { backgroundColor: dividerColor }]} />
+        <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+        <View style={[styles.line, { backgroundColor: dividerColor }]} />
       </View>
     );
   }
 
-  return <View style={[styles.horizontal, { backgroundColor: color, marginVertical }, style]} />;
+  return (
+    <View style={[styles.horizontal, { backgroundColor: dividerColor, marginVertical }, style]} />
+  );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   horizontal: {
     height: 1,
     width: '100%',
@@ -56,9 +65,9 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.bodySmall,
-    color: Colors.textMuted,
     paddingHorizontal: Spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
 });
+let styles = createStyles(lightColors);

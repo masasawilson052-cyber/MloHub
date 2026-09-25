@@ -17,6 +17,11 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { SupplyGapService } from '../../services/SupplyGapService';
 import { SupplyGapMetric, ConversionFunnelReport } from '../../types/analytics';
 
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface MarketValidationDashboardProps {
   language?: 'en' | 'sw';
 }
@@ -24,6 +29,7 @@ interface MarketValidationDashboardProps {
 export const MarketValidationDashboard: React.FC<MarketValidationDashboardProps> = ({
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [selectedWard, setSelectedWard] = useState<string>('ALL');
 
   const supplyGaps: SupplyGapMetric[] = useMemo(() => {
@@ -79,19 +85,19 @@ export const MarketValidationDashboard: React.FC<MarketValidationDashboardProps>
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiVal, { color: '#B91C1C' }]}>{criticalGapsCount}</Text>
+          <Text style={[styles.kpiVal, { color: colors.danger }]}>{criticalGapsCount}</Text>
           <Text style={styles.kpiLabel}>Critical Supply Gaps</Text>
           <Text style={styles.kpiSub}>High demand, near-zero supply</Text>
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiVal, { color: '#D97706' }]}>{highGapsCount}</Text>
+          <Text style={[styles.kpiVal, { color: colors.warning }]}>{highGapsCount}</Text>
           <Text style={styles.kpiLabel}>High Demand Alerts</Text>
           <Text style={styles.kpiSub}>Frequent zero-result searches</Text>
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiVal, { color: '#16A34A' }]}>
+          <Text style={[styles.kpiVal, { color: colors.success }]}>
             {Math.round(funnelReport.clickToOrderRate * 100)}%
           </Text>
           <Text style={styles.kpiLabel}>Click-to-Order Conversion</Text>
@@ -140,8 +146,8 @@ export const MarketValidationDashboard: React.FC<MarketValidationDashboardProps>
           <Text style={styles.stepArrow}>→</Text>
 
           <View style={[styles.funnelStep, styles.funnelStepSuccess]}>
-            <Text style={[styles.stepNum, { color: '#15803D' }]}>{funnelReport.ordersCompleted}</Text>
-            <Text style={[styles.stepName, { color: '#15803D' }]}>Orders</Text>
+            <Text style={[styles.stepNum, { color: colors.success }]}>{funnelReport.ordersCompleted}</Text>
+            <Text style={[styles.stepName, { color: colors.success }]}>Orders</Text>
           </View>
         </View>
 
@@ -227,7 +233,7 @@ export const MarketValidationDashboard: React.FC<MarketValidationDashboardProps>
                   <Text style={styles.metricLabelText}>Searches</Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={[styles.metricValText, { color: '#B91C1C' }]}>
+                  <Text style={[styles.metricValText, { color: colors.danger }]}>
                     {gap.zeroResultCount} ({Math.round(gap.zeroResultRate * 100)}%)
                   </Text>
                   <Text style={styles.metricLabelText}>Zero Results</Text>
@@ -250,10 +256,10 @@ export const MarketValidationDashboard: React.FC<MarketValidationDashboardProps>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
   },
   content: {
     padding: Spacing.lg,
@@ -269,17 +275,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   demoBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.sm,
@@ -287,7 +293,7 @@ const styles = StyleSheet.create({
   demoBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#B45309',
+    color: colors.warning,
     letterSpacing: 0.5,
   },
   kpiRow: {
@@ -298,45 +304,45 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     minWidth: 160,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   kpiVal: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   kpiLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
     marginTop: 4,
   },
   kpiSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   sectionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   sectionSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
     marginBottom: Spacing.md,
   },
@@ -353,38 +359,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.md,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceInteractive,
     minWidth: 70,
   },
   funnelStepSuccess: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
   },
   stepNum: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   stepName: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   stepArrow: {
     fontSize: 16,
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontWeight: '700',
   },
   funnelInsightBox: {
     marginTop: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoSoft,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.info,
   },
   funnelInsightText: {
     fontSize: 13,
-    color: '#1E3A8A',
+    color: colors.info,
     lineHeight: 18,
   },
   filterSection: {
@@ -393,7 +399,7 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   filterScroll: {
     gap: 8,
@@ -403,41 +409,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterPillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   gapsList: {
     gap: Spacing.md,
   },
   gapCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   gapCardCritical: {
     borderLeftWidth: 4,
-    borderLeftColor: '#DC2626',
+    borderLeftColor: colors.danger,
   },
   gapCardHigh: {
     borderLeftWidth: 4,
-    borderLeftColor: '#D97706',
+    borderLeftColor: colors.warning,
   },
   gapHeader: {
     flexDirection: 'row',
@@ -449,40 +455,40 @@ const styles = StyleSheet.create({
   dishQueryText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   wardText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   urgencyPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.sm,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.divider,
   },
   urgencyCritical: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   urgencyHigh: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
   },
   urgencyText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   urgencyTextCritical: {
-    color: '#B91C1C',
+    color: colors.danger,
   },
   urgencyTextHigh: {
-    color: '#B45309',
+    color: colors.warning,
   },
   metricsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     padding: Spacing.sm,
     borderRadius: Radii.sm,
   },
@@ -492,11 +498,11 @@ const styles = StyleSheet.create({
   metricValText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   metricLabelText: {
     fontSize: 10,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 1,
   },
   actionBox: {
@@ -508,11 +514,12 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   actionText: {
     fontSize: 12,
-    color: '#0F172A',
+    color: colors.textPrimary,
     flex: 1,
   },
 });
+let styles = createStyles(lightColors);

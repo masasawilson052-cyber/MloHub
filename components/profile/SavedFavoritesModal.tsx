@@ -18,6 +18,11 @@ import { FavoritesRepository } from '../../repositories/favorites.repository';
 import { RestaurantRepository } from '../../repositories/restaurants.repository';
 import { Restaurant } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface SavedFavoritesModalProps {
   visible: boolean;
   onClose: () => void;
@@ -27,6 +32,7 @@ export const SavedFavoritesModal: React.FC<SavedFavoritesModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { user } = useAuth();
   const [favoriteRestaurants, setFavoriteRestaurants] = useState<Restaurant[]>([]);
@@ -81,16 +87,16 @@ export const SavedFavoritesModal: React.FC<SavedFavoritesModalProps> = ({
               <Text style={styles.subtitle}>Your preferred kitchens in Dar es Salaam</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {loading ? (
-              <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
             ) : favoriteRestaurants.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="heart-outline" size={48} color={Colors.textMuted} />
+                <Ionicons name="heart-outline" size={48} color={colors.textMuted} />
                 <Text style={styles.emptyTitle}>No favorite restaurants yet</Text>
                 <Text style={styles.emptySub}>
                   Tap the heart icon on any restaurant card to save your favorite spots here.
@@ -144,14 +150,14 @@ export const SavedFavoritesModal: React.FC<SavedFavoritesModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '85%',
@@ -163,16 +169,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -188,12 +194,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 280,
@@ -201,18 +207,18 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   image: {
     width: 64,
     height: 64,
     borderRadius: Radii.sm,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.divider,
   },
   cardContent: {
     flex: 1,
@@ -221,11 +227,11 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   cardCuisine: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   ratingRow: {
@@ -237,13 +243,14 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   reviewsText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
   },
   removeBtn: {
     padding: Spacing.sm,
   },
 });
+let styles = createStyles(lightColors);

@@ -3,8 +3,14 @@ import { Text, TouchableOpacity, View } from 'react-native';
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { useMloHubDB } from '../context/DbContext';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 // Reports API reachability only; it deliberately makes no payment/RLS claims.
 export function ConnectionNotice() {
+  const { colors: _tc } = useTheme(); colors = _tc;
   const { error: dataError, refreshState } = useMloHubDB();
   const [offline, setOffline] = useState(false);
   const [checking, setChecking] = useState(false);

@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import { Button } from './Button';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface EmptyStateProps {
   title: string;
@@ -27,16 +31,27 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const displayText = description || message || '';
   const buttonText = actionTitle || actionLabel;
 
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.iconCircle}>
-        <Ionicons name={icon} size={36} color={Colors.primary} />
+      <View
+        style={[
+          styles.iconCircle,
+          {
+            backgroundColor: colors.surfaceInteractive,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Ionicons name={icon} size={34} color={colors.primary} />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {displayText ? <Text style={styles.message}>{displayText}</Text> : null}
+      <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+      {displayText ? (
+        <Text style={[styles.message, { color: colors.textSecondary }]}>{displayText}</Text>
+      ) : null}
       {buttonText && onAction ? (
         <Button
           title={buttonText}
@@ -50,7 +65,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -60,7 +75,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.primaryMuted,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -73,7 +88,6 @@ const styles = StyleSheet.create({
   message: {
     ...Typography.Body,
     textAlign: 'center',
-    color: Colors.textSecondary,
     maxWidth: 320,
     marginBottom: Spacing.lg,
   },
@@ -81,3 +95,4 @@ const styles = StyleSheet.create({
     minWidth: 160,
   },
 });
+let styles = createStyles(lightColors);

@@ -1,11 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
-import { Typography } from '../../theme/typography';
 import { RestaurantEntity } from '../../db/types';
+import { useTheme } from '../../context/ThemeContext';
+import { useNotifications } from '../../context/NotificationContext';
+import { ThemeQuickSwitcher } from '../theme/ThemeQuickSwitcher';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export type RealtimeStatus = 'LIVE' | 'RECONNECTING' | 'OFFLINE';
 
@@ -32,129 +38,229 @@ export const RestaurantPortalHeader: React.FC<RestaurantPortalHeaderProps> = ({
   activeBranchId,
   onSelectBranch,
 }) => {
+  const router = useRouter();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { unreadCount } = useNotifications();
+
+  const activeBranchName =
+    branches.find((b) => b.id === activeBranchId)?.name ||
+    restaurant.neighborhood ||
+    restaurant.regionCity ||
+    'No branch selected';
+
+  const statusTone =
+    realtimeStatus === 'LIVE'
+      ? { bg: colors.successSoft, dot: colors.success, text: colors.success, label: 'LIVE' }
+      : realtimeStatus === 'RECONNECTING'
+      ? { bg: colors.warningSoft, dot: colors.warning, text: colors.warning, label: 'SYNCING' }
+      : { bg: colors.dangerSoft, dot: colors.danger, text: colors.danger, label: 'OFFLINE' };
+
   return (
-    <View style={styles.headerContainer}>
+    <View
+      style={[
+        styles.headerContainer,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.leftRow}>
         {onToggleMobileNav && (
           <TouchableOpacity
-            style={styles.menuIconBtn}
+            style={[
+              styles.menuIconBtn,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
             onPress={onToggleMobileNav}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityRole="button"
             accessibilityLabel="Open navigation"
           >
-            <Ionicons name="menu-outline" size={24} color={Colors.textPrimary} />
+            <Ionicons name="menu-outline" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
         )}
 
-        <View style={styles.brandBadge}>
+        <View style={[styles.brandBadge, { backgroundColor: colors.primarySoft }]}>
           <Text style={styles.brandEmoji}>🍳</Text>
         </View>
 
         <View style={styles.nameBlock}>
           <View style={styles.titleRow}>
-            <Text style={styles.restaurantName} numberOfLines={1}>
+            <Text
+              style={[styles.restaurantName, { color: colors.textPrimary }]}
+              numberOfLines={1}
+            >
               {restaurant.name}
             </Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>{userRoleLabel}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: colors.primarySoft }]}>
+              <Text style={[styles.roleBadgeText, { color: colors.primary }]}>
+                {userRoleLabel}
+              </Text>
             </View>
           </View>
 
-          {branches.length > 1 && onSelectBranch ? (
-            <View style={styles.branchRow}>
-              <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
-              <Text style={styles.branchText}>
-                {branches.find((b) => b.id === activeBranchId)?.name || 'No branch selected'}
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.neighborhoodText}>
-              {restaurant.neighborhood || restaurant.regionCity || restaurant.address || ''}
-            </Text>
-          )}
+          <Text
+            style={[styles.neighborhoodText, { color: colors.textMuted }]}
+            numberOfLines={1}
+          >
+            {restaurant.neighborhood || restaurant.regionCity || restaurant.address || 'Merchant Operations Workbench'}
+          </Text>
         </View>
       </View>
 
+      {/* Right Cluster: [Branch] [LIVE] [Theme] [Notifications] [Refresh] [Account/Logout] */}
       <View style={styles.rightRow}>
-        {/* Realtime Status Indicator */}
-        <View style={styles.realtimePill}>
-          <View
-            style={[
-              styles.realtimeDot,
-              realtimeStatus === 'LIVE' && styles.dotLive,
-              realtimeStatus === 'RECONNECTING' && styles.dotReconnecting,
-              realtimeStatus === 'OFFLINE' && styles.dotOffline,
-            ]}
-          />
-          <Text style={styles.realtimeText}>
-            {realtimeStatus === 'LIVE'
-              ? 'Live'
-              : realtimeStatus === 'RECONNECTING'
-              ? 'Reconnecting...'
-              : 'Offline'}
+        {/* Branch Pill */}
+        <TouchableOpacity
+          style={[
+            styles.branchPill,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
+          disabled={branches.length <= 1 || !onSelectBranch}
+          onPress={() => {
+            if (branches.length > 1 && onSelectBranch) {
+              const idx = branches.findIndex((b) => b.id === activeBranchId);
+              const next = branches[(idx + 1) % branches.length];
+              if (next) onSelectBranch(next.id);
+            }
+          }}
+          accessibilityLabel={`Branch: ${activeBranchName}`}
+        >
+          <Ionicons name="storefront-outline" size={13} color={colors.primary} />
+          <Text
+            style={[styles.branchPillText, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {activeBranchName}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Realtime LIVE Status Indicator */}
+        <View style={[styles.realtimePill, { backgroundColor: statusTone.bg }]}>
+          <View style={[styles.realtimeDot, { backgroundColor: statusTone.dot }]} />
+          <Text style={[styles.realtimeText, { color: statusTone.text }]}>
+            {statusTone.label}
           </Text>
         </View>
 
+        {/* Top-Right Theme Quick Switcher */}
+        <ThemeQuickSwitcher />
+
+        {/* Notifications */}
+        <TouchableOpacity
+          style={[
+            styles.actionBtn,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
+          onPress={() => router.push('/notifications')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Notifications. ${unreadCount} unread.`}
+        >
+          <Ionicons name="notifications-outline" size={18} color={colors.textPrimary} />
+          {unreadCount > 0 && (
+            <View
+              style={[
+                styles.notifBadge,
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.topbarBackground,
+                },
+              ]}
+            >
+              <Text style={styles.notifBadgeText}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         {/* Refresh Action */}
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[
+            styles.actionBtn,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={onRefresh}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Refresh portal data"
         >
-          <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
+          <Ionicons name="refresh-outline" size={18} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        {/* Logout / Switch Workspace */}
+        {/* Account / Logout */}
         <TouchableOpacity
-          style={styles.actionBtn}
+          style={[
+            styles.actionBtn,
+            {
+              backgroundColor: colors.dangerSoft,
+              borderColor: 'transparent',
+            },
+          ]}
           onPress={onLogout}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Log out from restaurant portal"
         >
-          <Ionicons name="log-out-outline" size={20} color={Colors.error} />
+          <Ionicons name="log-out-outline" size={18} color={colors.danger} />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   headerContainer: {
-    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 64,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   leftRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 200,
     marginRight: Spacing.sm,
   },
   menuIconBtn: {
-    marginRight: Spacing.sm,
-    padding: 4,
-  },
-  brandBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: Radii.md,
-    backgroundColor: Colors.primaryMuted,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.sm,
+    marginRight: 10,
+  },
+  brandBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   brandEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
   nameBlock: {
     flex: 1,
@@ -166,79 +272,87 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   restaurantName: {
-    ...Typography.H3,
-    color: Colors.textPrimary,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
   roleBadge: {
-    backgroundColor: Colors.primaryDark,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: Radii.sm,
+    borderRadius: 6,
   },
   roleBadgeText: {
-    ...Typography.Caption,
-    color: Colors.white,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   neighborhoodText: {
-    ...Typography.Caption,
-    color: Colors.textMuted,
+    fontSize: 11,
     marginTop: 1,
-  },
-  branchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 1,
-  },
-  branchText: {
-    ...Typography.Caption,
-    color: Colors.primary,
-    fontWeight: '600',
   },
   rightRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: 8,
+  },
+  branchPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 34,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    maxWidth: 150,
+  },
+  branchPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   realtimePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    height: 32,
     borderRadius: Radii.full,
-    gap: 5,
+    gap: 6,
   },
   realtimeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  dotLive: {
-    backgroundColor: Colors.success,
-  },
-  dotReconnecting: {
-    backgroundColor: Colors.warning,
-  },
-  dotOffline: {
-    backgroundColor: Colors.error,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   realtimeText: {
-    ...Typography.Caption,
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   actionBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  notifBadgeText: {
+    color: colors.onPrimary,
+    fontSize: 8,
+    fontWeight: '900',
   },
 });
+let styles = createStyles(lightColors);

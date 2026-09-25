@@ -5,11 +5,15 @@ import {
   StyleSheet,
   ViewStyle,
   StyleProp,
+  Platform,
 } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
-import { Shadows } from '../../theme/shadows';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface CardProps {
   children: React.ReactNode;
@@ -28,26 +32,39 @@ export const Card: React.FC<CardProps> = ({
   padding = 'md',
   accessibilityLabel,
 }) => {
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   const getVariantStyle = (): ViewStyle => {
     switch (variant) {
       case 'elevated':
         return {
-          backgroundColor: Colors.surface,
-          ...Shadows.sm,
+          backgroundColor: colors.cardElevated,
           borderWidth: 1,
-          borderColor: Colors.borderLight,
+          borderColor: colors.border,
+          ...(!isDark
+            ? (Platform.select({
+                web: { boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)' } as any,
+                default: {
+                  shadowColor: colors.textPrimary,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 6,
+                  elevation: 2,
+                },
+              }) || {})
+            : {}),
         };
       case 'flat':
         return {
-          backgroundColor: Colors.surfaceSecondary,
+          backgroundColor: colors.surfaceMuted,
           borderWidth: 0,
         };
       case 'outlined':
       default:
         return {
-          backgroundColor: Colors.surface,
+          backgroundColor: colors.card,
           borderWidth: 1,
-          borderColor: Colors.border,
+          borderColor: colors.border,
         };
     }
   };
@@ -77,9 +94,10 @@ export const Card: React.FC<CardProps> = ({
   return <View style={containerStyles}>{children}</View>;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
     borderRadius: Radii.lg,
     overflow: 'hidden',
   },
 });
+let styles = createStyles(lightColors);

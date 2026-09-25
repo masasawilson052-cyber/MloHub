@@ -22,6 +22,11 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface IncomingOrdersPanelProps {
   orders: Order[];
   onAcceptOrder: (orderId: string, estimatedPrepMinutes: number) => Promise<void>;
@@ -39,6 +44,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   language = 'en',
   userRole,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'PREPARING' | 'READY' | 'OUT_FOR_DELIVERY' | 'COMPLETED'>('ALL');
 
   // Accept Modal State
@@ -210,7 +216,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
 
               {order.specialInstructions && (
                 <View style={styles.notesBox}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={14} color={Colors.textMuted} />
+                  <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.textMuted} />
                   <Text style={styles.notesText}>{order.specialInstructions}</Text>
                 </View>
               )}
@@ -237,12 +243,12 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                           <TouchableOpacity
                             style={[
                               styles.acceptBtn,
-                              !isPaid && { opacity: 0.45, backgroundColor: '#d1d5db' },
+                              !isPaid && { opacity: 0.45, backgroundColor: colors.divider },
                             ]}
                             disabled={!isPaid}
                             onPress={() => isPaid && setAcceptingOrder(order)}
                           >
-                            <Text style={[styles.acceptBtnText, !isPaid && { color: '#6b7280' }]}>
+                            <Text style={[styles.acceptBtnText, !isPaid && { color: colors.textMuted }]}>
                               {isPaid ? 'Accept Order' : 'Awaiting Payment'}
                             </Text>
                           </TouchableOpacity>
@@ -256,17 +262,17 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                       style={styles.actionTransitionBtn}
                       onPress={() => onUpdateStatus(order.id, 'PREPARING')}
                     >
-                      <Ionicons name="flame" size={16} color={Colors.white} />
+                      <Ionicons name="flame" size={16} color={colors.white} />
                       <Text style={styles.actionTransitionText}>Start Cooking</Text>
                     </TouchableOpacity>
                   )}
 
                   {order.status === 'PREPARING' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER' || userRole === 'CHEF') && (
                     <TouchableOpacity
-                      style={[styles.actionTransitionBtn, { backgroundColor: Colors.success }]}
+                      style={[styles.actionTransitionBtn, { backgroundColor: colors.success }]}
                       onPress={() => onUpdateStatus(order.id, 'READY')}
                     >
-                      <Ionicons name="bag-check" size={16} color={Colors.white} />
+                      <Ionicons name="bag-check" size={16} color={colors.white} />
                       <Text style={styles.actionTransitionText}>Mark Ready</Text>
                     </TouchableOpacity>
                   )}
@@ -279,17 +285,17 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                         accessibilityRole="button"
                         accessibilityLabel="Dispatch Order"
                       >
-                        <Ionicons name="bicycle" size={16} color={Colors.white} />
+                        <Ionicons name="bicycle" size={16} color={colors.white} />
                         <Text style={styles.actionTransitionText}>Dispatch Order</Text>
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
-                        style={[styles.actionTransitionBtn, { backgroundColor: Colors.primaryDark }]}
+                        style={[styles.actionTransitionBtn, { backgroundColor: colors.primaryDark }]}
                         onPress={() => onUpdateStatus(order.id, 'COMPLETED')}
                         accessibilityRole="button"
                         accessibilityLabel="Hand to Customer"
                       >
-                        <Ionicons name="checkmark-done" size={16} color={Colors.white} />
+                        <Ionicons name="checkmark-done" size={16} color={colors.white} />
                         <Text style={styles.actionTransitionText}>Hand to Customer</Text>
                       </TouchableOpacity>
                     )
@@ -297,12 +303,12 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
 
                   {order.status === 'OUT_FOR_DELIVERY' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     <TouchableOpacity
-                      style={[styles.actionTransitionBtn, { backgroundColor: Colors.primaryDark }]}
+                      style={[styles.actionTransitionBtn, { backgroundColor: colors.primaryDark }]}
                       onPress={() => onUpdateStatus(order.id, 'COMPLETED')}
                       accessibilityRole="button"
                       accessibilityLabel="Delivered / Complete"
                     >
-                      <Ionicons name="checkmark-done" size={16} color={Colors.white} />
+                      <Ionicons name="checkmark-done" size={16} color={colors.white} />
                       <Text style={styles.actionTransitionText}>Delivered / Complete</Text>
                     </TouchableOpacity>
                   )}
@@ -320,7 +326,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Accept Order #{acceptingOrder?.orderNumber}</Text>
               <TouchableOpacity onPress={() => setAcceptingOrder(null)}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -366,11 +372,11 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: Colors.error }]}>
+              <Text style={[styles.modalTitle, { color: colors.danger }]}>
                 Reject Order #{rejectingOrder?.orderNumber}
               </Text>
               <TouchableOpacity onPress={() => setRejectingOrder(null)}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -420,7 +426,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -440,25 +446,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     gap: 6,
   },
   filterChipActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   filterChipText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   filterCountBadge: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: Radii.full,
@@ -470,20 +476,20 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   filterCountTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   scrollList: {
     paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
   orderCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     padding: Spacing.md,
     ...Shadows.sm,
   },
@@ -492,7 +498,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
     paddingBottom: Spacing.sm,
     marginBottom: Spacing.sm,
   },
@@ -503,13 +509,13 @@ const styles = StyleSheet.create({
   },
   orderNumber: {
     ...Typography.H3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   orderFulfillment: {
     ...Typography.Caption,
-    color: Colors.textMuted,
-    backgroundColor: Colors.surfaceSecondary,
+    color: colors.textMuted,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
@@ -521,7 +527,7 @@ const styles = StyleSheet.create({
   },
   orderTime: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   itemsList: {
     marginVertical: Spacing.xs,
@@ -534,31 +540,31 @@ const styles = StyleSheet.create({
   itemQty: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
     width: 28,
   },
   itemName: {
     ...Typography.Body,
     flex: 1,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   itemPrice: {
     ...Typography.BodyMedium,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   notesBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.xs,
     borderRadius: Radii.sm,
     marginTop: 6,
   },
   notesText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   orderFooter: {
@@ -566,7 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
     marginTop: Spacing.sm,
     flexWrap: 'wrap',
@@ -574,11 +580,11 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   totalVal: {
     ...Typography.H3,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '800',
   },
   actionsRow: {
@@ -587,39 +593,39 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   acceptBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.md,
   },
   acceptBtnText: {
     ...Typography.Caption,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   rejectBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.md,
   },
   rejectBtnText: {
     ...Typography.Caption,
-    color: Colors.error,
+    color: colors.danger,
     fontWeight: '700',
   },
   actionTransitionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.md,
   },
   actionTransitionText: {
     ...Typography.Caption,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   modalOverlay: {
@@ -630,7 +636,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     maxWidth: 460,
@@ -649,7 +655,7 @@ const styles = StyleSheet.create({
   },
   modalPrompt: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: Spacing.md,
   },
   prepOptionsRow: {
@@ -662,20 +668,20 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
   },
   prepPillActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   prepPillText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   prepPillTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   modalActionsRow: {
     flexDirection: 'row',
@@ -688,7 +694,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reasonOptionSelected: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.sm,
     paddingHorizontal: 8,
   },
@@ -697,22 +703,23 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   radioDotActive: {
-    borderColor: Colors.error,
-    backgroundColor: Colors.error,
+    borderColor: colors.danger,
+    backgroundColor: colors.error,
   },
   reasonText: {
     ...Typography.Body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   customReasonInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: Spacing.sm,
     ...Typography.Body,
   },
 });
+let styles = createStyles(lightColors);

@@ -1,11 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii } from '../../constants/theme';
+import { Spacing, Radii } from '../../constants/theme';
 import { UserRole } from '../../db/types';
 import { AdminTabId, ADMIN_NAV_ITEMS } from './AdminSidebar';
-
 import { useTheme } from '../../context/ThemeContext';
+
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
 
 interface AdminMobileNavProps {
   activeTab: AdminTabId;
@@ -30,10 +33,18 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
   badges = {},
 }) => {
   const isSuperAdmin = userRole === UserRole.SUPER_ADMIN || userRole === 'SUPER_ADMIN';
-  const { colors, isDark } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -56,29 +67,44 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
               key={item.id}
               style={[
                 styles.pill,
-                { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border },
-                isActive && styles.pillActive,
+                {
+                  backgroundColor: isActive
+                    ? colors.primary
+                    : colors.surfaceInteractive,
+                  borderColor: isActive ? colors.primary : colors.border,
+                },
               ]}
               onPress={() => onSelectTab(item.id)}
             >
               <Ionicons
                 name={item.icon}
                 size={14}
-                color={isActive ? '#ffffff' : isDark ? colors.textSecondary : '#64748b'}
+                color={isActive ? colors.card : colors.textSecondary}
                 style={styles.icon}
               />
               <Text
                 style={[
                   styles.label,
-                  { color: isDark ? colors.text : '#475569' },
-                  isActive && styles.labelActive,
+                  { color: isActive ? colors.card : colors.textSecondary },
                 ]}
               >
                 {language === 'sw' ? item.labelSw : item.labelEn}
               </Text>
               {badgeCount > 0 && (
-                <View style={[styles.badge, isActive ? styles.badgeActive : styles.badgeDefault]}>
-                  <Text style={[styles.badgeText, isActive ? styles.badgeTextActive : styles.badgeTextDefault]}>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: isActive ? colors.card : colors.dangerSoft,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      { color: isActive ? colors.primary : colors.danger },
+                    ]}
+                  >
                     {badgeCount > 99 ? '99+' : badgeCount}
                   </Text>
                 </View>
@@ -91,17 +117,14 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
   );
 };
 
-
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   scrollContent: {
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.xs,
+    paddingVertical: 8,
+    gap: 8,
   },
   pill: {
     flexDirection: 'row',
@@ -109,13 +132,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.full,
-    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
   },
   icon: {
     marginRight: 6,
@@ -123,10 +140,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
-  },
-  labelActive: {
-    color: '#ffffff',
   },
   badge: {
     marginLeft: 6,
@@ -134,20 +147,9 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: Radii.full,
   },
-  badgeDefault: {
-    backgroundColor: '#fee2e2',
-  },
-  badgeActive: {
-    backgroundColor: '#ffffff',
-  },
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
   },
-  badgeTextDefault: {
-    color: '#b91c1c',
-  },
-  badgeTextActive: {
-    color: Colors.primary,
-  },
 });
+let styles = createStyles(lightColors);

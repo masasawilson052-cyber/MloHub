@@ -6,6 +6,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { BranchOperationalMode } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export type StatusType = 'OPEN' | 'BUSY' | 'PAUSED' | 'CLOSED' | 'AVAILABLE' | 'SOLD_OUT' | 'PENDING' | 'SUCCESS' | 'WARNING';
 
 export interface StatusProps {
@@ -25,45 +30,46 @@ export const Status: React.FC<StatusProps> = ({
   size = 'md',
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getConfig = () => {
     switch (status) {
       case 'OPEN':
       case 'AVAILABLE':
       case 'SUCCESS':
         return {
-          dotColor: Colors.botanicalGreen,
-          bg: Colors.botanicalGreenLight,
-          textColor: Colors.botanicalGreen,
+          dotColor: colors.botanicalGreen,
+          bg: colors.botanicalGreenLight,
+          textColor: colors.botanicalGreen,
           defaultLabel: 'Open Now',
         };
       case 'BUSY':
         return {
-          dotColor: Colors.warning,
-          bg: Colors.warningLight,
-          textColor: Colors.warningDark,
+          dotColor: colors.warning,
+          bg: colors.warningLight,
+          textColor: colors.warningDark,
           defaultLabel: busyDelayMinutes ? `Busy (+${busyDelayMinutes}m)` : 'High Demand',
         };
       case 'PAUSED':
         return {
-          dotColor: Colors.warning,
-          bg: Colors.warningLight,
-          textColor: Colors.warningDark,
+          dotColor: colors.warning,
+          bg: colors.warningLight,
+          textColor: colors.warningDark,
           defaultLabel: pauseReason || 'Pausing New Orders',
         };
       case 'CLOSED':
       case 'SOLD_OUT':
       case 'UNAVAILABLE':
         return {
-          dotColor: Colors.error,
-          bg: Colors.errorLight,
-          textColor: Colors.error,
+          dotColor: colors.error,
+          bg: colors.errorLight,
+          textColor: colors.error,
           defaultLabel: status === 'SOLD_OUT' ? 'Sold Out' : 'Closed',
         };
       default:
         return {
-          dotColor: Colors.textMuted,
-          bg: Colors.surfaceSecondary,
-          textColor: Colors.textSecondary,
+          dotColor: colors.textMuted,
+          bg: colors.surfaceSecondary,
+          textColor: colors.textSecondary,
           defaultLabel: String(status),
         };
     }
@@ -102,7 +108,7 @@ export const Status: React.FC<StatusProps> = ({
 // Also export AvailabilityBadge for backward compatibility
 export const AvailabilityBadge = Status;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -131,3 +137,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
 });
+let styles = createStyles(lightColors);

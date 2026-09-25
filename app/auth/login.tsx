@@ -22,7 +22,13 @@ import { UserRole, hasAdminAccess } from '../../db/types';
 import { Button } from '../../components/ui/Button';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function LoginScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string; returnTo?: string }>();
   const { language } = useLanguage();
@@ -133,7 +139,7 @@ export default function LoginScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {isAdminLogin ? 'Administrator Sign In' : isRestaurantLogin ? 'Restaurant Partner Login' : 'Customer Sign In'}
@@ -189,7 +195,7 @@ export default function LoginScreen() {
               <Ionicons
                 name={(enablePhoneAuth || isRestaurantLogin) && !emailOrPhone.includes('@') ? 'call-outline' : 'mail-outline'}
                 size={18}
-                color={isEmailFocused ? Colors.primary : Colors.muted}
+                color={isEmailFocused ? colors.primary : colors.muted}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -203,7 +209,7 @@ export default function LoginScreen() {
                     ? (language === 'sw' ? 'email au namba ya simu (+255...)' : 'name@example.com or +255...')
                     : 'name@example.com'
                 }
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -219,7 +225,7 @@ export default function LoginScreen() {
               <Ionicons
                 name="lock-closed-outline"
                 size={18}
-                color={isPasswordFocused ? Colors.primary : Colors.muted}
+                color={isPasswordFocused ? colors.primary : colors.muted}
                 style={styles.inputIcon}
               />
               <TextInput
@@ -229,7 +235,7 @@ export default function LoginScreen() {
                 onFocus={() => setIsPasswordFocused(true)}
                 onBlur={() => setIsPasswordFocused(false)}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
@@ -241,7 +247,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={18}
-                  color={isPasswordFocused ? Colors.primary : Colors.muted}
+                  color={isPasswordFocused ? colors.primary : colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -301,7 +307,7 @@ export default function LoginScreen() {
                 onPress={() => router.replace('/(tabs)')}
                 activeOpacity={0.85}
               >
-                <Ionicons name="compass-outline" size={18} color={Colors.brandInk} style={{ marginRight: 8 }} />
+                <Ionicons name="compass-outline" size={18} color={colors.brandInk} style={{ marginRight: 8 }} />
                 <Text style={styles.guestBtnText}>
                   {language === 'sw' ? 'Gundua Chakula Bila Kuingia' : 'Explore as Guest'}
                 </Text>
@@ -336,7 +342,7 @@ export default function LoginScreen() {
           <Ionicons
             name={isRestaurantLogin ? 'person-outline' : 'restaurant-outline'}
             size={16}
-            color={Colors.primary}
+            color={colors.primary}
             style={{ marginRight: 6 }}
           />
           <Text style={styles.switchPortalText}>
@@ -352,7 +358,7 @@ export default function LoginScreen() {
             <Text style={styles.demoTitle}>⚡ Quick Demo Accounts</Text>
             <View style={styles.demoButtonsRow}>
               <TouchableOpacity
-                style={[styles.demoPill, { borderColor: '#ef4444' }]}
+                style={[styles.demoPill, { borderColor: colors.danger }]}
                 onPress={() => {
                   if (!runtimeConfig.isDemo) {
                     Alert.alert('Restricted', 'Demo accounts are disabled in this environment.');
@@ -362,7 +368,7 @@ export default function LoginScreen() {
                   setPassword('password123');
                 }}
               >
-                <Text style={[styles.demoPillText, { color: '#dc2626' }]}>🛡️ Super Admin</Text>
+                <Text style={[styles.demoPillText, { color: colors.danger }]}>🛡️ Super Admin</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -376,7 +382,7 @@ export default function LoginScreen() {
                   setPassword('password123');
                 }}
               >
-                <Text style={[styles.demoPillText, { color: '#ea580c' }]}>🍳 Restaurant</Text>
+                <Text style={[styles.demoPillText, { color: colors.primary }]}>🍳 Restaurant</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -390,7 +396,7 @@ export default function LoginScreen() {
                   setPassword('password123');
                 }}
               >
-                <Text style={[styles.demoPillText, { color: '#0284c7' }]}>👤 Customer</Text>
+                <Text style={[styles.demoPillText, { color: colors.info }]}>👤 Customer</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -400,10 +406,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   topBar: {
     flexDirection: 'row',
@@ -411,22 +417,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -450,13 +456,13 @@ const styles = StyleSheet.create({
   welcomeHeading: {
     fontSize: 26,
     fontWeight: '900',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
     marginTop: 4,
   },
   welcomeSub: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: Spacing.xs,
     paddingHorizontal: Spacing.md,
@@ -465,9 +471,9 @@ const styles = StyleSheet.create({
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: colors.danger,
     borderRadius: Radii.lg,
     padding: Spacing.sm,
     marginBottom: Spacing.md,
@@ -475,15 +481,15 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#b91c1c',
+    color: colors.danger,
     fontWeight: '600',
   },
   formCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   inputGroup: {
@@ -492,22 +498,22 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderWidth: 1.5,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: Radii.xl,
     paddingHorizontal: Spacing.sm,
     height: 50,
   },
   inputWrapFocused: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.white,
+    borderColor: colors.primary,
+    backgroundColor: colors.card,
   },
   inputIcon: {
     marginRight: Spacing.xs,
@@ -515,7 +521,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     height: '100%',
     paddingVertical: 0,
     paddingHorizontal: 4,
@@ -542,7 +548,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 12,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '700',
   },
   activateLinkBtn: {
@@ -567,11 +573,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: Colors.borderLight,
+    backgroundColor: colors.divider,
   },
   dividerText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     paddingHorizontal: Spacing.md,
     fontWeight: '600',
   },
@@ -579,16 +585,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     borderRadius: Radii.xl,
     paddingVertical: 13,
   },
   guestBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   registerRow: {
     flexDirection: 'row',
@@ -598,12 +604,12 @@ const styles = StyleSheet.create({
   },
   registerPrompt: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   registerLink: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   switchPortalBtn: {
     flexDirection: 'row',
@@ -615,22 +621,22 @@ const styles = StyleSheet.create({
   switchPortalText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   demoBox: {
     marginTop: Spacing.xl,
     padding: Spacing.md,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     alignItems: 'center',
     gap: Spacing.sm,
   },
   demoTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#64748B',
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   demoButtonsRow: {
@@ -643,7 +649,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.sm,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1.5,
   },
   demoPillText: {
@@ -651,3 +657,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

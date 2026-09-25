@@ -22,9 +22,15 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { RestaurantCredentialsService } from '../../lib/restaurantCredentials';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const DRAFT_KEY = 'mlohub.restaurant-application-draft.v1';
 
 export default function RegisterRestaurantScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { width } = useWindowDimensions();
@@ -305,13 +311,13 @@ export default function RegisterRestaurantScreen() {
                 </Text>
               </View>
               <Text style={styles.credentialsItem}>
-                <Text style={{ fontWeight: '700', color: Colors.text }}>
+                <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
                   {language === 'sw' ? 'Barua Pepe (Email): ' : 'Login Email: '}
                 </Text>
                 {ownerEmail.trim().toLowerCase()}
               </Text>
               <Text style={styles.credentialsItem}>
-                <Text style={{ fontWeight: '700', color: Colors.text }}>
+                <Text style={{ fontWeight: '700', color: colors.textPrimary }}>
                   {language === 'sw' ? 'Nenosiri: ' : 'Password: '}
                 </Text>
                 {'•••••••• (Nenosiri uliloweka sasa hivi)'}
@@ -353,11 +359,11 @@ export default function RegisterRestaurantScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.returnBtn, { backgroundColor: '#f1f5f9' }]}
+              style={[styles.returnBtn, { backgroundColor: colors.surfaceInteractive }]}
               onPress={() => router.replace('/(tabs)/explore')}
               activeOpacity={0.88}
             >
-              <Text style={[styles.returnBtnText, { color: Colors.text }]}>
+              <Text style={[styles.returnBtnText, { color: colors.textPrimary }]}>
                 {language === 'sw' ? 'Rudi Kwenye Programu' : 'Return to Explore App'}
               </Text>
             </TouchableOpacity>
@@ -372,7 +378,7 @@ export default function RegisterRestaurantScreen() {
       {/* Header */}
       <View style={styles.headerBar}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.stepHeaderInfo}>
           <Text style={styles.headerTitle}>
@@ -423,7 +429,7 @@ export default function RegisterRestaurantScreen() {
             value={businessName}
             onChangeText={setBusinessName}
             placeholder="mf. Mama Amina Biryani Spot"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
           />
           {errors.businessName && <Text style={styles.fieldError}>{errors.businessName}</Text>}
 
@@ -457,7 +463,7 @@ export default function RegisterRestaurantScreen() {
             value={ownerFullName}
             onChangeText={setOwnerFullName}
             placeholder="mf. Amina Juma Bakari"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
           />
           {errors.ownerFullName && <Text style={styles.fieldError}>{errors.ownerFullName}</Text>}
 
@@ -471,7 +477,7 @@ export default function RegisterRestaurantScreen() {
             value={ownerPhone}
             onChangeText={setOwnerPhone}
             placeholder="+255 754 123 456"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
             keyboardType="phone-pad"
           />
           {errors.ownerPhone && <Text style={styles.fieldError}>{errors.ownerPhone}</Text>}
@@ -484,7 +490,7 @@ export default function RegisterRestaurantScreen() {
             value={ownerEmail}
             onChangeText={setOwnerEmail}
             placeholder="owner@example.com"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -497,7 +503,7 @@ export default function RegisterRestaurantScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="Weka nenosiri salama (angalau herufi 6)"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.inputPlaceholder}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
             />
@@ -506,7 +512,7 @@ export default function RegisterRestaurantScreen() {
               onPress={() => setShowPassword(!showPassword)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color="#64748b" />
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
           {errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
@@ -517,7 +523,7 @@ export default function RegisterRestaurantScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             placeholder="Rudia nenosiri uliloweka"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
             secureTextEntry={!showPassword}
             autoCapitalize="none"
           />
@@ -543,7 +549,7 @@ export default function RegisterRestaurantScreen() {
             value={neighborhood}
             onChangeText={setNeighborhood}
             placeholder="mf. Mikocheni B, Sinza, Masaki, Kinondoni"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
           />
           {errors.neighborhood && <Text style={styles.fieldError}>{errors.neighborhood}</Text>}
 
@@ -553,7 +559,7 @@ export default function RegisterRestaurantScreen() {
             value={address}
             onChangeText={setAddress}
             placeholder="mf. Mtaa wa Mwinyijuma, Karibu na Stendi ya Daladala"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
           />
           {errors.address && <Text style={styles.fieldError}>{errors.address}</Text>}
 
@@ -563,7 +569,7 @@ export default function RegisterRestaurantScreen() {
             value={notes}
             onChangeText={setNotes}
             placeholder="Eleza chakula unachopika, muda wa kufungua, au maelezo mengine..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.inputPlaceholder}
             multiline
             numberOfLines={3}
           />
@@ -582,7 +588,7 @@ export default function RegisterRestaurantScreen() {
             <Ionicons
               name={hasTinOrLicense ? 'checkbox' : 'square-outline'}
               size={22}
-              color={hasTinOrLicense ? '#1d6637' : '#94a3b8'}
+              color={hasTinOrLicense ? '#1d6637' : colors.textMuted}
             />
             <Text style={styles.checkboxText}>
               Nina namba ya TIN au Leseni ya Biashara (Verified Seller Upgrade)
@@ -597,7 +603,7 @@ export default function RegisterRestaurantScreen() {
                 value={tinNumber}
                 onChangeText={setTinNumber}
                 placeholder="123-456-789"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.inputPlaceholder}
               />
             </View>
           )}
@@ -610,10 +616,10 @@ export default function RegisterRestaurantScreen() {
           activeOpacity={0.88}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#ffffff" size="small" />
+            <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
             <>
-              <Ionicons name="paper-plane" size={18} color="#ffffff" />
+              <Ionicons name="paper-plane" size={18} color={colors.onPrimary} />
               <Text style={styles.submitBtnText}>
                 {language === 'sw' ? 'Tuma Ombi la Kujiunga' : 'Submit Application'}
               </Text>
@@ -636,10 +642,10 @@ export default function RegisterRestaurantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   headerBar: {
     flexDirection: 'row',
@@ -648,14 +654,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.card,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -665,11 +671,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   headerStepText: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   scrollContent: {
@@ -683,11 +689,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   introCard: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: colors.successSoft,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: colors.success,
   },
   introHeader: {
     flexDirection: 'row',
@@ -697,7 +703,7 @@ const styles = StyleSheet.create({
   introTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#065f46',
+    color: colors.success,
   },
   introSub: {
     fontSize: 12.5,
@@ -709,32 +715,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: colors.danger,
     padding: 10,
     borderRadius: Radii.md,
   },
   errorText: {
     fontSize: 12.5,
-    color: '#991b1b',
+    color: colors.danger,
     fontWeight: '600',
   },
   sectionCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     gap: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.divider,
     paddingBottom: 6,
     marginBottom: 4,
   },
@@ -758,28 +764,28 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginTop: 4,
   },
   input: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: 12,
     fontSize: 13.5,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   textArea: {
     height: 75,
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: colors.danger,
   },
   fieldError: {
     fontSize: 11,
-    color: '#ef4444',
+    color: colors.danger,
     fontWeight: '600',
   },
   cuisineRow: {
@@ -792,9 +798,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   cuisineChipActive: {
     backgroundColor: '#1d6637',
@@ -803,10 +809,10 @@ const styles = StyleSheet.create({
   cuisineChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   cuisineChipTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -816,7 +822,7 @@ const styles = StyleSheet.create({
   },
   checkboxText: {
     fontSize: 12.5,
-    color: Colors.text,
+    color: colors.textPrimary,
     flex: 1,
     fontWeight: '600',
   },
@@ -834,7 +840,7 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   loginLinkRow: {
     flexDirection: 'row',
@@ -844,7 +850,7 @@ const styles = StyleSheet.create({
   },
   loginLinkMuted: {
     fontSize: 12.5,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   loginLinkBold: {
     fontSize: 12.5,
@@ -857,16 +863,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.xl,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   successCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.xxl,
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: colors.success,
     maxWidth: 500,
     width: '100%',
     ...Shadows.lg,
@@ -875,7 +881,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: Radii.full,
-    backgroundColor: '#ecfdf5',
+    backgroundColor: colors.successSoft,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -888,27 +894,27 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 19,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   successSub: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
   },
   appRefBox: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     padding: 12,
     alignItems: 'center',
     width: '100%',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   appRefLabel: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   appRefCode: {
@@ -919,7 +925,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   nextStepsBox: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: 12,
     width: '100%',
@@ -928,12 +934,12 @@ const styles = StyleSheet.create({
   nextStepsTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   nextStepItem: {
     fontSize: 11.5,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   returnBtn: {
@@ -947,7 +953,7 @@ const styles = StyleSheet.create({
   returnBtnText: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   verifiedBadgeRow: {
     flexDirection: 'row',
@@ -967,9 +973,9 @@ const styles = StyleSheet.create({
     color: '#0f766e',
   },
   authLinkedCard: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#bbf7d0',
+    borderColor: colors.success,
     borderRadius: Radii.lg,
     padding: 12,
     marginBottom: 12,
@@ -983,11 +989,11 @@ const styles = StyleSheet.create({
   authLinkedTitle: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: '#166534',
+    color: colors.success,
   },
   authLinkedDesc: {
     fontSize: 12,
-    color: '#15803d',
+    color: colors.success,
     lineHeight: 17,
   },
   toggleCustomPassBtn: {
@@ -1000,14 +1006,14 @@ const styles = StyleSheet.create({
   toggleCustomPassText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   passwordInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingRight: 10,
   },
@@ -1046,3 +1052,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+let styles = createStyles(lightColors);

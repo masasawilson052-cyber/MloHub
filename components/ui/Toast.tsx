@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { Shadows } from '../../theme/shadows';
 import { ZIndex } from '../../theme/zIndex';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -29,6 +33,7 @@ export const Toast: React.FC<ToastProps> = ({
   actionText,
   onAction,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const opacity = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -63,30 +68,31 @@ export const Toast: React.FC<ToastProps> = ({
 
   if (!visible) return null;
 
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return <Ionicons name="checkmark-circle" size={20} color={Colors.botanicalGreen} />;
-      case 'error':
-        return <Ionicons name="alert-circle" size={20} color={Colors.error} />;
-      case 'warning':
-        return <Ionicons name="warning" size={20} color={Colors.warning} />;
-      case 'info':
-      default:
-        return <Ionicons name="information-circle" size={20} color={Colors.info} />;
-    }
-  };
+  const tone = {
+    success: { icon: 'checkmark-circle' as const, color: colors.success },
+    error: { icon: 'alert-circle' as const, color: colors.danger },
+    warning: { icon: 'warning' as const, color: colors.warning },
+    info: { icon: 'information-circle' as const, color: colors.info },
+  }[type];
 
   return (
     <Animated.View style={[styles.container, { opacity }]}>
-      <View style={styles.content}>
-        {getIcon()}
-        <Text style={styles.message} numberOfLines={2}>
+      <View
+        style={[
+          styles.content,
+          {
+            backgroundColor: colors.surfaceRaised,
+            borderColor: colors.borderStrong,
+          },
+        ]}
+      >
+        <Ionicons name={tone.icon} size={20} color={tone.color} />
+        <Text style={[styles.message, { color: colors.textPrimary }]} numberOfLines={2}>
           {message}
         </Text>
         {actionText && onAction ? (
           <TouchableOpacity onPress={onAction} style={styles.actionBtn}>
-            <Text style={styles.actionText}>{actionText}</Text>
+            <Text style={[styles.actionText, { color: colors.primary }]}>{actionText}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -94,7 +100,7 @@ export const Toast: React.FC<ToastProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     position: 'absolute',
     bottom: 90,
@@ -106,7 +112,7 @@ const styles = StyleSheet.create({
   content: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.brandInk,
+    borderWidth: 1,
     paddingVertical: Spacing.sm + 2,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.xl,
@@ -117,9 +123,8 @@ const styles = StyleSheet.create({
   },
   message: {
     ...Typography.bodySmall,
-    color: Colors.white,
     flex: 1,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   actionBtn: {
     paddingHorizontal: Spacing.xs,
@@ -127,7 +132,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     ...Typography.labelLarge,
-    color: Colors.saffron,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

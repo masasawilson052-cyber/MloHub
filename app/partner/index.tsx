@@ -8,7 +8,13 @@ import { Colors, Shadows } from '../../constants/theme';
 import { ApplicationRepository } from '../../repositories/applications.repository';
 import { RestaurantApplication } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function PartnerIndexRoute() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const {
     isAuthenticated,
@@ -162,21 +168,21 @@ export default function PartnerIndexRoute() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.primary} />
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     padding: 24,
   },
   statusCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -188,7 +194,7 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
@@ -196,37 +202,37 @@ const styles = StyleSheet.create({
   statusBadge: {
     fontSize: 10.5,
     fontWeight: '800',
-    color: '#d97706',
+    color: colors.warning,
     letterSpacing: 0.5,
     marginBottom: 8,
   },
   statusTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   statusSub: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 16,
   },
   appRefBox: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: 10,
     padding: 12,
     alignItems: 'center',
     width: '100%',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     marginBottom: 20,
   },
   appRefLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   appRefCode: {
@@ -239,19 +245,19 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginTop: 16,
     marginBottom: 8,
   },
   errorSub: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
   },
   backBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
@@ -259,8 +265,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
 });
+let styles = createStyles(lightColors);

@@ -15,6 +15,11 @@ import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../context/LanguageContext';
 import { Colors, Radii, Shadows, Spacing } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 function getCodeFromCurrentUrl(paramCode?: string): string | undefined {
   if (paramCode && typeof paramCode === 'string' && paramCode.trim()) {
     return paramCode.trim();
@@ -41,6 +46,7 @@ function cleanRecoveryUrlOnWeb(): void {
 }
 
 export default function ResetPasswordScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{
     code?: string;
@@ -259,7 +265,7 @@ export default function ResetPasswordScreen() {
 
         {!ready ? (
           <View style={styles.loadingWrap}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : done ? (
           <>
@@ -330,7 +336,7 @@ export default function ResetPasswordScreen() {
                 accessibilityLabel="New Password"
                 style={styles.input}
                 placeholder={sw ? 'Weka nenosiri jipya' : 'Enter new password'}
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -347,7 +353,7 @@ export default function ResetPasswordScreen() {
                 accessibilityLabel="Confirm New Password"
                 style={styles.input}
                 placeholder={sw ? 'Rudia nenosiri jipya' : 'Re-enter new password'}
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -406,10 +412,10 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     justifyContent: 'center',
     padding: Spacing.xl,
   },
@@ -418,10 +424,10 @@ const styles = StyleSheet.create({
     maxWidth: 460,
     alignSelf: 'center',
     padding: 28,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     gap: 14,
     ...Shadows.md,
@@ -434,7 +440,7 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
   },
   loadingWrap: {
     paddingVertical: 28,
@@ -443,14 +449,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   body: {
     fontSize: 14,
     lineHeight: 21,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   fieldGroup: {
@@ -460,18 +466,18 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   input: {
     width: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 13,
     borderRadius: Radii.lg,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   indicatorsBox: {
     width: '100%',
@@ -484,35 +490,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   indicatorValid: {
-    color: '#166534',
+    color: colors.success,
   },
   indicatorMuted: {
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   button: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 15,
     borderRadius: Radii.xl,
     alignItems: 'center',
     marginTop: 4,
   },
   buttonText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
     fontSize: 15,
   },
   secondaryButton: {
     width: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingVertical: 13,
     borderRadius: Radii.xl,
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: Colors.text,
+    color: colors.textPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -523,3 +529,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+let styles = createStyles(lightColors);

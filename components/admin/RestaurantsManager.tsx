@@ -14,6 +14,10 @@ import { RestaurantDetailAdmin } from './RestaurantDetailAdmin';
 
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 type RestaurantFilter = 'ALL' | 'BASIC_SELLER' | 'VERIFIED' | 'SUSPENDED' | 'ARCHIVED';
 
 interface RestaurantsManagerProps {
@@ -40,7 +44,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   onUnarchive,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [filter, setFilter] = useState<RestaurantFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeRestaurant, setActiveRestaurant] = useState<RestaurantEntity | null>(null);
@@ -85,11 +89,11 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Usimamizi wa Migahawa na Wauzaji' : 'Restaurants & Vendors Directory'}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -104,7 +108,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               filter === 'ALL' && styles.filterPillActive,
             ]}
             onPress={() => setFilter('ALL')}
@@ -122,7 +126,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               filter === 'VERIFIED' && styles.filterPillActive,
             ]}
             onPress={() => setFilter('VERIFIED')}
@@ -140,7 +144,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               filter === 'BASIC_SELLER' && styles.filterPillActive,
             ]}
             onPress={() => setFilter('BASIC_SELLER')}
@@ -158,7 +162,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               filter === 'SUSPENDED' && styles.filterPillActive,
             ]}
             onPress={() => setFilter('SUSPENDED')}
@@ -176,7 +180,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.filterPill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               filter === 'ARCHIVED' && styles.filterPillActive,
             ]}
             onPress={() => setFilter('ARCHIVED')}
@@ -193,12 +197,12 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={16} color={colors.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search name, owner, neighborhood..."
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -230,9 +234,9 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
                   key={r.id}
                   style={[
                     styles.card,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                     isSuspended && styles.cardSuspended,
-                    isArchived && { borderColor: '#fca5a5', opacity: 0.85 },
+                    isArchived && { borderColor: colors.danger, opacity: 0.85 },
                   ]}
                   onPress={() => setActiveRestaurant(r)}
                 >
@@ -249,7 +253,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
                       style={[
                         styles.tierBadge,
                         isArchived
-                          ? { backgroundColor: '#fee2e2' }
+                          ? { backgroundColor: colors.dangerSoft }
                           : isSuspended
                           ? styles.badgeSuspended
                           : isVerified
@@ -260,7 +264,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
                       <Text
                         style={[
                           styles.tierBadgeText,
-                          isArchived && { color: '#b91c1c' },
+                          isArchived && { color: colors.danger },
                         ]}
                       >
                         {isArchived ? 'ARCHIVED' : isSuspended ? 'SUSPENDED' : isVerified ? 'VERIFIED' : 'BASIC'}
@@ -296,7 +300,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
                     </View>
                     <View style={styles.inspectAction}>
                       <Text style={styles.inspectText}>Manage</Text>
-                      <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                      <Ionicons name="chevron-forward" size={14} color={colors.primary} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -324,10 +328,10 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
 };
 
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -337,12 +341,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -363,29 +367,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterPillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   filterPillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 220,
@@ -394,7 +398,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -409,11 +413,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   cardsGrid: {
     flexDirection: 'row',
@@ -423,16 +427,16 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 300,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   cardSuspended: {
-    borderColor: '#fca5a5',
+    borderColor: colors.danger,
     backgroundColor: '#fffaf0',
   },
   cardHeader: {
@@ -447,11 +451,11 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   tierBadge: {
@@ -460,19 +464,19 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   badgeBasic: {
-    backgroundColor: '#f0f9ff',
+    backgroundColor: colors.infoSoft,
   },
   badgeVerified: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: colors.successSoft,
   },
   badgeSuspended: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   tierBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardBody: {
     gap: 4,
@@ -484,7 +488,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -492,7 +496,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: 8,
   },
   openIndicatorRow: {
@@ -509,11 +513,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
   },
   dotClosed: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: colors.textMuted,
   },
   openText: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   inspectAction: {
     flexDirection: 'row',
@@ -523,6 +527,7 @@ const styles = StyleSheet.create({
   inspectText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });
+let styles = createStyles(lightColors);

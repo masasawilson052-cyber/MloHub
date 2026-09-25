@@ -9,6 +9,11 @@ import {
 import { Colors, Spacing, Radii } from '../../constants/theme';
 import { DiscoveryQuery } from '../../types/discovery';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface DiscoveryFiltersProps {
   filters: DiscoveryQuery;
   onChangeFilters: (updated: DiscoveryQuery) => void;
@@ -22,6 +27,7 @@ export const DiscoveryFilters: React.FC<DiscoveryFiltersProps> = ({
   onClearFilters,
   activeCount,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const budgetOptions = [
     { label: 'Any Budget', value: undefined },
     { label: '≤ 6K', value: 6000 },
@@ -158,14 +164,14 @@ export const DiscoveryFilters: React.FC<DiscoveryFiltersProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   headerRow: {
     flexDirection: 'row',
@@ -176,12 +182,12 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   clearBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.error,
+    color: colors.danger,
   },
   filterGroup: {
     marginBottom: Spacing.sm,
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   chipsScroll: {
@@ -206,16 +212,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e7e3',
   },
   chipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   togglesRow: {
@@ -225,7 +231,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   toggleBtn: {
     paddingHorizontal: 12,
@@ -236,15 +242,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e7e3',
   },
   toggleBtnActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   toggleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   toggleTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
 });
+let styles = createStyles(lightColors);

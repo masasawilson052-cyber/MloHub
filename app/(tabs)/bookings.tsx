@@ -22,9 +22,15 @@ import { RestaurantRepository } from '../../repositories/restaurants.repository'
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 type BookingStatusTab = 'UPCOMING' | 'PAST' | 'CANCELLED';
 
 export default function BookingsScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
   const { width } = useWindowDimensions();
@@ -184,7 +190,7 @@ export default function BookingsScreen() {
               <View key={b.id} style={styles.bookingCard}>
                 <View style={styles.bookingHeader}>
                   <View style={styles.emojiBadge}>
-                    <Ionicons name="restaurant" size={20} color={Colors.primary} />
+                    <Ionicons name="restaurant" size={20} color={colors.primary} />
                   </View>
                   <View style={styles.bookingInfo}>
                     <Text style={styles.restaurantName}>{b.restaurantName || 'Restaurant'}</Text>
@@ -199,11 +205,11 @@ export default function BookingsScreen() {
 
                 <View style={styles.bookingMeta}>
                   <View style={styles.metaRow}>
-                    <Ionicons name="calendar-outline" size={15} color={Colors.muted} />
+                    <Ionicons name="calendar-outline" size={15} color={colors.muted} />
                     <Text style={styles.metaVal}>{b.reservationDate} at {b.timeSlot}</Text>
                   </View>
                   <View style={styles.metaRow}>
-                    <Ionicons name="people-outline" size={15} color={Colors.muted} />
+                    <Ionicons name="people-outline" size={15} color={colors.muted} />
                     <Text style={styles.metaVal}>{b.guestsCount} {language === 'sw' ? 'Watu' : 'Guests'}</Text>
                   </View>
                 </View>
@@ -215,7 +221,7 @@ export default function BookingsScreen() {
                       style={styles.actionPillBtn}
                       onPress={() => handleDirections(b.address || '')}
                     >
-                      <Ionicons name="navigate-outline" size={14} color={Colors.brandInk} style={{ marginRight: 4 }} />
+                      <Ionicons name="navigate-outline" size={14} color={colors.brandInk} style={{ marginRight: 4 }} />
                       <Text style={styles.actionPillText}>{language === 'sw' ? 'Mwelekeo' : 'Directions'}</Text>
                     </TouchableOpacity>
                   ) : null}
@@ -225,7 +231,7 @@ export default function BookingsScreen() {
                       style={[styles.actionPillBtn, styles.cancelPillBtn]}
                       onPress={() => handleCancelBooking(b.id)}
                     >
-                      <Ionicons name="close-outline" size={14} color={Colors.error} style={{ marginRight: 4 }} />
+                      <Ionicons name="close-outline" size={14} color={colors.error} style={{ marginRight: 4 }} />
                       <Text style={[styles.actionPillText, styles.cancelPillText]}>
                         {language === 'sw' ? 'Sitisha' : 'Cancel'}
                       </Text>
@@ -297,7 +303,7 @@ export default function BookingsScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={{ fontSize: 13, color: Colors.muted, paddingVertical: 8 }}>
+                <Text style={{ fontSize: 13, color: colors.textSecondary, paddingVertical: 8 }}>
                   {language === 'sw' ? 'Inatafuta migahawa inayopatikana...' : 'Looking for available restaurants...'}
                 </Text>
               )}
@@ -315,10 +321,10 @@ export default function BookingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -335,22 +341,22 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '900',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   segmentedContainer: {
     flexDirection: 'row',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.xl,
     padding: 4,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   segmentBtn: {
     flex: 1,
@@ -359,27 +365,27 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
   },
   segmentBtnActive: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     ...Shadows.sm,
   },
   segmentText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   segmentTextActive: {
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   contentSection: {
     gap: Spacing.md,
   },
   bookingCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   bookingHeader: {
@@ -391,7 +397,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
@@ -402,11 +408,11 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   addressText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   bookingMeta: {
@@ -416,7 +422,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
   },
   metaRow: {
@@ -426,7 +432,7 @@ const styles = StyleSheet.create({
   },
   metaVal: {
     fontSize: 13,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   bookingActionsRow: {
@@ -441,28 +447,28 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   actionPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   cancelPillBtn: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#fca5a5',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   cancelPillText: {
-    color: Colors.error,
+    color: colors.danger,
   },
   emptyStateContainer: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     paddingVertical: Spacing.xxl,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   nearbySection: {
     marginTop: Spacing.xl,
@@ -470,7 +476,7 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   restaurantList: {
@@ -480,11 +486,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   restaurantInfo: {
@@ -493,22 +499,23 @@ const styles = StyleSheet.create({
   rName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   rSub: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   bookNowBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: Radii.full,
   },
   bookNowText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '800',
   },
 });
+let styles = createStyles(lightColors);

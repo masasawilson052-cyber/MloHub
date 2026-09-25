@@ -6,7 +6,13 @@ import { Colors, Spacing } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { RestaurantMemberRepository } from '../../repositories/restaurantMembers.repository';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function StaffInviteScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const { isAuthenticated } = useAuth();
@@ -57,7 +63,7 @@ export default function StaffInviteScreen() {
             fullWidth
           />
         ) : state === 'loading' ? (
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         ) : state === 'success' ? (
           <Button title="Open restaurant workspace" onPress={() => router.replace('/restaurant-portal')} fullWidth />
         ) : (
@@ -68,9 +74,10 @@ export default function StaffInviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#FAF8F3' },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.appBackground },
   container: { flex: 1, justifyContent: 'center', padding: Spacing.xl, gap: Spacing.md },
-  title: { fontSize: 24, fontWeight: '800', color: '#142033' },
-  message: { fontSize: 15, lineHeight: 22, color: '#475569' },
+  title: { fontSize: 24, fontWeight: '800', color: colors.textPrimary },
+  message: { fontSize: 15, lineHeight: 22, color: colors.textSecondary },
 });
+let styles = createStyles(lightColors);

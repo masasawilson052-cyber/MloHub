@@ -14,6 +14,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { PaymentTransactionEntity } from '../../db/types';
 import { formatTzs } from '../../config/platformFees';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface PaymentsMonitorProps {
   payments: PaymentTransactionEntity[];
   language?: 'en' | 'sw';
@@ -25,7 +29,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
   payments,
   language = 'en',
 }) => {
-  const { colors } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [statusFilter, setStatusFilter] = useState<PaymentFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<PaymentTransactionEntity | null>(null);
@@ -96,7 +100,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -111,7 +115,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
 
       {/* Financial Volume KPI Cards */}
       <View style={styles.kpiRow}>
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Captured Volume</Text>
           <Text style={[styles.kpiValue, { color: colors.success }]}>{formatTzs(capturedVolume)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>
@@ -119,7 +123,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
           </Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Attempted Volume</Text>
           <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{formatTzs(attemptedVolume)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>
@@ -127,7 +131,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
           </Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Pending Reconcile</Text>
           <Text style={[styles.kpiValue, { color: pendingPayments.length > 0 ? colors.warning : colors.textPrimary }]}>
             {pendingPayments.length}
@@ -135,7 +139,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Awaiting provider callback</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Refunded</Text>
           <Text style={[styles.kpiValue, { color: colors.info }]}>{refundedPayments.length}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Separated from failed attempts</Text>
@@ -158,7 +162,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
               key={tab.key}
               style={[
                 styles.pill,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                { backgroundColor: colors.card, borderColor: colors.border },
                 statusFilter === tab.key && { backgroundColor: colors.primary, borderColor: colors.primary },
               ]}
               onPress={() => setStatusFilter(tab.key)}
@@ -167,7 +171,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
                 style={[
                   styles.pillText,
                   { color: colors.textSecondary },
-                  statusFilter === tab.key && { color: '#FFFFFF', fontWeight: '700' },
+                  statusFilter === tab.key && { color: colors.onPrimary, fontWeight: '700' },
                 ]}
               >
                 {tab.label}
@@ -176,12 +180,12 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
           ))}
         </View>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search ref, restaurant, phone..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -233,7 +237,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
               return (
                 <TouchableOpacity
                   key={pay.id}
-                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
                   onPress={() => setSelectedPayment(pay)}
                 >
                   <View style={styles.cardHeader}>
@@ -259,7 +263,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
                     </View>
                   </View>
 
-                  <View style={[styles.cardFooter, { borderTopColor: colors.borderLight }]}>
+                  <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
                     <View style={styles.methodInfo}>
                       <Ionicons name="phone-portrait-outline" size={13} color={colors.textMuted} />
                       <Text style={[styles.methodText, { color: colors.textSecondary }]}>
@@ -281,7 +285,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
       {selectedPayment && (
         <Modal visible transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Transaction Detail</Text>
                 <TouchableOpacity onPress={() => setSelectedPayment(null)}>
@@ -353,7 +357,7 @@ export const PaymentsMonitor: React.FC<PaymentsMonitorProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
@@ -569,8 +573,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   closeBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

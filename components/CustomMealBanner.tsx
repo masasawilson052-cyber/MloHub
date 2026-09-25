@@ -3,11 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface CustomMealBannerProps {
   onStartRequest: () => void;
 }
 
 export const CustomMealBanner: React.FC<CustomMealBannerProps> = ({ onStartRequest }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t } = useLanguage();
 
   return (
@@ -58,9 +64,9 @@ export const CustomMealBanner: React.FC<CustomMealBannerProps> = ({ onStartReque
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   banner: {
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.xxl,
     padding: Spacing.xl,
     marginVertical: Spacing.lg,
@@ -77,7 +83,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   badgeText: {
-    color: Colors.lime,
+    color: colors.lime,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.5,
@@ -85,7 +91,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.white,
+    color: colors.onPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
     marginBottom: Spacing.xs,
   },
@@ -113,27 +119,27 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: Radii.full,
-    backgroundColor: Colors.lime,
+    backgroundColor: colors.warningSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepNumText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '900',
   },
   stepLabel: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '700',
   },
   stepArrow: {
-    color: Colors.lime,
+    color: colors.lime,
     fontSize: 14,
     fontWeight: 'bold',
   },
   ctaButton: {
-    backgroundColor: Colors.lime,
+    backgroundColor: colors.warningSoft,
     paddingVertical: 14,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -141,8 +147,9 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   ctaText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '900',
   },
 });
+let styles = createStyles(lightColors);

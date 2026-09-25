@@ -21,6 +21,11 @@ import { formatTzs } from '../../utils/formatters';
 import { normalizeTanzaniaPhone, isValidTanzaniaPhone, formatTanzaniaPhoneDisplay } from '../../utils/phone';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 type PaymentMethodCode = 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA';
 
 interface PaymentProviderOption {
@@ -80,6 +85,7 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
   onClose,
   onPaymentSuccess,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
@@ -181,7 +187,7 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} disabled={isSubmitting}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -280,7 +286,7 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
                     if (errorMessage) setErrorMessage(null);
                   }}
                   placeholder="07XXXXXXXX au 7XXXXXXXX"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.inputPlaceholder}
                   keyboardType="phone-pad"
                   editable={!isSubmitting}
                   autoCapitalize="none"
@@ -295,7 +301,7 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
 
             {/* Instructions Notice */}
             <View style={styles.noticeCard}>
-              <Ionicons name="information-circle-outline" size={20} color={Colors.primary} />
+              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.noticeTitle}>
                   {language === 'sw' ? 'Jinsi Malipo Yanavyofanya Kazi' : 'How It Works'}
@@ -342,14 +348,14 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '90%',
@@ -370,16 +376,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -389,17 +395,17 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   amountCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   amountLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -407,7 +413,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 26,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     marginTop: 4,
     marginBottom: 6,
   },
@@ -420,18 +426,18 @@ const styles = StyleSheet.create({
   },
   breakdownText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   breakdownDot: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: colors.danger,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
@@ -440,13 +446,13 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#B91C1C',
+    color: colors.danger,
     lineHeight: 18,
   },
   sectionHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   providersGrid: {
@@ -458,16 +464,16 @@ const styles = StyleSheet.create({
   providerCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: 12,
     justifyContent: 'space-between',
   },
   providerCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: '#F0FDF4',
+    borderColor: colors.primary,
+    backgroundColor: colors.successSoft,
   },
   providerCardHeader: {
     flexDirection: 'row',
@@ -483,26 +489,26 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioCircleSelected: {
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   radioInnerDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   providerName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   providerNameSelected: {
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '700',
   },
   inputGroup: {
@@ -511,49 +517,49 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E293B',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   phoneInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: Radii.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     overflow: 'hidden',
   },
   phonePrefixBox: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRightWidth: 1,
-    borderRightColor: '#E2E8F0',
+    borderRightColor: colors.border,
   },
   phonePrefixText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   phoneTextInput: {
     flex: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   inputHelp: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 4,
   },
   noticeCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
     padding: Spacing.md,
     gap: 10,
     marginBottom: Spacing.lg,
@@ -561,15 +567,16 @@ const styles = StyleSheet.create({
   noticeTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#166534',
+    color: colors.success,
     marginBottom: 2,
   },
   noticeBody: {
     fontSize: 12,
-    color: '#15803D',
+    color: colors.success,
     lineHeight: 18,
   },
   actionButtons: {
     paddingBottom: Spacing.lg,
   },
 });
+let styles = createStyles(lightColors);

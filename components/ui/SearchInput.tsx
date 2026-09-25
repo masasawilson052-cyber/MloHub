@@ -9,9 +9,13 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface SearchInputProps {
   value: string;
@@ -32,21 +36,32 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   style,
   autoFocus = false,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   return (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.inputBackground,
+          borderColor: colors.inputBorder,
+        },
+        style,
+      ]}
+    >
       <Ionicons
         name="search-outline"
         size={20}
-        color={Colors.primary}
+        color={colors.primary}
         style={styles.searchIcon}
       />
       <TextInput
-        style={styles.input}
+        style={[styles.input, { color: colors.textPrimary }]}
         value={value}
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor={colors.inputPlaceholder}
         returnKeyType="search"
         clearButtonMode="never"
         autoCapitalize="none"
@@ -65,20 +80,18 @@ export const SearchInput: React.FC<SearchInputProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Clear search input"
         >
-          <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+          <Ionicons name="close-circle" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
     borderRadius: Radii.xl,
     paddingHorizontal: Spacing.md,
     height: 50,
@@ -89,10 +102,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.textPrimary,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   clearBtn: {
     padding: 4,
   },
 });
+let styles = createStyles(lightColors);

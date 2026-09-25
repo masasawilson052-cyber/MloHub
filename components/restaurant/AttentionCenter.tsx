@@ -7,6 +7,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { RestaurantTab } from './RestaurantSidebar';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface AttentionAlert {
   id: string;
   type: 'ORDER' | 'VERIFICATION' | 'REPORT' | 'RESERVATION' | 'STOCK';
@@ -28,11 +33,12 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
   onNavigateTab,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   if (alerts.length === 0) {
     return (
       <View style={styles.allGoodCard}>
         <View style={styles.allGoodIconCircle}>
-          <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
         </View>
         <View style={styles.allGoodTextCol}>
           <Text style={styles.allGoodTitle}>
@@ -95,7 +101,7 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Ionicons name="flash-outline" size={18} color={Colors.accent} />
+          <Ionicons name="flash-outline" size={18} color={colors.accent} />
           <Text style={styles.headerTitle}>
             {language === 'sw' ? 'Inayohitaji Uangalizi Sasa' : 'Needs Your Attention'}
           </Text>
@@ -140,7 +146,7 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
 
               <View style={styles.actionBtn}>
                 <Text style={styles.actionBtnText}>{alert.actionLabel}</Text>
-                <Ionicons name="arrow-forward" size={13} color={Colors.primaryDark} />
+                <Ionicons name="arrow-forward" size={13} color={colors.primaryDark} />
               </View>
             </TouchableOpacity>
           );
@@ -150,7 +156,7 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
   },
@@ -167,20 +173,20 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...Typography.H3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   countBadge: {
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.accent,
+    borderColor: colors.accent,
   },
   countText: {
     ...Typography.Caption,
-    color: Colors.accentDark,
+    color: colors.accentDark,
     fontWeight: '800',
     fontSize: 11,
   },
@@ -214,31 +220,31 @@ const styles = StyleSheet.create({
   },
   alertDescription: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   actionBtnText: {
     ...Typography.Caption,
     fontSize: 11.5,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   allGoodCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.success,
     borderWidth: 1,
     borderRadius: Radii.md,
     padding: Spacing.md,
@@ -253,11 +259,12 @@ const styles = StyleSheet.create({
   allGoodTitle: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: '#166534',
+    color: colors.success,
   },
   allGoodSubtitle: {
     ...Typography.Caption,
-    color: '#15803D',
+    color: colors.success,
     marginTop: 1,
   },
 });
+let styles = createStyles(lightColors);

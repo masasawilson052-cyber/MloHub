@@ -18,6 +18,11 @@ import { Typography } from '../../theme/typography';
 import { MenuCategory } from '../../types/domain';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface CategoryManagerProps {
   visible: boolean;
   categories: MenuCategory[];
@@ -35,6 +40,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   onClose,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [newCatNameEn, setNewCatNameEn] = useState('');
   const [newCatNameSw, setNewCatNameSw] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -75,7 +81,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -141,7 +147,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
                   }
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
                 </TouchableOpacity>
               </View>
             ))}
@@ -156,7 +162,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -165,7 +171,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     maxWidth: 540,
     width: '100%',
@@ -182,11 +188,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     ...Typography.H3,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   modalSub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -196,28 +202,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.xs,
     borderRadius: Radii.sm,
     marginBottom: Spacing.sm,
   },
   errorText: {
     ...Typography.Caption,
-    color: '#DC2626',
+    color: colors.danger,
     fontWeight: '600',
   },
   addCard: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.md,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
   },
   addCardTitle: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   addInputsRow: {
@@ -226,18 +232,18 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 8,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     ...Typography.Body,
     fontSize: 13,
   },
   existingTitle: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -250,16 +256,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     borderRadius: Radii.md,
   },
   catIndexBadge: {
     width: 24,
     height: 24,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
@@ -268,7 +274,7 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontWeight: '700',
     fontSize: 11,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   catNameCol: {
     flex: 1,
@@ -276,11 +282,11 @@ const styles = StyleSheet.create({
   catNameEn: {
     ...Typography.BodyMedium,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   catNameSw: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   trashBtn: {
@@ -289,7 +295,8 @@ const styles = StyleSheet.create({
   modalFooter: {
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
   },
 });
+let styles = createStyles(lightColors);

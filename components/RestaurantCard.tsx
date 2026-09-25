@@ -5,6 +5,11 @@ import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { runtimeConfig } from '../lib/runtimeConfig';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface RestaurantCardProps {
   restaurant: Restaurant;
   isFavorite: boolean;
@@ -22,6 +27,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   onReserve,
   onOrderAhead,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
   const coverImage = (restaurant as any).coverImageUrl || (restaurant as any).foodSpotPhotos?.[0];
   const isBasicSeller = (restaurant as any).sellerTier === 'BASIC_SELLER';
@@ -61,7 +67,7 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: restaurant.isOpen ? Colors.primary : Colors.muted },
+              { backgroundColor: restaurant.isOpen ? colors.primary : colors.muted },
             ]}
           >
             <Text style={styles.statusBadgeText}>
@@ -174,12 +180,12 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginBottom: Spacing.lg,
     overflow: 'hidden',
     ...Shadows.md,
@@ -231,7 +237,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   favBtn: {
     position: 'absolute',
@@ -263,12 +269,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   cuisine: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   ratingBox: {
@@ -277,25 +283,25 @@ const styles = StyleSheet.create({
   ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: Radii.sm,
     gap: 3,
   },
   star: {
-    color: Colors.accent,
+    color: colors.primary,
     fontSize: 10,
     fontWeight: '900',
   },
   ratingText: {
-    color: '#92400e',
+    color: colors.warning,
     fontSize: 11,
     fontWeight: '900',
   },
   reviewCount: {
     fontSize: 9,
-    color: Colors.subtle,
+    color: colors.textMuted,
     marginTop: 2,
   },
   metaRow: {
@@ -315,11 +321,11 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   metaDot: {
-    color: Colors.border,
+    color: colors.border,
     fontSize: 10,
   },
   orderAheadPill: {
@@ -337,7 +343,7 @@ const styles = StyleSheet.create({
   },
   specialty: {
     fontSize: 11,
-    color: Colors.text,
+    color: colors.textPrimary,
     marginTop: Spacing.xs,
     fontStyle: 'italic',
     lineHeight: 15,
@@ -349,25 +355,25 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   priceLabel: {
     fontSize: 9,
-    color: Colors.subtle,
+    color: colors.textMuted,
     textTransform: 'uppercase',
     fontWeight: '700',
   },
   priceValue: {
     fontSize: 12,
     fontWeight: '900',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   actionBtns: {
     flexDirection: 'row',
     gap: 6,
   },
   reserveBtn: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.md,
@@ -375,12 +381,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   reserveBtnText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 11,
     fontWeight: '800',
   },
   menuBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.md,
@@ -388,8 +394,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '800',
   },
 });
+let styles = createStyles(lightColors);

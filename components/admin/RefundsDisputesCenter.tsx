@@ -19,6 +19,10 @@ import { DisputesRepository } from '../../repositories/disputes.repository';
 import { RefundRequest, FinancialDispute, RefundResponsibility } from '../../types/domain';
 import { formatTzs } from '../../config/platformFees';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface RefundsDisputesCenterProps {
   language?: 'en' | 'sw';
 }
@@ -28,7 +32,7 @@ type FilterTab = 'ALL' | 'REQUESTED' | 'APPROVED' | 'COMPLETED' | 'FAILED' | 'DI
 export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   language = 'en',
 }) => {
-  const { colors } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN' || (Array.isArray(user?.roles) && user.roles.includes('SUPER_ADMIN' as any));
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
@@ -140,7 +144,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   const disputesCount = disputes.length;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -163,7 +167,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
 
       {/* KPI Cards */}
       <View style={styles.kpiRow}>
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Action Required</Text>
           <Text style={[styles.kpiValue, { color: requestedCount > 0 ? '#EA580C' : colors.textPrimary }]}>
             {requestedCount}
@@ -171,19 +175,19 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Pending authorization</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Approved & Queue</Text>
           <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{approvedCount}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Awaiting provider execution</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Completed Volume</Text>
           <Text style={[styles.kpiValue, { color: colors.success }]}>{completedCount}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Successfully settled</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Active Disputes</Text>
           <Text style={[styles.kpiValue, { color: disputesCount > 0 ? colors.danger : colors.textPrimary }]}>
             {disputesCount}
@@ -209,7 +213,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
               key={tab.key}
               style={[
                 styles.tabPill,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                { backgroundColor: colors.card, borderColor: colors.border },
                 activeTab === tab.key && { backgroundColor: colors.primary, borderColor: colors.primary },
               ]}
               onPress={() => setActiveTab(tab.key)}
@@ -218,7 +222,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                 style={[
                   styles.tabText,
                   { color: colors.textSecondary },
-                  activeTab === tab.key && { color: '#FFFFFF', fontWeight: '700' },
+                  activeTab === tab.key && { color: colors.onPrimary, fontWeight: '700' },
                 ]}
               >
                 {tab.label}
@@ -227,12 +231,12 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
           ))}
         </ScrollView>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search refund ID, order, reason..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -254,7 +258,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
               return (
                 <View
                   key={ref.id}
-                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.badgeGroup}>
@@ -320,7 +324,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                     </View>
                   </View>
 
-                  <View style={[styles.cardFooter, { borderTopColor: colors.borderLight }]}>
+                  <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
                     <Text style={[styles.idText, { color: colors.textMuted }]}>ID: {ref.id}</Text>
 
                     {isPending && (
@@ -329,7 +333,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                           style={[styles.actionBtn, { backgroundColor: colors.primary }]}
                           onPress={() => handleOpenApproveModal(ref)}
                         >
-                          <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                          <Ionicons name="checkmark-circle" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
                           <Text style={styles.actionBtnText}>Approve Refund</Text>
                         </TouchableOpacity>
                       ) : (
@@ -352,7 +356,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                 key={disp.id}
                 style={[
                   styles.card,
-                  { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: colors.danger, borderLeftWidth: 4 },
+                  { backgroundColor: colors.card, borderColor: colors.border, borderLeftColor: colors.danger, borderLeftWidth: 4 },
                 ]}
               >
                 <View style={styles.cardHeader}>
@@ -400,7 +404,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
       {/* Approval Confirmation Modal */}
       <Modal visible={isApproving} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Authorize Customer Refund</Text>
             <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
               Authorizing this refund records an immutable adjustment and triggers gateway disbursement.
@@ -433,7 +437,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                       style={[
                         styles.respPillText,
                         { color: colors.textSecondary },
-                        approvalResponsibility === r && { color: '#FFFFFF', fontWeight: '700' },
+                        approvalResponsibility === r && { color: colors.onPrimary, fontWeight: '700' },
                       ]}
                     >
                       {r}
@@ -465,7 +469,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
@@ -654,7 +658,7 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } }),
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -752,8 +756,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

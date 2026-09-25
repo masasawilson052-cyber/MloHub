@@ -13,6 +13,10 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { UserEntity, UserRole } from '../../db/types';
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface UsersManagerProps {
   users: UserEntity[];
   onToggleSuspendUser?: (userId: string, shouldSuspend: boolean, reason?: string) => Promise<void>;
@@ -24,7 +28,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
   onToggleSuspendUser,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [roleFilter, setRoleFilter] = useState<'ALL' | UserRole>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedUsers, setRevealedUsers] = useState<Record<string, boolean>>({});
@@ -84,7 +88,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -103,7 +107,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               roleFilter === 'ALL' && styles.pillActive,
             ]}
             onPress={() => setRoleFilter('ALL')}
@@ -121,7 +125,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               roleFilter === UserRole.CUSTOMER && styles.pillActive,
             ]}
             onPress={() => setRoleFilter(UserRole.CUSTOMER)}
@@ -139,7 +143,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               roleFilter === UserRole.RESTAURANT_OWNER && styles.pillActive,
             ]}
             onPress={() => setRoleFilter(UserRole.RESTAURANT_OWNER)}
@@ -156,12 +160,12 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search name, phone, email..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -187,7 +191,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                   key={u.id}
                   style={[
                     styles.card,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                     isSuspended && styles.cardSuspended,
                   ]}
                 >
@@ -206,7 +210,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
 
                   <View style={styles.cardBody}>
                     <View style={styles.infoRow}>
-                      <Ionicons name="call-outline" size={12} color="#64748b" />
+                      <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
                       <Text style={styles.infoText}>
                         {isRevealed ? (u.phone || 'No phone') : maskPhone(u.phone)}
                       </Text>
@@ -215,14 +219,14 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                       )}
                     </View>
                     <View style={styles.infoRow}>
-                      <Ionicons name="mail-outline" size={12} color="#64748b" />
+                      <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
                       <Text style={styles.infoText}>
                         {isRevealed ? u.email : maskEmail(u.email)}
                       </Text>
                     </View>
                     {u.companyOrGroup && (
                       <View style={styles.infoRow}>
-                        <Ionicons name="business-outline" size={12} color="#64748b" />
+                        <Ionicons name="business-outline" size={12} color={colors.textSecondary} />
                         <Text style={styles.infoText}>{u.companyOrGroup}</Text>
                       </View>
                     )}
@@ -233,7 +237,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                       style={styles.revealBtn}
                       onPress={() => setRevealedUsers((prev) => ({ ...prev, [u.id]: !isRevealed }))}
                     >
-                      <Ionicons name={isRevealed ? "eye-off-outline" : "eye-outline"} size={13} color="#64748b" />
+                      <Ionicons name={isRevealed ? "eye-off-outline" : "eye-outline"} size={13} color={colors.textSecondary} />
                       <Text style={styles.revealBtnText}>{isRevealed ? 'Hide PII' : 'Reveal'}</Text>
                     </TouchableOpacity>
 
@@ -262,10 +266,10 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
 };
 
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -275,12 +279,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -301,29 +305,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   pillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 220,
@@ -332,7 +336,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -347,11 +351,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   cardsGrid: {
     flexDirection: 'row',
@@ -361,16 +365,16 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 280,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   cardSuspended: {
-    borderColor: '#fecaca',
+    borderColor: colors.danger,
     backgroundColor: '#fffaf0',
   },
   cardHeader: {
@@ -382,7 +386,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -395,11 +399,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   userRole: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 1,
   },
   statusBadge: {
@@ -408,19 +412,19 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   statusActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   statusSuspended: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardBody: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     gap: 4,
@@ -432,36 +436,36 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: 6,
   },
   dateText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   suspendActionBtn: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.sm,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   suspendActionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ef4444',
+    color: colors.danger,
   },
   reactivateActionBtn: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   reactivateActionText: {
-    color: '#16a34a',
+    color: colors.success,
   },
   revealBtn: {
     flexDirection: 'row',
@@ -470,12 +474,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   revealBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
   },
 });
-
+let styles = createStyles(lightColors);

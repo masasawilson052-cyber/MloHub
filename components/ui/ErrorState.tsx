@@ -6,6 +6,11 @@ import { Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
 import { Button } from './Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface ErrorStateProps {
   title?: string;
   message: string;
@@ -25,13 +30,14 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   isOffline = false,
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   return (
     <View style={[styles.container, style]}>
       <View style={[styles.iconCircle, isOffline && styles.offlineCircle]}>
         <Ionicons
           name={isOffline ? 'cloud-offline-outline' : 'alert-circle-outline'}
           size={36}
-          color={isOffline ? Colors.warning : Colors.error}
+          color={isOffline ? colors.warning : colors.error}
         />
       </View>
       <Text style={styles.title}>{title}</Text>
@@ -60,7 +66,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -70,13 +76,13 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.errorLight,
+    backgroundColor: colors.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
   },
   offlineCircle: {
-    backgroundColor: Colors.warningLight,
+    backgroundColor: colors.warningSoft,
   },
   title: {
     ...Typography.H2,
@@ -86,7 +92,7 @@ const styles = StyleSheet.create({
   message: {
     ...Typography.Body,
     textAlign: 'center',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     maxWidth: 320,
     marginBottom: Spacing.lg,
   },
@@ -98,3 +104,4 @@ const styles = StyleSheet.create({
     minWidth: 120,
   },
 });
+let styles = createStyles(lightColors);

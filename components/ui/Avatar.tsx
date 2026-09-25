@@ -3,6 +3,11 @@ import { View, Text, Image, StyleSheet, StyleProp, ViewStyle, ImageSourcePropTyp
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export interface AvatarProps {
@@ -25,6 +30,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   size = 'md',
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const dimension = SIZE_MAP[size];
   const borderRadius = dimension / 2;
 
@@ -76,16 +82,16 @@ export const Avatar: React.FC<AvatarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
-    backgroundColor: Colors.brandInk,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   initials: {
     ...Typography.labelLarge,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   initialsSm: {
@@ -98,3 +104,4 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
 });
+let styles = createStyles(lightColors);

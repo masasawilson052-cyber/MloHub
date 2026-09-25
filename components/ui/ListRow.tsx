@@ -8,9 +8,13 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Typography } from '../../theme/typography';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface ListRowProps {
   title: string;
@@ -39,31 +43,57 @@ export const ListRow: React.FC<ListRowProps> = ({
   style,
   disabled = false,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   const content = (
-    <View style={[styles.container, style]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.card,
+          borderBottomColor: colors.divider,
+        },
+        style,
+      ]}
+    >
       {leftContent ? (
         <View style={styles.leftWrapper}>{leftContent}</View>
       ) : leftIcon ? (
-        <View style={styles.iconCircle}>
+        <View
+          style={[
+            styles.iconCircle,
+            { backgroundColor: colors.surfaceInteractive },
+          ]}
+        >
           <Ionicons
             name={leftIcon}
             size={20}
-            color={destructive ? Colors.error : leftIconColor || Colors.brandInk}
+            color={destructive ? colors.danger : leftIconColor || colors.textPrimary}
           />
         </View>
       ) : null}
 
       <View style={styles.textColumn}>
-        <Text style={[styles.title, destructive ? styles.destructiveText : null]}>
+        <Text
+          style={[
+            styles.title,
+            { color: destructive ? colors.danger : colors.textPrimary },
+            destructive && styles.destructiveText,
+          ]}
+        >
           {title}
         </Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
 
       {rightContent ? <View style={styles.rightWrapper}>{rightContent}</View> : null}
 
       {showChevron && onPress ? (
-        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
       ) : null}
     </View>
   );
@@ -86,7 +116,7 @@ export const ListRow: React.FC<ListRowProps> = ({
   return content;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -94,8 +124,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     minHeight: 52,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
   },
   leftWrapper: {
     marginRight: Spacing.md,
@@ -104,7 +132,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.md,
@@ -115,16 +142,13 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.bodyLarge,
-    color: Colors.brandInk,
     fontWeight: '500',
   },
   destructiveText: {
-    color: Colors.error,
     fontWeight: '600',
   },
   subtitle: {
     ...Typography.bodySmall,
-    color: Colors.textSecondary,
     marginTop: 2,
   },
   rightWrapper: {
@@ -132,3 +156,4 @@ const styles = StyleSheet.create({
     marginRight: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

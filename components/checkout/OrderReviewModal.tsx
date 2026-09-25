@@ -29,6 +29,11 @@ import { CustomerAddressesRepository } from '../../repositories/customerAddresse
 import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { PaymentCheckoutModal } from '../PaymentCheckoutModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface OrderReviewModalProps {
   visible: boolean;
   onClose: () => void;
@@ -44,6 +49,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   onOrderConfirmed,
   isVerifiedRestaurant = false,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { user } = useAuth();
   const {
     items,
@@ -312,7 +318,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Close checkout"
               >
-                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -368,7 +374,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                           Delivery Address ({customerLocation.cityName || 'Tanzania'})
                         </Text>
                         <TouchableOpacity onPress={openLocationSelector}>
-                          <Text style={{ fontSize: 12, color: Colors.primary, fontWeight: '600' }}>
+                          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
                             📍 Change Location
                           </Text>
                         </TouchableOpacity>
@@ -427,13 +433,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                       <Text style={styles.inputLabel}>Select Delivery Area / Zone</Text>
                       {isLoadingZones ? (
                         <View style={{ paddingVertical: 12, alignItems: 'center' }}>
-                          <ActivityIndicator size="small" color={Colors.primary} />
-                          <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 4 }}>Loading delivery areas...</Text>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 4 }}>Loading delivery areas...</Text>
                         </View>
                       ) : zoneLoadError ? (
-                        <Text style={{ fontSize: 12, color: Colors.error, marginVertical: 4 }}>{zoneLoadError}</Text>
+                        <Text style={{ fontSize: 12, color: colors.danger, marginVertical: 4 }}>{zoneLoadError}</Text>
                       ) : deliveryZones.length === 0 ? (
-                        <Text style={{ fontSize: 12, color: Colors.textMuted, marginVertical: 4 }}>
+                        <Text style={{ fontSize: 12, color: colors.textMuted, marginVertical: 4 }}>
                           No delivery areas found for this branch. Please choose Takeaway or Dine-In.
                         </Text>
                       ) : (
@@ -544,7 +550,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Estimated Delivery Fee</Text>
                   {fulfillment === 'Delivery' && !selectedDeliveryZone ? (
-                    <Text style={{ fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' }}>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
                       Select delivery area to calculate delivery fee
                     </Text>
                   ) : (
@@ -560,10 +566,10 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                   <PriceText
                     amountTzs={currentQuote.totalTzs}
                     size="lg"
-                    color={Colors.primaryDark}
+                    color={colors.primaryDark}
                   />
                 </View>
-                <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 6, textAlign: 'center' }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>
                   {pricingDisclaimer || 'Estimate — final total is revalidated by the restaurant branch.'}
                 </Text>
               </View>
@@ -572,7 +578,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
           {step === 'PROCESSING' && (
             <View style={styles.processingContainer}>
-              <ActivityIndicator size="large" color={Colors.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.processingTitle}>Creating Order...</Text>
               <Text style={styles.processingSub}>
                 Securing order with {restaurantName || 'the kitchen'}
@@ -583,7 +589,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           {step === 'CONFIRMED' && (
             <View style={styles.confirmedContainer}>
               <View style={styles.successIconCircle}>
-                <Ionicons name="checkmark-sharp" size={40} color={Colors.success} />
+                <Ionicons name="checkmark-sharp" size={40} color={colors.success} />
               </View>
               <Text style={styles.confirmedTitle}>Payment Confirmed! ✓</Text>
               <Text style={styles.confirmedRestaurant}>{restaurantName || 'Restaurant'}</Text>
@@ -649,14 +655,14 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(20, 40, 30, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '90%',
@@ -669,7 +675,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   headerTitle: {
     ...Typography.H2,
@@ -685,19 +691,19 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   sectionCard: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
   sectionLabel: {
     ...Typography.Label,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginBottom: Spacing.xs,
   },
   restaurantName: {
     ...Typography.H2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   verifiedBadge: {
     marginTop: 6,
@@ -710,53 +716,53 @@ const styles = StyleSheet.create({
   pillBtn: {
     flex: 1,
     paddingVertical: 10,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
   },
   pillBtnActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   pillTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   inputGroup: {
     marginTop: Spacing.sm,
   },
   inputLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   itemSummaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   itemSummaryQty: {
     width: 28,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   itemSummaryName: {
     flex: 1,
@@ -775,14 +781,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     paddingHorizontal: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   pmCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryMuted,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   pmEmoji: {
     fontSize: 14,
@@ -791,15 +797,15 @@ const styles = StyleSheet.create({
   pmLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   pmLabelSelected: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   billCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.md,
@@ -812,11 +818,11 @@ const styles = StyleSheet.create({
   },
   billLabel: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   billTotalRow: {
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
     marginTop: 4,
   },
@@ -828,7 +834,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   processingContainer: {
     alignItems: 'center',
@@ -841,7 +847,7 @@ const styles = StyleSheet.create({
   },
   processingSub: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: Spacing.xs,
   },
   confirmedContainer: {
@@ -854,7 +860,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.successLight,
+    backgroundColor: colors.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -862,15 +868,15 @@ const styles = StyleSheet.create({
   confirmedTitle: {
     ...Typography.Display,
     fontSize: 24,
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   confirmedRestaurant: {
     ...Typography.H3,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   orderIdPill: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 4,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.full,
@@ -878,13 +884,13 @@ const styles = StyleSheet.create({
   },
   orderIdText: {
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 14,
   },
   confirmedMessage: {
     ...Typography.Body,
     textAlign: 'center',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: Spacing.md,
   },
   confirmedBtnCol: {
@@ -897,33 +903,34 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    backgroundColor: Colors.surfaceSecondary,
+    borderColor: colors.divider,
+    backgroundColor: colors.surfaceInteractive,
   },
   zoneCardSelected: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryMuted,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   zoneName: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   zoneNameSelected: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   zoneDetails: {
     fontSize: 11.5,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   zoneFee: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginLeft: 8,
   },
   zoneFeeSelected: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
 });
+let styles = createStyles(lightColors);

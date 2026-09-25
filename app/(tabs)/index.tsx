@@ -34,7 +34,13 @@ import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
 import { CartDrawer } from '../../components/cart/CartDrawer';
 import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function HomeScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
   const { user, profile } = useAuth();
@@ -443,10 +449,10 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -464,7 +470,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: Radii.full,
@@ -477,24 +483,24 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   eyebrowText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   heroHeading: {
     fontSize: 24,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     lineHeight: 30,
     marginBottom: Spacing.xs,
   },
   heroSub: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: Spacing.md,
   },
@@ -516,16 +522,16 @@ const styles = StyleSheet.create({
     borderColor: '#e2e7e3',
   },
   quickChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   quickChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   quickChipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   sectionHeader: {
@@ -538,78 +544,78 @@ const styles = StyleSheet.create({
   sectionEyebrow: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryLight,
+    color: colors.primaryLight,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   seeAllText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
     paddingBottom: 2,
   },
   emptyCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.lg,
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   emptyCardText: {
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontSize: 13,
   },
   whySection: {
     marginTop: Spacing.xl,
     paddingTop: Spacing.xl,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   whyHeading: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   whyGrid: {
     gap: Spacing.sm,
   },
   whyCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   whyIconBadge: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   whyIconText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '800',
   },
   whyCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   whyCardDesc: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   floatingCompareBar: {
@@ -617,7 +623,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.full,
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
@@ -636,19 +642,20 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   floatingCompareText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
   floatingCompareBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: Radii.full,
   },
   floatingCompareBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
     fontSize: 12,
   },
 });
+let styles = createStyles(lightColors);

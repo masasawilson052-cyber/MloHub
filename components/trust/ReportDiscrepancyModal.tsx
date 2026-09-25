@@ -21,6 +21,11 @@ import { ReportCategory } from '../../types/trust';
 import { DataReportsRepository } from '../../repositories/dataReports.repository';
 import { useAuth } from '../../context/AuthContext';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface ReportDiscrepancyModalProps {
   visible: boolean;
   onClose: () => void;
@@ -46,6 +51,7 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
   userId,
   onSuccess,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { user } = useAuth();
   const [category, setCategory] = useState<ReportCategory>('PRICE_DISCREPANCY');
   const [reportedPrice, setReportedPrice] = useState<string>('');
@@ -200,7 +206,7 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
                   <TextInput
                     style={styles.priceInput}
                     placeholder="e.g. 15000"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.inputPlaceholder}
                     keyboardType="numeric"
                     value={reportedPrice}
                     onChangeText={setReportedPrice}
@@ -214,7 +220,7 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
             <TextInput
               style={styles.textArea}
               placeholder="e.g. Waiter mentioned price changed last week..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.inputPlaceholder}
               multiline
               numberOfLines={3}
               value={description}
@@ -235,7 +241,7 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
               accessibilityLabel="Submit discrepancy report"
             >
               {submitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.submitBtnText}>Submit Report for Verification</Text>
               )}
@@ -247,14 +253,14 @@ export const ReportDiscrepancyModal: React.FC<ReportDiscrepancyModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.lg,
     borderTopRightRadius: Radii.lg,
     maxHeight: '90%',
@@ -265,21 +271,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subTitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     fontSize: 20,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   body: {
@@ -294,31 +300,31 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
   },
   feedbackBoxError: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.danger,
   },
   feedbackBoxSuccess: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
   },
   feedbackText: {
     fontSize: 13,
     lineHeight: 18,
   },
   feedbackTextError: {
-    color: '#B91C1C',
+    color: colors.danger,
     fontWeight: '600',
   },
   feedbackTextSuccess: {
-    color: '#15803D',
+    color: colors.success,
     fontWeight: '600',
   },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   categoryGrid: {
@@ -333,24 +339,24 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: colors.border,
+    backgroundColor: colors.appBackground,
     gap: 6,
   },
   categoryCardSelected: {
     borderColor: '#F97316',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.primarySoft,
   },
   categoryIcon: {
     fontSize: 16,
   },
   categoryLabel: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   categoryLabelSelected: {
-    color: '#C2410C',
+    color: colors.primary,
   },
   priceRow: {
     flexDirection: 'row',
@@ -362,32 +368,32 @@ const styles = StyleSheet.create({
   listedPriceDisplay: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#64748B',
+    color: colors.textSecondary,
     paddingVertical: 10,
   },
   priceInput: {
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
+    color: colors.textPrimary,
+    backgroundColor: colors.card,
   },
   textArea: {
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: 12,
     fontSize: 14,
-    color: '#0F172A',
+    color: colors.textPrimary,
     textAlignVertical: 'top',
     height: 70,
   },
   disclaimerText: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   submitBtn: {
@@ -401,8 +407,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 15,
   },
 });
+let styles = createStyles(lightColors);

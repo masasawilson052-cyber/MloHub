@@ -28,7 +28,13 @@ import { DishDiscoveryResult, DiscoveryQuery, DiscoverySort } from '../../types/
 import { AnalyticsService } from '../../services/AnalyticsService';
 import { useMloHubDB } from '../../context/DbContext';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function ExploreScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { user, profile } = useAuth();
   const { location: customerLocation } = useCustomerLocation();
@@ -209,7 +215,7 @@ export default function ExploreScreen() {
             <Ionicons
               name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
               size={20}
-              color={Colors.primaryDark}
+              color={colors.primaryDark}
             />
           </TouchableOpacity>
         </View>
@@ -376,10 +382,10 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   container: {
     flex: 1,
@@ -404,9 +410,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadows.sm,
@@ -421,7 +427,7 @@ const styles = StyleSheet.create({
   resultsCount: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   sortChipsScroll: {
     flexDirection: 'row',
@@ -437,16 +443,16 @@ const styles = StyleSheet.create({
     borderColor: '#dce4dd',
   },
   sortChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   sortChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   sortChipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   scrollList: {
@@ -463,7 +469,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.full,
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
@@ -482,25 +488,25 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   floatingCompareText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
   floatingCompareBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: Radii.full,
   },
   floatingCompareBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
     fontSize: 12,
   },
   multiEntityHeader: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
     textTransform: 'uppercase',
@@ -515,17 +521,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   cuisineChip: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   cuisineChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   restaurantsSection: {
     marginBottom: Spacing.sm,
@@ -537,10 +543,10 @@ const styles = StyleSheet.create({
   },
   restaurantMiniCard: {
     width: 200,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
     ...Shadows.sm,
   },
@@ -556,11 +562,11 @@ const styles = StyleSheet.create({
   restaurantMiniName: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   restaurantMiniCuisine: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   restaurantMiniFooter: {
@@ -572,10 +578,11 @@ const styles = StyleSheet.create({
   restaurantMiniRating: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#d97706',
+    color: colors.warning,
   },
   restaurantMiniDistance: {
     fontSize: 10,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
 });
+let styles = createStyles(lightColors);

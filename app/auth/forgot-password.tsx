@@ -17,9 +17,15 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function ForgotPasswordScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { resetPassword } = useAuth();
@@ -99,7 +105,7 @@ export default function ForgotPasswordScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {language === 'sw' ? 'Umesahau Nenosiri' : 'Forgot Password'}
@@ -135,7 +141,7 @@ export default function ForgotPasswordScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="name@example.com"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -180,8 +186,8 @@ export default function ForgotPasswordScreen() {
           </View>
         ) : (
           <View style={styles.card}>
-            <View style={[styles.iconCircle, { backgroundColor: '#fff7ed' }]}>
-              <Ionicons name="mail-unread-outline" size={30} color={Colors.primary} />
+            <View style={[styles.iconCircle, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="mail-unread-outline" size={30} color={colors.primary} />
             </View>
 
             <Text style={styles.cardTitle}>
@@ -244,10 +250,10 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   headerBar: {
     flexDirection: 'row',
@@ -256,17 +262,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     padding: 6,
     borderRadius: Radii.full,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   headerTitle: {
     fontSize: 15,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   content: {
     padding: Spacing.xl,
@@ -279,11 +285,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     ...Shadows.md,
   },
@@ -296,14 +302,14 @@ const styles = StyleSheet.create({
   brandLabel: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     marginBottom: 8,
   },
   iconCircle: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -311,14 +317,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
     marginBottom: 6,
     textAlign: 'center',
   },
   cardSub: {
     fontSize: 14,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: Spacing.lg,
@@ -330,18 +336,18 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   errorText: {
     color: '#b42318',
@@ -352,13 +358,13 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: Radii.xl,
     alignItems: 'center',
   },
   submitBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -367,7 +373,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   secondaryLinkText: {
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -377,19 +383,20 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
+    borderColor: colors.border,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
   },
   resendBtnDisabled: {
     opacity: 0.6,
   },
   resendBtnText: {
-    color: Colors.text,
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
   resendBtnTextDisabled: {
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
 });
+let styles = createStyles(lightColors);

@@ -25,6 +25,11 @@ import {
   MediaUploadResult,
 } from '../../services/StorageService';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface BranchPriceOverride {
   branchId: string;
   branchName: string;
@@ -56,6 +61,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
   onClose,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [nameEn, setNameEn] = useState(item?.nameEn || item?.name || '');
   const [nameSw, setNameSw] = useState(item?.nameSw || '');
   const [descEn, setDescEn] = useState(item?.descriptionEn || item?.description || '');
@@ -225,7 +231,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -294,7 +300,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
             {branches.length > 1 && (
               <View style={styles.branchSection}>
                 <View style={styles.branchSectionHeader}>
-                  <Ionicons name="git-branch-outline" size={16} color={Colors.primary} />
+                  <Ionicons name="git-branch-outline" size={16} color={colors.primary} />
                   <Text style={styles.branchSectionTitle}>
                     {language === 'sw' ? 'Bei Maalum kwa Matawi (Branch Overrides)' : 'Branch-Specific Pricing'}
                   </Text>
@@ -401,7 +407,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
                       onPress={handlePickPhoto}
                       disabled={isSaving}
                     >
-                      <Ionicons name="camera-outline" size={16} color={Colors.textPrimary} />
+                      <Ionicons name="camera-outline" size={16} color={colors.textPrimary} />
                       <Text style={styles.photoActionText}>
                         {language === 'sw' ? 'Badilisha Picha' : 'Replace Photo'}
                       </Text>
@@ -412,7 +418,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
                       disabled={isSaving}
                     >
                       <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                      <Text style={[styles.photoActionText, { color: '#ef4444' }]}>
+                      <Text style={[styles.photoActionText, { color: colors.danger }]}>
                         {language === 'sw' ? 'Ondoa Picha' : 'Remove Photo'}
                       </Text>
                     </TouchableOpacity>
@@ -421,7 +427,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
               ) : (
                 <View style={styles.photoEmptyPlaceholder}>
                   <View style={styles.photoPlaceholderCircle}>
-                    <Ionicons name="image-outline" size={28} color="#94a3b8" />
+                    <Ionicons name="image-outline" size={28} color={colors.textMuted} />
                   </View>
                   <Text style={styles.photoPlaceholderText}>
                     {language === 'sw'
@@ -433,7 +439,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
                     onPress={handlePickPhoto}
                     disabled={isSaving}
                   >
-                    <Ionicons name="cloud-upload-outline" size={18} color="#ffffff" />
+                    <Ionicons name="cloud-upload-outline" size={18} color={colors.onPrimary} />
                     <Text style={styles.photoSelectBtnText}>
                       {language === 'sw' ? 'Chagua Picha' : 'Select Photo'}
                     </Text>
@@ -443,7 +449,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
 
               {uploadStatus && (
                 <View style={styles.uploadProgressRow}>
-                  <ActivityIndicator size="small" color={Colors.primary} />
+                  <ActivityIndicator size="small" color={colors.primary} />
                   <Text style={styles.uploadProgressText}>{uploadStatus}</Text>
                 </View>
               )}
@@ -492,7 +498,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
@@ -501,7 +507,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalContainer: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     maxWidth: 680,
     width: '100%',
@@ -514,16 +520,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   headerTitle: {
     ...Typography.H3,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   headerSub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -533,7 +539,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.sm,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.sm,
@@ -541,7 +547,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.Caption,
-    color: '#B91C1C',
+    color: colors.danger,
     fontWeight: '600',
   },
   scrollBody: {
@@ -561,17 +567,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     ...Typography.Body,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   textArea: {
     minHeight: 70,
@@ -585,29 +591,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   catChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   catChipText: {
     ...Typography.Caption,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   catChipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   branchSection: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   branchSectionHeader: {
     flexDirection: 'row',
@@ -618,11 +624,11 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 12.5,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   branchSectionSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
     marginBottom: Spacing.sm,
   },
@@ -636,16 +642,16 @@ const styles = StyleSheet.create({
   },
   branchNameText: {
     ...Typography.BodyMedium,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   branchPriceInput: {
     width: 120,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     textAlign: 'right',
     ...Typography.BodyMedium,
   },
@@ -658,22 +664,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   spicePillActive: {
-    backgroundColor: '#FFEDD5',
+    backgroundColor: colors.warningSoft,
     borderColor: '#F97316',
   },
   spicePillText: {
     ...Typography.Caption,
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   spicePillTextActive: {
-    color: '#C2410C',
+    color: colors.primary,
     fontWeight: '700',
   },
   tagsRow: {
@@ -685,21 +691,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   tagPillActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   tagPillText: {
     ...Typography.Caption,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tagPillTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   availabilityRow: {
@@ -707,7 +713,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: Spacing.sm,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     marginTop: 6,
   },
@@ -717,7 +723,7 @@ const styles = StyleSheet.create({
   },
   availSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   togglePill: {
     paddingHorizontal: 14,
@@ -725,22 +731,22 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   toggleOn: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
   },
   toggleOff: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   toggleText: {
     ...Typography.Caption,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   photoPreviewCard: {
     borderRadius: Radii.md,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceInteractive,
   },
   photoPreviewImage: {
     width: '100%',
@@ -750,9 +756,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: Spacing.sm,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   photoActionBtn: {
     flexDirection: 'row',
@@ -761,39 +767,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
   },
   photoDeleteBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   photoActionText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   photoEmptyPlaceholder: {
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: Radii.md,
     padding: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     gap: Spacing.xs,
   },
   photoPlaceholderCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   photoPlaceholderText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -801,7 +807,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: Radii.md,
@@ -809,7 +815,7 @@ const styles = StyleSheet.create({
   photoSelectBtnText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   uploadProgressRow: {
     flexDirection: 'row',
@@ -818,11 +824,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 8,
     borderRadius: Radii.sm,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoSoft,
   },
   uploadProgressText: {
     ...Typography.Caption,
-    color: '#1D4ED8',
+    color: colors.info,
     fontWeight: '600',
   },
   footer: {
@@ -830,6 +836,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     padding: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
 });
+let styles = createStyles(lightColors);

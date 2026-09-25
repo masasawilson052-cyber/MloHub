@@ -1,10 +1,16 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
+import { Spacing, Radii } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
+import { useTheme } from '../context/ThemeContext';
+import { ThemeQuickSwitcher } from './theme/ThemeQuickSwitcher';
+
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 interface HeaderProps {
   location: string;
@@ -18,11 +24,20 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
 }) => {
   const router = useRouter();
-  const { language, toggleLanguage, t } = useLanguage();
+  const { language, toggleLanguage } = useLanguage();
   const { unreadCount } = useNotifications();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.brandRow}>
         <Image
           source={require('../assets/icon.png')}
@@ -30,42 +45,93 @@ export const Header: React.FC<HeaderProps> = ({
           resizeMode="cover"
         />
         <TouchableOpacity
-          style={styles.locationButton}
+          style={[
+            styles.locationButton,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={onOpenLocation}
           activeOpacity={0.8}
           accessibilityLabel={`Selected location ${location}. Tap to change.`}
         >
-          <Ionicons name="location" size={14} color={Colors.primary} style={{ marginRight: 3 }} />
-          <Text style={styles.locationMain} numberOfLines={1}>
-            {location ? location.split(',')[0] : (language === 'sw' ? 'Chagua Eneo' : 'Select Area')}
+          <Ionicons
+            name="location"
+            size={14}
+            color={colors.primary}
+            style={{ marginRight: 4 }}
+          />
+          <Text
+            style={[styles.locationMain, { color: colors.textPrimary }]}
+            numberOfLines={1}
+          >
+            {location
+              ? location.split(',')[0]
+              : language === 'sw'
+              ? 'Chagua Eneo'
+              : 'Select Area'}
           </Text>
-          <Ionicons name="chevron-down" size={13} color={Colors.brandInk} style={{ marginLeft: 2 }} />
+          <Ionicons
+            name="chevron-down"
+            size={13}
+            color={colors.textSecondary}
+            style={{ marginLeft: 3 }}
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Right Controls */}
+      {/* Right Controls: [Language] [Theme] [Notifications] [Profile] */}
       <View style={styles.rightRow}>
-        {/* Quick Language Toggle Pill */}
         <TouchableOpacity
-          style={styles.langTogglePill}
+          style={[
+            styles.langTogglePill,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={toggleLanguage}
           activeOpacity={0.8}
           accessibilityLabel={`Current language: ${language.toUpperCase()}. Tap to switch.`}
         >
           <Text style={styles.langFlag}>{language === 'en' ? '🇬🇧' : '🇹🇿'}</Text>
-          <Text style={styles.langText}>{language === 'en' ? 'EN' : 'SW'}</Text>
+          <Text style={[styles.langText, { color: colors.textPrimary }]}>
+            {language === 'en' ? 'EN' : 'SW'}
+          </Text>
         </TouchableOpacity>
+
+        {/* Global Theme Quick Switcher */}
+        <ThemeQuickSwitcher compact />
 
         {/* Notification Bell with Dynamic Unread Badge */}
         <TouchableOpacity
-          style={styles.notifBtn}
+          style={[
+            styles.notifBtn,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={() => router.push('/notifications')}
           activeOpacity={0.8}
           accessibilityLabel={`Notifications. ${unreadCount} unread.`}
         >
-          <Ionicons name="notifications-outline" size={20} color={Colors.brandInk} />
+          <Ionicons
+            name="notifications-outline"
+            size={18}
+            color={colors.textPrimary}
+          />
           {unreadCount > 0 && (
-            <View style={styles.notifBadge}>
+            <View
+              style={[
+                styles.notifBadge,
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.topbarBackground,
+                },
+              ]}
+            >
               <Text style={styles.notifBadgeText}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </Text>
@@ -75,64 +141,63 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Profile Avatar Button */}
         <TouchableOpacity
-          style={styles.profileButton}
+          style={[
+            styles.profileButton,
+            {
+              backgroundColor: colors.surfaceInteractive,
+              borderColor: colors.border,
+            },
+          ]}
           onPress={onOpenProfile}
           activeOpacity={0.8}
           accessibilityLabel="Open Profile"
         >
-          <Ionicons name="person-circle-outline" size={30} color={Colors.brandInk} />
+          <Ionicons
+            name="person-outline"
+            size={17}
+            color={colors.textPrimary}
+          />
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.background,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
     zIndex: 10,
   },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    flex: 1,
+    marginRight: 8,
   },
   logoImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
   },
-  logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: Colors.primary,
+  locationButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadows.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    maxWidth: 150,
   },
-  logoBadgeText: {
-    color: Colors.white,
-    fontWeight: '900',
-    fontSize: 18,
-  },
-  brandText: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Colors.text,
-    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-  },
-  brandTextGreen: {
-    color: Colors.primaryLight,
-    fontWeight: '800',
-    fontFamily: Platform.select({ ios: 'System', default: 'sans-serif' }),
+  locationMain: {
+    fontSize: 12,
+    fontWeight: '700',
+    maxWidth: 96,
   },
   rightRow: {
     flexDirection: 'row',
@@ -142,39 +207,33 @@ const styles = StyleSheet.create({
   langTogglePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: Colors.primaryMuted,
-    paddingVertical: 5,
-    paddingHorizontal: 7,
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.primaryLight,
+    height: 34,
   },
   langFlag: {
     fontSize: 12,
   },
   langText: {
     fontSize: 10,
-    fontWeight: '900',
-    color: Colors.primaryDark,
+    fontWeight: '800',
   },
   notifBtn: {
     width: 34,
     height: 34,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.white,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
     position: 'relative',
-    ...Shadows.sm,
   },
   notifBadge: {
     position: 'absolute',
     top: -3,
     right: -3,
-    backgroundColor: Colors.accent,
     minWidth: 16,
     height: 16,
     borderRadius: Radii.full,
@@ -182,88 +241,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: Colors.white,
   },
   notifBadgeText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 8,
     fontWeight: '900',
-  },
-  locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: Radii.full,
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-  },
-  locationIconBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: Radii.full,
-    backgroundColor: Colors.primaryMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationIcon: {
-    fontSize: 10,
-  },
-  locationTextWrap: {
-    maxWidth: 70,
-  },
-  locationSub: {
-    fontSize: 7,
-    textTransform: 'uppercase',
-    color: Colors.subtle,
-    fontWeight: '700',
-  },
-  locationMain: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.brandInk,
-    maxWidth: 90,
-  },
-  chevron: {
-    fontSize: 9,
-    color: Colors.subtle,
   },
   profileButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileIcon: {
-    fontSize: 14,
-  },
-  favBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: Colors.accent,
-    width: 14,
-    height: 14,
-    borderRadius: Radii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.white,
-  },
-  chefQuickBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.full,
-    backgroundColor: '#eaf4ed',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 1,
-    borderColor: '#badbcc',
-  },
-  favBadgeText: {
-    color: Colors.white,
-    fontSize: 8,
-    fontWeight: '900',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
+let styles = createStyles(lightColors);

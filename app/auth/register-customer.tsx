@@ -22,7 +22,13 @@ import { CryptoEngine } from '../../db/auth/crypto';
 import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 import { isValidTanzaniaPhone, normalizeTanzaniaPhone } from '../../utils/phone';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function RegisterCustomerScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { registerCustomer, isAuthLoading } = useAuth();
@@ -59,7 +65,7 @@ export default function RegisterCustomerScreen() {
       case 4:
         return '#10b981'; // green
       default:
-        return Colors.border;
+        return colors.border;
     }
   };
 
@@ -161,7 +167,7 @@ export default function RegisterCustomerScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={20} color={Colors.brandInk} />
+          <Ionicons name="arrow-back" size={20} color={colors.brandInk} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {language === 'sw' ? 'Usajili wa Mteja' : 'Create Account'}
@@ -211,7 +217,7 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Jina Kamili *' : 'Full Name *'}
             </Text>
             <View style={[styles.inputBox, errors.fullName && styles.inputBoxError]}>
-              <Ionicons name="person-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="person-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={fullName}
@@ -220,7 +226,7 @@ export default function RegisterCustomerScreen() {
                   if (errors.fullName) setErrors({ ...errors, fullName: '' });
                 }}
                 placeholder={language === 'sw' ? 'Mfano: Frank Mlaki' : 'e.g. Frank Mlaki'}
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 autoCapitalize="words"
               />
             </View>
@@ -233,7 +239,7 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Barua Pepe (Email) *' : 'Email Address *'}
             </Text>
             <View style={[styles.inputBox, errors.email && styles.inputBoxError]}>
-              <Ionicons name="mail-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="mail-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={email}
@@ -242,7 +248,7 @@ export default function RegisterCustomerScreen() {
                   if (errors.email) setErrors({ ...errors, email: '' });
                 }}
                 placeholder="name@example.com"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -256,7 +262,7 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Namba ya Simu *' : 'Phone Number *'}
             </Text>
             <View style={[styles.inputBox, errors.phone && styles.inputBoxError]}>
-              <Ionicons name="call-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="call-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={phone}
@@ -265,7 +271,7 @@ export default function RegisterCustomerScreen() {
                   if (errors.phone) setErrors({ ...errors, phone: '' });
                 }}
                 placeholder="+255 754 123 456"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 keyboardType="phone-pad"
               />
             </View>
@@ -278,7 +284,7 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Nenosiri *' : 'Password *'}
             </Text>
             <View style={[styles.inputBox, errors.password && styles.inputBoxError]}>
-              <Ionicons name="lock-closed-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="lock-closed-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={password}
@@ -287,7 +293,7 @@ export default function RegisterCustomerScreen() {
                   if (errors.password) setErrors({ ...errors, password: '' });
                 }}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry={!showPassword}
               />
               <TouchableOpacity
@@ -297,7 +303,7 @@ export default function RegisterCustomerScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={18}
-                  color={Colors.muted}
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -313,7 +319,7 @@ export default function RegisterCustomerScreen() {
                         styles.strengthSegment,
                         {
                           backgroundColor:
-                            step <= strength.score ? getStrengthBarColor(strength.score) : Colors.borderLight,
+                            step <= strength.score ? getStrengthBarColor(strength.score) : colors.borderLight,
                         },
                       ]}
                     />
@@ -338,7 +344,7 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Thibitisha Nenosiri *' : 'Confirm Password *'}
             </Text>
             <View style={[styles.inputBox, errors.confirmPassword && styles.inputBoxError]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={confirmPassword}
@@ -347,7 +353,7 @@ export default function RegisterCustomerScreen() {
                   if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
                 }}
                 placeholder="••••••••"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity
@@ -357,7 +363,7 @@ export default function RegisterCustomerScreen() {
                 <Ionicons
                   name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={18}
-                  color={Colors.muted}
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -370,13 +376,13 @@ export default function RegisterCustomerScreen() {
               {language === 'sw' ? 'Mtaa / Eneo la Dar es Salaam (Hiari)' : 'Delivery Neighborhood (Optional)'}
             </Text>
             <View style={styles.inputBox}>
-              <Ionicons name="location-outline" size={18} color={Colors.muted} style={styles.fieldIcon} />
+              <Ionicons name="location-outline" size={18} color={colors.muted} style={styles.fieldIcon} />
               <TextInput
                 style={styles.input}
                 value={location}
                 onChangeText={setLocation}
                 placeholder="e.g. Mikocheni, Masaki, Sinza"
-                placeholderTextColor={Colors.subtle}
+                placeholderTextColor={colors.inputPlaceholder}
               />
             </View>
           </View>
@@ -388,7 +394,7 @@ export default function RegisterCustomerScreen() {
             activeOpacity={0.8}
           >
             <View style={[styles.checkboxBox, agreeTerms && styles.checkboxBoxActive]}>
-              {agreeTerms && <Ionicons name="checkmark" size={13} color="#ffffff" />}
+              {agreeTerms && <Ionicons name="checkmark" size={13} color={colors.onPrimary} />}
             </View>
             <Text style={styles.checkboxLabel}>
               {language === 'sw'
@@ -406,7 +412,7 @@ export default function RegisterCustomerScreen() {
             activeOpacity={0.88}
           >
             {isSubmitting || isAuthLoading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitBtnText}>
                 {language === 'sw' ? 'Tengeneza Akaunti →' : 'Create Account →'}
@@ -432,10 +438,10 @@ export default function RegisterCustomerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   headerBar: {
     flexDirection: 'row',
@@ -443,22 +449,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   scrollContent: {
     padding: Spacing.xl,
@@ -475,28 +481,28 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: 26,
     fontWeight: '900',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
     marginBottom: 6,
   },
   mainSubtitle: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 19,
   },
   generalErrorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
     padding: 12,
     borderRadius: Radii.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: colors.danger,
   },
   generalErrorText: {
-    color: '#b91c1c',
+    color: colors.danger,
     fontSize: 12,
     fontWeight: '700',
     flex: 1,
@@ -505,25 +511,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
     padding: 12,
     borderRadius: Radii.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#86efac',
+    borderColor: colors.success,
   },
   generalSuccessText: {
-    color: '#166534',
+    color: colors.success,
     fontSize: 12,
     fontWeight: '700',
     flex: 1,
   },
   formCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.xl,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
     gap: Spacing.lg,
   },
@@ -533,20 +539,20 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   inputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     borderRadius: Radii.xl,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
   },
   inputBoxError: {
-    borderColor: '#ef4444',
+    borderColor: colors.danger,
   },
   fieldIcon: {
     marginRight: 8,
@@ -554,11 +560,11 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 14,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   errorText: {
     fontSize: 11,
-    color: '#ef4444',
+    color: colors.danger,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -590,23 +596,23 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   checkboxBoxActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   checkboxLabel: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     flex: 1,
     lineHeight: 18,
   },
   submitBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -617,7 +623,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   submitBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -627,10 +633,11 @@ const styles = StyleSheet.create({
   },
   loginFooterText: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   loginLink: {
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '800',
   },
 });
+let styles = createStyles(lightColors);

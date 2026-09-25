@@ -25,6 +25,11 @@ import { BranchRepository } from '../../repositories/branches.repository';
 import { BranchManager } from './BranchManager';
 import { RestaurantBranch } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export type OperatingOverride = 'OPEN' | 'BUSY' | 'PAUSED' | 'CLOSED';
 
 export interface DaySchedule {
@@ -65,6 +70,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   onBranchUpdated,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const activeBranch = branches.find(b => b.id === selectedBranchId) || null;
   const activeBranchId = activeBranch?.id;
 
@@ -391,7 +397,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       {/* 1. Operating Status Override (Task 39) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="flash-outline" size={20} color={Colors.primary} />
+          <Ionicons name="flash-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>Live Kitchen Operating Status</Text>
             <Text style={styles.sectionSub}>Temporary status override shown to diners on MloHub</Text>
@@ -400,10 +406,10 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
 
         <View style={styles.statusOptionsRow}>
           {[
-            { id: 'OPEN', label: 'Open ✓', color: '#15803D', bg: '#DCFCE7' },
-            { id: 'BUSY', label: 'Busy (Rush)', color: '#D97706', bg: '#FEF3C7' },
-            { id: 'PAUSED', label: 'Paused ⏸', color: '#B45309', bg: '#FFF7ED' },
-            { id: 'CLOSED', label: 'Closed ✕', color: '#DC2626', bg: '#FEE2E2' },
+            { id: 'OPEN', label: 'Open ✓', color: colors.success, bg: '#DCFCE7' },
+            { id: 'BUSY', label: 'Busy (Rush)', color: colors.warning, bg: '#FEF3C7' },
+            { id: 'PAUSED', label: 'Paused ⏸', color: colors.warning, bg: '#FFF7ED' },
+            { id: 'CLOSED', label: 'Closed ✕', color: colors.danger, bg: '#FEE2E2' },
           ].map((st) => (
             <TouchableOpacity
               key={st.id}
@@ -429,7 +435,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       {/* 2. Restaurant Profile */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="storefront-outline" size={20} color={Colors.primary} />
+          <Ionicons name="storefront-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>Restaurant Information</Text>
             <Text style={styles.sectionSub}>Public culinary profile and contact information</Text>
@@ -457,7 +463,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       {/* 2b. Restaurant Branding & Media (Task 3G) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="images-outline" size={20} color={Colors.primary} />
+          <Ionicons name="images-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>
               {language === 'sw' ? 'Picha na Nembo ya Mgahawa' : 'Restaurant Branding & Media'}
@@ -482,7 +488,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 <Image source={{ uri: logoUrl }} style={styles.logoImage} resizeMode="cover" />
               ) : (
                 <View style={styles.logoPlaceholder}>
-                  <Ionicons name="storefront-outline" size={36} color="#94a3b8" />
+                  <Ionicons name="storefront-outline" size={36} color={colors.textMuted} />
                 </View>
               )}
             </View>
@@ -492,7 +498,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 onPress={handleUploadLogo}
                 disabled={uploadingTarget !== null}
               >
-                <Ionicons name="cloud-upload-outline" size={14} color={Colors.primary} />
+                <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
                 <Text style={styles.mediaSmallBtnText}>
                   {logoUrl ? (language === 'sw' ? 'Badilisha' : 'Replace') : (language === 'sw' ? 'Weka Nembo' : 'Upload')}
                 </Text>
@@ -519,7 +525,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 <Image source={{ uri: coverImageUrl }} style={styles.coverImage} resizeMode="cover" />
               ) : (
                 <View style={styles.coverPlaceholder}>
-                  <Ionicons name="image-outline" size={36} color="#94a3b8" />
+                  <Ionicons name="image-outline" size={36} color={colors.textMuted} />
                 </View>
               )}
             </View>
@@ -529,7 +535,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 onPress={handleUploadCover}
                 disabled={uploadingTarget !== null}
               >
-                <Ionicons name="cloud-upload-outline" size={14} color={Colors.primary} />
+                <Ionicons name="cloud-upload-outline" size={14} color={colors.primary} />
                 <Text style={styles.mediaSmallBtnText}>
                   {coverImageUrl ? (language === 'sw' ? 'Badilisha' : 'Replace') : (language === 'sw' ? 'Weka Cover' : 'Upload')}
                 </Text>
@@ -564,7 +570,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                 onPress={handleAddGalleryPhoto}
                 disabled={uploadingTarget !== null}
               >
-                <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
+                <Ionicons name="add-circle-outline" size={16} color={colors.onPrimary} />
                 <Text style={styles.addPhotoBtnText}>
                   {language === 'sw' ? 'Ongeza Picha' : 'Add Photo'}
                 </Text>
@@ -587,7 +593,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
             ))}
             {foodSpotPhotos.length === 0 && (
               <View style={styles.emptyGalleryBox}>
-                <Ionicons name="images-outline" size={28} color="#94a3b8" />
+                <Ionicons name="images-outline" size={28} color={colors.textMuted} />
                 <Text style={styles.emptyGalleryText}>
                   {language === 'sw'
                     ? 'Bado hakuna picha za ziada za mgahawa'
@@ -600,7 +606,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
 
         {uploadingTarget && (
           <View style={styles.uploadIndicatorRow}>
-            <ActivityIndicator size="small" color={Colors.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.uploadIndicatorText}>
               {language === 'sw' ? 'Inapakia picha kwenye wingu...' : 'Uploading image to cloud storage...'}
             </Text>
@@ -619,7 +625,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       {/* 4. Opening Hours Schedule Editor (Task 38) */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="time-outline" size={20} color={Colors.primary} />
+          <Ionicons name="time-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>
               {language === 'sw' ? 'Masaa ya Kazi ya Kila Wiki' : 'Weekly Opening Hours'}
@@ -633,29 +639,29 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
         </View>
 
         {!activeBranch ? (
-          <View style={{ padding: Spacing.md, backgroundColor: '#f8fafc', borderRadius: Radii.md, alignItems: 'center' }}>
-            <Ionicons name="information-circle-outline" size={24} color={Colors.primary} style={{ marginBottom: 4 }} />
-            <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center' }}>
+          <View style={{ padding: Spacing.md, backgroundColor: colors.appBackground, borderRadius: Radii.md, alignItems: 'center' }}>
+            <Ionicons name="information-circle-outline" size={24} color={colors.primary} style={{ marginBottom: 4 }} />
+            <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center' }}>
               {language === 'sw'
                 ? 'Tafadhali chagua au sajili tawi hapo juu ili kusanidi ratiba ya masaa ya kazi.'
                 : 'Please select or add an operating branch above to configure working hours.'}
             </Text>
           </View>
         ) : !hasConfiguredHours && schedule.length === 0 ? (
-          <View style={{ padding: Spacing.md, backgroundColor: '#f8fafc', borderRadius: Radii.md, alignItems: 'center' }}>
-            <Text style={{ fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginBottom: Spacing.sm }}>
+          <View style={{ padding: Spacing.md, backgroundColor: colors.appBackground, borderRadius: Radii.md, alignItems: 'center' }}>
+            <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: Spacing.sm }}>
               {language === 'sw'
                 ? 'Hakuna masaa ya kazi yaliyowekwa kwenye hifadhidata kwa tawi hili.'
                 : 'No operating hours are currently configured for this branch.'}
             </Text>
             <TouchableOpacity
-              style={{ backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radii.md }}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: Radii.md }}
               onPress={() => {
                 setSchedule(getStandardOperatingSchedule());
                 setHasConfiguredHours(true);
               }}
             >
-              <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 12 }}>
+              <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 12 }}>
                 {language === 'sw' ? 'Weka Ratiba ya Kawaida' : 'Set Standard Hours'}
               </Text>
             </TouchableOpacity>
@@ -668,8 +674,8 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
                   <Switch
                     value={item.isOpen}
                     onValueChange={() => toggleDayOpen(idx)}
-                    trackColor={{ false: '#E2E8F0', true: '#BBF7D0' }}
-                    thumbColor={item.isOpen ? Colors.primary : '#94A3B8'}
+                    trackColor={{ false: colors.border, true: '#BBF7D0' }}
+                    thumbColor={item.isOpen ? colors.primary : colors.textMuted}
                   />
                   <Text style={[styles.dayText, !item.isOpen && styles.dayTextClosed]}>
                     {item.day}
@@ -694,9 +700,9 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
               disabled={isSavingHours}
             >
               {isSavingHours ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
-                <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                <Ionicons name="checkmark-circle-outline" size={18} color={colors.onPrimary} />
               )}
               <Text style={styles.saveHoursBtnText}>
                 {isSavingHours
@@ -711,7 +717,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       {/* 5. Notification Dispatch Policy */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="notifications-outline" size={20} color={Colors.primary} />
+          <Ionicons name="notifications-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>
               {language === 'sw' ? 'Arifa za Jikoni na Uendeshaji' : 'Kitchen & Dispatch Notifications'}
@@ -739,7 +745,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     padding: Spacing.md,
     maxWidth: 900,
@@ -748,11 +754,11 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sectionCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   sectionHeader: {
@@ -764,11 +770,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.H3,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   sectionSub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   statusOptionsRow: {
@@ -780,16 +786,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: Radii.md,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     minWidth: 110,
     alignItems: 'center',
   },
   statusPillText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   formGrid: {
     gap: Spacing.sm,
@@ -800,15 +806,15 @@ const styles = StyleSheet.create({
   inputLabel: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     ...Typography.Body,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   scheduleList: {
     gap: 8,
@@ -819,7 +825,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   dayLeft: {
     flexDirection: 'row',
@@ -829,13 +835,13 @@ const styles = StyleSheet.create({
   dayText: {
     ...Typography.BodyMedium,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   dayTextClosed: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   hoursRow: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,
@@ -843,17 +849,17 @@ const styles = StyleSheet.create({
   hoursText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   closedPill: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,
   },
   closedPillText: {
     ...Typography.Caption,
-    color: Colors.error,
+    color: colors.danger,
     fontWeight: '700',
   },
   saveHoursBtn: {
@@ -868,7 +874,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   saveHoursBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -879,21 +885,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.sm,
     borderRadius: Radii.md,
   },
   branchName: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   branchAddress: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   branchActiveBadge: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
@@ -901,7 +907,7 @@ const styles = StyleSheet.create({
   branchActiveText: {
     ...Typography.Caption,
     fontSize: 11,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   notifRows: {
@@ -914,7 +920,7 @@ const styles = StyleSheet.create({
   },
   notifLabel: {
     ...Typography.BodyMedium,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   mediaRow: {
     flexDirection: 'row',
@@ -929,9 +935,9 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     marginBottom: 8,
   },
   logoImage: {
@@ -947,9 +953,9 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     marginBottom: 8,
   },
   coverImage: {
@@ -972,23 +978,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   mediaDeleteBtn: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   mediaSmallBtnText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   gallerySection: {
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.md,
   },
   galleryHeaderRow: {
@@ -999,13 +1005,13 @@ const styles = StyleSheet.create({
   },
   galleryCountText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   addPhotoBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.sm,
@@ -1013,7 +1019,7 @@ const styles = StyleSheet.create({
   addPhotoBtnText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   galleryGrid: {
     flexDirection: 'row',
@@ -1027,7 +1033,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   galleryThumb: {
     width: '100%',
@@ -1037,7 +1043,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: 10,
   },
   emptyGalleryBox: {
@@ -1049,7 +1055,7 @@ const styles = StyleSheet.create({
   },
   emptyGalleryText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   uploadIndicatorRow: {
@@ -1059,11 +1065,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 8,
     borderRadius: Radii.sm,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoSoft,
   },
   uploadIndicatorText: {
     ...Typography.Caption,
-    color: '#1D4ED8',
+    color: colors.info,
     fontWeight: '600',
   },
 });
+let styles = createStyles(lightColors);

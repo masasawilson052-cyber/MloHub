@@ -13,6 +13,11 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { SearchAutocompleteSuggestion } from '../../types/discovery';
 import { DiscoveryService } from '../../services/DiscoveryService';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface HeroSearchBarProps {
   value: string;
   onChangeText: (text: string) => void;
@@ -38,6 +43,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
   latitude,
   longitude,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [suggestions, setSuggestions] = useState<SearchAutocompleteSuggestion[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const debounceTimer = useRef<any>(null);
@@ -84,13 +90,13 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
     <View style={styles.wrapper}>
       <View style={[styles.container, isFocused && styles.containerFocused]}>
         {/* Search Icon */}
-        <Ionicons name="search" size={20} color={Colors.primary} style={styles.searchIcon} />
+        <Ionicons name="search" size={20} color={colors.primary} style={styles.searchIcon} />
 
         {/* Text Input */}
         <TextInput
           style={styles.input}
           placeholder={placeholder}
-          placeholderTextColor={Colors.subtle}
+          placeholderTextColor={colors.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setIsFocused(true)}
@@ -109,7 +115,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityLabel="Clear search input"
           >
-            <Ionicons name="close-circle" size={18} color={Colors.subtle} />
+            <Ionicons name="close-circle" size={18} color={colors.subtle} />
           </TouchableOpacity>
         ) : null}
 
@@ -124,7 +130,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
             <Ionicons
               name={filtersOpen ? 'options' : 'options-outline'}
               size={18}
-              color={filtersOpen ? Colors.white : Colors.primaryDark}
+              color={filtersOpen ? colors.white : colors.primaryDark}
             />
             {activeFilterCount > 0 ? (
               <View style={styles.filterBadge}>
@@ -152,7 +158,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
                 <Text style={styles.suggestionTitle}>{item.text}</Text>
                 {item.subtext ? <Text style={styles.suggestionSub}>{item.subtext}</Text> : null}
               </View>
-              <Ionicons name="arrow-forward" size={14} color={Colors.subtle} />
+              <Ionicons name="arrow-forward" size={14} color={colors.subtle} />
             </TouchableOpacity>
           ))}
         </View>
@@ -161,7 +167,7 @@ export const HeroSearchBar: React.FC<HeroSearchBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   wrapper: {
     width: '100%',
     position: 'relative',
@@ -170,16 +176,16 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.full,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: Spacing.md,
     height: 52,
     ...Shadows.sm,
   },
   containerFocused: {
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     ...Shadows.md,
   },
   searchIcon: {
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   clearBtn: {
@@ -200,19 +206,19 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   filterBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   filterBadge: {
     position: 'absolute',
     top: -3,
     right: -3,
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -220,7 +226,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   filterBadgeText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 9,
     fontWeight: '900',
   },
@@ -229,10 +235,10 @@ const styles = StyleSheet.create({
     top: 56,
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     paddingVertical: 4,
     ...Shadows.md,
     zIndex: 100,
@@ -243,7 +249,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   suggestionIcon: {
     fontSize: 16,
@@ -255,11 +261,12 @@ const styles = StyleSheet.create({
   suggestionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   suggestionSub: {
     fontSize: 11,
-    color: Colors.subtle,
+    color: colors.textMuted,
     marginTop: 1,
   },
 });
+let styles = createStyles(lightColors);

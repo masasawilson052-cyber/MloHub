@@ -15,6 +15,11 @@ import { Typography } from '../../theme/typography';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface CustomerReportItem {
   id: string;
   reason: 'WRONG_PRICE' | 'ITEM_UNAVAILABLE' | 'WRONG_HOURS' | 'WRONG_LOCATION' | 'RESTAURANT_CLOSED' | 'OTHER';
@@ -38,6 +43,7 @@ export const CustomerReportsPanel: React.FC<CustomerReportsPanelProps> = ({
   onFixDish,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getReasonLabel = (reason: CustomerReportItem['reason']) => {
     switch (reason) {
       case 'WRONG_PRICE':
@@ -124,7 +130,7 @@ export const CustomerReportsPanel: React.FC<CustomerReportsPanelProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -138,11 +144,11 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.H2,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   sub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   listContainer: {
@@ -150,11 +156,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   reportCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.danger,
     ...Shadows.sm,
   },
   cardHeader: {
@@ -171,10 +177,10 @@ const styles = StyleSheet.create({
   reasonText: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: '#991B1B',
+    color: colors.danger,
   },
   statusPill: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: Radii.full,
@@ -183,23 +189,23 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   dishName: {
     ...Typography.BodyMedium,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginVertical: 2,
   },
   detailsText: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontStyle: 'italic',
     marginVertical: 4,
   },
   dateText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
     marginBottom: 8,
   },
@@ -208,7 +214,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

@@ -12,6 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../theme/colors';
 import { Radii } from '../../theme/radius';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface AppImageProps {
   source?: ImageSourcePropType | string | null;
   aspectRatio?: number; // e.g. 4/3 or 16/9 or 1
@@ -31,6 +36,7 @@ export const AppImage: React.FC<AppImageProps> = ({
   accessibilityLabel = 'Image',
   resizeMode = 'cover',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -48,7 +54,7 @@ export const AppImage: React.FC<AppImageProps> = ({
         accessibilityRole="image"
         accessibilityLabel={`${accessibilityLabel} placeholder`}
       >
-        <Ionicons name={fallbackIcon} size={28} color={Colors.textMuted} />
+        <Ionicons name={fallbackIcon} size={28} color={colors.textMuted} />
       </View>
     );
   }
@@ -71,31 +77,32 @@ export const AppImage: React.FC<AppImageProps> = ({
       />
       {isLoading ? (
         <View style={[styles.loadingOverlay, { borderRadius }]}>
-          <ActivityIndicator size="small" color={Colors.brandInk} />
+          <ActivityIndicator size="small" color={colors.brandInk} />
         </View>
       ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     width: '100%',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     overflow: 'hidden',
     position: 'relative',
   },
   placeholder: {
     width: '100%',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
+let styles = createStyles(lightColors);

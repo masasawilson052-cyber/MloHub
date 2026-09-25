@@ -16,6 +16,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { EmptyState } from '../ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface FavoriteRestaurant {
   id: string;
   name: string;
@@ -42,6 +47,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onRemoveFavorite,
   restaurants = [],
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
 
   if (!visible) return null;
@@ -69,7 +75,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -113,7 +119,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     accessibilityRole="button"
                     accessibilityLabel={`Remove ${r.name} from favorites`}
                   >
-                    <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                    <Ionicons name="trash-outline" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -125,14 +131,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(20, 40, 30, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '80%',
@@ -145,7 +151,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   title: {
     ...Typography.H2,
@@ -167,7 +173,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginBottom: Spacing.sm,
@@ -181,7 +187,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
@@ -195,20 +201,21 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   subText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   ratingText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#D97706',
+    color: colors.warning,
     marginTop: 2,
   },
   removeBtn: {
     padding: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

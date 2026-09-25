@@ -18,6 +18,10 @@ import {
 } from '../../repositories/platformAnnouncements.repository';
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface NotificationsCenterProps {
   notifications: NotificationEntity[];
   language?: 'en' | 'sw';
@@ -27,7 +31,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   notifications,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [titleEn, setTitleEn] = useState('');
   const [titleSw, setTitleSw] = useState('');
   const [bodyEn, setBodyEn] = useState('');
@@ -100,7 +104,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.appBackground }]} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.headerArea}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -112,7 +116,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
       </View>
 
       {/* Broadcast Composer */}
-      <View style={[styles.composerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.composerCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.composerTitle, { color: colors.textPrimary }]}>Compose Platform Announcement</Text>
 
         <View style={styles.audienceRow}>
@@ -120,7 +124,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           <TouchableOpacity
             style={[
               styles.audiencePill,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               audience === 'ALL' && styles.audiencePillActive,
             ]}
             onPress={() => setAudience('ALL')}
@@ -132,7 +136,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           <TouchableOpacity
             style={[
               styles.audiencePill,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               audience === 'CUSTOMERS' && styles.audiencePillActive,
             ]}
             onPress={() => setAudience('CUSTOMERS')}
@@ -144,7 +148,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           <TouchableOpacity
             style={[
               styles.audiencePill,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               audience === 'RESTAURANTS' && styles.audiencePillActive,
             ]}
             onPress={() => setAudience('RESTAURANTS')}
@@ -160,7 +164,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
           <TouchableOpacity
             style={[
               styles.audiencePill,
-              { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               priority === 'NORMAL' && styles.audiencePillActive,
             ]}
             onPress={() => setPriority('NORMAL')}
@@ -173,7 +177,7 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
             style={[styles.audiencePill, priority === 'HIGH' && { backgroundColor: '#ea580c' }]}
             onPress={() => setPriority('HIGH')}
           >
-            <Text style={[styles.audiencePillText, priority === 'HIGH' && { color: '#ffffff' }]}>
+            <Text style={[styles.audiencePillText, priority === 'HIGH' && { color: colors.onPrimary }]}>
               High
             </Text>
           </TouchableOpacity>
@@ -181,32 +185,32 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
             style={[styles.audiencePill, priority === 'URGENT' && { backgroundColor: '#dc2626' }]}
             onPress={() => setPriority('URGENT')}
           >
-            <Text style={[styles.audiencePillText, priority === 'URGENT' && { color: '#ffffff' }]}>
+            <Text style={[styles.audiencePillText, priority === 'URGENT' && { color: colors.onPrimary }]}>
               Urgent (Red Alert)
             </Text>
           </TouchableOpacity>
         </View>
 
         <TextInput
-          style={[styles.inputTitle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+          style={[styles.inputTitle, { backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Announcement Title (English) *"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.inputPlaceholder}
           value={titleEn}
           onChangeText={setTitleEn}
         />
 
         <TextInput
-          style={[styles.inputTitle, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+          style={[styles.inputTitle, { backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Kichwa cha Tangazo (Kiswahili - Hiari)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.inputPlaceholder}
           value={titleSw}
           onChangeText={setTitleSw}
         />
 
         <TextInput
-          style={[styles.inputBody, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+          style={[styles.inputBody, { backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Announcement Message (English) *"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.inputPlaceholder}
           value={bodyEn}
           onChangeText={setBodyEn}
           multiline
@@ -214,9 +218,9 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
         />
 
         <TextInput
-          style={[styles.inputBody, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+          style={[styles.inputBody, { backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
           placeholder="Maelezo ya Tangazo (Kiswahili - Hiari)"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.inputPlaceholder}
           value={bodySw}
           onChangeText={setBodySw}
           multiline
@@ -225,16 +229,16 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
 
         <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
           <TextInput
-            style={[styles.inputTitle, { flex: 1, backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+            style={[styles.inputTitle, { flex: 1, backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="CTA Button Label (Optional)"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={ctaLabel}
             onChangeText={setCtaLabel}
           />
           <TextInput
-            style={[styles.inputTitle, { flex: 2, backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
+            style={[styles.inputTitle, { flex: 2, backgroundColor: colors.card, borderColor: colors.border, color: colors.textPrimary }]}
             placeholder="CTA Target URL (e.g. https://mlohub.co.tz/promo)"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={ctaUrl}
             onChangeText={setCtaUrl}
           />
@@ -247,10 +251,10 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
             disabled={isSending}
           >
             {isSending ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
               <>
-                <Ionicons name="megaphone" size={16} color="#ffffff" />
+                <Ionicons name="megaphone" size={16} color={colors.onPrimary} />
                 <Text style={styles.sendBtnText}>Publish Platform Announcement</Text>
               </>
             )}
@@ -268,13 +272,13 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
         </View>
 
         {announcements.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No platform announcements published yet.</Text>
           </View>
         ) : (
           <View style={styles.notificationsList}>
             {announcements.map((a) => (
-              <View key={a.id} style={[styles.notificationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View key={a.id} style={[styles.notificationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.notifHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[styles.priorityBadge, a.priority === 'URGENT' ? styles.urgentBadge : a.priority === 'HIGH' ? styles.highBadge : styles.normalBadge]}>
@@ -318,13 +322,13 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
         <Text style={[styles.historyTitle, { color: colors.textPrimary }]}>Recent Dispatches & Notifications</Text>
 
         {notifications.length === 0 ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>No notifications sent yet.</Text>
           </View>
         ) : (
           <View style={styles.notificationsList}>
             {notifications.slice(0, 10).map((n) => (
-              <View key={n.id} style={[styles.notificationCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View key={n.id} style={[styles.notificationCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={styles.notifHeader}>
                   <Text style={[styles.notifTitle, { color: colors.textPrimary }]}>{n.titleEn || n.titleSw}</Text>
                   <Text style={[styles.notifDate, { color: colors.textMuted }]}>
@@ -341,10 +345,10 @@ export const NotificationsCenter: React.FC<NotificationsCenterProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   content: {
     padding: Spacing.lg,
@@ -356,18 +360,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   composerCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.lg,
     gap: Spacing.md,
     ...Shadows.sm,
@@ -375,7 +379,7 @@ const styles = StyleSheet.create({
   composerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   audienceRow: {
     flexDirection: 'row',
@@ -386,40 +390,40 @@ const styles = StyleSheet.create({
   audienceLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   audiencePill: {
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   audiencePillActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   audiencePillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   audiencePillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   inputTitle: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     fontSize: 14,
     fontWeight: '600',
   },
   inputBody: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     fontSize: 13,
@@ -434,7 +438,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radii.md,
@@ -442,7 +446,7 @@ const styles = StyleSheet.create({
   sendBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   historySection: {
     gap: Spacing.sm,
@@ -450,29 +454,29 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   emptyCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.lg,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   emptyText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   notificationsList: {
     gap: Spacing.sm,
   },
   notificationCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     gap: 4,
   },
   notifHeader: {
@@ -483,15 +487,15 @@ const styles = StyleSheet.create({
   notifTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   notifDate: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   notifMessage: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   priorityBadge: {
@@ -500,22 +504,22 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
   },
   urgentBadge: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   highBadge: {
-    backgroundColor: '#ffedd5',
+    backgroundColor: colors.warningSoft,
   },
   normalBadge: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   priorityBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   swSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontStyle: 'italic',
     marginBottom: 2,
   },
@@ -524,34 +528,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: 6,
     marginTop: 4,
   },
   announcementMetaText: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   receiptsText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#0284c7',
+    color: colors.info,
   },
   deactivateBtn: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.sm,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   deactivateBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: colors.danger,
   },
   inactiveTag: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
 });
-
+let styles = createStyles(lightColors);

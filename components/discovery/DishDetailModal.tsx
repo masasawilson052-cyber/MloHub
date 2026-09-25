@@ -15,6 +15,11 @@ import { formatTzs } from '../../utils/formatters';
 import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface DishDetailItem {
   id: string;
   name: string;
@@ -42,6 +47,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   dish,
   onClose,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
@@ -83,7 +89,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Ionicons name="close" size={20} color={Colors.brandInk} />
+            <Ionicons name="close" size={20} color={colors.brandInk} />
           </TouchableOpacity>
 
           {/* Dish Image */}
@@ -149,7 +155,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Decrease quantity"
               >
-                <Ionicons name="remove" size={18} color={quantity <= 1 ? Colors.subtle : Colors.brandInk} />
+                <Ionicons name="remove" size={18} color={quantity <= 1 ? colors.subtle : colors.brandInk} />
               </TouchableOpacity>
               <Text style={styles.qtyText}>{quantity}</Text>
               <TouchableOpacity
@@ -159,12 +165,12 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Increase quantity"
               >
-                <Ionicons name="add" size={18} color={Colors.brandInk} />
+                <Ionicons name="add" size={18} color={colors.brandInk} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.addCartBtn, !Boolean(dish.branchId) && { opacity: 0.5, backgroundColor: Colors.subtle }]}
+              style={[styles.addCartBtn, !Boolean(dish.branchId) && { opacity: 0.5, backgroundColor: colors.subtle }]}
               onPress={handleAddToCart}
               disabled={!Boolean(dish.branchId)}
               activeOpacity={0.88}
@@ -185,14 +191,14 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xxl,
     borderTopRightRadius: Radii.xxl,
     maxHeight: '85%',
@@ -207,7 +213,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -217,7 +223,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radii.xxl,
     borderTopRightRadius: Radii.xxl,
     overflow: 'hidden',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
   },
   dishImage: {
     width: '100%',
@@ -243,12 +249,12 @@ const styles = StyleSheet.create({
   dishTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   restaurantName: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   ratingRow: {
@@ -258,22 +264,22 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   starIcon: {
-    color: '#f59e0b',
+    color: colors.warning,
     fontSize: 14,
   },
   ratingText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   reviewsText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   priceText: {
     fontSize: 20,
     fontWeight: '900',
-    color: Colors.primary,
+    color: colors.primary,
     marginTop: 4,
   },
   tagsRow: {
@@ -286,14 +292,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   tagText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   descSection: {
     marginTop: Spacing.md,
@@ -302,11 +308,11 @@ const styles = StyleSheet.create({
   descTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   descBody: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 19,
   },
   footerBar: {
@@ -316,18 +322,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    backgroundColor: Colors.surface,
+    borderTopColor: colors.divider,
+    backgroundColor: colors.card,
   },
   qtyControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.full,
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   qtyBtn: {
     width: 32,
@@ -339,12 +345,12 @@ const styles = StyleSheet.create({
   qtyText: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     paddingHorizontal: 12,
   },
   addCartBtn: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -352,8 +358,9 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   addCartText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '800',
   },
 });
+let styles = createStyles(lightColors);

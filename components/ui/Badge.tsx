@@ -1,8 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export type BadgeVariant = 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'primary' | 'accent';
 
@@ -23,23 +27,24 @@ export const Badge: React.FC<BadgeProps> = ({
   textStyle,
   size = 'md',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   const getColors = (): { bg: string; text: string; border?: string } => {
     switch (variant) {
       case 'success':
-        return { bg: Colors.successLight, text: Colors.success, border: Colors.successLight };
+        return { bg: colors.successSoft, text: colors.success, border: 'transparent' };
       case 'warning':
-        return { bg: Colors.warningLight, text: Colors.warning, border: Colors.warningLight };
+        return { bg: colors.warningSoft, text: colors.warning, border: 'transparent' };
       case 'error':
-        return { bg: Colors.errorLight, text: Colors.error, border: Colors.errorLight };
+        return { bg: colors.dangerSoft, text: colors.danger, border: 'transparent' };
       case 'info':
-        return { bg: Colors.infoLight, text: Colors.info, border: Colors.infoLight };
+        return { bg: colors.infoSoft, text: colors.info, border: 'transparent' };
       case 'primary':
-        return { bg: Colors.primaryMuted, text: Colors.primaryDark, border: Colors.primaryMuted };
       case 'accent':
-        return { bg: Colors.accentLight, text: Colors.accentDark, border: Colors.accentLight };
+        return { bg: colors.primarySoft, text: colors.primary, border: 'transparent' };
       case 'neutral':
       default:
-        return { bg: Colors.surfaceSecondary, text: Colors.textSecondary, border: Colors.borderLight };
+        return { bg: colors.surfaceInteractive, text: colors.textSecondary, border: colors.border };
     }
   };
 
@@ -70,7 +75,7 @@ export const Badge: React.FC<BadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -101,3 +106,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+let styles = createStyles(lightColors);

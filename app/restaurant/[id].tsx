@@ -37,6 +37,11 @@ import { TrustExplanationModal } from '../../components/trust/TrustExplanationMo
 import { ReportDiscrepancyModal } from '../../components/trust/ReportDiscrepancyModal';
 import { MenuItemCustomizationModal } from '../../components/menu/MenuItemCustomizationModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 function parsePriceTzs(priceStr: string | number): number {
   if (typeof priceStr === 'number') return priceStr;
   const cleaned = priceStr.replace(/[^0-9]/g, '');
@@ -44,6 +49,7 @@ function parsePriceTzs(priceStr: string | number): number {
 }
 
 export default function RestaurantDetailScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { id, highlightDishId } = useLocalSearchParams<{ id: string; highlightDishId?: string }>();
   const router = useRouter();
   const { t, language } = useLanguage();
@@ -195,8 +201,8 @@ export default function RestaurantDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={{ marginTop: 12, color: Colors.muted }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ marginTop: 12, color: colors.textSecondary }}>
             {language === 'sw' ? 'Inapakia mkahawa...' : 'Loading restaurant...'}
           </Text>
         </View>
@@ -209,19 +215,19 @@ export default function RestaurantDetailScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>🍽️</Text>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.text, marginBottom: 8, textAlign: 'center' }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 8, textAlign: 'center' }}>
             {language === 'sw' ? 'Mkahawa Haujapatikana' : 'Restaurant Not Found'}
           </Text>
-          <Text style={{ fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
+          <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
             {language === 'sw'
               ? 'Mkahawa unaoutafuta haupo au umefungwa kwa sasa.'
               : 'The restaurant you are looking for does not exist or is currently unavailable.'}
           </Text>
           <TouchableOpacity
-            style={{ backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: Radii.md }}
+            style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: Radii.md }}
             onPress={() => router.back()}
           >
-            <Text style={{ color: '#fff', fontWeight: '700' }}>
+            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>
               {language === 'sw' ? 'Rudi Nyuma' : 'Go Back'}
             </Text>
           </TouchableOpacity>
@@ -246,7 +252,7 @@ export default function RestaurantDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <Text style={styles.topTitle} numberOfLines={1}>
@@ -265,7 +271,7 @@ export default function RestaurantDetailScreen() {
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={24}
-              color={isFavorite ? Colors.error : Colors.textPrimary}
+              color={isFavorite ? colors.error : colors.textPrimary}
             />
           </TouchableOpacity>
         ) : (
@@ -372,7 +378,7 @@ export default function RestaurantDetailScreen() {
                 onPress={() => setIsReserveModalOpen(true)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="calendar-outline" size={16} color={Colors.primaryDark} style={{ marginRight: 6 }} />
+                <Ionicons name="calendar-outline" size={16} color={colors.primaryDark} style={{ marginRight: 6 }} />
                 <Text style={styles.bookTableText}>{t('reserveBtn')}</Text>
               </TouchableOpacity>
             )}
@@ -382,7 +388,7 @@ export default function RestaurantDetailScreen() {
               onPress={() => router.push('/(tabs)/custom')}
               activeOpacity={0.85}
             >
-              <Ionicons name="flame-outline" size={16} color={Colors.white} style={{ marginRight: 6 }} />
+              <Ionicons name="flame-outline" size={16} color={colors.white} style={{ marginRight: 6 }} />
               <Text style={styles.customMealText}>
                 {language === 'sw' ? 'Mlo Maalum' : 'Custom Dish'}
               </Text>
@@ -578,7 +584,7 @@ export default function RestaurantDetailScreen() {
                       )}
                     </View>
                     <Text style={styles.itemDesc}>{item.desc}</Text>
-                    <PriceText amountTzs={priceVal} size="sm" color={Colors.primary} style={styles.itemPriceText} />
+                    <PriceText amountTzs={priceVal} size="sm" color={colors.primary} style={styles.itemPriceText} />
                   </View>
 
                   <TouchableOpacity
@@ -628,7 +634,7 @@ export default function RestaurantDetailScreen() {
               onPress={handleOpenGoogleMaps}
               activeOpacity={0.8}
             >
-              <Ionicons name="navigate-outline" size={14} color={Colors.white} />
+              <Ionicons name="navigate-outline" size={14} color={colors.white} />
               <Text style={styles.openMapsHeaderText}>
                 {language === 'sw' ? 'Elekea Huko' : 'Directions'}
               </Text>
@@ -721,10 +727,10 @@ export default function RestaurantDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   topBar: {
     flexDirection: 'row',
@@ -732,15 +738,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -748,14 +754,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
   topTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     flex: 1,
     textAlign: 'center',
     marginHorizontal: Spacing.sm,
@@ -778,19 +784,19 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: -32,
     ...Shadows.md,
     borderWidth: 2,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   emoji: {
     fontSize: 32,
   },
   headerCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     padding: Spacing.lg,
@@ -803,40 +809,40 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   openBadge: {
-    backgroundColor: Colors.successLight,
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
   },
   closedBadge: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
   },
   openText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.success,
+    color: colors.success,
   },
   closedText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   name: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginTop: 4,
   },
   cuisine: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginTop: Spacing.md,
@@ -848,20 +854,20 @@ const styles = StyleSheet.create({
   metricStar: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#D97706',
+    color: colors.warning,
   },
   metricVal: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   metricSub: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   divider: {
-    color: Colors.border,
+    color: colors.border,
     fontSize: 16,
   },
   actionRow: {
@@ -872,7 +878,7 @@ const styles = StyleSheet.create({
   bookTableBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderRadius: Radii.md,
     paddingVertical: 12,
     alignItems: 'center',
@@ -881,12 +887,12 @@ const styles = StyleSheet.create({
   bookTableText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   customMealBtn: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radii.md,
     paddingVertical: 12,
     alignItems: 'center',
@@ -895,15 +901,15 @@ const styles = StyleSheet.create({
   customMealText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   highlightedSection: {
     margin: Spacing.md,
     padding: Spacing.md,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: colors.warningSoft,
     borderRadius: Radii.lg,
     borderWidth: 1.5,
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
   },
   highlightedHeaderRow: {
     flexDirection: 'row',
@@ -914,14 +920,14 @@ const styles = StyleSheet.create({
   highlightedEyebrow: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#92400E',
+    color: colors.warning,
     letterSpacing: 0.5,
   },
   highlightedCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginTop: 4,
@@ -933,21 +939,21 @@ const styles = StyleSheet.create({
   highlightedName: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   highlightedDesc: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   highlightedPrice: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     marginTop: 4,
   },
   addHighlightedBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radii.sm,
     paddingVertical: 8,
     paddingHorizontal: Spacing.md,
@@ -955,7 +961,7 @@ const styles = StyleSheet.create({
   addHighlightedBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   categorySection: {
     marginVertical: Spacing.sm,
@@ -968,21 +974,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   categoryPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   categoryPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   categoryPillTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   menuSection: {
     paddingHorizontal: Spacing.md,
@@ -991,7 +997,7 @@ const styles = StyleSheet.create({
   menuHeading: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   menuList: {
@@ -1001,11 +1007,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   menuItemLeft: {
@@ -1019,10 +1025,10 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   popBadge: {
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.full,
@@ -1031,11 +1037,11 @@ const styles = StyleSheet.create({
   popBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.accentDark,
+    color: colors.accentDark,
   },
   itemDesc: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   itemPriceText: {
@@ -1045,28 +1051,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   menuAddBtnInCart: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   menuAddBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   menuAddBtnTextInCart: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   mapSectionCard: {
     margin: Spacing.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginTop: Spacing.lg,
   },
   mapSectionHeader: {
@@ -1078,17 +1084,17 @@ const styles = StyleSheet.create({
   mapSectionEyebrow: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   mapSectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   openMapsHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.sm,
@@ -1096,12 +1102,12 @@ const styles = StyleSheet.create({
   openMapsHeaderText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
     marginLeft: 4,
   },
   mapAddressText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: Spacing.sm,
   },
   mapWrap: {
@@ -1109,13 +1115,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   trustCardSection: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     marginHorizontal: Spacing.md,
     marginTop: Spacing.md,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   trustCardHeader: {
     flexDirection: 'row',
@@ -1136,18 +1142,18 @@ const styles = StyleSheet.create({
   trustTitleText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   trustSummaryPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.divider,
   },
   trustSummaryPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   trustGrid: {
     flexDirection: 'row',
@@ -1156,21 +1162,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   trustMetricCol: {
     flex: 1,
   },
   trustMetricLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
     marginBottom: 2,
   },
   trustMetricVal: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   trustActionsRow: {
     flexDirection: 'row',
@@ -1184,25 +1190,26 @@ const styles = StyleSheet.create({
   trustExplainBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0284C7',
+    color: colors.info,
   },
   trustReportBtn: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: Radii.sm,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: colors.warning,
   },
   trustReportBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C2410C',
+    color: colors.primary,
   },
   trustPillPositive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
   },
   trustPillWarning: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
   },
 });
+let styles = createStyles(lightColors);

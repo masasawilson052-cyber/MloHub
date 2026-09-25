@@ -18,6 +18,11 @@ import { Button } from '../ui/Button';
 import { PriceText } from '../ui/PriceText';
 import { EmptyState } from '../ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface CartDrawerProps {
   visible: boolean;
   onClose: () => void;
@@ -29,6 +34,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onClose,
   onProceedToCheckout,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const {
     items,
     restaurantName,
@@ -82,7 +88,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Close cart"
               >
-                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -114,19 +120,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <Text style={styles.dishSwahili}>{item.dishNameSwahili}</Text>
                         ) : null}
                         {item.selectedModifiers && item.selectedModifiers.length > 0 ? (
-                          <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>
+                          <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
                             + {item.selectedModifiers.map((m) => m.option_name).join(', ')}
                           </Text>
                         ) : null}
                         {item.notes ? (
-                          <Text style={{ fontSize: 11, fontStyle: 'italic', color: Colors.muted, marginTop: 2 }}>
+                          <Text style={{ fontSize: 11, fontStyle: 'italic', color: colors.textSecondary, marginTop: 2 }}>
                             Note: {item.notes}
                           </Text>
                         ) : null}
                         <PriceText
                           amountTzs={item.priceTzs}
                           size="sm"
-                          color={Colors.primary}
+                          color={colors.primary}
                           style={styles.itemPrice}
                         />
                       </View>
@@ -144,7 +150,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           <Ionicons
                             name={item.quantity === 1 ? 'trash-outline' : 'remove'}
                             size={16}
-                            color={item.quantity === 1 ? Colors.error : Colors.primaryDark}
+                            color={item.quantity === 1 ? colors.error : colors.primaryDark}
                           />
                         </TouchableOpacity>
                         <Text style={styles.qtyText}>{item.quantity}</Text>
@@ -156,7 +162,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           accessibilityRole="button"
                           accessibilityLabel={`Increase quantity of ${item.dishName}`}
                         >
-                          <Ionicons name="add" size={16} color={Colors.primaryDark} />
+                          <Ionicons name="add" size={16} color={colors.primaryDark} />
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -180,7 +186,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </View>
                 <View style={[styles.feeRow, styles.totalRow]}>
                   <Text style={styles.totalLabel}>Total Bill</Text>
-                  <PriceText amountTzs={totalBillTzs} size="lg" color={Colors.primaryDark} />
+                  <PriceText amountTzs={totalBillTzs} size="lg" color={colors.primaryDark} />
                 </View>
 
                 <Button
@@ -203,7 +209,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(20, 40, 30, 0.45)',
@@ -213,7 +219,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetContainer: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '85%',
@@ -226,14 +232,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   title: {
     ...Typography.H2,
   },
   restaurantSub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   headerActions: {
@@ -247,7 +253,7 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontSize: 13,
-    color: Colors.error,
+    color: colors.danger,
     fontWeight: '600',
   },
   closeBtn: {
@@ -269,7 +275,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   itemDetails: {
     flex: 1,
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
   },
   dishSwahili: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
   itemPrice: {
@@ -290,7 +296,7 @@ const styles = StyleSheet.create({
   qtyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.full,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -304,7 +310,7 @@ const styles = StyleSheet.create({
   qtyText: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     minWidth: 20,
     textAlign: 'center',
   },
@@ -312,7 +318,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   feeRow: {
     flexDirection: 'row',
@@ -322,11 +328,11 @@ const styles = StyleSheet.create({
   },
   feeLabel: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
     marginTop: 4,
     marginBottom: Spacing.md,
@@ -339,3 +345,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

@@ -22,7 +22,13 @@ import { FreshnessBadge } from '../components/ui/FreshnessBadge';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function CompareScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{ dishes?: string }>();
   const { width } = useWindowDimensions();
@@ -70,7 +76,7 @@ export default function CompareScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dish Quality & Price Comparison</Text>
         <View style={{ width: 40 }} />
@@ -250,10 +256,10 @@ export default function CompareScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   header: {
     flexDirection: 'row',
@@ -262,21 +268,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    backgroundColor: Colors.card,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.card,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   emptyContainer: {
     marginTop: 60,
@@ -293,12 +299,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   noteText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   columnsContainer: {
@@ -307,10 +313,10 @@ const styles = StyleSheet.create({
   },
   columnCard: {
     width: 260,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     padding: Spacing.md,
     marginRight: Spacing.md,
     ...Shadows.sm,
@@ -363,34 +369,34 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   bestBadgeText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '800',
   },
   dishName: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     minHeight: 40,
   },
   dishNameSw: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
     marginBottom: 4,
   },
   restaurantName: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   neighborhood: {
     fontSize: 11,
-    color: Colors.subtle,
+    color: colors.textMuted,
     marginBottom: Spacing.sm,
   },
   metricsTable: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginBottom: Spacing.md,
@@ -401,49 +407,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   metricLabel: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   metricValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   metricValueHighlight: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   priceValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
   },
   priceValueHighlight: {
     color: '#047857',
   },
   addBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radii.md,
     paddingVertical: 10,
     alignItems: 'center',
     marginBottom: 6,
   },
   addBtnInCart: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   addBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   addBtnTextInCart: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   viewRestBtn: {
     paddingVertical: 6,
@@ -452,6 +458,7 @@ const styles = StyleSheet.create({
   viewRestBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });
+let styles = createStyles(lightColors);

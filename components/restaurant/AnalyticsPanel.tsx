@@ -13,6 +13,11 @@ import { Shadows } from '../../theme/shadows';
 import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface DiscoveryAnalyticsData {
   menuFreshnessPercentage: number;
   averageOrderValueTzs: number;
@@ -29,6 +34,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
   data,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const topDishes = data.topOrderedDishes || [];
 
   return (
@@ -36,7 +42,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
       {/* Telemetry Hero Banner */}
       <View style={styles.heroBanner}>
         <View style={styles.heroLeft}>
-          <Ionicons name="stats-chart" size={24} color={Colors.primary} />
+          <Ionicons name="stats-chart" size={24} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>
               {language === 'sw' ? 'Takwimu za Uendeshaji' : 'Operational & Demand Telemetry'}
@@ -60,7 +66,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
 
         <View style={styles.kpiCard}>
           <Text style={styles.kpiLabel}>Menu Freshness Score</Text>
-          <Text style={[styles.kpiValue, { color: Colors.primary }]}>
+          <Text style={[styles.kpiValue, { color: colors.primary }]}>
             {data.menuFreshnessPercentage}%
           </Text>
           <Text style={styles.kpiSub}>Verified within the last 24–48 hours</Text>
@@ -109,7 +115,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
       {/* Top Ordered Dishes Breakdown */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <Ionicons name="trending-up-outline" size={20} color={Colors.primary} />
+          <Ionicons name="trending-up-outline" size={20} color={colors.primary} />
           <View>
             <Text style={styles.sectionTitle}>
               {language === 'sw' ? 'Vyakula Vinavyoagizwa Zaidi' : 'Top Ordered Dishes'}
@@ -150,7 +156,7 @@ export const AnalyticsPanel: React.FC<AnalyticsPanelProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     padding: Spacing.md,
     maxWidth: 1000,
@@ -164,7 +170,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
     ...Shadows.sm,
   },
   heroLeft: {
@@ -175,11 +181,11 @@ const styles = StyleSheet.create({
   heroTitle: {
     ...Typography.H3,
     fontWeight: '800',
-    color: '#92400E',
+    color: colors.warning,
   },
   heroSub: {
     ...Typography.Caption,
-    color: '#B45309',
+    color: colors.warning,
     marginTop: 2,
   },
   kpiGrid: {
@@ -188,36 +194,36 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   kpiCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     flex: 1,
     minWidth: 240,
     ...Shadows.sm,
   },
   kpiLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   kpiValue: {
     ...Typography.H1,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginVertical: 4,
   },
   kpiSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   sectionCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   sectionHeaderRow: {
@@ -229,11 +235,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     ...Typography.H3,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   sectionSub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   lostList: {
@@ -243,11 +249,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.danger,
   },
   lostLeft: {
     gap: 2,
@@ -255,11 +261,11 @@ const styles = StyleSheet.create({
   lostDishName: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: '#991B1B',
+    color: colors.danger,
   },
   lostReason: {
     ...Typography.Caption,
-    color: '#B91C1C',
+    color: colors.danger,
   },
   lostBadge: {
     backgroundColor: '#DC2626',
@@ -269,7 +275,7 @@ const styles = StyleSheet.create({
   },
   lostBadgeText: {
     ...Typography.Caption,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 11,
   },
@@ -280,14 +286,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.sm,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
   },
   rankPill: {
     width: 28,
     height: 28,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
@@ -295,7 +301,7 @@ const styles = StyleSheet.create({
   rankText: {
     ...Typography.Caption,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   dishNameCol: {
     flex: 1,
@@ -303,21 +309,22 @@ const styles = StyleSheet.create({
   dishNameText: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   dishSearchSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   orderConversionBadge: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
   orderConversionText: {
     ...Typography.Caption,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

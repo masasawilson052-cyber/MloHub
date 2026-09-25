@@ -2,6 +2,11 @@ import React from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface ServiceCardProps {
   id: string;
   label: string;
@@ -18,6 +23,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   isSelected,
   onPress,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   return (
     <TouchableOpacity
       style={[styles.card, isSelected && styles.cardSelected]}
@@ -36,34 +42,34 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 140,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   cardSelected: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primaryLight,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryLight,
   },
   iconWrap: {
     width: 40,
     height: 40,
     borderRadius: Radii.md,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapSelected: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   icon: {
     fontSize: 20,
@@ -74,22 +80,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   labelSelected: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   detail: {
     fontSize: 10,
-    color: Colors.subtle,
+    color: colors.textMuted,
     marginTop: 2,
   },
   arrow: {
     fontSize: 18,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontWeight: 'bold',
   },
   arrowSelected: {
-    color: Colors.accent,
+    color: colors.primary,
   },
 });
+let styles = createStyles(lightColors);

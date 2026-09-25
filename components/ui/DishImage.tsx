@@ -12,6 +12,11 @@ import {
 import { Colors } from '../../theme/colors';
 import { Radii } from '../../theme/radius';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface DishImageProps {
   uri?: string | null;
   aspectRatio?: number;
@@ -33,6 +38,7 @@ export const DishImage: React.FC<DishImageProps> = ({
   fallbackEmoji = '🍲',
   borderRadius = Radii.md,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [hasError, setHasError] = useState(false);
   const [isLoading, setIsLoading] = useState(Boolean(uri));
 
@@ -75,7 +81,7 @@ export const DishImage: React.FC<DishImageProps> = ({
           />
           {isLoading ? (
             <View style={[styles.loaderContainer, { borderRadius }]}>
-              <ActivityIndicator size="small" color={Colors.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : null}
         </>
@@ -84,10 +90,10 @@ export const DishImage: React.FC<DishImageProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     overflow: 'hidden',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
   },
   image: {
     width: '100%',
@@ -97,7 +103,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
   },
   fallbackEmoji: {
     fontSize: 40,
@@ -109,3 +115,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(244, 246, 244, 0.6)',
   },
 });
+let styles = createStyles(lightColors);

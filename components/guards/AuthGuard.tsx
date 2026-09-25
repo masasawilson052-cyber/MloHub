@@ -5,6 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { Colors } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface GuardProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
@@ -14,13 +19,14 @@ interface GuardProps {
  * 1. AuthGuard: Ensures the user has an active, authenticated Supabase session.
  */
 export const AuthGuard: React.FC<GuardProps> = ({ children, fallback }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Inapakia...</Text>
       </View>
     );
@@ -31,7 +37,7 @@ export const AuthGuard: React.FC<GuardProps> = ({ children, fallback }) => {
     return (
       <View style={styles.centerContainer}>
         <View style={styles.card}>
-          <Ionicons name="lock-closed-outline" size={54} color={Colors.primary} />
+          <Ionicons name="lock-closed-outline" size={54} color={colors.primary} />
           <Text style={styles.title}>Kuingia Kunahitajika</Text>
           <Text style={styles.subtitle}>Tafadhali ingia kwenye akaunti yako ili kuendelea.</Text>
           <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/auth')}>
@@ -55,7 +61,7 @@ export const RestaurantGuard: React.FC<GuardProps> = ({ children, fallback }) =>
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -105,10 +111,10 @@ export const AdminGuard: React.FC<GuardProps> = ({ children, fallback }) => {
     if (fallback) return <>{fallback}</>;
     return (
       <View style={[styles.centerContainer, { backgroundColor: '#0b1329' }]}>
-        <View style={[styles.card, { backgroundColor: '#1e293b', borderColor: '#334155' }]}>
+        <View style={[styles.card, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
           <Ionicons name="shield-outline" size={54} color="#f43f5e" />
-          <Text style={[styles.title, { color: '#f8fafc' }]}>Ufikiaji Umepigwa Marufuku</Text>
-          <Text style={[styles.subtitle, { color: '#94a3b8' }]}>
+          <Text style={[styles.title, { color: colors.appBackground }]}>Ufikiaji Umepigwa Marufuku</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             Ukurasa huu unahitaji ruhusa ya msimamizi mkuu (MloHub Back-Office Admin).
           </Text>
           <TouchableOpacity
@@ -132,40 +138,40 @@ export const CustomerGuard: React.FC<GuardProps> = ({ children }) => {
   return <AuthGuard>{children}</AuthGuard>;
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     maxWidth: 400,
     width: '100%',
   },
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginTop: 14,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 19,
@@ -180,8 +186,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

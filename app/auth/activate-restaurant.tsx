@@ -23,7 +23,13 @@ import { runtimeConfig } from '../../lib/runtimeConfig';
 import { supabase } from '../../lib/supabase';
 import { CryptoEngine } from '../../db/auth/crypto';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function ActivateRestaurantScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { login } = useAuth();
@@ -229,7 +235,7 @@ export default function ActivateRestaurantScreen() {
               onPress={() => router.back()}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="arrow-back" size={20} color={Colors.text} />
+              <Ionicons name="arrow-back" size={20} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>
               {language === 'sw' ? 'Kuanzisha Mgahawa' : 'Activate Restaurant'}
@@ -240,7 +246,7 @@ export default function ActivateRestaurantScreen() {
           {/* Hero Banner */}
           <View style={styles.heroCard}>
             <View style={styles.iconCircle}>
-              <Ionicons name="storefront-outline" size={32} color={Colors.primary} />
+              <Ionicons name="storefront-outline" size={32} color={colors.primary} />
             </View>
             <Text style={styles.heroTitle}>
               {language === 'sw' ? 'Washa Akaunti ya Mgahawa' : 'Activate Restaurant Portal'}
@@ -275,11 +281,11 @@ export default function ActivateRestaurantScreen() {
                 {language === 'sw' ? 'Namba ya Simu ya Mmiliki' : 'Owner Phone Number'}
               </Text>
               <View style={styles.inputRow}>
-                <Ionicons name="call-outline" size={20} color={Colors.textSecondary} />
+                <Ionicons name="call-outline" size={20} color={colors.textSecondary} />
                 <TextInput
                   style={styles.input}
                   placeholder="+255 7XX XXX XXX"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
@@ -293,13 +299,13 @@ export default function ActivateRestaurantScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
                     <Text style={styles.primaryBtnText}>
                       {language === 'sw' ? 'Tuma Msimbo wa SMS' : 'Send SMS Activation Code'}
                     </Text>
-                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                    <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
                   </>
                 )}
               </TouchableOpacity>
@@ -332,11 +338,11 @@ export default function ActivateRestaurantScreen() {
                 {language === 'sw' ? 'Nenosiri Jipya' : 'New Password'}
               </Text>
               <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
@@ -346,7 +352,7 @@ export default function ActivateRestaurantScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color={Colors.textSecondary}
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
@@ -355,11 +361,11 @@ export default function ActivateRestaurantScreen() {
                 {language === 'sw' ? 'Rudia Nenosiri' : 'Confirm Password'}
               </Text>
               <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} />
+                <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} />
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                   secureTextEntry={!showPassword}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -373,10 +379,10 @@ export default function ActivateRestaurantScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Ionicons name="checkmark-done" size={20} color="#fff" />
+                    <Ionicons name="checkmark-done" size={20} color={colors.onPrimary} />
                     <Text style={styles.primaryBtnText}>
                       {language === 'sw' ? 'Washa na Ingia Portal' : 'Activate & Enter Portal'}
                     </Text>
@@ -391,10 +397,10 @@ export default function ActivateRestaurantScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -411,33 +417,33 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   heroCard: {
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     width: '100%',
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
@@ -445,35 +451,35 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   heroSubtitle: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     width: '100%',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.lg,
   },
   fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 6,
     marginTop: Spacing.sm,
   },
@@ -481,10 +487,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     paddingHorizontal: Spacing.md,
     height: 52,
     marginBottom: Spacing.md,
@@ -492,14 +498,14 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     height: 52,
     borderRadius: Radii.lg,
     marginTop: Spacing.md,
@@ -507,13 +513,13 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.onPrimary,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.md,
     borderRadius: Radii.md,
     marginBottom: Spacing.md,
@@ -521,14 +527,14 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#b91c1c',
+    color: colors.danger,
     flex: 1,
   },
   successBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: colors.successSoft,
     padding: Spacing.md,
     borderRadius: Radii.md,
     marginBottom: Spacing.md,
@@ -536,7 +542,8 @@ const styles = StyleSheet.create({
   },
   successText: {
     fontSize: 13,
-    color: '#15803d',
+    color: colors.success,
     flex: 1,
   },
 });
+let styles = createStyles(lightColors);

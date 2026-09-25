@@ -82,13 +82,17 @@ import {
   SettlementsPayoutsCenter,
 } from '../../components/admin';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 export default function AdminPortalScreen() {
   const router = useRouter();
   const { language } = useLanguage();
   const { user, switchWorkspace, logout, loading: isAuthLoading } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 840;
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   const activeUser = user;
   const isAuthorized = hasAdminAccess(activeUser);
@@ -314,8 +318,8 @@ export default function AdminPortalScreen() {
   // Auth loading state
   if (isAuthLoading) {
     return (
-      <SafeAreaView style={styles.unauthContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <SafeAreaView style={[styles.unauthContainer, { backgroundColor: colors.appBackground }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -323,15 +327,23 @@ export default function AdminPortalScreen() {
   // If unauthenticated or customer-only role, render strict access block
   if (!isAuthorized || !activeUser) {
     return (
-      <SafeAreaView style={styles.unauthContainer}>
-        <View style={styles.unauthCard}>
-          <View style={styles.unauthIcon}>
-            <Ionicons name="shield-outline" size={48} color="#ef4444" />
+      <SafeAreaView style={[styles.unauthContainer, { backgroundColor: colors.appBackground }]}>
+        <View
+          style={[
+            styles.unauthCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={[styles.unauthIcon, { backgroundColor: colors.dangerSoft }]}>
+            <Ionicons name="shield-outline" size={44} color={colors.danger} />
           </View>
-          <Text style={styles.unauthTitle}>
+          <Text style={[styles.unauthTitle, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Huna Ruhusa ya Usimamizi' : 'Admin Access Required'}
           </Text>
-          <Text style={styles.unauthSubtitle}>
+          <Text style={[styles.unauthSubtitle, { color: colors.textSecondary }]}>
             {language === 'sw'
               ? 'Eneo hili limetengwa kwa ajili ya wasimamizi wa mfumo (Admin & Super Admin) pekee.'
               : 'This portal requires authenticated Administrator or Super Administrator platform credentials.'}
@@ -339,17 +351,25 @@ export default function AdminPortalScreen() {
 
           <View style={styles.unauthActions}>
             <TouchableOpacity
-              style={styles.unauthPrimaryBtn}
+              style={[styles.unauthPrimaryBtn, { backgroundColor: colors.primary }]}
               onPress={() => router.push('/auth/login')}
             >
               <Text style={styles.unauthPrimaryBtnText}>Log In as Admin</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.unauthSecondaryBtn}
+              style={[
+                styles.unauthSecondaryBtn,
+                {
+                  backgroundColor: colors.surfaceInteractive,
+                  borderColor: colors.border,
+                },
+              ]}
               onPress={() => router.replace('/')}
             >
-              <Text style={styles.unauthSecondaryBtnText}>Back to Customer App</Text>
+              <Text style={[styles.unauthSecondaryBtnText, { color: colors.textPrimary }]}>
+                Back to Customer App
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -708,7 +728,10 @@ export default function AdminPortalScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.screenContainer, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.screenContainer, { backgroundColor: colors.appBackground }]}
+      edges={['top', 'left', 'right']}
+    >
       {/* 1. Header */}
       <AdminHeader
         userName={activeUser?.fullName || 'Operator'}
@@ -748,6 +771,7 @@ export default function AdminPortalScreen() {
             onSelectTab={setActiveTab}
             userRole={activeUser?.role}
             language={language}
+            compact={width < 1100}
             badges={{
               pendingApplications: pendingAppsCount,
               openReports: openReportsCount,
@@ -760,12 +784,23 @@ export default function AdminPortalScreen() {
         )}
 
         {/* Right Active Content Panel */}
-        <View style={[styles.contentPanel, { backgroundColor: isDark ? colors.background : '#f8fafc' }]}>
+        <View style={[styles.contentPanel, { backgroundColor: colors.appBackground }]}>
           {loadError && (
-            <View style={styles.errorBanner}>
-              <Ionicons name="alert-circle" size={20} color="#b91c1c" />
-              <Text style={styles.errorText}>{loadError}</Text>
-              <TouchableOpacity style={styles.retryBtn} onPress={loadPlatformData}>
+            <View
+              style={[
+                styles.errorBanner,
+                {
+                  backgroundColor: colors.dangerSoft,
+                  borderColor: colors.danger,
+                },
+              ]}
+            >
+              <Ionicons name="alert-circle" size={20} color={colors.danger} />
+              <Text style={[styles.errorText, { color: colors.danger }]}>{loadError}</Text>
+              <TouchableOpacity
+                style={[styles.retryBtn, { backgroundColor: colors.danger }]}
+                onPress={loadPlatformData}
+              >
                 <Text style={styles.retryBtnText}>Retry</Text>
               </TouchableOpacity>
             </View>
@@ -914,46 +949,80 @@ export default function AdminPortalScreen() {
       {/* Newly Created Vendor Credentials Modal */}
       {createdVendorModal && (
         <Modal visible transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.credCard}>
+          <View style={[styles.modalOverlay, { backgroundColor: colors.modalBackdrop }]}>
+            <View
+              style={[
+                styles.credCard,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.borderStrong,
+                },
+              ]}
+            >
               <View style={styles.credHeader}>
-                <Ionicons name="checkmark-circle" size={40} color="#16a34a" />
-                <Text style={styles.credTitle}>Restaurant Application Approved</Text>
-                <Text style={styles.credSubtitle}>
+                <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+                <Text style={[styles.credTitle, { color: colors.textPrimary }]}>
+                  Restaurant Application Approved
+                </Text>
+                <Text style={[styles.credSubtitle, { color: colors.textSecondary }]}>
                   "{createdVendorModal.businessName}" has been approved.
                 </Text>
               </View>
 
-              <View style={styles.credBox}>
-                <Text style={styles.credLabel}>Owner Full Name:</Text>
-                <Text style={styles.credValue}>{createdVendorModal.ownerName}</Text>
+              <View
+                style={[
+                  styles.credBox,
+                  {
+                    backgroundColor: colors.surfaceInteractive,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Owner Full Name:
+                </Text>
+                <Text style={[styles.credValue, { color: colors.textPrimary }]}>
+                  {createdVendorModal.ownerName}
+                </Text>
 
-                <Text style={styles.credLabel}>Login Email / Username:</Text>
-                <Text style={styles.credValue}>{createdVendorModal.ownerEmail || 'Registered via application'}</Text>
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Login Email / Username:
+                </Text>
+                <Text style={[styles.credValue, { color: colors.textPrimary }]}>
+                  {createdVendorModal.ownerEmail || 'Registered via application'}
+                </Text>
 
-                <Text style={styles.credLabel}>Login Phone Number:</Text>
-                <Text style={styles.credValue}>{createdVendorModal.ownerPhone}</Text>
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Login Phone Number:
+                </Text>
+                <Text style={[styles.credValue, { color: colors.textPrimary }]}>
+                  {createdVendorModal.ownerPhone}
+                </Text>
 
-                <Text style={styles.credLabel}>Application / Restaurant ID:</Text>
-                <Text style={styles.credValue}>{createdVendorModal.restaurantId}</Text>
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Application / Restaurant ID:
+                </Text>
+                <Text style={[styles.credValue, { color: colors.textPrimary }]}>
+                  {createdVendorModal.restaurantId}
+                </Text>
 
-                <Text style={styles.credLabel}>Portal Access & Login:</Text>
-                <Text style={[styles.credValue, { color: '#0f766e', fontSize: 12.5 }]}>
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Portal Access & Login:
+                </Text>
+                <Text style={[styles.credValue, { color: colors.success, fontSize: 12.5 }]}>
                   Owner can sign in at /auth/login (Kitchen Portal) or activate via /auth/activate-restaurant
                 </Text>
 
-                <Text style={styles.credLabel}>Status & Visibility:</Text>
+                <Text style={[styles.credLabel, { color: colors.textMuted }]}>
+                  Status & Visibility:
+                </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <Ionicons
-                    name="information-circle"
-                    size={16}
-                    color="#0284c7"
-                  />
+                  <Ionicons name="information-circle" size={16} color={colors.info} />
                   <Text
                     style={{
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: '700',
-                      color: '#0284c7',
+                      color: colors.info,
                     }}
                   >
                     Approved (Unpublished until setup is completed)
@@ -961,12 +1030,12 @@ export default function AdminPortalScreen() {
                 </View>
               </View>
 
-              <Text style={styles.credNote}>
+              <Text style={[styles.credNote, { color: colors.textSecondary }]}>
                 SMS dispatch notice: An SMS notification with activation instructions has been queued for {createdVendorModal.ownerPhone}. The restaurant workspace is approved and remains unpublished until initial branch and menu setup is completed.
               </Text>
 
               <TouchableOpacity
-                style={styles.credDoneBtn}
+                style={[styles.credDoneBtn, { backgroundColor: colors.primary }]}
                 onPress={() => setCreatedVendorModal(null)}
               >
                 <Text style={styles.credDoneText}>Done & Dismiss</Text>
@@ -979,10 +1048,9 @@ export default function AdminPortalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
   },
   mainLayout: {
     flex: 1,
@@ -990,13 +1058,10 @@ const styles = StyleSheet.create({
   },
   contentPanel: {
     flex: 1,
-    backgroundColor: '#f8fafc',
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
     borderWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
@@ -1007,56 +1072,47 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#991b1b',
     fontWeight: '500',
   },
   retryBtn: {
-    backgroundColor: '#b91c1c',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.sm,
   },
   retryBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   unauthContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
   },
   unauthCard: {
-    backgroundColor: '#ffffff',
     borderRadius: Radii.xl,
     padding: Spacing.xxl,
     alignItems: 'center',
     maxWidth: 420,
     width: '100%',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     gap: Spacing.md,
-    ...Shadows.md,
   },
   unauthIcon: {
     width: 64,
     height: 64,
     borderRadius: Radii.full,
-    backgroundColor: '#fef2f2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   unauthTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
     textAlign: 'center',
   },
   unauthSubtitle: {
     fontSize: 13,
-    color: '#64748b',
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -1066,7 +1122,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   unauthPrimaryBtn: {
-    backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: Radii.md,
     alignItems: 'center',
@@ -1074,12 +1129,10 @@ const styles = StyleSheet.create({
   unauthPrimaryBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   unauthSecondaryBtn: {
-    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     paddingVertical: 12,
     borderRadius: Radii.md,
     alignItems: 'center',
@@ -1087,23 +1140,20 @@ const styles = StyleSheet.create({
   unauthSecondaryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: Spacing.lg,
   },
   credCard: {
-    backgroundColor: '#ffffff',
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     maxWidth: 460,
     width: '100%',
     gap: Spacing.md,
-    ...Shadows.lg,
+    borderWidth: 1,
   },
   credHeader: {
     alignItems: 'center',
@@ -1112,48 +1162,33 @@ const styles = StyleSheet.create({
   credTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
     textAlign: 'center',
   },
   credSubtitle: {
     fontSize: 13,
-    color: '#64748b',
     textAlign: 'center',
   },
   credBox: {
-    backgroundColor: '#f8fafc',
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
     gap: 4,
   },
   credLabel: {
     fontSize: 11,
-    color: '#64748b',
     textTransform: 'uppercase',
     marginTop: 4,
   },
   credValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
-  },
-  pinValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.primary,
-    letterSpacing: 2,
-    marginTop: 2,
   },
   credNote: {
     fontSize: 12,
-    color: '#64748b',
     textAlign: 'center',
     fontStyle: 'italic',
   },
   credDoneBtn: {
-    backgroundColor: '#0f172a',
     paddingVertical: 12,
     borderRadius: Radii.md,
     alignItems: 'center',
@@ -1161,6 +1196,7 @@ const styles = StyleSheet.create({
   credDoneText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

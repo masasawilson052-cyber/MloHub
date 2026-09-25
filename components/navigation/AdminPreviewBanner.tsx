@@ -4,21 +4,36 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAdminPreview } from '../../context/AdminPreviewContext';
 import { useTheme } from '../../context/ThemeContext';
 
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export const AdminPreviewBanner: React.FC = () => {
   const { isAdminPreview, exitPreview } = useAdminPreview();
-  const { colors } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   if (!isAdminPreview) {
     return null;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#1E293B', borderBottomColor: '#334155' }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.primarySoft,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.contentRow}>
         <View style={styles.labelGroup}>
-          <Ionicons name="eye-outline" size={18} color="#FA541C" />
-          <Text style={styles.bannerText}>
-            Admin Preview Mode <Text style={styles.subText}>(Customer View)</Text>
+          <Ionicons name="eye-outline" size={18} color={colors.primary} />
+          <Text style={[styles.bannerText, { color: colors.textPrimary }]}>
+            Admin Preview Mode{' '}
+            <Text style={[styles.subText, { color: colors.textSecondary }]}>
+              (Customer View)
+            </Text>
           </Text>
         </View>
 
@@ -28,15 +43,22 @@ export const AdminPreviewBanner: React.FC = () => {
           accessibilityRole="button"
           accessibilityLabel="Return to Admin Console"
         >
-          <Ionicons name="arrow-back-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-          <Text style={styles.returnButtonText}>Return to Admin</Text>
+          <Ionicons
+            name="arrow-back-outline"
+            size={14}
+            color={colors.onPrimary}
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.returnButtonText, { color: colors.onPrimary }]}>
+            Return to Admin
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     width: '100%',
     paddingVertical: 10,
@@ -58,13 +80,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bannerText: {
-    color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   subText: {
-    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '400',
   },
@@ -73,14 +93,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 8,
     ...Platform.select({
       web: { cursor: 'pointer' },
     }),
   },
   returnButtonText: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

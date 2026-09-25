@@ -16,6 +16,10 @@ import { PayoutsRepository } from '../../repositories/payouts.repository';
 import { MerchantSettlement, MerchantPayout } from '../../types/domain';
 import { formatTzs } from '../../config/platformFees';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface SettlementsPayoutsCenterProps {
   language?: 'en' | 'sw';
 }
@@ -23,7 +27,7 @@ interface SettlementsPayoutsCenterProps {
 export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> = ({
   language = 'en',
 }) => {
-  const { colors } = useTheme();
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [viewMode, setViewMode] = useState<'SETTLEMENTS' | 'PAYOUTS'>('SETTLEMENTS');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -80,7 +84,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
     .reduce((acc, p) => acc + Number(p.amountTzs || 0), 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -103,25 +107,25 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
 
       {/* KPI Summary Cards */}
       <View style={styles.kpiRow}>
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Gross Sales Settled</Text>
           <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{formatTzs(totalGrossVolume)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Platform aggregate</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Platform Commission</Text>
           <Text style={[styles.kpiValue, { color: colors.primary }]}>{formatTzs(totalCommission)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Retained fees</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Net Payable</Text>
           <Text style={[styles.kpiValue, { color: colors.textPrimary }]}>{formatTzs(totalNetPayable)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Due to food spots</Text>
         </View>
 
-        <View style={[styles.kpiCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Disbursed Volume</Text>
           <Text style={[styles.kpiValue, { color: colors.success }]}>{formatTzs(totalDisbursedPayouts)}</Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Completed via M-Pesa / Tigo</Text>
@@ -134,7 +138,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
           <TouchableOpacity
             style={[
               styles.toggleBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               viewMode === 'SETTLEMENTS' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setViewMode('SETTLEMENTS')}
@@ -143,7 +147,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
               style={[
                 styles.toggleText,
                 { color: colors.textSecondary },
-                viewMode === 'SETTLEMENTS' && { color: '#FFFFFF', fontWeight: '700' },
+                viewMode === 'SETTLEMENTS' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               Settlement Batches ({settlements.length})
@@ -153,7 +157,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
           <TouchableOpacity
             style={[
               styles.toggleBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               viewMode === 'PAYOUTS' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setViewMode('PAYOUTS')}
@@ -162,7 +166,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
               style={[
                 styles.toggleText,
                 { color: colors.textSecondary },
-                viewMode === 'PAYOUTS' && { color: '#FFFFFF', fontWeight: '700' },
+                viewMode === 'PAYOUTS' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               Disbursement Payouts ({payouts.length})
@@ -170,12 +174,12 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search restaurant, ID, reference..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -203,7 +207,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
               filteredSettlements.map((s) => (
                 <View
                   key={s.id}
-                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
                   <View style={styles.cardHeader}>
                     <View style={styles.headerLeft}>
@@ -255,7 +259,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
                     </View>
                   </View>
 
-                  <View style={[styles.cardFooter, { borderTopColor: colors.borderLight }]}>
+                  <View style={[styles.cardFooter, { borderTopColor: colors.divider }]}>
                     <Text style={[styles.footerText, { color: colors.textMuted }]}>
                       Period: {new Date(s.periodStart).toLocaleDateString()} - {new Date(s.periodEnd).toLocaleDateString()}
                     </Text>
@@ -278,7 +282,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
             filteredPayouts.map((p) => (
               <View
                 key={p.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.headerLeft}>
@@ -340,7 +344,7 @@ export const SettlementsPayoutsCenter: React.FC<SettlementsPayoutsCenterProps> =
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 24,
@@ -529,3 +533,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+let styles = createStyles(lightColors);

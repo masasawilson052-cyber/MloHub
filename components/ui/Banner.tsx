@@ -1,10 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export type BannerVariant = 'info' | 'warning' | 'error' | 'success' | 'violet' | 'saffron';
 
@@ -27,49 +31,45 @@ export const Banner: React.FC<BannerProps> = ({
   onActionPress,
   style,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   const getTheme = () => {
     switch (variant) {
       case 'warning':
+      case 'saffron':
         return {
-          bg: Colors.warningLight,
-          border: Colors.warning,
-          color: Colors.warningDark,
+          bg: colors.warningSoft,
+          border: colors.warning,
+          color: colors.warning,
           defaultIcon: 'warning-outline' as const,
         };
       case 'error':
         return {
-          bg: Colors.errorLight,
-          border: Colors.error,
-          color: Colors.error,
+          bg: colors.dangerSoft,
+          border: colors.danger,
+          color: colors.danger,
           defaultIcon: 'alert-circle-outline' as const,
         };
       case 'success':
         return {
-          bg: Colors.botanicalGreenLight,
-          border: Colors.botanicalGreen,
-          color: Colors.botanicalGreen,
+          bg: colors.successSoft,
+          border: colors.success,
+          color: colors.success,
           defaultIcon: 'checkmark-circle-outline' as const,
         };
       case 'violet':
         return {
-          bg: Colors.violetLight,
-          border: Colors.mutedViolet,
-          color: Colors.mutedViolet,
+          bg: colors.primarySoft,
+          border: colors.primary,
+          color: colors.primary,
           defaultIcon: 'sparkles-outline' as const,
-        };
-      case 'saffron':
-        return {
-          bg: Colors.saffronLight,
-          border: Colors.saffron,
-          color: Colors.saffronDark,
-          defaultIcon: 'star-outline' as const,
         };
       case 'info':
       default:
         return {
-          bg: Colors.infoLight,
-          border: Colors.info,
-          color: Colors.info,
+          bg: colors.infoSoft,
+          border: colors.info,
+          color: colors.info,
           defaultIcon: 'information-circle-outline' as const,
         };
     }
@@ -91,7 +91,7 @@ export const Banner: React.FC<BannerProps> = ({
       <Ionicons name={iconName} size={20} color={theme.color} style={styles.icon} />
       <View style={styles.content}>
         {title ? <Text style={[styles.title, { color: theme.color }]}>{title}</Text> : null}
-        <Text style={styles.message}>{message}</Text>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
         {actionText && onActionPress ? (
           <TouchableOpacity onPress={onActionPress} style={styles.actionBtn}>
             <Text style={[styles.actionText, { color: theme.color }]}>{actionText} →</Text>
@@ -102,7 +102,7 @@ export const Banner: React.FC<BannerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     padding: Spacing.md,
@@ -125,7 +125,6 @@ const styles = StyleSheet.create({
   },
   message: {
     ...Typography.bodySmall,
-    color: Colors.textSecondary,
     lineHeight: 18,
   },
   actionBtn: {
@@ -136,3 +135,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

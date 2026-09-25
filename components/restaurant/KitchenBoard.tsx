@@ -15,6 +15,11 @@ import { Shadows } from '../../theme/shadows';
 import { Typography } from '../../theme/typography';
 import { Order, OrderStatus } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface KitchenBoardProps {
   orders: Order[];
   onAdvanceStatus: (orderId: string, nextStatus: OrderStatus) => Promise<void>;
@@ -86,26 +91,26 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
       <View style={styles.cardFooter}>
         {order.status === 'ACCEPTED' && (
           <TouchableOpacity
-            style={[styles.bigActionBtn, { backgroundColor: Colors.accent }]}
+            style={[styles.bigActionBtn, { backgroundColor: colors.accent }]}
             onPress={() => onAdvanceStatus(order.id, 'PREPARING')}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={`Start cooking order ${order.orderNumber}`}
           >
-            <Ionicons name="flame" size={20} color={Colors.white} />
+            <Ionicons name="flame" size={20} color={colors.white} />
             <Text style={styles.bigActionBtnText}>Start Cooking 🔥</Text>
           </TouchableOpacity>
         )}
 
         {order.status === 'PREPARING' && (
           <TouchableOpacity
-            style={[styles.bigActionBtn, { backgroundColor: Colors.success }]}
+            style={[styles.bigActionBtn, { backgroundColor: colors.success }]}
             onPress={() => onAdvanceStatus(order.id, 'READY')}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={`Mark order ${order.orderNumber} ready`}
           >
-            <Ionicons name="bag-check" size={20} color={Colors.white} />
+            <Ionicons name="bag-check" size={20} color={colors.white} />
             <Text style={styles.bigActionBtnText}>Mark Ready ✅</Text>
           </TouchableOpacity>
         )}
@@ -119,18 +124,18 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
               accessibilityRole="button"
               accessibilityLabel={`Dispatch order ${order.orderNumber} for delivery`}
             >
-              <Ionicons name="bicycle" size={20} color={Colors.white} />
+              <Ionicons name="bicycle" size={20} color={colors.white} />
               <Text style={styles.bigActionBtnText}>Dispatch Delivery 🛵</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.bigActionBtn, { backgroundColor: Colors.primaryDark }]}
+              style={[styles.bigActionBtn, { backgroundColor: colors.primaryDark }]}
               onPress={() => onAdvanceStatus(order.id, 'COMPLETED')}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel={`Hand order ${order.orderNumber} to customer`}
             >
-              <Ionicons name="checkmark-done" size={20} color={Colors.white} />
+              <Ionicons name="checkmark-done" size={20} color={colors.white} />
               <Text style={styles.bigActionBtnText}>Hand to Customer ✅</Text>
             </TouchableOpacity>
           )
@@ -138,13 +143,13 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
 
         {order.status === 'OUT_FOR_DELIVERY' && (
           <TouchableOpacity
-            style={[styles.bigActionBtn, { backgroundColor: Colors.primaryDark }]}
+            style={[styles.bigActionBtn, { backgroundColor: colors.primaryDark }]}
             onPress={() => onAdvanceStatus(order.id, 'COMPLETED')}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={`Mark delivery complete for order ${order.orderNumber}`}
           >
-            <Ionicons name="checkmark-done" size={20} color={Colors.white} />
+            <Ionicons name="checkmark-done" size={20} color={colors.white} />
             <Text style={styles.bigActionBtnText}>Delivered / Complete ✅</Text>
           </TouchableOpacity>
         )}
@@ -158,6 +163,7 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
   onAdvanceStatus,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { width } = useWindowDimensions();
   const isWide = width >= 960;
 
@@ -179,7 +185,7 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
       {/* Board Summary Header */}
       <View style={styles.boardHeader}>
         <View style={styles.headerLeft}>
-          <Ionicons name="restaurant" size={22} color={Colors.primary} />
+          <Ionicons name="restaurant" size={22} color={colors.primary} />
           <Text style={styles.boardTitle}>
             {language === 'sw' ? 'Mfuatano wa Jikoni (Kitchen Queue)' : 'Live Kitchen Queue'}
           </Text>
@@ -199,12 +205,12 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
       >
         {/* Column 1: NEW / ACCEPTED */}
         <View style={styles.column}>
-          <View style={[styles.columnHeader, { borderLeftColor: '#F59E0B' }]}>
+          <View style={[styles.columnHeader, { borderLeftColor: colors.warning }]}>
             <Text style={styles.columnTitle}>
               {language === 'sw' ? 'ZILIZOTHIBITISHWA' : 'NEW / ACCEPTED'}
             </Text>
-            <View style={[styles.columnBadge, { backgroundColor: '#FEF3C7' }]}>
-              <Text style={[styles.columnBadgeText, { color: '#B45309' }]}>
+            <View style={[styles.columnBadge, { backgroundColor: colors.warningSoft }]}>
+              <Text style={[styles.columnBadgeText, { color: colors.warning }]}>
                 {acceptedOrders.length}
               </Text>
             </View>
@@ -229,12 +235,12 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
 
         {/* Column 2: PREPARING / COOKING */}
         <View style={styles.column}>
-          <View style={[styles.columnHeader, { borderLeftColor: Colors.accent }]}>
+          <View style={[styles.columnHeader, { borderLeftColor: colors.accent }]}>
             <Text style={styles.columnTitle}>
               {language === 'sw' ? 'INAPIKWA SASA' : 'PREPARING'}
             </Text>
-            <View style={[styles.columnBadge, { backgroundColor: '#FFF7ED' }]}>
-              <Text style={[styles.columnBadgeText, { color: '#EA580C' }]}>
+            <View style={[styles.columnBadge, { backgroundColor: colors.primarySoft }]}>
+              <Text style={[styles.columnBadgeText, { color: colors.primary }]}>
                 {preparingOrders.length}
               </Text>
             </View>
@@ -259,12 +265,12 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
 
         {/* Column 3: READY FOR PICKUP */}
         <View style={styles.column}>
-          <View style={[styles.columnHeader, { borderLeftColor: Colors.success }]}>
+          <View style={[styles.columnHeader, { borderLeftColor: colors.success }]}>
             <Text style={styles.columnTitle}>
               {language === 'sw' ? 'TAYARI KUKABIDHI' : 'READY FOR PICKUP'}
             </Text>
-            <View style={[styles.columnBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.columnBadgeText, { color: '#15803D' }]}>
+            <View style={[styles.columnBadge, { backgroundColor: colors.successSoft }]}>
+              <Text style={[styles.columnBadgeText, { color: colors.success }]}>
                 {readyOrders.length}
               </Text>
             </View>
@@ -291,7 +297,7 @@ export const KitchenBoard: React.FC<KitchenBoardProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -312,17 +318,17 @@ const styles = StyleSheet.create({
   },
   boardTitle: {
     ...Typography.H2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   headerCountPill: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
   headerCountText: {
     ...Typography.Caption,
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   columnsContainer: {
@@ -335,11 +341,11 @@ const styles = StyleSheet.create({
   },
   column: {
     width: 320,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.lg,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     maxHeight: '100%',
   },
   columnHeader: {
@@ -349,7 +355,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     borderLeftWidth: 4,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.sm,
     marginBottom: Spacing.sm,
     ...Shadows.sm,
@@ -359,7 +365,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   columnBadge: {
     paddingHorizontal: 7,
@@ -382,19 +388,19 @@ const styles = StyleSheet.create({
   },
   emptyColText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   card: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   cardLate: {
-    borderColor: '#FCA5A5',
+    borderColor: colors.danger,
     backgroundColor: '#FFFDFD',
   },
   cardHeader: {
@@ -402,7 +408,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
     paddingBottom: Spacing.xs,
     marginBottom: Spacing.xs,
   },
@@ -414,10 +420,10 @@ const styles = StyleSheet.create({
   orderNumber: {
     ...Typography.H3,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   typeBadge: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: Radii.sm,
@@ -426,7 +432,7 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 9,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   timerBadge: {
     flexDirection: 'row',
@@ -454,14 +460,14 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtyBadgeText: {
     ...Typography.Caption,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 12,
   },
   itemName: {
@@ -469,26 +475,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13.5,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   notesBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     padding: Spacing.xs,
     borderRadius: Radii.sm,
     marginVertical: Spacing.xs,
   },
   notesText: {
     ...Typography.Caption,
-    color: '#92400E',
+    color: colors.warning,
     fontWeight: '600',
   },
   cardFooter: {
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
   },
   bigActionBtn: {
@@ -502,8 +508,9 @@ const styles = StyleSheet.create({
   },
   bigActionBtnText: {
     ...Typography.BodyMedium,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
 });
+let styles = createStyles(lightColors);

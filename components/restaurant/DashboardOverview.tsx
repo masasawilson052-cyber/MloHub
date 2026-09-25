@@ -10,6 +10,11 @@ import { formatTzs } from '../../utils/formatters';
 import { AttentionCenter, AttentionAlert } from './AttentionCenter';
 import { RestaurantTab } from './RestaurantSidebar';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface DashboardMetrics {
   openOrdersCount: number;
   cookingOrdersCount: number;
@@ -38,6 +43,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onQuickVerifyMenu,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return language === 'sw' ? 'Habari za Asubuhi' : 'Good Morning';
@@ -71,7 +77,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Verify Menu Prices Now"
         >
-          <Ionicons name="shield-checkmark" size={18} color={Colors.white} />
+          <Ionicons name="shield-checkmark" size={18} color={colors.white} />
           <Text style={styles.verifyActionBtnText}>
             {language === 'sw' ? 'Thibitisha Menyu Sasa' : 'Verify Menu Freshness'}
           </Text>
@@ -99,11 +105,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Oda Mpya (Pending)' : 'Open Orders'}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.iconPill, { backgroundColor: colors.warningSoft }]}>
               <Ionicons name="receipt-outline" size={18} color="#D97706" />
             </View>
           </View>
-          <Text style={[styles.metricValue, metrics.openOrdersCount > 0 && { color: '#B45309' }]}>
+          <Text style={[styles.metricValue, metrics.openOrdersCount > 0 && { color: colors.warning }]}>
             {metrics.openOrdersCount}
           </Text>
           <Text style={styles.metricSub}>
@@ -123,7 +129,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Jikoni Zinapikwa' : 'Orders Cooking'}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#FFF7ED' }]}>
+            <View style={[styles.iconPill, { backgroundColor: colors.primarySoft }]}>
               <Ionicons name="flame-outline" size={18} color="#EA580C" />
             </View>
           </View>
@@ -143,7 +149,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Meza za Leo' : "Today's Bookings"}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#EFF6FF' }]}>
+            <View style={[styles.iconPill, { backgroundColor: colors.infoSoft }]}>
               <Ionicons name="calendar-outline" size={18} color="#2563EB" />
             </View>
           </View>
@@ -163,7 +169,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Zinazotaka Uthibitisho' : 'Needs Verification'}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#F0FDF4' }]}>
+            <View style={[styles.iconPill, { backgroundColor: colors.successSoft }]}>
               <Ionicons name="shield-checkmark-outline" size={18} color="#16A34A" />
             </View>
           </View>
@@ -205,7 +211,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Kiwango cha Ubora' : 'Customer Rating'}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#FEF9C3' }]}>
+            <View style={[styles.iconPill, { backgroundColor: colors.warningSoft }]}>
               <Ionicons name="star" size={18} color="#CA8A04" />
             </View>
           </View>
@@ -219,7 +225,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContainer: {
     padding: Spacing.md,
     maxWidth: 1000,
@@ -227,11 +233,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   greetingCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.lg,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -246,22 +252,22 @@ const styles = StyleSheet.create({
   },
   greetingTitle: {
     ...Typography.H2,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   greetingName: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '800',
   },
   greetingSubtitle: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   verifyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
     borderRadius: Radii.md,
@@ -269,7 +275,7 @@ const styles = StyleSheet.create({
   },
   verifyActionBtnText: {
     ...Typography.BodyMedium,
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   sectionHeader: {
@@ -277,7 +283,7 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     ...Typography.H3,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   metricsGrid: {
@@ -286,21 +292,21 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   metricCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     flex: 1,
     minWidth: 240,
     ...Shadows.sm,
   },
   metricCardAlert: {
-    borderColor: '#FDE68A',
+    borderColor: colors.warning,
     backgroundColor: '#FFFDF5',
   },
   metricCardWarning: {
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
   },
   metricTop: {
     flexDirection: 'row',
@@ -310,7 +316,7 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
     fontSize: 12,
   },
@@ -323,12 +329,13 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     ...Typography.H1,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '800',
   },
   metricSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 4,
   },
 });
+let styles = createStyles(lightColors);

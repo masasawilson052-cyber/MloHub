@@ -14,6 +14,10 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { DataReport, DataReportStatus, DataReportType } from '../../types/domain';
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface CustomerReportsAdminProps {
   reports: DataReport[];
   onResolveReport: (
@@ -29,7 +33,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   onResolveReport,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [statusFilter, setStatusFilter] = useState<'ALL' | DataReportStatus>('OPEN');
   const [typeFilter, setTypeFilter] = useState<'ALL' | DataReportType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,20 +91,20 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   const getReportTypeBadge = (type: DataReportType) => {
     switch (type) {
       case 'WRONG_PRICE':
-        return { label: 'Wrong Price', bg: '#fee2e2', color: '#b91c1c', icon: 'pricetag-outline' as const };
+        return { label: 'Wrong Price', bg: '#fee2e2', color: colors.danger, icon: 'pricetag-outline' as const };
       case 'ITEM_UNAVAILABLE':
-        return { label: 'Unavailable', bg: '#ffedd5', color: '#c2410c', icon: 'close-circle-outline' as const };
+        return { label: 'Unavailable', bg: '#ffedd5', color: colors.primary, icon: 'close-circle-outline' as const };
       case 'WRONG_HOURS':
-        return { label: 'Wrong Hours', bg: '#fef3c7', color: '#b45309', icon: 'time-outline' as const };
+        return { label: 'Wrong Hours', bg: '#fef3c7', color: colors.warning, icon: 'time-outline' as const };
       case 'RESTAURANT_CLOSED':
-        return { label: 'Closed Spot', bg: '#fee2e2', color: '#991b1b', icon: 'lock-closed-outline' as const };
+        return { label: 'Closed Spot', bg: '#fee2e2', color: colors.danger, icon: 'lock-closed-outline' as const };
       default:
-        return { label: type, bg: '#eff6ff', color: '#1d4ed8', icon: 'alert-circle-outline' as const };
+        return { label: type, bg: '#eff6ff', color: colors.info, icon: 'alert-circle-outline' as const };
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -119,7 +123,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               statusFilter === 'OPEN' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setStatusFilter('OPEN')}
@@ -128,7 +132,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'OPEN' && { color: '#ffffff', fontWeight: '700' },
+                statusFilter === 'OPEN' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               Open ({openCount})
@@ -137,7 +141,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               statusFilter === 'INVESTIGATING' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setStatusFilter('INVESTIGATING')}
@@ -146,7 +150,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'INVESTIGATING' && { color: '#ffffff', fontWeight: '700' },
+                statusFilter === 'INVESTIGATING' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               Investigating ({investigatingCount})
@@ -155,7 +159,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               statusFilter === 'RESOLVED' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setStatusFilter('RESOLVED')}
@@ -164,7 +168,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'RESOLVED' && { color: '#ffffff', fontWeight: '700' },
+                statusFilter === 'RESOLVED' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               Resolved ({resolvedCount})
@@ -173,7 +177,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               statusFilter === 'ALL' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setStatusFilter('ALL')}
@@ -182,7 +186,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'ALL' && { color: '#ffffff', fontWeight: '700' },
+                statusFilter === 'ALL' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               All ({reports.length})
@@ -190,12 +194,12 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search report, restaurant, dish..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -225,7 +229,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                   key={report.id}
                   style={[
                     styles.card,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                     isSelected && { borderColor: colors.primary, backgroundColor: isDark ? '#261b14' : '#fffaf5' },
                   ]}
                 >
@@ -260,12 +264,12 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
 
                   {/* Side-by-Side Comparison if values present */}
                   {(report.reportedValue || report.catalogValue) && (
-                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? '#1e293b' : '#f8fafc', borderColor: colors.border }]}>
+                    <View style={[styles.comparisonBox, { backgroundColor: isDark ? colors.textPrimary : colors.appBackground, borderColor: colors.border }]}>
                       <View style={styles.compColumn}>
                         <Text style={[styles.compLabel, { color: colors.textMuted }]}>Catalog Value:</Text>
                         <Text style={styles.compCatalog}>{report.catalogValue || 'Unknown'}</Text>
                       </View>
-                      <Ionicons name="arrow-forward" size={14} color="#94a3b8" />
+                      <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
                       <View style={styles.compColumn}>
                         <Text style={styles.compLabel}>Customer Reported:</Text>
                         <Text style={styles.compReported}>{report.reportedValue || 'N/A'}</Text>
@@ -288,7 +292,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                         }}
                       >
                         <Text style={styles.resolveBtnText}>Triage</Text>
-                        <Ionicons name="chevron-forward" size={12} color={Colors.primary} />
+                        <Ionicons name="chevron-forward" size={12} color={colors.primary} />
                       </TouchableOpacity>
                     )}
                   </View>
@@ -342,7 +346,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                           disabled={isProcessing}
                         >
                           {isProcessing ? (
-                            <ActivityIndicator size="small" color="#ffffff" />
+                            <ActivityIndicator size="small" color={colors.onPrimary} />
                           ) : (
                             <Text style={styles.drawerConfirmText}>Resolve & Flag Catalog Correction</Text>
                           )}
@@ -361,10 +365,10 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -374,12 +378,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -400,29 +404,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   pillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 220,
@@ -431,7 +435,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -446,11 +450,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
     textAlign: 'center',
     maxWidth: 320,
   },
@@ -458,16 +462,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   cardSelected: {
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     backgroundColor: '#fffaf5',
   },
   cardHeader: {
@@ -493,19 +497,19 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   statusOpen: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   statusInvestigating: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
   },
   statusResolved: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   statusTagText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardMain: {
     gap: 2,
@@ -513,16 +517,16 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   dishName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0284c7',
+    color: colors.info,
   },
   messageText: {
     fontSize: 13,
-    color: '#334155',
+    color: colors.textSecondary,
     fontStyle: 'italic',
     marginTop: 2,
   },
@@ -530,11 +534,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   compColumn: {
     alignItems: 'center',
@@ -542,30 +546,30 @@ const styles = StyleSheet.create({
   },
   compLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   compCatalog: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
     textDecorationLine: 'line-through',
   },
   compReported: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#dc2626',
+    color: colors.danger,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: 8,
   },
   footerMeta: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   resolveBtn: {
     flexDirection: 'row',
@@ -575,27 +579,27 @@ const styles = StyleSheet.create({
   resolveBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   actionDrawer: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     marginTop: Spacing.xs,
     gap: Spacing.sm,
   },
   drawerTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   drawerInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     fontSize: 12,
@@ -613,10 +617,10 @@ const styles = StyleSheet.create({
   },
   drawerCancelText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   drawerRejectBtn: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     borderRadius: Radii.sm,
@@ -624,10 +628,10 @@ const styles = StyleSheet.create({
   drawerRejectText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#ef4444',
+    color: colors.danger,
   },
   drawerInvestigateBtn: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     borderRadius: Radii.sm,
@@ -635,7 +639,7 @@ const styles = StyleSheet.create({
   drawerInvestigateText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#b45309',
+    color: colors.warning,
   },
   drawerConfirmBtn: {
     backgroundColor: '#16a34a',
@@ -646,6 +650,7 @@ const styles = StyleSheet.create({
   drawerConfirmText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

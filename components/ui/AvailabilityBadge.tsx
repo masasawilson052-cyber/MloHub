@@ -5,6 +5,11 @@ import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export type AvailabilityStatus = 'AVAILABLE' | 'LOW_STOCK' | 'SOLD_OUT' | 'UNKNOWN';
 
 export interface AvailabilityBadgeProps {
@@ -18,30 +23,31 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
   style,
   size = 'md',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getConfig = () => {
     switch (status) {
       case 'AVAILABLE':
         return {
           label: 'Available',
           iconName: 'radio-button-on' as const,
-          color: Colors.success,
-          bgColor: Colors.successLight,
+          color: colors.success,
+          bgColor: colors.successLight,
           borderColor: '#C6F6D5',
         };
       case 'LOW_STOCK':
         return {
           label: 'Low stock',
           iconName: 'alert-circle' as const,
-          color: Colors.warning,
-          bgColor: Colors.warningLight,
+          color: colors.warning,
+          bgColor: colors.warningLight,
           borderColor: '#FEEBC8',
         };
       case 'SOLD_OUT':
         return {
           label: 'Sold out',
           iconName: 'close-circle' as const,
-          color: Colors.error,
-          bgColor: Colors.errorLight,
+          color: colors.danger,
+          bgColor: colors.errorLight,
           borderColor: '#FED7D7',
         };
       case 'UNKNOWN':
@@ -49,9 +55,9 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
         return {
           label: 'Availability unconfirmed',
           iconName: 'help-circle' as const,
-          color: Colors.textMuted,
-          bgColor: Colors.surfaceSecondary,
-          borderColor: Colors.borderLight,
+          color: colors.textMuted,
+          bgColor: colors.surfaceSecondary,
+          borderColor: colors.divider,
         };
     }
   };
@@ -97,7 +103,7 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,3 +119,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+let styles = createStyles(lightColors);

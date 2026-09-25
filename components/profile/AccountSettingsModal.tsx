@@ -15,6 +15,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface AccountSettingsModalProps {
   visible: boolean;
   onClose: () => void;
@@ -36,6 +41,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   onOpenManageAddresses,
   onSave,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
@@ -64,7 +70,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -111,12 +117,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                     }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: '600' }}>Manage Addresses</Text>
+                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '600' }}>Manage Addresses</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              <View style={[styles.input, { justifyContent: 'center', backgroundColor: '#f8fafc' }]}>
-                <Text style={{ color: location ? Colors.textPrimary : Colors.textMuted, fontSize: 14 }}>
+              <View style={[styles.input, { justifyContent: 'center', backgroundColor: colors.appBackground }]}>
+                <Text style={{ color: location ? colors.textPrimary : colors.textMuted, fontSize: 14 }}>
                   {location || 'No saved address selected'}
                 </Text>
               </View>
@@ -137,14 +143,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(20, 40, 30, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
@@ -156,7 +162,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   title: {
     ...Typography.H2,
@@ -172,20 +178,21 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   input: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   saveBtn: {
     marginTop: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);

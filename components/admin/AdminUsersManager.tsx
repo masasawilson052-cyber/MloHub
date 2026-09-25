@@ -13,6 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { UserEntity, UserRole } from '../../db/types';
 
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface AdminUsersManagerProps {
   currentUserId?: string;
   currentUserRole?: UserRole | string;
@@ -30,6 +35,7 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
   onRevokeAdmin,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const isSuperAdmin = currentUserRole === UserRole.SUPER_ADMIN || currentUserRole === 'SUPER_ADMIN';
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -121,7 +127,7 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
         </View>
 
         <TouchableOpacity style={styles.addBtn} onPress={() => setIsInviteOpen(true)}>
-          <Ionicons name="person-add" size={16} color="#ffffff" />
+          <Ionicons name="person-add" size={16} color={colors.onPrimary} />
           <Text style={styles.addBtnText}>Add Administrator</Text>
         </TouchableOpacity>
       </View>
@@ -182,7 +188,7 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <Text style={styles.submitText}>Grant Privileges</Text>
               )}
@@ -251,10 +257,10 @@ export const AdminUsersManager: React.FC<AdminUsersManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   restrictedContainer: {
     flex: 1,
@@ -266,11 +272,11 @@ const styles = StyleSheet.create({
   restrictedTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   restrictedSubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     maxWidth: 420,
     lineHeight: 20,
@@ -288,19 +294,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: Spacing.md,
     paddingVertical: 9,
     borderRadius: Radii.md,
@@ -308,23 +314,23 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   inviteCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     marginHorizontal: Spacing.lg,
     marginVertical: Spacing.sm,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     gap: Spacing.sm,
     ...Shadows.sm,
   },
   inviteCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   inputGrid: {
     flexDirection: 'row',
@@ -334,10 +340,10 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     minWidth: 220,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 8,
     fontSize: 13,
@@ -351,18 +357,18 @@ const styles = StyleSheet.create({
   roleSelectLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   roleOption: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.sm,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   roleOptionActive: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: colors.info,
   },
   roleOptionActiveSuper: {
     backgroundColor: '#fdf2f8',
@@ -372,10 +378,10 @@ const styles = StyleSheet.create({
   roleOptionText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   roleOptionTextActive: {
-    color: '#1d4ed8',
+    color: colors.info,
   },
   roleOptionTextActiveSuper: {
     color: '#be185d',
@@ -392,10 +398,10 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   submitBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 8,
     borderRadius: Radii.md,
@@ -403,7 +409,7 @@ const styles = StyleSheet.create({
   submitText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   listContainer: {
     padding: Spacing.lg,
@@ -416,10 +422,10 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 320,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
@@ -433,9 +439,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: Radii.full,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -450,16 +456,16 @@ const styles = StyleSheet.create({
   nameText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   youBadge: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   emailText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   roleTag: {
     paddingHorizontal: 8,
@@ -467,7 +473,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.sm,
   },
   roleAdmin: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
   },
   roleSuper: {
     backgroundColor: '#fdf2f8',
@@ -478,32 +484,32 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   roleAdminText: {
-    color: '#1d4ed8',
+    color: colors.info,
   },
   roleSuperText: {
     color: '#be185d',
   },
   cardMeta: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.sm,
     padding: Spacing.xs,
     gap: 2,
   },
   metaLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: 6,
   },
   joinedText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   revokeBtn: {
     flexDirection: 'row',
@@ -512,11 +518,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
   },
   revokeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ef4444',
+    color: colors.danger,
   },
 });
+let styles = createStyles(lightColors);

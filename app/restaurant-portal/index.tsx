@@ -87,7 +87,13 @@ import {
   OperatingOverride,
 } from '../../components/restaurant';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function RestaurantPortalScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const {
     user: authUser,
@@ -164,7 +170,7 @@ export default function RestaurantPortalScreen() {
   if (access.status === 'LOADING' || checkingApp) {
     return (
       <SafeAreaView style={styles.gateContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.gateSubtitle}>Inapakia mfumo wa mgahawa...</Text>
       </SafeAreaView>
     );
@@ -174,7 +180,7 @@ export default function RestaurantPortalScreen() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
-          <Ionicons name="lock-closed-outline" size={54} color={Colors.primary} />
+          <Ionicons name="lock-closed-outline" size={54} color={colors.primary} />
           <Text style={styles.gateTitle}>Kuingia Kunahitajika</Text>
           <Text style={styles.gateSubtitle}>
             Unatakiwa kuingia kwenye akaunti yako ya mgahawa ili kufikia ukurasa huu.
@@ -202,21 +208,21 @@ export default function RestaurantPortalScreen() {
       return (
         <SafeAreaView style={styles.gateContainer}>
           <View style={styles.gateCard}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.dangerSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
               <Ionicons name="close-circle-outline" size={38} color="#dc2626" />
             </View>
-            <Text style={{ fontSize: 11, fontWeight: '800', color: '#dc2626', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: colors.danger, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
               OMBI LIMEKATALIWA • APPLICATION REJECTED
             </Text>
             <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
             <Text style={styles.gateSubtitle}>
               Ombi lako la kusajili mgahawa huu limekaguliwa na msimamizi wa MloHub na halijaidhinishwa kwa sasa.
             </Text>
-            <View style={{ width: '100%', backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 12, padding: 14, marginBottom: 18 }}>
-              <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#991b1b', marginBottom: 4 }}>
+            <View style={{ width: '100%', backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger, borderRadius: 12, padding: 14, marginBottom: 18 }}>
+              <Text style={{ fontSize: 11.5, fontWeight: '800', color: colors.danger, marginBottom: 4 }}>
                 Sababu kutoka kwa Msimamizi / Administrator Feedback:
               </Text>
-              <Text style={{ fontSize: 13, color: '#7f1d1d', lineHeight: 19, fontWeight: '600' }}>
+              <Text style={{ fontSize: 13, color: colors.danger, lineHeight: 19, fontWeight: '600' }}>
                 {userApp.rejectionReason || 'Taarifa za biashara hazijakidhi vigezo vya usajili wa MloHub.'}
               </Text>
             </View>
@@ -260,10 +266,10 @@ export default function RestaurantPortalScreen() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
-          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.warningSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
             <Ionicons name="time-outline" size={36} color="#d97706" />
           </View>
-          <Text style={{ fontSize: 11, fontWeight: '800', color: '#b45309', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+          <Text style={{ fontSize: 11, fontWeight: '800', color: colors.warning, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
             OMBI LAKO LINAKAGULIWA • UNDER ADMIN REVIEW
           </Text>
           <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
@@ -335,7 +341,7 @@ export default function RestaurantPortalScreen() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
-          <Ionicons name="storefront-outline" size={54} color={Colors.primary} />
+          <Ionicons name="storefront-outline" size={54} color={colors.primary} />
           <Text style={styles.gateTitle}>Mazingira ya Mteja</Text>
           <Text style={styles.gateSubtitle}>
             Kwa sasa upo kwenye akaunti ya mteja. Ili kuona na kusimamia jikoni, badilisha mazingira yako kuwa ya usimamizi wa mgahawa.
@@ -370,7 +376,7 @@ export default function RestaurantPortalScreen() {
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
-          <Ionicons name="restaurant-outline" size={54} color={Colors.primary} />
+          <Ionicons name="restaurant-outline" size={54} color={colors.primary} />
           <Text style={styles.gateTitle}>Inasubiri Kuunganishwa na Mgahawa</Text>
           <Text style={styles.gateSubtitle}>
             Akaunti yako haijaunganishwa na mgahawa wowote uliothibitishwa bado. Wasiliana na msimamizi au sajili mgahawa wako.
@@ -1320,7 +1326,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: '#94a3b8' }]}
+              style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: colors.textMuted }]}
               onPress={handlePublishRestaurant}
               disabled={!isPublishPrerequisitesMet}
               activeOpacity={0.85}
@@ -1391,7 +1397,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <Ionicons
                         name={hasActiveBranch ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
-                        color={hasActiveBranch ? "#16a34a" : "#94a3b8"}
+                        color={hasActiveBranch ? "#16a34a" : colors.textMuted}
                       />
                       <Text style={[styles.setupItemText, hasActiveBranch && styles.setupItemTextDone]}>
                         {language === 'sw' ? 'Ongeza angalau tawi 1 la biashara' : 'Add at least one operating branch'}
@@ -1404,7 +1410,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <Ionicons
                         name={hasConfiguredHours ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
-                        color={hasConfiguredHours ? "#16a34a" : "#94a3b8"}
+                        color={hasConfiguredHours ? "#16a34a" : colors.textMuted}
                       />
                       <Text style={[styles.setupItemText, hasConfiguredHours && styles.setupItemTextDone]}>
                         {language === 'sw' ? 'Sanidi masaa ya kazi ya tawi' : 'Configure branch operating hours'}
@@ -1417,7 +1423,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <Ionicons
                         name={hasValidMenuItem ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
-                        color={hasValidMenuItem ? "#16a34a" : "#94a3b8"}
+                        color={hasValidMenuItem ? "#16a34a" : colors.textMuted}
                       />
                       <Text style={[styles.setupItemText, hasValidMenuItem && styles.setupItemTextDone]}>
                         {language === 'sw' ? 'Weka angalau chakula 1 chenye bei halali kwenye menyu' : 'Add at least one menu item with valid price'}
@@ -1435,7 +1441,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <Ionicons
                         name={activeRestaurant.isPublished ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
-                        color={activeRestaurant.isPublished ? "#16a34a" : "#94a3b8"}
+                        color={activeRestaurant.isPublished ? "#16a34a" : colors.textMuted}
                       />
                       <Text style={[styles.setupItemText, activeRestaurant.isPublished && styles.setupItemTextDone]}>
                         {language === 'sw' ? 'Tayari kuzindua / Mgahawa umezinduliwa mtandaoni' : 'Ready to publish / Live online'}
@@ -1450,7 +1456,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         marginTop: 14,
                         paddingTop: 12,
                         borderTopWidth: 1,
-                        borderTopColor: Colors.borderLight,
+                        borderTopColor: colors.divider,
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -1458,7 +1464,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         gap: 10,
                       }}
                     >
-                      <Text style={{ fontSize: 12, color: Colors.textSecondary, flex: 1 }}>
+                      <Text style={{ fontSize: 12, color: colors.textSecondary, flex: 1 }}>
                         {!hasActiveBranch
                           ? (language === 'sw' ? 'Hatua inayofuata: Ongeza tawi kwenye Mipangilio (Hatua ya 2).' : 'Next step: Add an operating branch in Settings (Step 2).')
                           : !hasValidMenuItem
@@ -1468,7 +1474,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <TouchableOpacity
                         style={[
                           styles.publishActionBtn,
-                          { backgroundColor: isPublishPrerequisitesMet ? '#16a34a' : '#94a3b8' },
+                          { backgroundColor: isPublishPrerequisitesMet ? '#16a34a' : colors.textMuted },
                           !isPublishPrerequisitesMet && { opacity: 0.6 },
                         ]}
                         onPress={handlePublishRestaurant}
@@ -1487,7 +1493,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         paddingTop: 12,
                         borderTopWidth: 1,
                         borderTopColor: '#dcfce7',
-                        backgroundColor: '#f0fdf4',
+                        backgroundColor: colors.successSoft,
                         paddingHorizontal: 12,
                         paddingBottom: 10,
                         borderRadius: Radii.md,
@@ -1500,7 +1506,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                         <Ionicons name="radio-button-on" size={16} color="#16a34a" />
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534', flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.success, flex: 1 }}>
                           {language === 'sw'
                             ? 'Mgahawa wako uko LIVE mtandaoni! Wateja wanaweza kuona menyu na kuagiza sasa.'
                             : 'Your restaurant is LIVE online! Customers can now discover your menu and place orders.'}
@@ -1515,7 +1521,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         }}
                         onPress={() => router.push(`/restaurant/${activeRestaurant.id}` as any)}
                       >
-                        <Text style={{ color: '#ffffff', fontSize: 11.5, fontWeight: '700' }}>
+                        <Text style={{ color: colors.onPrimary, fontSize: 11.5, fontWeight: '700' }}>
                           {language === 'sw' ? 'Tazama Ukurasa wa Wateja →' : 'View Customer Storefront →'}
                         </Text>
                       </TouchableOpacity>
@@ -1557,7 +1563,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
             {activeTab === 'custom-meals' && (
               <View>
-              {requestLoadError && <Text accessibilityRole="alert" style={{ color: '#b91c1c', padding: 12 }}>{requestLoadError}</Text>}
+              {requestLoadError && <Text accessibilityRole="alert" style={{ color: colors.danger, padding: 12 }}>{requestLoadError}</Text>}
               <CustomMealQuotesPanel
                 requests={customMealInvitations.map((inv: any) => ({
                   ...inv.request,
@@ -1717,10 +1723,10 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
   },
   workspaceRow: {
     flex: 1,
@@ -1729,26 +1735,26 @@ const styles = StyleSheet.create({
   sidebarWrapper: {
     width: 250,
     borderRightWidth: 1,
-    borderRightColor: '#1e293b',
+    borderRightColor: colors.primary,
     backgroundColor: '#0b1120',
   },
   viewport: {
     flex: 1,
     flexDirection: 'column',
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
   },
   tabContentArea: {
     flex: 1,
   },
   gateContainer: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
   },
   gateCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: colors.primary,
     borderRadius: Radii.lg,
     padding: Spacing.xl,
     alignItems: 'center',
@@ -1759,20 +1765,20 @@ const styles = StyleSheet.create({
   gateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#f8fafc',
+    color: colors.appBackground,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     textAlign: 'center',
   },
   gateSubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: Spacing.lg,
   },
   gatePrimaryBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: Radii.md,
@@ -1781,7 +1787,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   gatePrimaryBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -1793,14 +1799,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   gateSecondaryBtnText: {
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },
   publishBanner: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     borderBottomWidth: 1,
-    borderBottomColor: '#fde68a',
+    borderBottomColor: colors.warning,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
   },
@@ -1812,11 +1818,11 @@ const styles = StyleSheet.create({
   publishBannerTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#92400e',
+    color: colors.warning,
   },
   publishBannerSub: {
     fontSize: 11.5,
-    color: '#b45309',
+    color: colors.warning,
     marginTop: 2,
   },
   publishActionBtn: {
@@ -1827,17 +1833,17 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   publishActionBtnText: {
-    color: '#ffffff',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   setupCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   setupCardHeader: {
@@ -1847,17 +1853,17 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     paddingBottom: Spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   setupCardTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   setupCardStepText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
   setupChecklist: {
     gap: 8,
@@ -1869,11 +1875,12 @@ const styles = StyleSheet.create({
   },
   setupItemText: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   setupItemTextDone: {
     fontSize: 12,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     fontWeight: '600',
   },
 });
+let styles = createStyles(lightColors);

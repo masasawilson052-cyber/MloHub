@@ -36,6 +36,11 @@ import { formatTzs } from '../../utils/formatters';
 import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
 import { PaymentRetryModal } from '../../components/checkout/PaymentRetryModal';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
 
@@ -49,6 +54,7 @@ export const canRetryOrderPayment = (order: Order): boolean => {
 };
 
 export default function OrdersScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{ orderId?: string }>();
   const { t, language } = useLanguage();
@@ -322,7 +328,7 @@ export default function OrdersScreen() {
         <View style={styles.unauthContainer}>
           <View style={styles.unauthCard}>
             <View style={styles.iconCircle}>
-              <Ionicons name="receipt-outline" size={32} color={Colors.primary} />
+              <Ionicons name="receipt-outline" size={32} color={colors.primary} />
             </View>
             <Text style={styles.unauthTitle}>
               {language === 'sw' ? 'Fuatilia Oda Zako' : 'Track Your Orders'}
@@ -371,7 +377,7 @@ export default function OrdersScreen() {
           accessible={true}
           accessibilityLabel="Refresh orders"
         >
-          <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -400,7 +406,7 @@ export default function OrdersScreen() {
       {/* Main Content Area */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>
             {language === 'sw' ? 'Inapakia maagizo...' : 'Loading orders...'}
           </Text>
@@ -468,7 +474,7 @@ export default function OrdersScreen() {
                 {/* Fulfillment and Date Metadata */}
                 <View style={styles.metaRow}>
                   <View style={styles.metaBadge}>
-                    <Ionicons name="bicycle-outline" size={12} color={Colors.primary} />
+                    <Ionicons name="bicycle-outline" size={12} color={colors.primary} />
                     <Text style={styles.metaBadgeText}>
                       {getFulfillmentLabel(order.fulfillmentType)}
                     </Text>
@@ -517,7 +523,7 @@ export default function OrdersScreen() {
                         onPress={() => setRetryPaymentOrder(order)}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="card-outline" size={14} color="#FFFFFF" />
+                        <Ionicons name="card-outline" size={14} color={colors.onPrimary} />
                         <Text style={styles.payNowBtnText}>
                           {language === 'sw' ? 'Lipa Sasa' : 'Pay Now'}
                         </Text>
@@ -529,7 +535,7 @@ export default function OrdersScreen() {
                       onPress={() => setSelectedOrder(order)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="document-text-outline" size={14} color={Colors.primary} />
+                      <Ionicons name="document-text-outline" size={14} color={colors.primary} />
                       <Text style={styles.detailsBtnText}>
                         {language === 'sw' ? 'Stakabadhi' : 'Receipt'}
                       </Text>
@@ -541,7 +547,7 @@ export default function OrdersScreen() {
                         onPress={() => setSelectedOrder(order)}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="time-outline" size={14} color="#FFFFFF" />
+                        <Ionicons name="time-outline" size={14} color={colors.onPrimary} />
                         <Text style={styles.trackBtnText}>
                           {language === 'sw' ? 'Fuatilia' : 'Track'}
                         </Text>
@@ -579,7 +585,7 @@ export default function OrdersScreen() {
                   onPress={() => setSelectedOrder(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close" size={22} color={Colors.text} />
+                  <Ionicons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
@@ -590,7 +596,7 @@ export default function OrdersScreen() {
                     {language === 'sw' ? 'Hali ya Jikoni' : 'Kitchen Status Progression'}
                   </Text>
                   {selectedOrder.estimatedPrepMinutes ? (
-                    <Text style={{ fontSize: 12, color: '#64748B', marginBottom: Spacing.sm }}>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.sm }}>
                       {language === 'sw'
                         ? `Muda wa maandalizi: takriban dakika ${selectedOrder.estimatedPrepMinutes}`
                         : `Estimated preparation: ~${selectedOrder.estimatedPrepMinutes} mins`}
@@ -668,7 +674,7 @@ export default function OrdersScreen() {
 
                 {/* Delivery / Fulfillment Note */}
                 <View style={styles.infoNoticeCard}>
-                  <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+                  <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
                   <Text style={styles.infoNoticeText}>
                     {selectedOrder.fulfillmentType === 'Delivery'
                       ? language === 'sw'
@@ -755,7 +761,7 @@ export default function OrdersScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Rate & Review</Text>
                 <TouchableOpacity onPress={() => setReviewOrder(null)}>
-                  <Ionicons name="close" size={22} color={Colors.text} />
+                  <Ionicons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
               <Text style={styles.reviewPrompt}>{reviewOrder.restaurantName || 'Restaurant'}</Text>
@@ -794,10 +800,10 @@ export default function OrdersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F3', // Warm Ivory
+    backgroundColor: colors.appBackground, // Warm Ivory
   },
   header: {
     flexDirection: 'row',
@@ -810,23 +816,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#142033', // Brand Ink
+    color: colors.textPrimary, // Brand Ink
     letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   refreshIconBtn: {
     width: 38,
     height: 38,
     borderRadius: Radii.full,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
   },
   tabBarContainer: {
     paddingHorizontal: Spacing.lg,
@@ -841,7 +847,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   emptyScroll: {
     flexGrow: 1,
@@ -859,11 +865,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   orderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   orderCardHeader: {
@@ -879,11 +885,11 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   orderNumberText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   metaRow: {
@@ -897,7 +903,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
@@ -905,14 +911,14 @@ const styles = StyleSheet.create({
   metaBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   dateText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
   },
   itemsBox: {
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     gap: 6,
@@ -926,13 +932,13 @@ const styles = StyleSheet.create({
   itemQuantity: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     width: 24,
   },
   itemName: {
     flex: 1,
     fontSize: 13,
-    color: '#334155',
+    color: colors.textSecondary,
     marginRight: Spacing.sm,
   },
   orderCardFooter: {
@@ -940,18 +946,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F5F3ED',
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
   },
   totalLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   refundStatusText: {
     fontSize: 11,
-    color: '#0F766E',
+    color: colors.info,
     marginTop: 4,
     textTransform: 'uppercase',
     fontWeight: '700',
@@ -964,7 +970,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -972,13 +978,13 @@ const styles = StyleSheet.create({
   detailsBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   payNowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#15803D',
+    backgroundColor: colors.success,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -986,13 +992,13 @@ const styles = StyleSheet.create({
   payNowBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   trackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -1000,12 +1006,12 @@ const styles = StyleSheet.create({
   trackBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   reviewPrompt: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   ratingRow: {
@@ -1016,11 +1022,12 @@ const styles = StyleSheet.create({
   reviewInput: {
     minHeight: 110,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     textAlignVertical: 'top',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   unauthContainer: {
@@ -1030,21 +1037,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   unauthCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
     ...Shadows.md,
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -1052,23 +1059,23 @@ const styles = StyleSheet.create({
   unauthTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   unauthSub: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20, 32, 51, 0.45)',
+    backgroundColor: colors.modalBackdrop,
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceRaised,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '88%',
@@ -1087,23 +1094,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F3ED',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   modalSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1111,7 +1118,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   timelineCard: {
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginTop: Spacing.md,
@@ -1119,7 +1126,7 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: Spacing.sm,
@@ -1136,37 +1143,37 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#E2DED4',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineDotDone: {
-    backgroundColor: '#246B39',
+    backgroundColor: colors.success,
   },
   timelineDotCurrent: {
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
   },
   timelineStepText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   timelineStepTextCurrent: {
-    color: '#142033',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   breakdownCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.cardElevated,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginTop: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
   },
   breakdownHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   breakdownRow: {
@@ -1177,22 +1184,22 @@ const styles = StyleSheet.create({
   },
   breakdownItemName: {
     fontSize: 13,
-    color: '#142033',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   breakdownItemNote: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   breakdownItemPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.divider,
     marginVertical: Spacing.sm,
   },
   financialRow: {
@@ -1202,34 +1209,34 @@ const styles = StyleSheet.create({
   },
   financialLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   financialVal: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   grandTotalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E2DED4',
+    borderTopColor: colors.border,
     paddingTop: 6,
     marginTop: 6,
   },
   grandTotalLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   grandTotalVal: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#C8482A',
+    color: colors.primary,
   },
   infoNoticeCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.md,
     borderRadius: Radii.md,
     marginTop: Spacing.md,
@@ -1237,7 +1244,7 @@ const styles = StyleSheet.create({
   infoNoticeText: {
     flex: 1,
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   modalFooter: {
@@ -1245,3 +1252,4 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);

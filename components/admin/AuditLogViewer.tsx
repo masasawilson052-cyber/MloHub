@@ -13,6 +13,10 @@ import { AuditLogEntity } from '../../db/types';
 
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface AuditLogViewerProps {
   logs: AuditLogEntity[];
   language?: 'en' | 'sw';
@@ -22,7 +26,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   logs,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [actionFilter, setActionFilter] = useState<string>('ALL');
   const [entityFilter, setEntityFilter] = useState<string>('ALL');
   const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS'>('ALL');
@@ -56,15 +60,15 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
 
   const getActionBadge = (action: string) => {
     if (action.includes('REJECT') || action.includes('SUSPEND') || action.includes('REVOKE')) {
-      return { bg: '#fee2e2', color: '#b91c1c' };
+      return { bg: '#fee2e2', color: colors.danger };
     }
     if (action.includes('APPROVE') || action.includes('REACTIVATE') || action.includes('GRANT')) {
-      return { bg: '#dcfce7', color: '#15803d' };
+      return { bg: '#dcfce7', color: colors.success };
     }
     if (action.includes('BROADCAST')) {
-      return { bg: '#fef3c7', color: '#b45309' };
+      return { bg: '#fef3c7', color: colors.warning };
     }
-    return { bg: '#eff6ff', color: '#1d4ed8' };
+    return { bg: '#eff6ff', color: colors.info };
   };
 
   const sanitizeDetails = (details: Record<string, any> | undefined) => {
@@ -137,7 +141,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
 
 
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={14} color="#94a3b8" />
+          <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search action, actor, target..."
@@ -151,7 +155,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="shield-outline" size={48} color="#cbd5e1" />
+            <Ionicons name="shield-outline" size={48} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No Audit Records Found</Text>
             <Text style={styles.emptySubtitle}>No records match the current filter.</Text>
           </View>
@@ -179,7 +183,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
                   </View>
 
                   <View style={styles.logActorRow}>
-                    <Ionicons name="person-circle-outline" size={14} color="#64748b" />
+                    <Ionicons name="person-circle-outline" size={14} color={colors.textSecondary} />
                     <Text style={styles.actorText}>
                       Executed by: <Text style={styles.actorHighlight}>{log.adminName || log.adminUserId}</Text>
                     </Text>
@@ -198,7 +202,7 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
                         <Ionicons
                           name={isExpanded ? 'chevron-up' : 'chevron-down'}
                           size={12}
-                          color={Colors.primary}
+                          color={colors.primary}
                         />
                       </TouchableOpacity>
 
@@ -219,10 +223,10 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -232,12 +236,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -257,29 +261,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   pillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 220,
@@ -288,7 +292,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -303,20 +307,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   logList: {
     gap: Spacing.sm,
   },
   logCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: 6,
     ...Shadows.sm,
@@ -347,11 +351,11 @@ const styles = StyleSheet.create({
   targetInfo: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   timestamp: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   logActorRow: {
     flexDirection: 'row',
@@ -360,11 +364,11 @@ const styles = StyleSheet.create({
   },
   actorText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   actorHighlight: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   metadataSection: {
     marginTop: 4,
@@ -378,10 +382,10 @@ const styles = StyleSheet.create({
   expandToggleText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   jsonBox: {
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     borderRadius: Radii.sm,
     padding: Spacing.sm,
     marginTop: 6,
@@ -389,6 +393,7 @@ const styles = StyleSheet.create({
   jsonCode: {
     fontFamily: 'monospace',
     fontSize: 11,
-    color: '#e2e8f0',
+    color: colors.border,
   },
 });
+let styles = createStyles(lightColors);

@@ -12,6 +12,11 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantApplicationEntity } from '../../db/types';
 import { ApplicationDetail } from './ApplicationDetail';
 
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 type AppFilterStatus = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 interface ApplicationsQueueProps {
@@ -29,6 +34,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
   onRequestChanges,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [selectedFilter, setSelectedFilter] = useState<AppFilterStatus>('PENDING');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeApp, setActiveApp] = useState<RestaurantApplicationEntity | null>(null);
@@ -104,7 +110,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
         </View>
 
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={16} color="#94a3b8" />
+          <Ionicons name="search" size={16} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search business, owner, phone..."
@@ -113,7 +119,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={16} color="#94a3b8" />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -123,7 +129,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
       <ScrollView contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false}>
         {filteredApps.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="documents-outline" size={48} color="#cbd5e1" />
+            <Ionicons name="documents-outline" size={48} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No Applications Found</Text>
             <Text style={styles.emptySubtitle}>
               {selectedFilter === 'PENDING'
@@ -169,18 +175,18 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
 
                   <View style={styles.cardBody}>
                     <View style={styles.metaRow}>
-                      <Ionicons name="person-outline" size={14} color="#64748b" />
+                      <Ionicons name="person-outline" size={14} color={colors.textSecondary} />
                       <Text style={styles.metaText}>{app.ownerName}</Text>
                     </View>
                     <View style={styles.metaRow}>
-                      <Ionicons name="call-outline" size={14} color="#64748b" />
+                      <Ionicons name="call-outline" size={14} color={colors.textSecondary} />
                       <Text style={styles.metaText}>{app.ownerPhone}</Text>
                     </View>
                     <View style={styles.metaRow}>
                       <Ionicons
                         name={app.hasTinOrLicense ? 'shield-checkmark' : 'shield-outline'}
                         size={14}
-                        color={app.hasTinOrLicense ? '#059669' : '#94a3b8'}
+                        color={app.hasTinOrLicense ? '#059669' : colors.textMuted}
                       />
                       <Text style={styles.metaText}>
                         {app.hasTinOrLicense ? 'TIN / Official License On File' : 'Informal / Basic Vendor'}
@@ -194,7 +200,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
                     </Text>
                     <View style={styles.viewAction}>
                       <Text style={styles.viewActionText}>Inspect</Text>
-                      <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                      <Ionicons name="chevron-forward" size={14} color={colors.primary} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -218,10 +224,10 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -231,12 +237,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -257,29 +263,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterPillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   filterPillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
     minWidth: 220,
@@ -288,7 +294,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   listContainer: {
@@ -303,11 +309,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: colors.textMuted,
     textAlign: 'center',
     maxWidth: 320,
   },
@@ -319,10 +325,10 @@ const styles = StyleSheet.create({
   appCard: {
     flex: 1,
     minWidth: 300,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
@@ -339,11 +345,11 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cuisineText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   cardStatusBadge: {
@@ -352,23 +358,23 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   badgePending: {
-    backgroundColor: '#ffedd5',
+    backgroundColor: colors.warningSoft,
   },
   badgeApproved: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
   },
   badgeRejected: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
   },
   cardStatusText: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   cardBody: {
     gap: 4,
@@ -380,7 +386,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -390,7 +396,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   viewAction: {
     flexDirection: 'row',
@@ -400,6 +406,7 @@ const styles = StyleSheet.create({
   viewActionText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
   },
 });
+let styles = createStyles(lightColors);

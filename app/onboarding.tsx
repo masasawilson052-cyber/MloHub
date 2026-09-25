@@ -17,6 +17,11 @@ import { useLanguage } from '../context/LanguageContext';
 import { useMloHubDB } from '../context/DbContext';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 const SLIDE_IMAGES = [
   require('../assets/onboarding/slide1_art.jpg'),
   require('../assets/onboarding/slide2_art.jpg'),
@@ -24,6 +29,7 @@ const SLIDE_IMAGES = [
 ];
 
 export default function OnboardingScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{ slide?: string }>();
   const { language } = useLanguage();
@@ -103,7 +109,7 @@ export default function OnboardingScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
-                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                <Ionicons name="arrow-back" size={20} color={colors.onPrimary} />
               </TouchableOpacity>
             ) : (
               <View style={{ width: 40 }} />
@@ -157,7 +163,7 @@ export default function OnboardingScreen() {
             <Text style={styles.primaryCtaText}>
               {language === 'sw' ? slide.ctaSw : slide.ctaEn}
             </Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} style={{ marginLeft: 6 }} />
           </TouchableOpacity>
         </View>
       </View>
@@ -165,10 +171,10 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
   },
   visualArea: {
     width: '100%',
@@ -218,7 +224,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   skipText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
@@ -233,7 +239,7 @@ const styles = StyleSheet.create({
   searchPillFloating: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -244,10 +250,10 @@ const styles = StyleSheet.create({
   searchPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   bestMatchCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 16,
@@ -258,7 +264,7 @@ const styles = StyleSheet.create({
   bestMatchEyebrow: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FA541C',
+    color: colors.primary,
     marginBottom: 2,
   },
   bestMatchRow: {
@@ -269,7 +275,7 @@ const styles = StyleSheet.create({
   bestMatchValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   slide3Badges: {
     position: 'absolute',
@@ -305,11 +311,11 @@ const styles = StyleSheet.create({
   serviceChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   bottomSheet: {
     flex: 1,
-    backgroundColor: Colors.warmIvory,
+    backgroundColor: colors.appBackground,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     marginTop: -24,
@@ -332,7 +338,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
     textAlign: 'center',
     lineHeight: 34,
     letterSpacing: -0.3,
@@ -360,7 +366,7 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
   },
   dotInactive: {
     width: 8,
@@ -377,9 +383,10 @@ const styles = StyleSheet.create({
     ...Shadows.md,
   },
   primaryCtaText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
 });
+let styles = createStyles(lightColors);

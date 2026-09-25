@@ -12,6 +12,10 @@ import {
   SubsystemStatus,
 } from '../../services/AdminSystemHealthService';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface SystemHealthProps {
   language?: 'en' | 'sw';
 }
@@ -24,7 +28,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
         ? (runtimeConfig.isDemo ? 'DEMO INSTANCE (CONFIGURED)' : 'CONFIGURED (UNVERIFIED)')
   isHealthy: false, // Fail closed: presence of URL/key does not guarantee live PostgreSQL reachability
   */
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [report, setReport] = useState<PlatformHealthReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -92,13 +96,13 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: colors.appBackground }]}
       contentContainerStyle={styles.content}
     >
       {/* Header Area */}
       <View style={styles.headerArea}>
         <View style={styles.headerLeft}>
-          <Text style={[styles.title, { color: colors.text }]}>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>
             {language === 'sw' ? 'Hali ya Miundombinu & Mfumo' : 'System Infrastructure & Subsystems'}
           </Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
@@ -111,7 +115,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
         <TouchableOpacity
           style={[
             styles.refreshButton,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
           onPress={() => loadHealth(true)}
           disabled={isRefreshing}
@@ -121,7 +125,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
           ) : (
             <Ionicons name="refresh" size={16} color={colors.text} />
           )}
-          <Text style={[styles.refreshText, { color: colors.text }]}>
+          <Text style={[styles.refreshText, { color: colors.textPrimary }]}>
             {isRefreshing ? (language === 'sw' ? 'Inakagua...' : 'Checking...') : (language === 'sw' ? 'Kagua Upya' : 'Refresh Telemetry')}
           </Text>
         </TouchableOpacity>
@@ -140,7 +144,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
         <View
           style={[
             styles.bannerIconWrapper,
-            { backgroundColor: isDark ? colors.surface : '#ffffff' },
+            { backgroundColor: isDark ? colors.surface : colors.card },
           ]}
         >
           <Ionicons
@@ -179,7 +183,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
               </Text>
             )}
           </View>
-          <Text style={[styles.bannerSubtitle, { color: colors.text }]}>
+          <Text style={[styles.bannerSubtitle, { color: colors.textPrimary }]}>
             {overallStatus === 'HEALTHY'
               ? (language === 'sw'
                 ? 'PostgreSQL, lango za malipo, na wafanyakazi wa mfumo wanafanya kazi kwa kiwango cha juu.'
@@ -201,12 +205,12 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
         <View
           style={[
             styles.card,
-            { backgroundColor: colors.surface, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
           <View style={styles.cardHeader}>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.cardName, { color: colors.text }]}>Runtime Environment</Text>
+              <Text style={[styles.cardName, { color: colors.textPrimary }]}>Runtime Environment</Text>
               <Text style={[styles.cardType, { color: colors.textMuted }]}>Deployment Boundary</Text>
             </View>
             <View
@@ -278,12 +282,12 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                 key={idx}
                 style={[
                   styles.card,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
               >
                 <View style={styles.cardHeader}>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardName, { color: colors.text }]}>{c.name}</Text>
+                    <Text style={[styles.cardName, { color: colors.textPrimary }]}>{c.name}</Text>
                     <Text style={[styles.cardType, { color: colors.textMuted }]}>{c.category}</Text>
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: `${statusColor}15` }]}>
@@ -296,7 +300,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                   <View style={styles.latencyRow}>
                     <Ionicons name="speedometer-outline" size={13} color={colors.textMuted} />
                     <Text style={[styles.latencyText, { color: colors.textSecondary }]}>
-                      Roundtrip: <Text style={{ fontWeight: '700', color: colors.text }}>{c.latencyMs} ms</Text>
+                      Roundtrip: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{c.latencyMs} ms</Text>
                     </Text>
                   </View>
                 )}
@@ -307,7 +311,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                   <View
                     style={[
                       styles.detailsBox,
-                      { backgroundColor: isDark ? colors.card : '#f8fafc', borderColor: colors.border },
+                      { backgroundColor: isDark ? colors.card : colors.appBackground, borderColor: colors.border },
                     ]}
                   >
                     {Object.entries(c.details).map(([k, v]) => (
@@ -326,7 +330,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -486,3 +490,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+let styles = createStyles(lightColors);

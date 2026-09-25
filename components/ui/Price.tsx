@@ -4,6 +4,11 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface PriceProps {
   amountTzs: number;
   size?: 'sm' | 'md' | 'lg' | 'display';
@@ -23,6 +28,7 @@ export const Price: React.FC<PriceProps> = ({
   prefix,
   suffix,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getTypographyStyle = (): TextStyle => {
     switch (size) {
       case 'sm':
@@ -46,7 +52,7 @@ export const Price: React.FC<PriceProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[getTypographyStyle(), color ? { color } : { color: Colors.brandInk }, style]}>
+      <Text style={[getTypographyStyle(), color ? { color } : { color: colors.textPrimary }, style]}>
         {prefix ? `${prefix} ` : ''}
         {formatted}
         {suffix ? ` ${suffix}` : ''}
@@ -61,7 +67,7 @@ export const Price: React.FC<PriceProps> = ({
 // Also export PriceText for backward compatibility
 export const PriceText = Price;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -69,7 +75,8 @@ const styles = StyleSheet.create({
   },
   strikethrough: {
     ...Typography.bodySmall,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textDecorationLine: 'line-through',
   },
 });
+let styles = createStyles(lightColors);

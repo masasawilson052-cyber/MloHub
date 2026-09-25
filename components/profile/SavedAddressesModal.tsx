@@ -17,6 +17,11 @@ import { CustomerSavedAddress, ServiceArea } from '../../types/domain';
 import { CustomerAddressesRepository } from '../../repositories/customerAddresses.repository';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface SavedAddressesModalProps {
   visible: boolean;
   onClose: () => void;
@@ -28,6 +33,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
   onClose,
   onSelectAddress,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { user } = useAuth();
   const [addresses, setAddresses] = useState<CustomerSavedAddress[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
@@ -137,13 +143,13 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
               <Text style={styles.subtitle}>Dar es Salaam & active delivery zones</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {loading ? (
-              <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 40 }} />
+              <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
             ) : isAddingNew ? (
               <View style={styles.formCard}>
                 <Text style={styles.formTitle}>Add New Delivery Address</Text>
@@ -187,7 +193,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                     value={streetAddress}
                     onChangeText={setStreetAddress}
                     placeholder="e.g. Haile Selassie Rd, near Village Supermarket"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
 
@@ -198,7 +204,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                     value={deliveryInstructions}
                     onChangeText={setDeliveryInstructions}
                     placeholder="e.g. Call upon arrival at gate"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
 
@@ -209,7 +215,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                   <Ionicons
                     name={isDefault ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={isDefault ? Colors.primary : Colors.textMuted}
+                    color={isDefault ? colors.primary : colors.textMuted}
                   />
                   <Text style={styles.checkboxText}>Set as default delivery address</Text>
                 </TouchableOpacity>
@@ -236,7 +242,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
               <View>
                 {addresses.length === 0 ? (
                   <View style={styles.emptyContainer}>
-                    <Ionicons name="location-outline" size={48} color={Colors.textMuted} />
+                    <Ionicons name="location-outline" size={48} color={colors.textMuted} />
                     <Text style={styles.emptyTitle}>No saved addresses yet</Text>
                     <Text style={styles.emptySub}>Add your home or office address for fast 1-click checkout.</Text>
                   </View>
@@ -257,7 +263,7 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                           <Ionicons
                             name={addr.label === 'Work' ? 'briefcase-outline' : 'home-outline'}
                             size={18}
-                            color={Colors.primary}
+                            color={colors.primary}
                           />
                           <Text style={styles.addrLabel}>{addr.label}</Text>
                           {addr.isDefault && (
@@ -312,14 +318,14 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '85%',
@@ -331,16 +337,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -356,27 +362,27 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
     marginTop: 12,
   },
   emptySub: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
     maxWidth: 260,
   },
   addrCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   addrCardDefault: {
-    borderColor: Colors.primary,
-    backgroundColor: '#F0FDF4',
+    borderColor: colors.primary,
+    backgroundColor: colors.successSoft,
   },
   addrHeader: {
     flexDirection: 'row',
@@ -392,10 +398,10 @@ const styles = StyleSheet.create({
   addrLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   defaultBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -403,7 +409,7 @@ const styles = StyleSheet.create({
   defaultBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#15803D',
+    color: colors.success,
   },
   addrActions: {
     flexDirection: 'row',
@@ -417,7 +423,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   deleteBtn: {
     padding: 4,
@@ -425,26 +431,26 @@ const styles = StyleSheet.create({
   addrStreet: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   addrArea: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   addrNotes: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontStyle: 'italic',
     marginTop: 4,
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
   },
   formTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   inputGroup: {
@@ -453,18 +459,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#F8FAFC',
+    color: colors.textPrimary,
+    backgroundColor: colors.appBackground,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -475,20 +481,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     marginRight: 6,
   },
   chipActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primaryLight || '#E8F5E9',
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight || '#E8F5E9',
   },
   chipText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   chipTextActive: {
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   checkboxRow: {
@@ -499,9 +505,10 @@ const styles = StyleSheet.create({
   },
   checkboxText: {
     fontSize: 14,
-    color: '#334155',
+    color: colors.textSecondary,
   },
   formBtnRow: {
     flexDirection: 'row',
   },
 });
+let styles = createStyles(lightColors);

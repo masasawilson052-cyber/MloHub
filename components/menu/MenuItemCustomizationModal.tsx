@@ -17,6 +17,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { MenuModifierGroup, MenuModifierOption } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface ModifierOptionSelection {
   group_id: string;
   group_name: string;
@@ -67,6 +72,7 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
   menuItem,
   onAddToCart,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
   const [modifierGroups, setModifierGroups] = useState<MenuModifierGroup[]>([]);
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({});
@@ -277,7 +283,7 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
               <Text style={styles.restaurantName} numberOfLines={1}>{menuItem.restaurantName}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -288,7 +294,7 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
 
             {isLoadingGroups ? (
               <View style={styles.loaderWrap}>
-                <ActivityIndicator size="small" color={Colors.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.loaderText}>
                   {language === 'sw' ? 'Inapakia machaguo ya mlo...' : 'Loading meal options...'}
                 </Text>
@@ -342,7 +348,7 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
                                     : (isChecked ? 'checkbox' : 'square-outline')
                                 }
                                 size={20}
-                                color={isChecked ? Colors.primary : Colors.muted}
+                                color={isChecked ? colors.primary : colors.muted}
                                 style={{ marginRight: 10 }}
                               />
                               <Text style={[styles.optionName, isChecked && styles.optionNameActive]}>
@@ -371,7 +377,7 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
                 value={specialNotes}
                 onChangeText={setSpecialNotes}
                 placeholder={language === 'sw' ? 'Mf. Punguza chumvi, pilipili pembeni...' : 'e.g. Less salt, chili on the side...'}
-                placeholderTextColor={Colors.muted}
+                placeholderTextColor={colors.inputPlaceholder}
                 maxLength={200}
                 multiline
               />
@@ -414,14 +420,14 @@ export const MenuItemCustomizationModal: React.FC<MenuItemCustomizationModalProp
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xxl,
     borderTopRightRadius: Radii.xxl,
     maxHeight: '88%',
@@ -436,16 +442,16 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   itemName: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   restaurantName: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -457,7 +463,7 @@ const styles = StyleSheet.create({
   },
   itemDescription: {
     fontSize: 13,
-    color: Colors.textMuted || '#4b5563',
+    color: colors.textMuted,
     lineHeight: 18,
     marginBottom: Spacing.md,
   },
@@ -467,14 +473,14 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 8,
   },
   groupCard: {
-    backgroundColor: '#f8faf9',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -487,15 +493,15 @@ const styles = StyleSheet.create({
   groupTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   groupSubtitle: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   reqBadge: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
@@ -503,13 +509,13 @@ const styles = StyleSheet.create({
   reqBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#d97706',
+    color: colors.warning,
   },
   reqBadgeDone: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: colors.successSoft,
   },
   reqBadgeDoneText: {
-    color: '#059669',
+    color: colors.success,
   },
   optionsList: {
     gap: 8,
@@ -518,16 +524,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   optionRowActive: {
-    borderColor: Colors.primary,
-    backgroundColor: '#f0fdf4',
+    borderColor: colors.primary,
+    backgroundColor: colors.successSoft,
   },
   optionLeft: {
     flexDirection: 'row',
@@ -536,19 +542,19 @@ const styles = StyleSheet.create({
   },
   optionName: {
     fontSize: 14,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   optionNameActive: {
     fontWeight: '600',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   optionPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   optionPriceActive: {
-    color: Colors.primary,
+    color: colors.primary,
   },
   notesGroup: {
     marginBottom: Spacing.lg,
@@ -556,17 +562,17 @@ const styles = StyleSheet.create({
   notesLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   notesInput: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.inputBackground,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.inputBorder,
     borderRadius: Radii.md,
     padding: 10,
     fontSize: 13,
-    color: Colors.text,
+    color: colors.textPrimary,
     minHeight: 50,
   },
   footerRow: {
@@ -576,12 +582,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: colors.border,
   },
   quantityPicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.full,
     padding: 4,
   },
@@ -589,7 +595,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.sm,
@@ -600,17 +606,17 @@ const styles = StyleSheet.create({
   qtyBtnText: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   qtyText: {
     fontSize: 15,
     fontWeight: '700',
     paddingHorizontal: 12,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   addBtn: {
     flex: 1,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: Radii.full,
     alignItems: 'center',
@@ -618,11 +624,12 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   addBtnDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: colors.disabled,
   },
   addBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

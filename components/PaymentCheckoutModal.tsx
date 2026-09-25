@@ -26,6 +26,11 @@ import {
   PaymentTransactionEntity,
 } from '../db/types';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface PaymentCheckoutModalProps {
   visible: boolean;
   onClose: () => void;
@@ -71,6 +76,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   initialMethodCode = 'MPESA',
   initialPhone,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const { restaurants } = useMloHubDB();
@@ -270,7 +276,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
               </Text>
             </View>
             <TouchableOpacity style={styles.closeBtn} onPress={handleModalClose}>
-              <Ionicons name="close" size={20} color={Colors.text} />
+              <Ionicons name="close" size={20} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -357,25 +363,25 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
               {/* RESTAURANT LIPA NAMBA NOTICE */}
               {((currentRestaurant?.lipaNumbers && currentRestaurant.lipaNumbers.length > 0) || currentRestaurant?.lipaNumber) && (
-                <View style={{ marginBottom: 12, padding: 10, backgroundColor: '#f0fdf4', borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', gap: 6 }}>
+                <View style={{ marginBottom: 12, padding: 10, backgroundColor: colors.successSoft, borderRadius: 8, borderWidth: 1, borderColor: colors.success, gap: 6 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Ionicons name="storefront" size={16} color="#15803d" />
-                    <Text style={{ fontSize: 12, fontWeight: '800', color: '#166534' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: colors.success }}>
                       🏪 Lipa Namba za Mgahawa Huu:
                     </Text>
                   </View>
                   {currentRestaurant?.lipaNumbers && currentRestaurant.lipaNumbers.length > 0 ? (
                     currentRestaurant.lipaNumbers.map((l, idx) => (
-                      <Text key={idx} style={{ fontSize: 11.5, color: '#15803d', fontWeight: '700' }}>
-                        • {l.provider}: <Text style={{ fontWeight: '900', color: '#0f172a' }}>{l.number}</Text>
+                      <Text key={idx} style={{ fontSize: 11.5, color: colors.success, fontWeight: '700' }}>
+                        • {l.provider}: <Text style={{ fontWeight: '900', color: colors.textPrimary }}>{l.number}</Text>
                       </Text>
                     ))
                   ) : (
-                    <Text style={{ fontSize: 11.5, color: '#15803d', fontWeight: '700' }}>
-                      • {currentRestaurant?.lipaProvider || 'Till'}: <Text style={{ fontWeight: '900', color: '#0f172a' }}>{currentRestaurant?.lipaNumber}</Text>
+                    <Text style={{ fontSize: 11.5, color: colors.success, fontWeight: '700' }}>
+                      • {currentRestaurant?.lipaProvider || 'Till'}: <Text style={{ fontWeight: '900', color: colors.textPrimary }}>{currentRestaurant?.lipaNumber}</Text>
                     </Text>
                   )}
-                  <Text style={{ fontSize: 10, color: '#166534', marginTop: 2 }}>
+                  <Text style={{ fontSize: 10, color: colors.success, marginTop: 2 }}>
                     Unaweza kulipia pia moja kwa moja kupitia Lipa Namba yoyote hapo juu.
                   </Text>
                 </View>
@@ -396,15 +402,15 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                         style={[
                           styles.methodCard,
                           isSelected && styles.methodCardActive,
-                          { borderColor: isSelected ? m.color : Colors.border },
+                          { borderColor: isSelected ? m.color : colors.border },
                         ]}
                         onPress={() => setSelectedMethod(m.code)}
                         activeOpacity={0.85}
                       >
                         <View style={styles.methodHeader}>
-                          <Ionicons name={m.icon as any} size={18} color={isSelected ? m.color : Colors.muted} />
+                          <Ionicons name={m.icon as any} size={18} color={isSelected ? m.color : colors.textSecondary} />
                           <View style={[styles.methodBadge, { backgroundColor: isSelected ? m.color : '#f0f0f0' }]}>
-                            <Text style={[styles.methodBadgeText, { color: isSelected ? '#ffffff' : '#666666' }]}>
+                            <Text style={[styles.methodBadgeText, { color: isSelected ? colors.card : '#666666' }]}>
                               {m.badge}
                             </Text>
                           </View>
@@ -448,10 +454,10 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 activeOpacity={0.88}
               >
                 {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <>
-                    <Ionicons name="lock-closed" size={18} color="#ffffff" />
+                    <Ionicons name="lock-closed" size={18} color={colors.onPrimary} />
                     <Text style={styles.payBtnText}>
                       {language === 'sw'
                         ? `Lipa TZS ${payableAmount.toLocaleString()} Sasa →`
@@ -494,7 +500,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 {paymentSuccessData.paymentType === 'RESERVATION_DEPOSIT_50' && (
                   <View style={styles.receiptRow}>
                     <Text style={styles.receiptLabel}>Status:</Text>
-                    <Text style={[styles.receiptVal, { color: '#b45309' }]}>50% Deposit Paid (Table Locked)</Text>
+                    <Text style={[styles.receiptVal, { color: colors.warning }]}>50% Deposit Paid (Table Locked)</Text>
                   </View>
                 )}
               </View>
@@ -546,7 +552,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
                 {/* USSD Fallback Notice */}
                 <View style={styles.fallbackNoticeBox}>
-                  <Ionicons name="help-circle-outline" size={15} color="#94a3b8" />
+                  <Ionicons name="help-circle-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.fallbackNoticeText}>
                     {language === 'sw'
                       ? `Hukuona ujumbe? Piga ${initiationResult.ussdCode} kwenye simu yako kukamilisha malipo.`
@@ -590,14 +596,14 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
   modalBox: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderTopLeftRadius: Radii.xxl,
     borderTopRightRadius: Radii.xxl,
     maxHeight: '92%',
@@ -612,7 +618,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: colors.border,
   },
   headerTag: {
     fontSize: 9.5,
@@ -623,13 +629,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginTop: 2,
   },
   closeBtn: {
     padding: 6,
     borderRadius: Radii.full,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
   },
   scrollContent: {
     paddingHorizontal: Spacing.xl,
@@ -637,11 +643,11 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   summaryCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   summaryTop: {
@@ -652,7 +658,7 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   badgePill: {
     backgroundColor: '#eaf4ed',
@@ -667,12 +673,12 @@ const styles = StyleSheet.create({
   },
   itemDesc: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.divider,
     marginVertical: 10,
   },
   priceRow: {
@@ -683,17 +689,17 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   priceVal: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   totalLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   totalVal: {
     fontSize: 15,
@@ -703,7 +709,7 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   depositSection: {
@@ -715,11 +721,11 @@ const styles = StyleSheet.create({
   },
   depositPill: {
     flex: 1,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: 12,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   depositPillActive: {
     borderColor: '#113a26',
@@ -733,7 +739,7 @@ const styles = StyleSheet.create({
   depositPillTitle: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   depositPillTitleActive: {
     color: '#113a26',
@@ -746,11 +752,11 @@ const styles = StyleSheet.create({
   },
   depositPillSub: {
     fontSize: 9.5,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   balanceNoticeBox: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.warningSoft,
     padding: 10,
     borderRadius: Radii.md,
     borderWidth: 1,
@@ -758,7 +764,7 @@ const styles = StyleSheet.create({
   },
   balanceNoticeText: {
     fontSize: 11,
-    color: '#92400e',
+    color: colors.warning,
     lineHeight: 16,
   },
   methodsSection: {
@@ -771,7 +777,7 @@ const styles = StyleSheet.create({
   },
   methodCard: {
     width: '48%',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: 10,
     borderWidth: 1.5,
@@ -797,7 +803,7 @@ const styles = StyleSheet.create({
   methodName: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   phoneSection: {
     gap: 6,
@@ -805,16 +811,16 @@ const styles = StyleSheet.create({
   phoneInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.lg,
     paddingHorizontal: 12,
   },
   phonePrefix: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginRight: 6,
   },
   phoneInput: {
@@ -822,11 +828,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   phoneHelp: {
     fontSize: 10.5,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   payBtn: {
@@ -843,7 +849,7 @@ const styles = StyleSheet.create({
   payBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   successContainer: {
     padding: Spacing.xxl,
@@ -865,17 +871,17 @@ const styles = StyleSheet.create({
   },
   successSubtitle: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
   },
   receiptBox: {
     width: '100%',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     gap: 6,
     marginTop: 8,
   },
@@ -885,12 +891,12 @@ const styles = StyleSheet.create({
   },
   receiptLabel: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   receiptVal: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   doneBtn: {
     backgroundColor: '#113a26',
@@ -904,7 +910,7 @@ const styles = StyleSheet.create({
   doneBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   ussdOverlay: {
     ...StyleSheet.absoluteFill,
@@ -916,7 +922,7 @@ const styles = StyleSheet.create({
   ussdDialog: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#1e293b',
+    backgroundColor: colors.primary,
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     gap: 12,
@@ -937,30 +943,30 @@ const styles = StyleSheet.create({
   ussdCarrierTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#f8fafc',
+    color: colors.appBackground,
   },
   ussdCodeTag: {
-    color: '#94a3b8',
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
   },
   countdownBadge: {
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.primary,
   },
   countdownText: {
-    color: '#10b981',
+    color: colors.success,
     fontWeight: '800',
     fontSize: 13,
   },
   ussdMessage: {
     fontSize: 13,
-    color: '#cbd5e1',
+    color: colors.textMuted,
     lineHeight: 18,
   },
   securityNoticeBox: {
@@ -980,7 +986,7 @@ const styles = StyleSheet.create({
   },
   fallbackNoticeBox: {
     flexDirection: 'row',
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     borderRadius: Radii.md,
     padding: 10,
     gap: 8,
@@ -989,7 +995,7 @@ const styles = StyleSheet.create({
   fallbackNoticeText: {
     flex: 1,
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
     lineHeight: 15,
   },
   waitingContainer: {
@@ -1001,7 +1007,7 @@ const styles = StyleSheet.create({
   },
   waitingText: {
     fontSize: 12,
-    color: '#10b981',
+    color: colors.success,
     fontWeight: '600',
   },
   errorAlert: {
@@ -1018,17 +1024,17 @@ const styles = StyleSheet.create({
     color: '#f87171',
   },
   sandboxBar: {
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     borderRadius: Radii.md,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.primary,
     gap: 8,
   },
   sandboxBarLabel: {
     fontSize: 10.5,
     fontWeight: '700',
-    color: '#e2e8f0',
+    color: colors.border,
   },
   sandboxBtnRow: {
     flexDirection: 'row',
@@ -1053,7 +1059,7 @@ const styles = StyleSheet.create({
   sandboxBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   ussdActions: {
     marginTop: 4,
@@ -1061,12 +1067,13 @@ const styles = StyleSheet.create({
   ussdCancelBtn: {
     paddingVertical: 10,
     borderRadius: Radii.md,
-    backgroundColor: '#334155',
+    backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
   },
   ussdCancelText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
 });
+let styles = createStyles(lightColors);

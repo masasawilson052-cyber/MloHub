@@ -19,6 +19,11 @@ import { BranchRepository } from '../repositories/branches.repository';
 import { PaymentCheckoutModal } from './PaymentCheckoutModal';
 import { PaymentTransactionEntity } from '../db/types';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface ReservationModalProps {
   visible: boolean;
   restaurant: Restaurant | null;
@@ -30,6 +35,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   restaurant,
   onClose,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
   const { user } = useAuth();
 
@@ -253,7 +259,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 {/* 14-Day Date Selector */}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs }}>
                   <Text style={styles.label}>{t('dateLabel')}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.muted, fontWeight: '600' }}>{dateLabel}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '600' }}>{dateLabel}</Text>
                 </View>
                 <ScrollView
                   horizontal
@@ -309,10 +315,10 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                 <Text style={styles.label}>{language === 'sw' ? 'Muda Unaopatikana' : 'Available Time Slots'}</Text>
                 {loadingSlots ? (
                   <View style={{ padding: Spacing.md, alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color={Colors.primary} />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   </View>
                 ) : availableSlots.length === 0 ? (
-                  <Text style={{ fontSize: 12, color: Colors.muted, marginVertical: Spacing.xs }}>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginVertical: Spacing.xs }}>
                     {language === 'sw' ? 'Hakuna meza zilizopo kwa tarehe hii.' : 'No available slots for this date/party size.'}
                   </Text>
                 ) : (
@@ -379,7 +385,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   activeOpacity={0.85}
                 >
                   {submitting ? (
-                    <ActivityIndicator size="small" color="#fff" />
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   ) : (
                     <Text style={styles.submitBtnText}>
                       {selectedSlot?.depositRequired
@@ -448,7 +454,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -457,7 +463,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalBox: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     width: '100%',
     maxWidth: 440,
@@ -475,37 +481,37 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 16,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontWeight: 'bold',
   },
   tagWrap: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: Radii.full,
     marginBottom: Spacing.xs,
   },
   tagText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 9,
     fontWeight: '900',
   },
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   subtitle: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginBottom: Spacing.md,
   },
   label: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: Spacing.sm,
@@ -525,61 +531,61 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: Radii.md,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     alignItems: 'center',
     minWidth: 58,
   },
   dateCardPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   dateCardWeekday: {
     fontSize: 10,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
   },
   dateCardDayNum: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginVertical: 2,
   },
   dateCardMonth: {
     fontSize: 10,
     fontWeight: '500',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   dateCardTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   pill: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   pillTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   depositNoticeBox: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: colors.success,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: Spacing.sm,
@@ -593,7 +599,7 @@ const styles = StyleSheet.create({
   depositNoticeTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#065f46',
+    color: colors.success,
   },
   depositNoticeAmount: {
     fontSize: 13,
@@ -606,7 +612,7 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   submitBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: Radii.full,
     alignItems: 'center',
@@ -614,7 +620,7 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   submitBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -626,7 +632,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#ecfdf5',
+    backgroundColor: colors.successSoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: Spacing.md,
@@ -637,18 +643,19 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.xs,
   },
   successMsg: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: Spacing.lg,
   },
   boldText: {
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
 });
+let styles = createStyles(lightColors);

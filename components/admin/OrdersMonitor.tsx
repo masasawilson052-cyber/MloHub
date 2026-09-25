@@ -14,6 +14,10 @@ import { Order, OrderStatus } from '../../types/domain';
 import { formatTzs } from '../../config/platformFees';
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface OrdersMonitorProps {
   orders: Order[];
   language?: 'en' | 'sw';
@@ -23,7 +27,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
   orders,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -72,23 +76,23 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
   const getStatusBadge = (status: OrderStatus | string) => {
     switch (status) {
       case 'COMPLETED':
-        return { bg: '#dcfce7', color: '#15803d' };
+        return { bg: '#dcfce7', color: colors.success };
       case 'ACCEPTED':
       case 'PREPARING':
-        return { bg: '#e0f2fe', color: '#0369a1' };
+        return { bg: '#e0f2fe', color: colors.info };
       case 'READY':
-        return { bg: '#fef3c7', color: '#b45309' };
+        return { bg: '#fef3c7', color: colors.warning };
       case 'CANCELLED':
-        return { bg: '#fee2e2', color: '#b91c1c' };
+        return { bg: '#fee2e2', color: colors.danger };
       case 'PENDING':
       default:
-        return { bg: '#f1f5f9', color: '#475569' };
+        return { bg: colors.surfaceInteractive, color: colors.textSecondary };
     }
   };
 
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.appBackground }]}>
       {/* Header */}
       <View style={styles.headerRow}>
         <View>
@@ -107,7 +111,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+              { backgroundColor: colors.card, borderColor: colors.border },
               statusFilter === 'ALL' && { backgroundColor: colors.primary, borderColor: colors.primary },
             ]}
             onPress={() => setStatusFilter('ALL')}
@@ -116,7 +120,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'ALL' && { color: '#ffffff', fontWeight: '700' },
+                statusFilter === 'ALL' && { color: colors.onPrimary, fontWeight: '700' },
               ]}
             >
               All ({orders.length})
@@ -126,8 +130,8 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
           <TouchableOpacity
             style={[
               styles.pill,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              statusFilter === 'EXCEPTIONS' && { backgroundColor: '#fee2e2', borderColor: '#fca5a5' },
+              { backgroundColor: colors.card, borderColor: colors.border },
+              statusFilter === 'EXCEPTIONS' && { backgroundColor: colors.dangerSoft, borderColor: colors.danger },
             ]}
             onPress={() => setStatusFilter('EXCEPTIONS')}
           >
@@ -135,7 +139,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
               style={[
                 styles.pillText,
                 { color: colors.textSecondary },
-                statusFilter === 'EXCEPTIONS' ? { color: '#b91c1c', fontWeight: '800' } : { color: '#dc2626' },
+                statusFilter === 'EXCEPTIONS' ? { color: colors.danger, fontWeight: '800' } : { color: colors.danger },
               ]}
             >
               Exceptions ({exceptionsCount})
@@ -147,7 +151,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
               key={st}
               style={[
                 styles.pill,
-                { backgroundColor: colors.surface, borderColor: colors.border },
+                { backgroundColor: colors.card, borderColor: colors.border },
                 statusFilter === st && { backgroundColor: colors.primary, borderColor: colors.primary },
               ]}
               onPress={() => setStatusFilter(st)}
@@ -156,7 +160,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
                 style={[
                   styles.pillText,
                   { color: colors.textSecondary },
-                  statusFilter === st && { color: '#ffffff', fontWeight: '700' },
+                  statusFilter === st && { color: colors.onPrimary, fontWeight: '700' },
                 ]}
               >
                 {st}
@@ -165,12 +169,12 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
           ))}
         </ScrollView>
 
-        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={14} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
             placeholder="Search order #, dish, customer..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.inputPlaceholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -197,7 +201,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
                   key={ord.id}
                   style={[
                     styles.card,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    { backgroundColor: colors.card, borderColor: colors.border },
                     exc.isException && styles.cardException,
                   ]}
                   onPress={() => setSelectedOrder(ord)}
@@ -274,7 +278,7 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
       {selectedOrder && (
         <Modal visible transparent animationType="fade">
           <View style={styles.modalOverlay}>
-            <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={[styles.detailHeader, { borderBottomColor: colors.border }]}>
                 <View>
                   <Text style={[styles.detailTitle, { color: colors.textPrimary }]}>Order #{selectedOrder.orderNumber || selectedOrder.id.slice(0, 8)}</Text>
@@ -387,10 +391,10 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
 };
 
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   headerRow: {
     paddingHorizontal: Spacing.lg,
@@ -400,11 +404,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   controlsRow: {
@@ -425,28 +429,28 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   pillActive: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   pillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 6,
@@ -455,7 +459,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     flex: 1,
     padding: 0,
   },
@@ -472,11 +476,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   emptySubtitle: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   cardsGrid: {
     flexDirection: 'row',
@@ -484,10 +488,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     flex: 1,
     minWidth: 320,
@@ -503,11 +507,11 @@ const styles = StyleSheet.create({
   orderNumber: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   restaurantName: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   statusTag: {
@@ -531,17 +535,17 @@ const styles = StyleSheet.create({
   dishName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.textPrimary,
     flex: 1,
   },
   servingsBadge: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   metaGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     padding: Spacing.sm,
     borderRadius: Radii.sm,
     marginTop: 4,
@@ -551,13 +555,13 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 10,
-    color: '#64748b',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
   },
   metaValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   addressRow: {
     flexDirection: 'row',
@@ -567,7 +571,7 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     flex: 1,
   },
   cardFooter: {
@@ -575,16 +579,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
     marginTop: 2,
   },
   timeText: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   paymentPill: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
@@ -592,17 +596,17 @@ const styles = StyleSheet.create({
   paymentText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   cardException: {
-    borderColor: '#fca5a5',
+    borderColor: colors.danger,
     backgroundColor: '#fffdfd',
   },
   exceptionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.dangerSoft,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: Radii.sm,
@@ -610,7 +614,7 @@ const styles = StyleSheet.create({
   exceptionBannerText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: colors.danger,
   },
   modalOverlay: {
     flex: 1,
@@ -620,7 +624,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   detailCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     maxWidth: 540,
@@ -634,40 +638,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border,
     paddingBottom: Spacing.sm,
   },
   detailTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   detailSubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
     padding: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.surfaceInteractive,
   },
   detailBody: {
     gap: Spacing.sm,
   },
   detailSection: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     gap: 6,
     marginBottom: Spacing.sm,
   },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#64748b',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -679,12 +683,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   detailValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.textPrimary,
     maxWidth: '65%',
     textAlign: 'right',
   },
@@ -697,21 +701,21 @@ const styles = StyleSheet.create({
   itemQty: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ea580c',
+    color: colors.primary,
     width: 24,
   },
   itemName: {
     fontSize: 13,
-    color: '#0f172a',
+    color: colors.textPrimary,
     flex: 1,
   },
   itemPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
   },
   modalCloseBtn: {
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: Radii.md,
     alignItems: 'center',
@@ -719,7 +723,7 @@ const styles = StyleSheet.create({
   modalCloseBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
 });
-
+let styles = createStyles(lightColors);

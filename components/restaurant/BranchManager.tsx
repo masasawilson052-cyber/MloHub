@@ -21,6 +21,11 @@ import { RestaurantBranch } from '../../types/domain';
 import { BranchRepository } from '../../repositories/branches.repository';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface BranchManagerProps {
   restaurantId: string;
   branches: RestaurantBranch[];
@@ -34,6 +39,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
   onBranchUpdated,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<RestaurantBranch | null>(null);
 
@@ -168,7 +174,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
           </Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={openAddModal} activeOpacity={0.8}>
-          <Ionicons name="add" size={18} color={Colors.white} />
+          <Ionicons name="add" size={18} color={colors.white} />
           <Text style={styles.addBtnText}>
             {language === 'sw' ? 'Ongeza Tawi' : 'Add Branch'}
           </Text>
@@ -177,7 +183,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
 
       {branches.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Ionicons name="business-outline" size={36} color={Colors.textMuted} style={{ marginBottom: Spacing.sm }} />
+          <Ionicons name="business-outline" size={36} color={colors.textMuted} style={{ marginBottom: Spacing.sm }} />
           <Text style={styles.emptyTitle}>
             {language === 'sw' ? 'Hakuna tawi lililoongezwa bado' : 'No branches added yet'}
           </Text>
@@ -207,7 +213,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   onPress={() => openEditModal(b)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="pencil" size={16} color={Colors.primary} />
+                  <Ionicons name="pencil" size={16} color={colors.primary} />
                   <Text style={styles.editBtnText}>
                     {language === 'sw' ? 'Hariri' : 'Edit'}
                   </Text>
@@ -216,7 +222,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
 
               <View style={styles.branchDetails}>
                 <View style={styles.detailRow}>
-                  <Ionicons name="location-outline" size={14} color={Colors.textMuted} style={styles.detailIcon} />
+                  <Ionicons name="location-outline" size={14} color={colors.textMuted} style={styles.detailIcon} />
                   <Text style={styles.detailText}>
                     {[b.address, b.ward, b.district, b.region].filter(Boolean).join(', ')}
                   </Text>
@@ -224,14 +230,14 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
 
                 {b.phone ? (
                   <View style={styles.detailRow}>
-                    <Ionicons name="call-outline" size={14} color={Colors.textMuted} style={styles.detailIcon} />
+                    <Ionicons name="call-outline" size={14} color={colors.textMuted} style={styles.detailIcon} />
                     <Text style={styles.detailText}>{b.phone}</Text>
                   </View>
                 ) : null}
 
                 {b.latitude != null && b.longitude != null ? (
                   <View style={styles.detailRow}>
-                    <Ionicons name="navigate-outline" size={14} color={Colors.textMuted} style={styles.detailIcon} />
+                    <Ionicons name="navigate-outline" size={14} color={colors.textMuted} style={styles.detailIcon} />
                     <Text style={styles.coordText}>GPS: {b.latitude.toFixed(4)}, {b.longitude.toFixed(4)}</Text>
                   </View>
                 ) : null}
@@ -252,13 +258,13 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   : (language === 'sw' ? 'Ongeza Tawi Jipya' : 'Add New Branch')}
               </Text>
               <TouchableOpacity onPress={() => setIsModalOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={22} color={Colors.brandInk} />
+                <Ionicons name="close" size={22} color={colors.brandInk} />
               </TouchableOpacity>
             </View>
 
             {errorMsg ? (
               <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={16} color={Colors.error} style={{ marginRight: 6 }} />
+                <Ionicons name="alert-circle" size={16} color={colors.error} style={{ marginRight: 6 }} />
                 <Text style={styles.errorBannerText}>{errorMsg}</Text>
               </View>
             ) : null}
@@ -274,7 +280,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   value={name}
                   onChangeText={setName}
                   placeholder={language === 'sw' ? 'Mf. Tawi Kuu - Sinza' : 'e.g. Main Branch - Sinza'}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                 />
               </View>
 
@@ -289,7 +295,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                     value={region}
                     onChangeText={setRegion}
                     placeholder="Dar es Salaam"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
 
@@ -302,7 +308,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                     value={district}
                     onChangeText={setDistrict}
                     placeholder="Kinondoni"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
               </View>
@@ -317,7 +323,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   value={ward}
                   onChangeText={setWard}
                   placeholder={language === 'sw' ? 'Mf. Sinza, Mikocheni, n.k.' : 'e.g. Sinza, Mikocheni, etc.'}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                 />
               </View>
 
@@ -331,7 +337,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   value={address}
                   onChangeText={setAddress}
                   placeholder={language === 'sw' ? 'Mf. Shekilango Road, Plot 14' : 'e.g. Shekilango Road, Plot 14'}
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                 />
               </View>
 
@@ -346,7 +352,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                   onChangeText={setPhone}
                   placeholder="07XXXXXXXX"
                   keyboardType="phone-pad"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.inputPlaceholder}
                 />
               </View>
 
@@ -362,7 +368,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                     onChangeText={setLatStr}
                     placeholder="-6.7645"
                     keyboardType="numeric"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
 
@@ -376,7 +382,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                     onChangeText={setLngStr}
                     placeholder="39.2450"
                     keyboardType="numeric"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
               </View>
@@ -396,7 +402,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                 <Switch
                   value={isActive}
                   onValueChange={setIsActive}
-                  trackColor={{ false: Colors.border, true: Colors.primary }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
                 />
               </View>
             </ScrollView>
@@ -418,7 +424,7 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                 disabled={isSaving}
               >
                 {isSaving ? (
-                  <ActivityIndicator size="small" color={Colors.white} />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={styles.saveBtnText}>
                     {language === 'sw' ? 'Hifadhi Tawi' : 'Save Branch'}
@@ -433,14 +439,14 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     marginVertical: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   headerRow: {
@@ -456,24 +462,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
     lineHeight: 16,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.md,
   },
   addBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 12,
     marginLeft: 4,
@@ -485,18 +491,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fbf9',
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     borderStyle: 'dashed',
   },
   emptyTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   emptyDesc: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 16,
     maxWidth: 280,
@@ -509,7 +515,7 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   branchHeader: {
     flexDirection: 'row',
@@ -525,7 +531,7 @@ const styles = StyleSheet.create({
   branchName: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -536,7 +542,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e6f7ed',
   },
   statusInactive: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: colors.surfaceInteractive,
   },
   statusText: {
     fontSize: 10,
@@ -546,7 +552,7 @@ const styles = StyleSheet.create({
     color: '#0d7337',
   },
   statusTextInactive: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   editBtn: {
     flexDirection: 'row',
@@ -554,12 +560,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.sm,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
   },
   editBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
     marginLeft: 4,
   },
   branchDetails: {
@@ -575,12 +581,12 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     flex: 1,
   },
   coordText: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontFamily: 'monospace',
   },
   modalOverlay: {
@@ -591,7 +597,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalContent: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.lg,
     width: '100%',
@@ -605,27 +611,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
     paddingBottom: Spacing.sm,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     padding: Spacing.sm,
     borderRadius: Radii.sm,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: colors.danger,
   },
   errorBannerText: {
     fontSize: 12,
-    color: Colors.error,
+    color: colors.danger,
     flex: 1,
   },
   formScroll: {
@@ -640,17 +646,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: Colors.brandInk,
+    color: colors.textPrimary,
     backgroundColor: '#fafcfa',
   },
   toggleRow: {
@@ -660,16 +666,16 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   toggleLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.brandInk,
+    color: colors.textPrimary,
   },
   toggleSub: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   modalFooter: {
@@ -679,7 +685,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     paddingTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   cancelBtn: {
     paddingHorizontal: 16,
@@ -689,10 +695,10 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   saveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: Radii.md,
@@ -700,6 +706,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);

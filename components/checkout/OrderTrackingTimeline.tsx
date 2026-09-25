@@ -7,6 +7,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { OrderStatus } from '../../types/domain';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export type OrderTrackingStatus =
   | OrderStatus
   | 'Pending Confirmation'
@@ -38,6 +43,7 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
   style,
   estimatedMinutes,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const getStepIndex = (s: OrderTrackingStatus): number => {
     switch (s) {
       case 'Pending Confirmation':
@@ -95,7 +101,7 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
                   <Ionicons
                     name={isDone ? 'checkmark' : step.icon}
                     size={14}
-                    color={isDone || isCurrent ? Colors.white : Colors.textMuted}
+                    color={isDone || isCurrent ? colors.white : colors.textMuted}
                   />
                 </View>
                 <Text
@@ -125,13 +131,13 @@ export const OrderTrackingTimeline: React.FC<OrderTrackingTimelineProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   etaHeader: {
     flexDirection: 'row',
@@ -140,16 +146,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingBottom: Spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   etaLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   etaTime: {
     ...Typography.H3,
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   timelineRow: {
     flexDirection: 'row',
@@ -165,39 +171,40 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   nodeDone: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   nodeCurrent: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   stepLabel: {
     fontSize: 10,
     fontWeight: '500',
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
   },
   stepLabelActive: {
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   connectingLine: {
     flex: 1,
     height: 2,
-    backgroundColor: Colors.border,
+    backgroundColor: colors.divider,
     marginTop: -16,
     marginHorizontal: -4,
   },
   connectingLineDone: {
-    backgroundColor: Colors.success,
+    backgroundColor: colors.success,
   },
 });
+let styles = createStyles(lightColors);

@@ -18,6 +18,11 @@ import { Review, ReviewResponse } from '../../types/domain';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface ExtendedReview extends Omit<Review, 'response'> {
   customerName?: string;
   response?: string | ReviewResponse;
@@ -37,6 +42,7 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
   onRespondToReview,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,7 +132,7 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
                 <View>
                   <Text style={styles.reviewerName}>{rev.customerName || 'Verified Diner'}</Text>
                   <View style={styles.verifiedTag}>
-                    <Ionicons name="shield-checkmark" size={11} color={Colors.primary} />
+                    <Ionicons name="shield-checkmark" size={11} color={colors.primary} />
                     <Text style={styles.verifiedTagText}>Completed Order Verified</Text>
                   </View>
                 </View>
@@ -152,7 +158,7 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
               {!!rev.response && (
                 <View style={styles.responseBubble}>
                   <View style={styles.responseHeader}>
-                    <Ionicons name="return-down-forward" size={14} color={Colors.primaryDark} />
+                    <Ionicons name="return-down-forward" size={14} color={colors.primaryDark} />
                     <Text style={styles.responseAuthor}>Restaurant Response</Text>
                     {(rev.respondedAt || (typeof rev.response === 'object' && (rev.response as ReviewResponse)?.createdAt)) && (
                       <Text style={styles.responseDate}>
@@ -209,7 +215,7 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
                         setReplyText('');
                       }}
                     >
-                      <Ionicons name="chatbubble-outline" size={14} color={Colors.primary} />
+                      <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
                       <Text style={styles.openReplyBtnText}>
                         {language === 'sw' ? 'Jibu Maoni Haya' : 'Respond to Diner'}
                       </Text>
@@ -225,7 +231,7 @@ export const ReviewsPanel: React.FC<ReviewsPanelProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -234,11 +240,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   summaryCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.lg,
@@ -254,7 +260,7 @@ const styles = StyleSheet.create({
     ...Typography.Display,
     fontSize: 40,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   starsRow: {
     flexDirection: 'row',
@@ -263,7 +269,7 @@ const styles = StyleSheet.create({
   },
   totalReviewsSub: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   dimensionsCol: {
     flex: 1,
@@ -277,25 +283,25 @@ const styles = StyleSheet.create({
   },
   dimensionLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     width: 100,
     fontWeight: '600',
   },
   progressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   dimensionScore: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     width: 25,
     textAlign: 'right',
   },
@@ -304,10 +310,10 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   reviewCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     padding: Spacing.md,
     ...Shadows.sm,
   },
@@ -320,7 +326,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   verifiedTag: {
     flexDirection: 'row',
@@ -331,7 +337,7 @@ const styles = StyleSheet.create({
   verifiedTagText: {
     ...Typography.Caption,
     fontSize: 10,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   ratingStars: {
@@ -340,19 +346,19 @@ const styles = StyleSheet.create({
   },
   commentText: {
     ...Typography.Body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginVertical: 6,
     lineHeight: 20,
   },
   reviewDate: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
   },
   responseBubble: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderLeftWidth: 3,
-    borderLeftColor: Colors.primary,
+    borderLeftColor: colors.primary,
     padding: Spacing.sm,
     borderRadius: Radii.sm,
     marginTop: Spacing.sm,
@@ -366,22 +372,22 @@ const styles = StyleSheet.create({
   responseAuthor: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   responseDate: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 10,
   },
   responseText: {
     ...Typography.Body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontSize: 13,
   },
   replySection: {
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
   },
   openReplyBtn: {
@@ -392,7 +398,7 @@ const styles = StyleSheet.create({
   },
   openReplyBtnText: {
     ...Typography.Caption,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   replyInputBox: {
@@ -401,13 +407,13 @@ const styles = StyleSheet.create({
   },
   replyInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     ...Typography.Body,
     fontSize: 13,
     minHeight: 60,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   replyButtonsRow: {
     flexDirection: 'row',
@@ -415,3 +421,4 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

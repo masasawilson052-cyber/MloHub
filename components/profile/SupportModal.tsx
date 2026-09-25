@@ -15,12 +15,18 @@ import { useLanguage } from '../../context/LanguageContext';
 import { PlatformSettingsRepository, PlatformOperationalSettings } from '../../repositories/platformSettings.repository';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface SupportModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
 export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
   const [settings, setSettings] = useState<PlatformOperationalSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,14 +80,14 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+              <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
             {/* Real Support Notice */}
             <View style={styles.infoBanner}>
-              <Ionicons name="shield-checkmark" size={22} color={Colors.primary} />
+              <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.bannerTitle}>
                   {language === 'sw' ? 'Msaada wa Moja kwa Moja' : 'Direct Customer Support Desk'}
@@ -96,8 +102,8 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
 
             {isLoading ? (
               <View style={{ paddingVertical: 30, alignItems: 'center' }}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={{ marginTop: 8, fontSize: 13, color: '#64748B' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={{ marginTop: 8, fontSize: 13, color: colors.textSecondary }}>
                   {language === 'sw' ? 'Inapakia maelezo...' : 'Loading support details...'}
                 </Text>
               </View>
@@ -106,7 +112,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
                 {/* Phone Support */}
                 <View style={styles.card}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="call-outline" size={22} color={Colors.primary} />
+                    <Ionicons name="call-outline" size={22} color={colors.primary} />
                   </View>
                   <View style={styles.cardContent}>
                     <Text style={styles.cardTitle}>
@@ -124,7 +130,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
 
                 {/* Email Support */}
                 <View style={styles.card}>
-                  <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
+                  <View style={[styles.iconCircle, { backgroundColor: colors.infoSoft }]}>
                     <Ionicons name="mail-outline" size={22} color="#0369A1" />
                   </View>
                   <View style={styles.cardContent}>
@@ -143,7 +149,7 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
 
                 {/* Operating Hours & Availability */}
                 <View style={styles.operatingHoursCard}>
-                  <Ionicons name="time-outline" size={20} color="#0F172A" />
+                  <Ionicons name="time-outline" size={20} color={colors.textPrimary} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.operatingHoursTitle}>
                       {language === 'sw' ? 'Saa za Huduma' : 'Support Hours'}
@@ -177,14 +183,14 @@ export const SupportModal: React.FC<SupportModalProps> = ({ visible, onClose }) 
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '85%',
@@ -196,16 +202,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -217,9 +223,9 @@ const styles = StyleSheet.create({
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
     borderRadius: Radii.md,
     padding: Spacing.md,
     gap: 12,
@@ -228,30 +234,30 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#166534',
+    color: colors.success,
     marginBottom: 2,
   },
   bannerText: {
     fontSize: 12,
-    color: '#15803D',
+    color: colors.success,
     lineHeight: 18,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     gap: 12,
   },
   iconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -261,38 +267,38 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
   },
   cardVal: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginVertical: 2,
   },
   cardSub: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
   },
   actionBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: Radii.full,
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
   operatingHoursCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     gap: 12,
     marginTop: 4,
     marginBottom: Spacing.md,
@@ -300,20 +306,20 @@ const styles = StyleSheet.create({
   operatingHoursTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   operatingHoursText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   activeStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
@@ -327,6 +333,7 @@ const styles = StyleSheet.create({
   activeStatusText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#166534',
+    color: colors.success,
   },
 });
+let styles = createStyles(lightColors);

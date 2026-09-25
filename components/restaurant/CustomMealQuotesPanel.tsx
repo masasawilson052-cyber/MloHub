@@ -21,6 +21,11 @@ import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { Badge } from '../ui/Badge';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface CustomMealQuotesPanelProps {
   requests: CustomMealRequest[];
   onSubmitQuote: (requestId: string, quote: { priceTzs: number; prepMinutes: number; deliveryFeeTzs?: number; message?: string }) => Promise<void>;
@@ -34,6 +39,7 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
   onWithdrawQuote,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [quotingRequest, setQuotingRequest] = useState<CustomMealRequest | null>(null);
   const [quotedPrice, setQuotedPrice] = useState('15000');
   const [quotedDeliveryFee, setQuotedDeliveryFee] = useState('3000');
@@ -165,12 +171,12 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Formulate Chef Quote</Text>
               <TouchableOpacity onPress={() => setQuotingRequest(null)}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSub}>
-              Dish: <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>{quotingRequest?.dishName}</Text>
+              Dish: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{quotingRequest?.dishName}</Text>
             </Text>
 
             <View style={styles.field}>
@@ -238,7 +244,7 @@ export const CustomMealQuotesPanel: React.FC<CustomMealQuotesPanelProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -252,11 +258,11 @@ const styles = StyleSheet.create({
   title: {
     ...Typography.H2,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   sub: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   listContainer: {
@@ -264,11 +270,11 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   requestCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   cardHeader: {
@@ -285,17 +291,17 @@ const styles = StyleSheet.create({
   dishName: {
     ...Typography.H3,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   servingsBadge: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.sm,
   },
   servingsText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 11,
   },
   detailsRow: {
@@ -306,19 +312,19 @@ const styles = StyleSheet.create({
   },
   budgetLabel: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   budgetValue: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   optionLabel: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   instructionsBox: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.xs,
     borderRadius: Radii.sm,
     marginVertical: Spacing.xs,
@@ -326,12 +332,12 @@ const styles = StyleSheet.create({
   instructionsTitle: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 10,
   },
   instructionsText: {
     ...Typography.Body,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     fontSize: 12.5,
     marginTop: 2,
   },
@@ -340,13 +346,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
     marginTop: Spacing.xs,
   },
   timeText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
   },
   actionsGroup: {
@@ -355,14 +361,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   acceptedPill: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
   acceptedPillText: {
     ...Typography.Caption,
-    color: '#15803D',
+    color: colors.success,
     fontWeight: '700',
   },
   modalOverlay: {
@@ -373,7 +379,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   modalCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     maxWidth: 480,
@@ -391,7 +397,7 @@ const styles = StyleSheet.create({
   },
   modalSub: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginVertical: Spacing.sm,
   },
   field: {
@@ -400,16 +406,16 @@ const styles = StyleSheet.create({
   fieldLabel: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     ...Typography.Body,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   modalActionsRow: {
     flexDirection: 'row',
@@ -417,3 +423,4 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);

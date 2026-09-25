@@ -14,6 +14,11 @@ import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface PreferencesModalProps {
   visible: boolean;
   onClose: () => void;
@@ -38,6 +43,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   initialPreferences,
   onSave,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [selected, setSelected] = useState<string[]>(initialPreferences);
 
   if (!visible) return null;
@@ -69,7 +75,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              <Ionicons name="close" size={22} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -93,7 +99,7 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
                     <Ionicons
                       name={isChecked ? 'checkmark-circle' : 'ellipse-outline'}
                       size={16}
-                      color={isChecked ? Colors.white : Colors.textMuted}
+                      color={isChecked ? colors.white : colors.textMuted}
                       style={{ marginRight: 6 }}
                     />
                     <Text style={[styles.chipText, isChecked && styles.chipTextActive]}>
@@ -119,14 +125,14 @@ export const PreferencesModal: React.FC<PreferencesModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(20, 40, 30, 0.45)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
@@ -138,7 +144,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   title: {
     ...Typography.H2,
@@ -151,7 +157,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     ...Typography.Body,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: Spacing.md,
   },
   chipsGrid: {
@@ -166,23 +172,24 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   chipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   saveBtn: {
     marginTop: Spacing.xs,
   },
 });
+let styles = createStyles(lightColors);

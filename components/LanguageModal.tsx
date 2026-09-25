@@ -3,6 +3,11 @@ import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Language } from '../context/LanguageContext';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface LanguageModalProps {
   visible: boolean;
   currentLanguage: Language;
@@ -16,6 +21,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
   onSelectLanguage,
   onClose,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const options: { id: Language; label: string; subLabel: string; flag: string }[] = [
     { id: 'en', label: 'English', subLabel: 'Default International', flag: '🇬🇧' },
     { id: 'sw', label: 'Kiswahili', subLabel: 'Lugha ya Taifa (Tanzania)', flag: '🇹🇿' },
@@ -76,7 +82,7 @@ export const LanguageModal: React.FC<LanguageModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -85,7 +91,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalBox: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     width: '100%',
     maxWidth: 380,
@@ -101,11 +107,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeBtn: {
@@ -113,7 +119,7 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 16,
-    color: Colors.subtle,
+    color: colors.textMuted,
     fontWeight: 'bold',
   },
   list: {
@@ -127,13 +133,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: Spacing.md,
     borderRadius: Radii.xl,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   itemSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   itemLeft: {
     flexDirection: 'row',
@@ -146,22 +152,23 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   itemLabelSelected: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   itemSub: {
     fontSize: 10,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   itemSubSelected: {
     color: 'rgba(255, 255, 255, 0.85)',
   },
   checkIcon: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '900',
     fontSize: 16,
   },
 });
+let styles = createStyles(lightColors);

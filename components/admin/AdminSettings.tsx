@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
-import { ThemeMode } from '../../theme/palettes';
 import {
   PlatformSettingsRepository,
   PlatformFinancialSettings,
@@ -22,15 +21,19 @@ import {
 } from '../../repositories/platformSettings.repository';
 import { formatTzs } from '../../config/platformFees';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface AdminSettingsProps {
   language?: 'en' | 'sw';
 }
 
-type SettingsTab = 'APPEARANCE' | 'FINANCE' | 'FRESHNESS' | 'SUPPORT_POLICY';
+type SettingsTab = 'FINANCE' | 'FRESHNESS' | 'SUPPORT_POLICY';
 
 export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' }) => {
-  const { mode, resolvedMode, colors, setMode } = useTheme();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('APPEARANCE');
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('FINANCE');
   const [loading, setLoading] = useState(false);
 
   // Financial Settings State
@@ -126,7 +129,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
       setShowFinConfirm(false);
       setFinChangeReason('');
 
-      // Refresh
       const updated = await PlatformSettingsRepository.getFinancialSettings();
       setFinSettings(updated);
     } catch (e: any) {
@@ -183,14 +185,17 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.appBackground }]}
+      contentContainerStyle={styles.content}
+    >
       {/* Header */}
       <View style={styles.headerArea}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>
           {language === 'sw' ? 'Mipangilio ya Mfumo' : 'Platform Operations Settings & Policy'}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Appearance personalization, centralized financial fee authority, catalog freshness rules, and operational safeguards.
+          Centralized financial fee authority, catalog freshness rules, support coordinates, and operational safeguards.
         </Text>
       </View>
 
@@ -198,104 +203,56 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
       <View style={styles.tabBar}>
         {(
           [
-            { key: 'APPEARANCE', label: 'Appearance', icon: 'color-palette-outline' },
             { key: 'FINANCE', label: 'Financial Policy', icon: 'cash-outline' },
             { key: 'FRESHNESS', label: 'Catalog Freshness', icon: 'shield-checkmark-outline' },
             { key: 'SUPPORT_POLICY', label: 'Support & Platform Safeguards', icon: 'lock-closed-outline' },
           ] as const
-        ).map((t) => (
-          <TouchableOpacity
-            key={t.key}
-            style={[
-              styles.tabBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              activeTab === t.key && { backgroundColor: colors.primary, borderColor: colors.primary },
-            ]}
-            onPress={() => setActiveTab(t.key)}
-          >
-            <Ionicons
-              name={t.icon as any}
-              size={16}
-              color={activeTab === t.key ? '#FFFFFF' : colors.textSecondary}
-              style={{ marginRight: 6 }}
-            />
-            <Text
+        ).map((t) => {
+          const isSelected = activeTab === t.key;
+          return (
+            <TouchableOpacity
+              key={t.key}
               style={[
-                styles.tabBtnText,
-                { color: colors.textSecondary },
-                activeTab === t.key && { color: '#FFFFFF', fontWeight: '700' },
+                styles.tabBtn,
+                {
+                  backgroundColor: isSelected ? colors.primary : colors.surfaceInteractive,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                },
               ]}
+              onPress={() => setActiveTab(t.key)}
             >
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+              <Ionicons
+                name={t.icon as any}
+                size={16}
+                color={isSelected ? colors.card : colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: isSelected ? colors.card : colors.textSecondary },
+                  isSelected && { fontWeight: '700' },
+                ]}
+              >
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
         <View style={styles.loadingArea}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : activeTab === 'APPEARANCE' ? (
-        /* APPEARANCE TAB */
-        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="color-palette-outline" size={20} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Interface Appearance</Text>
-          </View>
-          <Text style={[styles.cardNotice, { color: colors.textSecondary }]}>
-            Select your preferred console theme. System mode dynamically mirrors your device or browser preference.
-          </Text>
-
-          <View style={styles.modeSelectorRow}>
-            {(['LIGHT', 'DARK', 'SYSTEM'] as ThemeMode[]).map((m) => (
-              <TouchableOpacity
-                key={m}
-                style={[
-                  styles.modeCard,
-                  { backgroundColor: colors.badgeBg, borderColor: colors.border },
-                  mode === m && { backgroundColor: colors.primarySoft, borderColor: colors.primary, borderWidth: 2 },
-                ]}
-                onPress={() => setMode(m)}
-              >
-                <Ionicons
-                  name={m === 'LIGHT' ? 'sunny' : m === 'DARK' ? 'moon' : 'desktop-outline'}
-                  size={24}
-                  color={mode === m ? colors.primary : colors.textSecondary}
-                />
-                <Text style={[styles.modeLabel, { color: colors.textPrimary }]}>{m}</Text>
-                <Text style={[styles.modeSub, { color: colors.textMuted }]}>
-                  {m === 'LIGHT' ? 'Pure Ivory & Slate' : m === 'DARK' ? 'Midnight Slate' : `Active: ${resolvedMode}`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Theme Preview Card */}
-          <View style={[styles.previewBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.previewTitle, { color: colors.textPrimary }]}>Live Theme Preview</Text>
-            <View style={styles.tokenSwatchRow}>
-              <View style={[styles.swatch, { backgroundColor: colors.primary }]}>
-                <Text style={styles.swatchText}>Primary</Text>
-              </View>
-              <View style={[styles.swatch, { backgroundColor: colors.success }]}>
-                <Text style={styles.swatchText}>Success</Text>
-              </View>
-              <View style={[styles.swatch, { backgroundColor: colors.warning }]}>
-                <Text style={styles.swatchText}>Warning</Text>
-              </View>
-              <View style={[styles.swatch, { backgroundColor: colors.danger }]}>
-                <Text style={styles.swatchText}>Danger</Text>
-              </View>
-            </View>
-          </View>
-        </View>
       ) : activeTab === 'FINANCE' ? (
         /* FINANCIAL POLICY TAB */
-        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="cash-outline" size={20} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Centralized Financial Fee Authority</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Centralized Financial Fee Authority
+            </Text>
           </View>
           <Text style={[styles.cardNotice, { color: colors.textSecondary }]}>
             Enforced authoritatively in PostgreSQL (<Text style={{ fontFamily: 'monospace' }}>create_order_secure</Text>). Changes apply strictly to NEW orders. Historical orders retain their economic snapshot forever.
@@ -303,45 +260,87 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
 
           <View style={styles.formGrid}>
             <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Platform Commission (%)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                Platform Commission (%)
+              </Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={commissionInput}
                 onChangeText={setCommissionInput}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Standard deduction on food subtotal</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Standard deduction on food subtotal
+              </Text>
             </View>
 
             <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Customer Service Fee (TZS)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                Customer Service Fee (TZS)
+              </Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={serviceFeeInput}
                 onChangeText={setServiceFeeInput}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Fixed charge per order checkout</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Fixed charge per order checkout
+              </Text>
             </View>
 
             <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Minimum Order Value (TZS)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                Minimum Order Value (TZS)
+              </Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={minOrderInput}
                 onChangeText={setMinOrderInput}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Subtotal floor required for checkout</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Subtotal floor required for checkout
+              </Text>
             </View>
           </View>
 
           <View style={styles.reasonBlock}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Reason for Policy Mutation (Audit Requirement)</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Reason for Policy Mutation (Audit Requirement)
+            </Text>
             <TextInput
-              style={[styles.reasonInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+              style={[
+                styles.reasonInput,
+                {
+                  backgroundColor: colors.inputBackground,
+                  color: colors.textPrimary,
+                  borderColor: colors.inputBorder,
+                },
+              ]}
               placeholder="e.g., Launch merchant incentive or holiday fee adjustment"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.inputPlaceholder}
               value={finChangeReason}
               onChangeText={setFinChangeReason}
             />
@@ -351,16 +350,18 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
             style={[styles.saveBtn, { backgroundColor: colors.primary }]}
             onPress={() => setShowFinConfirm(true)}
           >
-            <Ionicons name="shield-checkmark-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Ionicons name="shield-checkmark-outline" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
             <Text style={styles.saveBtnText}>Preview Impact & Save Changes</Text>
           </TouchableOpacity>
         </View>
       ) : activeTab === 'FRESHNESS' ? (
         /* CATALOG FRESHNESS TAB */
-        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="shield-checkmark-outline" size={20} color={colors.success} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Catalog Freshness Threshold Policies</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Catalog Freshness Threshold Policies
+            </Text>
           </View>
           <Text style={[styles.cardNotice, { color: colors.textSecondary }]}>
             Controls dish freshness grading across discovery ranking and the Verification Center. Validation requirement: 0 &lt; Fresh &lt; Recent &lt; Stale.
@@ -370,43 +371,79 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Fresh Tier (Days)</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={freshDays}
                 onChangeText={setFreshDays}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Verified within last X days</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Verified within last X days
+              </Text>
             </View>
 
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Recent Tier (Days)</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={recentDays}
                 onChangeText={setRecentDays}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Upper bound for recent confirmation</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Upper bound for recent confirmation
+              </Text>
             </View>
 
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Stale Tier (Days)</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={staleDays}
                 onChangeText={setStaleDays}
                 keyboardType="numeric"
               />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>Triggers search demotion</Text>
+              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
+                Triggers search demotion
+              </Text>
             </View>
           </View>
 
           <View style={styles.reasonBlock}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Reason for Threshold Adjustment</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Reason for Threshold Adjustment
+            </Text>
             <TextInput
-              style={[styles.reasonInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+              style={[
+                styles.reasonInput,
+                {
+                  backgroundColor: colors.inputBackground,
+                  color: colors.textPrimary,
+                  borderColor: colors.inputBorder,
+                },
+              ]}
               placeholder="e.g., Tightening freshness requirement for high season"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.inputPlaceholder}
               value={opChangeReason}
               onChangeText={setOpChangeReason}
             />
@@ -415,16 +452,19 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
           <TouchableOpacity
             style={[styles.saveBtn, { backgroundColor: colors.primary }]}
             onPress={handleSaveOperational}
+            disabled={isSavingOp}
           >
             <Text style={styles.saveBtnText}>Save Freshness Thresholds</Text>
           </TouchableOpacity>
         </View>
       ) : (
         /* SUPPORT & SAFEGUARDS TAB */
-        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.cardHeaderRow}>
             <Ionicons name="lock-closed-outline" size={20} color={colors.danger} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Support & Operational Safeguards</Text>
+            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+              Support & Operational Safeguards
+            </Text>
           </View>
           <Text style={[styles.cardNotice, { color: colors.textSecondary }]}>
             Non-secret support contact coordinates and platform-wide emergency switches.
@@ -434,7 +474,14 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Support Phone</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={supportPhone}
                 onChangeText={setSupportPhone}
               />
@@ -443,7 +490,14 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Support Email</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={supportEmail}
                 onChangeText={setSupportEmail}
               />
@@ -452,7 +506,14 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
             <View style={styles.formCol}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Support Hours</Text>
               <TextInput
-                style={[styles.inputField, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+                style={[
+                  styles.inputField,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    color: colors.textPrimary,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
                 value={supportHours}
                 onChangeText={setSupportHours}
               />
@@ -460,10 +521,12 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
           </View>
 
           {/* Toggle Switches */}
-          <View style={[styles.toggleList, { borderTopColor: colors.borderLight }]}>
+          <View style={[styles.toggleList, { borderTopColor: colors.divider }]}>
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Maintenance Mode</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Maintenance Mode
+                </Text>
                 <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
                   Blocks customer checkout and merchant edits. Admin console remains accessible.
                 </Text>
@@ -477,7 +540,9 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
 
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Restaurant Applications Enabled</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Restaurant Applications Enabled
+                </Text>
                 <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
                   Allow new food spots to submit onboarding applications.
                 </Text>
@@ -491,7 +556,9 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
 
             <View style={styles.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>Customer Registration Enabled</Text>
+                <Text style={[styles.toggleTitle, { color: colors.textPrimary }]}>
+                  Customer Registration Enabled
+                </Text>
                 <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
                   Allow new consumers to create MloHub user accounts.
                 </Text>
@@ -505,11 +572,20 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
           </View>
 
           <View style={styles.reasonBlock}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Reason for Policy Mutation</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Reason for Policy Mutation
+            </Text>
             <TextInput
-              style={[styles.reasonInput, { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border }]}
+              style={[
+                styles.reasonInput,
+                {
+                  backgroundColor: colors.inputBackground,
+                  color: colors.textPrimary,
+                  borderColor: colors.inputBorder,
+                },
+              ]}
               placeholder="e.g., Scheduled infrastructure maintenance"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.inputPlaceholder}
               value={opChangeReason}
               onChangeText={setOpChangeReason}
             />
@@ -518,6 +594,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
           <TouchableOpacity
             style={[styles.saveBtn, { backgroundColor: colors.primary }]}
             onPress={handleSaveOperational}
+            disabled={isSavingOp}
           >
             <Text style={styles.saveBtnText}>Save Safeguards & Policy</Text>
           </TouchableOpacity>
@@ -526,38 +603,64 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
 
       {/* Confirmation Modal for Financial Policy Mutation */}
       <Modal visible={showFinConfirm} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modalBackdrop }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.borderStrong,
+              },
+            ]}
+          >
             <View style={styles.modalHeaderRow}>
-              <Ionicons name="warning" size={24} color="#EA580C" />
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Confirm Financial Policy Mutation</Text>
+              <Ionicons name="warning" size={24} color={colors.warning} />
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                Confirm Financial Policy Mutation
+              </Text>
             </View>
 
             <Text style={[styles.modalNotice, { color: colors.textSecondary }]}>
               You are about to change the authoritative platform financial structure. This action requires SUPER_ADMIN credentials and will be logged to the immutable audit trail.
             </Text>
 
-            <View style={[styles.impactBox, { backgroundColor: colors.badgeBg, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.impactBox,
+                {
+                  backgroundColor: colors.surfaceInteractive,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
               <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>Commission:</Text>
+                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
+                  Commission:
+                </Text>
                 <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
                   {finSettings ? (finSettings.defaultCommissionRate * 100).toFixed(1) : '10.0'}% → {commissionInput}%
                 </Text>
               </View>
               <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>Service Fee:</Text>
+                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
+                  Service Fee:
+                </Text>
                 <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
                   {finSettings ? formatTzs(finSettings.customerServiceFeeTzs) : '1,500 TZS'} → {formatTzs(serviceFeeInput)}
                 </Text>
               </View>
               <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>Minimum Order:</Text>
+                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
+                  Minimum Order:
+                </Text>
                 <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
                   {finSettings ? formatTzs(finSettings.minimumOrderValueTzs) : '2,000 TZS'} → {formatTzs(minOrderInput)}
                 </Text>
               </View>
               <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>Reason:</Text>
+                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
+                  Reason:
+                </Text>
                 <Text style={[styles.impactVal, { color: colors.textPrimary, fontWeight: '400' }]}>
                   {finChangeReason}
                 </Text>
@@ -570,10 +673,18 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
 
             <View style={styles.modalActionRow}>
               <TouchableOpacity
-                style={[styles.cancelBtn, { borderColor: colors.border }]}
+                style={[
+                  styles.cancelBtn,
+                  {
+                    backgroundColor: colors.surfaceInteractive,
+                    borderColor: colors.border,
+                  },
+                ]}
                 onPress={() => setShowFinConfirm(false)}
               >
-                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -582,7 +693,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
                 disabled={isSavingFin}
               >
                 {isSavingFin ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.confirmBtnText}>Confirm Policy Mutation</Text>
                 )}
@@ -595,7 +706,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -626,8 +737,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 9,
+    borderRadius: 9,
     borderWidth: 1,
     ...Platform.select({ web: { cursor: 'pointer' } }),
   },
@@ -640,7 +751,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     padding: 20,
     marginBottom: 20,
@@ -660,56 +771,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 20,
   },
-  modeSelectorRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-    flexWrap: 'wrap',
-  },
-  modeCard: {
-    flex: 1,
-    minWidth: 140,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    ...Platform.select({ web: { cursor: 'pointer' } }),
-  },
-  modeLabel: {
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  modeSub: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  previewBox: {
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 16,
-  },
-  previewTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  tokenSwatchRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  swatch: {
-    flex: 1,
-    height: 36,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatchText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
   formGrid: {
     flexDirection: 'row',
     gap: 16,
@@ -727,9 +788,9 @@ const styles = StyleSheet.create({
   },
   inputField: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 9,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -742,7 +803,7 @@ const styles = StyleSheet.create({
   },
   reasonInput: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
@@ -752,11 +813,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     ...Platform.select({ web: { cursor: 'pointer' } }),
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -782,7 +843,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
@@ -801,24 +861,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
+    flex: 1,
   },
   modalNotice: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
     marginBottom: 16,
   },
   impactBox: {
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    padding: 14,
-    marginBottom: 14,
+    padding: 12,
+    marginBottom: 12,
     gap: 8,
   },
   impactRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   impactLabel: {
     fontSize: 12,
@@ -826,38 +888,39 @@ const styles = StyleSheet.create({
   },
   impactVal: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   immutabilityReminder: {
     fontSize: 11,
-    marginBottom: 20,
     fontStyle: 'italic',
+    marginBottom: 20,
   },
   modalActionRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 12,
+    gap: 10,
   },
   cancelBtn: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
   },
   cancelBtnText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   confirmBtn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 10,
+    minWidth: 160,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   confirmBtnText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
 });
+let styles = createStyles(lightColors);

@@ -25,9 +25,15 @@ import { Status } from '../components/ui/Status';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Button } from '../components/ui/Button';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 type FilterTab = 'ALL' | 'SUCCESS' | 'PENDING' | 'FAILED' | 'REFUNDED';
 
 export default function PaymentsScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { user, isAuthenticated } = useAuth();
@@ -94,18 +100,18 @@ export default function PaymentsScreen() {
     const rawProvider = (payment.provider || '').toUpperCase();
 
     if (rawMethod.includes('AIRTEL') || rawProvider.includes('AIRTEL')) {
-      return { name: 'Airtel Money', emoji: '🔴', color: '#B91C1C', bg: '#FEE2E2' };
+      return { name: 'Airtel Money', emoji: '🔴', color: colors.danger, bg: '#FEE2E2' };
     }
     if (rawMethod.includes('MIXX') || rawMethod.includes('TIGO') || rawProvider.includes('TIGO')) {
-      return { name: 'Mixx by Yas', emoji: '🔵', color: '#0369A1', bg: '#E0F2FE' };
+      return { name: 'Mixx by Yas', emoji: '🔵', color: colors.info, bg: '#E0F2FE' };
     }
     if (rawMethod.includes('HALO') || rawProvider.includes('HALO')) {
-      return { name: 'HaloPesa', emoji: '🟠', color: '#C2410C', bg: '#FFEDD5' };
+      return { name: 'HaloPesa', emoji: '🟠', color: colors.primary, bg: '#FFEDD5' };
     }
     if (rawMethod.includes('MPESA') || rawMethod.includes('M_PESA') || rawProvider.includes('VODACOM')) {
-      return { name: 'M-Pesa', emoji: '🟢', color: '#15803D', bg: '#DCFCE7' };
+      return { name: 'M-Pesa', emoji: '🟢', color: colors.success, bg: '#DCFCE7' };
     }
-    return { name: payment.provider || 'Mobile Money', emoji: '💳', color: '#475569', bg: '#F1F5F9' };
+    return { name: payment.provider || 'Mobile Money', emoji: '💳', color: colors.textSecondary, bg: colors.surfaceInteractive };
   };
 
   const getStatusBadge = (status: PaymentStatus) => {
@@ -169,7 +175,7 @@ export default function PaymentsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={24} color="#0F172A" />
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitleCol}>
           <Text style={styles.headerTitle}>
@@ -186,7 +192,7 @@ export default function PaymentsScreen() {
       {/* Main Content */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>
             {language === 'sw' ? 'Inapakia miamala...' : 'Loading transactions...'}
           </Text>
@@ -223,7 +229,7 @@ export default function PaymentsScreen() {
                 <Text style={styles.statLabelSmall}>
                   {language === 'sw' ? 'Inasubiri' : 'Pending'}
                 </Text>
-                <Text style={[styles.statValSmall, { color: '#D97706' }]}>
+                <Text style={[styles.statValSmall, { color: colors.warning }]}>
                   {stats.pendingCount}
                 </Text>
               </View>
@@ -231,7 +237,7 @@ export default function PaymentsScreen() {
                 <Text style={styles.statLabelSmall}>
                   {language === 'sw' ? 'Marejesho' : 'Refunds'}
                 </Text>
-                <Text style={[styles.statValSmall, { color: '#0369A1' }]}>
+                <Text style={[styles.statValSmall, { color: colors.info }]}>
                   {stats.refundedCount}
                 </Text>
               </View>
@@ -338,7 +344,7 @@ export default function PaymentsScreen() {
                             style={styles.viewOrderBtn}
                             onPress={() => router.push(`/(tabs)/orders?orderId=${payment.orderId}` as any)}
                           >
-                            <Ionicons name="receipt-outline" size={14} color={Colors.primary} />
+                            <Ionicons name="receipt-outline" size={14} color={colors.primary} />
                             <Text style={styles.viewOrderBtnText}>
                               {language === 'sw' ? 'Oda' : 'Order'}
                             </Text>
@@ -349,7 +355,7 @@ export default function PaymentsScreen() {
                           <Text style={styles.viewReceiptText}>
                             {language === 'sw' ? 'Stakabadhi' : 'Receipt'}
                           </Text>
-                          <Ionicons name="chevron-forward" size={14} color="#64748B" />
+                          <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
                         </View>
                       </View>
                     </View>
@@ -384,7 +390,7 @@ export default function PaymentsScreen() {
                   style={styles.modalCloseBtn}
                   onPress={() => setSelectedPayment(null)}
                 >
-                  <Ionicons name="close" size={22} color="#0F172A" />
+                  <Ionicons name="close" size={22} color={colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
@@ -457,10 +463,10 @@ export default function PaymentsScreen() {
 
                   {selectedPayment.status === 'REFUNDED' && selectedPayment.refundedAt ? (
                     <View style={styles.receiptRow}>
-                      <Text style={[styles.receiptKey, { color: '#0369A1' }]}>
+                      <Text style={[styles.receiptKey, { color: colors.info }]}>
                         {language === 'sw' ? 'Tarehe ya Marejesho' : 'Refund Processed'}
                       </Text>
-                      <Text style={[styles.receiptVal, { color: '#0369A1' }]}>
+                      <Text style={[styles.receiptVal, { color: colors.info }]}>
                         {formatDate(selectedPayment.refundedAt)}
                       </Text>
                     </View>
@@ -509,25 +515,25 @@ export default function PaymentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F3', // Warm Ivory
+    backgroundColor: colors.appBackground, // Warm Ivory
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.border,
     gap: 12,
   },
   backBtn: {
     padding: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceInteractive,
   },
   headerTitleCol: {
     flex: 1,
@@ -535,11 +541,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   headerSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 1,
   },
   centered: {
@@ -550,7 +556,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -565,7 +571,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   statCardPrimary: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     ...Shadows.sm,
@@ -580,7 +586,7 @@ const styles = StyleSheet.create({
   statValLight: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     marginVertical: 4,
   },
   statSubLight: {
@@ -593,23 +599,23 @@ const styles = StyleSheet.create({
   },
   statCardSmall: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     alignItems: 'center',
   },
   statLabelSmall: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   statValSmall: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginTop: 2,
   },
   filterPillsRow: {
@@ -618,35 +624,35 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   filterPill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
   },
   filterPillActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   transactionsList: {
     gap: 12,
   },
   paymentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   paymentCardTop: {
@@ -672,16 +678,16 @@ const styles = StyleSheet.create({
   providerName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   paymentDate: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   paymentDivider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceInteractive,
     marginVertical: 12,
   },
   paymentCardBottom: {
@@ -691,14 +697,14 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   amountValue: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginTop: 2,
   },
   cardActionsRow: {
@@ -710,9 +716,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.full,
@@ -720,15 +726,15 @@ const styles = StyleSheet.create({
   viewOrderBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.primary,
+    color: colors.primary,
   },
   viewReceiptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radii.full,
@@ -736,7 +742,7 @@ const styles = StyleSheet.create({
   viewReceiptText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   modalBackdrop: {
     flex: 1,
@@ -744,7 +750,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '90%',
@@ -764,16 +770,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   modalSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   modalCloseBtn: {
@@ -783,31 +789,31 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   receiptHero: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   receiptHeroLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   receiptHeroAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     marginVertical: 6,
   },
   receiptDetailsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -817,24 +823,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: colors.divider,
   },
   receiptKey: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   receiptVal: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   receiptGuaranteeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
+    borderColor: colors.success,
     padding: Spacing.md,
     gap: 8,
     marginBottom: Spacing.lg,
@@ -842,10 +848,11 @@ const styles = StyleSheet.create({
   receiptGuaranteeText: {
     flex: 1,
     fontSize: 12,
-    color: '#15803D',
+    color: colors.success,
     lineHeight: 16,
   },
   modalFooter: {
     paddingHorizontal: Spacing.lg,
   },
 });
+let styles = createStyles(lightColors);

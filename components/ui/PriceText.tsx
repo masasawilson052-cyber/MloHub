@@ -4,6 +4,11 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface PriceTextProps {
   amountTzs: number;
   size?: 'sm' | 'md' | 'lg';
@@ -21,6 +26,7 @@ export const PriceText: React.FC<PriceTextProps> = ({
   prefix,
   suffix,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc;
   const getTypographyStyle = (): TextStyle => {
     switch (size) {
       case 'sm':

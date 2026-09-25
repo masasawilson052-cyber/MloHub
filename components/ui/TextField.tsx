@@ -11,10 +11,13 @@ import {
   TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
-import { Radii } from '../../theme/radius';
 import { Typography } from '../../theme/typography';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -49,6 +52,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   editable = true,
   ...rest
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(!isPassword);
 
@@ -59,9 +63,9 @@ export const TextField: React.FC<TextFieldProps> = ({
     <View style={[styles.wrapper, containerStyle]}>
       {label ? (
         <View style={styles.labelRow}>
-          <Text style={styles.label}>
+          <Text style={[styles.label, { color: colors.textPrimary }]}>
             {label}
-            {required ? <Text style={styles.requiredMark}> *</Text> : null}
+            {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
           </Text>
         </View>
       ) : null}
@@ -69,23 +73,36 @@ export const TextField: React.FC<TextFieldProps> = ({
       <View
         style={[
           styles.inputContainer,
-          isFocused ? styles.inputFocused : null,
-          hasError ? styles.inputError : null,
-          !editable ? styles.inputDisabled : null,
+          {
+            backgroundColor: colors.inputBackground,
+            borderColor: colors.inputBorder,
+          },
+          isFocused && {
+            borderColor: colors.primary,
+            backgroundColor: colors.card,
+          },
+          hasError && {
+            borderColor: colors.danger,
+          },
+          !editable && {
+            backgroundColor: colors.surfaceMuted,
+            borderColor: colors.border,
+            opacity: 0.7,
+          },
         ]}
       >
         {leftIcon ? (
           <Ionicons
             name={leftIcon}
             size={20}
-            color={hasError ? Colors.error : isFocused ? Colors.brandInk : Colors.textMuted}
+            color={hasError ? colors.danger : isFocused ? colors.primary : colors.textMuted}
             style={styles.leftIcon}
           />
         ) : null}
 
         <TextInput
-          style={[styles.input, inputStyle]}
-          placeholderTextColor={Colors.textMuted}
+          style={[styles.input, { color: colors.textPrimary }, inputStyle]}
+          placeholderTextColor={colors.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setIsFocused(true)}
@@ -109,7 +126,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Clear text"
           >
-            <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}
 
@@ -125,7 +142,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color={Colors.textMuted}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         ) : rightIcon ? (
@@ -135,24 +152,24 @@ export const TextField: React.FC<TextFieldProps> = ({
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.actionIcon}
           >
-            <Ionicons name={rightIcon} size={20} color={Colors.textMuted} />
+            <Ionicons name={rightIcon} size={20} color={colors.textMuted} />
           </TouchableOpacity>
         ) : null}
       </View>
 
       {hasError ? (
         <View style={styles.feedbackRow}>
-          <Ionicons name="alert-circle" size={14} color={Colors.error} />
-          <Text style={styles.errorText}>{error}</Text>
+          <Ionicons name="alert-circle" size={14} color={colors.danger} />
+          <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
         </View>
       ) : helperText ? (
-        <Text style={styles.helperText}>{helperText}</Text>
+        <Text style={[styles.helperText, { color: colors.textMuted }]}>{helperText}</Text>
       ) : null}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   wrapper: {
     width: '100%',
     marginBottom: Spacing.md,
@@ -162,32 +179,14 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.labelLarge,
-    color: Colors.brandInk,
-  },
-  requiredMark: {
-    color: Colors.error,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
     borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radii.md,
+    borderRadius: 10,
     minHeight: 48,
     paddingHorizontal: Spacing.md,
-  },
-  inputFocused: {
-    borderColor: Colors.brandInk,
-    backgroundColor: Colors.white,
-  },
-  inputError: {
-    borderColor: Colors.error,
-  },
-  inputDisabled: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderColor: Colors.borderLight,
-    opacity: 0.7,
   },
   leftIcon: {
     marginRight: Spacing.xs,
@@ -199,7 +198,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     ...Typography.body,
-    color: Colors.brandInk,
     paddingVertical: Spacing.sm,
   },
   feedbackRow: {
@@ -210,11 +208,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.bodySmall,
-    color: Colors.error,
   },
   helperText: {
     ...Typography.bodySmall,
-    color: Colors.textMuted,
     marginTop: Spacing.xxs + 2,
   },
 });
+let styles = createStyles(lightColors);

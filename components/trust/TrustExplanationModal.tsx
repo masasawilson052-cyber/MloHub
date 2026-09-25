@@ -17,6 +17,11 @@ import {
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { DishTrustAssessment, RestaurantTrustAssessment } from '../../types/trust';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface TrustExplanationModalProps {
   visible: boolean;
   onClose: () => void;
@@ -32,6 +37,7 @@ export const TrustExplanationModal: React.FC<TrustExplanationModalProps> = ({
   restaurantAssessment,
   onOpenReportModal,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   if (!visible) return null;
 
   return (
@@ -192,7 +198,7 @@ export const TrustExplanationModal: React.FC<TrustExplanationModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
@@ -204,7 +210,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     maxHeight: '85%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     overflow: 'hidden',
     ...Platform.select({
@@ -220,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.divider,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -233,11 +239,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   closeBtn: {
     fontSize: 18,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
     padding: Spacing.xs,
   },
@@ -249,16 +255,16 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sectionCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   sectionCategory: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#64748B',
+    color: colors.textSecondary,
     letterSpacing: 0.8,
     marginBottom: Spacing.sm,
   },
@@ -273,45 +279,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.divider,
   },
   tierPillPositive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
   },
   tierPillWarning: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
   },
   tierPillCritical: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   tierPillNeutral: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceInteractive,
   },
   tierPillText: {
     fontSize: 12,
     fontWeight: '700',
   },
   tierTextPositive: {
-    color: '#15803D',
+    color: colors.success,
   },
   tierTextWarning: {
-    color: '#B45309',
+    color: colors.warning,
   },
   tierTextCritical: {
-    color: '#B91C1C',
+    color: colors.danger,
   },
   tierTextNeutral: {
-    color: '#475569',
+    color: colors.textSecondary,
   },
   dishNameTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     flexShrink: 1,
   },
   explanationText: {
     fontSize: 14,
-    color: '#334155',
+    color: colors.textSecondary,
     lineHeight: 20,
     marginBottom: Spacing.sm,
   },
@@ -326,12 +332,12 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   reasonText: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 18,
     flex: 1,
   },
@@ -342,32 +348,32 @@ const styles = StyleSheet.create({
   dimensionLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   dimensionValue: {
     fontSize: 13,
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   guaranteeBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoSoft,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.info,
   },
   guaranteeTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E40AF',
+    color: colors.info,
     marginBottom: 4,
   },
   guaranteeBody: {
     fontSize: 12,
-    color: '#1E3A8A',
+    color: colors.info,
     lineHeight: 18,
   },
   reportBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1.5,
     borderColor: '#F97316',
     borderRadius: Radii.md,
@@ -376,8 +382,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   reportBtnText: {
-    color: '#C2410C',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 14,
   },
 });
+let styles = createStyles(lightColors);

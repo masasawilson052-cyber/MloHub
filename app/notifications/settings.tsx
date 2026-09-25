@@ -17,7 +17,13 @@ import { useNotifications } from '../../context/NotificationContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function NotificationSettingsScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
   const { preferences, updatePreference } = useNotifications();
@@ -41,7 +47,7 @@ export default function NotificationSettingsScreen() {
       {/* Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.titleWrap}>
           <Text style={styles.headerTitle}>{t('notifSettingsTitle')}</Text>
@@ -84,8 +90,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.reservationUpdates}
               onValueChange={(val) => handleToggle('reservationUpdates', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
 
@@ -103,8 +109,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.reservationReminders}
               onValueChange={(val) => handleToggle('reservationReminders', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -128,8 +134,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.customMealUpdates}
               onValueChange={(val) => handleToggle('customMealUpdates', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -158,8 +164,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={true}
               disabled
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -183,8 +189,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.ratingReminders}
               onValueChange={(val) => handleToggle('ratingReminders', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -208,8 +214,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.offersPromotions}
               onValueChange={(val) => handleToggle('offersPromotions', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
 
@@ -227,8 +233,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.nearbySuggestions}
               onValueChange={(val) => handleToggle('nearbySuggestions', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -252,8 +258,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.pushEnabled}
               onValueChange={(val) => handleToggle('pushEnabled', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
 
@@ -271,8 +277,8 @@ export default function NotificationSettingsScreen() {
             <Switch
               value={preferences.smsEnabled}
               onValueChange={(val) => handleToggle('smsEnabled', val)}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor={Colors.white}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.white}
             />
           </View>
         </View>
@@ -281,30 +287,30 @@ export default function NotificationSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
     gap: Spacing.md,
   },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   titleWrap: {
     flex: 1,
@@ -312,21 +318,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   headerSub: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   toastBanner: {
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     paddingVertical: 8,
     paddingHorizontal: Spacing.md,
   },
   toastText: {
-    color: Colors.lime,
+    color: colors.lime,
     fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
@@ -343,16 +349,16 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 12,
     fontWeight: '900',
-    color: Colors.primaryLight,
+    color: colors.primaryLight,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     marginBottom: Spacing.xs,
   },
   groupCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     overflow: 'hidden',
     ...Shadows.sm,
   },
@@ -362,7 +368,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
     gap: Spacing.md,
   },
   settingTextWrap: {
@@ -371,12 +377,12 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   settingSub: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 15,
   },
   lockedRow: {
@@ -387,7 +393,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   requiredBadge: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: Radii.sm,
@@ -395,7 +401,8 @@ const styles = StyleSheet.create({
   requiredText: {
     fontSize: 8,
     fontWeight: '900',
-    color: Colors.primaryDark,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
 });
+let styles = createStyles(lightColors);

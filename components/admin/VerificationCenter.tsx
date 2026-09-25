@@ -15,6 +15,10 @@ import { PlatformSettingsRepository } from '../../repositories/platformSettings.
 
 import { useTheme } from '../../context/ThemeContext';
 
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+let colors: ThemeColors = lightColors;
+
 interface VerificationCenterProps {
   restaurants: RestaurantEntity[];
   onTriggerReverification?: (restaurantId: string) => Promise<void>;
@@ -26,7 +30,7 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   onTriggerReverification,
   language = 'en',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [freshnessFilter, setFreshnessFilter] = useState<'ALL' | 'FRESH' | 'AGING' | 'STALE' | 'NO_CATALOG'>('ALL');
   const [notifiedRestId, setNotifiedRestId] = useState<string | null>(null);
   const [menuMetrics, setMenuMetrics] = useState<Record<string, { activeCount: number; lastUpdated?: string }>>({});
@@ -150,19 +154,19 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiNumber, { color: '#16a34a' }]}>{freshCount}</Text>
+          <Text style={[styles.kpiNumber, { color: colors.success }]}>{freshCount}</Text>
           <Text style={styles.kpiLabel}>Fresh Spots (&lt; {operationalSettings.freshDays} Days)</Text>
           <Text style={styles.kpiSub}>Catalog updated recently</Text>
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiNumber, { color: '#f59e0b' }]}>{agingCount}</Text>
+          <Text style={[styles.kpiNumber, { color: colors.warning }]}>{agingCount}</Text>
           <Text style={styles.kpiLabel}>Aging Spots ({operationalSettings.recentDays}-{operationalSettings.staleDays} Days)</Text>
           <Text style={styles.kpiSub}>Due for review</Text>
         </View>
 
         <View style={styles.kpiCard}>
-          <Text style={[styles.kpiNumber, { color: '#ef4444' }]}>{staleCount}</Text>
+          <Text style={[styles.kpiNumber, { color: colors.danger }]}>{staleCount}</Text>
           <Text style={styles.kpiLabel}>Stale Spots (&gt; {operationalSettings.staleDays} Days)</Text>
           <Text style={styles.kpiSub}>Price confirmation required</Text>
         </View>
@@ -220,8 +224,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
           const isAging = item.status === 'AGING';
           const isFresh = item.status === 'FRESH' || item.status === 'RECENT';
 
-          const badgeBg = isNoCatalog ? '#f1f5f9' : isStale ? '#fee2e2' : isAging ? '#fef3c7' : '#dcfce7';
-          const badgeColor = isNoCatalog ? '#475569' : isStale ? '#991b1b' : isAging ? '#92400e' : '#166534';
+          const badgeBg = isNoCatalog ? colors.surfaceInteractive : isStale ? '#fee2e2' : isAging ? '#fef3c7' : '#dcfce7';
+          const badgeColor = isNoCatalog ? colors.textSecondary : isStale ? '#991b1b' : isAging ? '#92400e' : '#166534';
 
           return (
             <View key={item.restaurant.id} style={styles.spotCard}>
@@ -276,10 +280,10 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
   },
   content: {
     padding: Spacing.lg,
@@ -291,12 +295,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   kpiRow: {
     flexDirection: 'row',
@@ -306,27 +310,27 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     minWidth: 160,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   kpiNumber: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
   },
   kpiLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   kpiSub: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   filterRow: {
@@ -338,30 +342,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   filterPillActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterPillText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   filterPillTextActive: {
-    color: '#ffffff',
+    color: colors.onPrimary,
   },
   listContainer: {
     gap: Spacing.md,
   },
   spotCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     padding: Spacing.md,
     gap: Spacing.sm,
     ...Shadows.sm,
@@ -374,11 +378,11 @@ const styles = StyleSheet.create({
   spotName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   spotSub: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   statusBadge: {
@@ -395,7 +399,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.lg,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.appBackground,
     padding: Spacing.sm,
     borderRadius: Radii.md,
   },
@@ -404,12 +408,12 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   metricValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   cardActions: {
     flexDirection: 'row',
@@ -423,13 +427,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: Radii.md,
-    backgroundColor: '#fffbeb',
+    backgroundColor: colors.warningSoft,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: colors.warning,
   },
   remindBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#b45309',
+    color: colors.warning,
   },
 });
+let styles = createStyles(lightColors);

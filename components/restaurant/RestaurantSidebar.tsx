@@ -1,14 +1,57 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
-import { Radii } from '../../theme/radius';
-import { Typography } from '../../theme/typography';
 import { RestaurantRole } from '../../types/auth';
+import { useTheme } from '../../context/ThemeContext';
 
 export { RestaurantTab, NavItemConfig, RESTAURANT_NAV_ITEMS } from '../../constants/restaurantPortal';
-import { RestaurantTab, RESTAURANT_NAV_ITEMS } from '../../constants/restaurantPortal';
+import { RestaurantTab, RESTAURANT_NAV_ITEMS, NavItemConfig } from '../../constants/restaurantPortal';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
+export interface RestaurantNavGroup {
+  titleEn: string;
+  titleSw: string;
+  tabIds: RestaurantTab[];
+}
+
+export const RESTAURANT_NAV_GROUPS: RestaurantNavGroup[] = [
+  {
+    titleEn: 'OPERATIONS',
+    titleSw: 'UENDESHAJI',
+    tabIds: ['overview', 'orders', 'kitchen'],
+  },
+  {
+    titleEn: 'CATALOG',
+    titleSw: 'ORODHA YA VYAKULA',
+    tabIds: ['menu', 'custom-meals'],
+  },
+  {
+    titleEn: 'CUSTOMERS',
+    titleSw: 'WATEJA',
+    tabIds: ['reservations', 'reviews'],
+  },
+  {
+    titleEn: 'BUSINESS',
+    titleSw: 'BIASHARA & MAPATO',
+    tabIds: ['earnings', 'analytics'],
+  },
+  {
+    titleEn: 'TEAM & STORE',
+    titleSw: 'TIMU & DUKA',
+    tabIds: ['staff', 'settings'],
+  },
+];
 
 export interface RestaurantSidebarProps {
   activeTab: RestaurantTab;
@@ -29,106 +72,205 @@ export const RestaurantSidebar: React.FC<RestaurantSidebarProps> = ({
   kitchenBadgeCount = 0,
   reservationBadgeCount = 0,
 }) => {
-  const visibleItems = RESTAURANT_NAV_ITEMS.filter((item) =>
-    item.allowedRoles.includes(userRole)
-  );
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
+  const itemMap = new Map<RestaurantTab, NavItemConfig>();
+  for (const item of RESTAURANT_NAV_ITEMS) {
+    if (item.allowedRoles.includes(userRole)) {
+      itemMap.set(item.id, item);
+    }
+  }
 
   return (
-    <View style={styles.sidebarContainer}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            {language === 'sw' ? 'UENDESHAJI WA MGAHAWA' : 'RESTAURANT OPS'}
-          </Text>
-        </View>
+    <View
+      style={[
+        styles.sidebarContainer,
+        {
+          backgroundColor: colors.sidebarBackground,
+          borderRightColor: colors.border,
+        },
+      ]}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {RESTAURANT_NAV_GROUPS.map((group, gIdx) => {
+          const groupItems = group.tabIds
+            .map((id) => itemMap.get(id))
+            .filter((item): item is NavItemConfig => Boolean(item));
 
-        {visibleItems.map((item) => {
-          const isActive = activeTab === item.id;
-          let badge = 0;
-          if (item.id === 'orders') badge = orderBadgeCount;
-          if (item.id === 'kitchen') badge = kitchenBadgeCount;
-          if (item.id === 'reservations') badge = reservationBadgeCount;
+          if (groupItems.length === 0) return null;
 
           return (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.navItem, isActive && styles.navItemActive]}
-              onPress={() => onSelectTab(item.id)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={language === 'sw' ? item.labelSw : item.label}
+            <View
+              key={group.titleEn}
+              style={[
+                styles.groupBlock,
+                gIdx > 0 && {
+                  paddingTop: 10,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.divider,
+                },
+              ]}
             >
-              <View style={styles.navItemLeft}>
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={isActive ? Colors.primaryDark : Colors.textSecondary}
-                  style={styles.navIcon}
-                />
-                <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-                  {language === 'sw' ? item.labelSw : item.label}
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>
+                  {language === 'sw' ? group.titleSw : group.titleEn}
                 </Text>
               </View>
 
-              {badge > 0 && (
-                <View style={[styles.badge, isActive && styles.badgeActive]}>
-                  <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>
-                    {badge > 99 ? '99+' : badge}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              {groupItems.map((item) => {
+                const isActive = activeTab === item.id;
+                let badge = 0;
+                if (item.id === 'orders') badge = orderBadgeCount;
+                if (item.id === 'kitchen') badge = kitchenBadgeCount;
+                if (item.id === 'reservations') badge = reservationBadgeCount;
+
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.navItem,
+                      isActive && {
+                        backgroundColor: colors.navActiveBackground,
+                      },
+                    ]}
+                    onPress={() => onSelectTab(item.id)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={language === 'sw' ? item.labelSw : item.label}
+                  >
+                    {isActive && (
+                      <View
+                        style={[
+                          styles.activeBar,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      />
+                    )}
+                    <View style={styles.navItemLeft}>
+                      <Ionicons
+                        name={item.icon}
+                        size={18}
+                        color={isActive ? colors.primary : colors.navText}
+                        style={styles.navIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.navLabel,
+                          {
+                            color: isActive ? colors.navActiveText : colors.navText,
+                            fontWeight: isActive ? '700' : '500',
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {language === 'sw' ? item.labelSw : item.label}
+                      </Text>
+                    </View>
+
+                    {badge > 0 && (
+                      <View
+                        style={[
+                          styles.badge,
+                          {
+                            backgroundColor: isActive
+                              ? colors.primary
+                              : colors.surfaceInteractive,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            {
+                              color: isActive ? colors.card : colors.textSecondary,
+                            },
+                          ]}
+                        >
+                          {badge > 99 ? '99+' : badge}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           );
         })}
       </ScrollView>
 
       {/* Footer Role Notice */}
-      <View style={styles.footer}>
-        <Text style={styles.footerRoleText}>
-          Role: <Text style={styles.footerRoleBold}>{userRole}</Text>
+      <View
+        style={[
+          styles.footer,
+          {
+            borderTopColor: colors.divider,
+            backgroundColor: colors.surfaceMuted,
+          },
+        ]}
+      >
+        <Text style={[styles.footerRoleText, { color: colors.textSecondary }]}>
+          Role:{' '}
+          <Text style={[styles.footerRoleBold, { color: colors.primary }]}>
+            {userRole}
+          </Text>
         </Text>
-        <Text style={styles.footerSecurityText}>Secure restaurant workspace</Text>
+        <Text style={[styles.footerSecurityText, { color: colors.textMuted }]}>
+          Merchant Operations Workbench
+        </Text>
       </View>
     </View>
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sidebarContainer: {
     width: 240,
-    backgroundColor: Colors.surface,
     borderRightWidth: 1,
-    borderRightColor: Colors.borderLight,
     height: '100%',
     justifyContent: 'space-between',
   },
   scrollContent: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  groupBlock: {
+    marginBottom: 10,
   },
   sectionHeader: {
-    paddingHorizontal: Spacing.sm,
-    marginBottom: Spacing.xs,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 2,
   },
   sectionTitle: {
-    ...Typography.Caption,
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.textMuted,
     letterSpacing: 0.8,
   },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 11,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radii.md,
-    marginBottom: 4,
-    minHeight: 44,
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: 9,
+    marginBottom: 2,
+    position: 'relative',
+    ...Platform.select({
+      web: { cursor: 'pointer' } as any,
+    }),
   },
-  navItemActive: {
-    backgroundColor: Colors.primaryMuted,
+  activeBar: {
+    position: 'absolute',
+    left: 0,
+    top: 9,
+    bottom: 9,
+    width: 3,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
   },
   navItemLeft: {
     flexDirection: 'row',
@@ -136,54 +278,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   navIcon: {
-    marginRight: Spacing.sm,
+    marginRight: 10,
   },
   navLabel: {
-    ...Typography.BodyMedium,
-    fontSize: 13.5,
-    color: Colors.textSecondary,
-    fontWeight: '500',
-  },
-  navLabelActive: {
-    color: Colors.primaryDark,
-    fontWeight: '700',
+    fontSize: 13,
   },
   badge: {
-    backgroundColor: Colors.surfaceSecondary,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: Radii.full,
-  },
-  badgeActive: {
-    backgroundColor: Colors.primaryDark,
+    borderRadius: 999,
   },
   badgeText: {
-    ...Typography.Caption,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  badgeTextActive: {
-    color: Colors.white,
   },
   footer: {
     padding: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    backgroundColor: Colors.surfaceSecondary,
   },
   footerRoleText: {
-    ...Typography.Caption,
-    color: Colors.textSecondary,
+    fontSize: 11,
   },
   footerRoleBold: {
     fontWeight: '700',
-    color: Colors.primaryDark,
   },
   footerSecurityText: {
-    ...Typography.Caption,
     fontSize: 10,
-    color: Colors.textMuted,
     marginTop: 2,
   },
 });
+let styles = createStyles(lightColors);

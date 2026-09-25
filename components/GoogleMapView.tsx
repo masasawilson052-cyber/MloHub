@@ -16,6 +16,11 @@ import { Restaurant } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface GoogleMapViewProps {
   restaurants: Restaurant[];
   selectedRestaurantId?: string;
@@ -31,6 +36,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   onOpenReservation,
   height = 420,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { language } = useLanguage();
   const { width } = useWindowDimensions();
@@ -154,7 +160,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
           activeOpacity={0.8}
           accessibilityLabel="Center Dar es Salaam"
         >
-          <Ionicons name="locate" size={16} color={Colors.primaryDark} />
+          <Ionicons name="locate" size={16} color={colors.primaryDark} />
         </TouchableOpacity>
       </View>
 
@@ -218,7 +224,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
               onPress={() => handleOpenGoogleMapsDirections(activeRestaurant)}
               activeOpacity={0.85}
             >
-              <Ionicons name="navigate" size={14} color={Colors.white} />
+              <Ionicons name="navigate" size={14} color={colors.white} />
               <Text style={styles.directionsBtnText}>
                 {language === 'sw' ? 'Fungua Google Maps' : 'Google Maps Directions'}
               </Text>
@@ -252,7 +258,7 @@ export const GoogleMapView: React.FC<GoogleMapViewProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     width: '100%',
     borderRadius: Radii.xxl,
@@ -260,7 +266,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#e5e3df',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.md,
   },
   mapCanvasWrapper: {
@@ -285,11 +291,11 @@ const styles = StyleSheet.create({
   nativeMapTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   nativeMapSub: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   neighborhoodChipsWrap: {
@@ -308,20 +314,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   nChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   nChipText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   nChipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   mapControlsRight: {
     position: 'absolute',
@@ -338,7 +344,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   locateBtn: {
@@ -347,7 +353,7 @@ const styles = StyleSheet.create({
   controlBtnText: {
     fontSize: 16,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     lineHeight: 18,
   },
   pinsHorizontalBar: {
@@ -368,12 +374,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   mapPinPillSelected: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryLight,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryLight,
   },
   pinEmoji: {
     fontSize: 12,
@@ -381,26 +387,26 @@ const styles = StyleSheet.create({
   pinName: {
     fontSize: 9,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   pinNameSelected: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   pinRating: {
     fontSize: 8,
     fontWeight: '900',
-    color: Colors.accent,
+    color: colors.primary,
   },
   floatingCard: {
     position: 'absolute',
     bottom: 10,
     left: 10,
     right: 10,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     zIndex: 10,
     ...Shadows.lg,
   },
@@ -413,7 +419,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: Radii.lg,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -431,11 +437,11 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 13,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     flex: 1,
   },
   distPill: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radii.full,
@@ -443,17 +449,17 @@ const styles = StyleSheet.create({
   distPillText: {
     fontSize: 9,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   cardCuisine: {
     fontSize: 10,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   cardPrice: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginTop: 1,
   },
   cardActionsRow: {
@@ -463,7 +469,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   directionsBtn: {
     flex: 2,
@@ -476,21 +482,22 @@ const styles = StyleSheet.create({
     borderRadius: Radii.lg,
   },
   directionsBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '900',
   },
   viewMenuBtn: {
     flex: 1,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 8,
     borderRadius: Radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewMenuBtnText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 11,
     fontWeight: '800',
   },
 });
+let styles = createStyles(lightColors);

@@ -11,6 +11,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Typography } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 interface OtpInputProps {
   phone: string;
   carrierName?: string;
@@ -32,6 +37,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({
   language = 'sw',
   cooldownSeconds = 60,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [secondsRemaining, setSecondsRemaining] = useState(cooldownSeconds);
   const [isResending, setIsResending] = useState(false);
@@ -104,7 +110,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({
     <View style={styles.container}>
       {/* Header Info */}
       <View style={styles.phoneBadge}>
-        <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
+        <Ionicons name="shield-checkmark" size={16} color={colors.primary} />
         <Text style={styles.phoneText}>
           {language === 'sw' ? 'Imetumwa kwa: ' : 'Sent to: '}
           <Text style={styles.phoneHighlight}>{phone}</Text>
@@ -153,7 +159,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({
       {/* Loading Indicator */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text style={styles.loadingText}>
             {language === 'sw' ? 'Inathibitisha...' : 'Verifying code...'}
           </Text>
@@ -175,10 +181,10 @@ export const OtpInput: React.FC<OtpInputProps> = ({
             disabled={isResending}
           >
             {isResending ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
-                <Ionicons name="refresh" size={16} color={Colors.primary} />
+                <Ionicons name="refresh" size={16} color={colors.primary} />
                 <Text style={styles.resendButtonText}>
                   {language === 'sw' ? 'Tuma tena msimbo wa SMS' : 'Resend SMS Code'}
                 </Text>
@@ -191,7 +197,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: Spacing.md,
@@ -201,25 +207,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radii.pill,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginBottom: 6,
   },
   phoneText: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   phoneHighlight: {
-    color: Colors.text,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   carrierText: {
     fontSize: 12,
-    color: Colors.textTertiary,
+    color: colors.textMuted,
     marginBottom: Spacing.md,
   },
   cellsRow: {
@@ -233,30 +239,30 @@ const styles = StyleSheet.create({
     width: 44,
     height: 52,
     borderRadius: Radii.md,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     ...Platform.select({
       web: { outlineStyle: 'none' } as any,
     }),
   },
   cellFilled: {
-    borderColor: Colors.primary,
-    backgroundColor: '#fff7ed',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   cellError: {
-    borderColor: '#ef4444',
-    backgroundColor: '#fef2f2',
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radii.md,
@@ -265,7 +271,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#b91c1c',
+    color: colors.danger,
     fontWeight: '500',
   },
   loadingContainer: {
@@ -276,7 +282,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   resendContainer: {
@@ -285,7 +291,7 @@ const styles = StyleSheet.create({
   },
   cooldownText: {
     fontSize: 13,
-    color: Colors.textTertiary,
+    color: colors.textMuted,
   },
   resendButton: {
     flexDirection: 'row',
@@ -296,7 +302,8 @@ const styles = StyleSheet.create({
   },
   resendButtonText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
 });
+let styles = createStyles(lightColors);

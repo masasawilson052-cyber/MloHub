@@ -6,8 +6,11 @@ import {
   StyleProp,
   ActivityIndicator,
 } from 'react-native';
-import { Colors } from '../../theme/colors';
-import { Radii } from '../../theme/radius';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export type IconButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'surface';
 
@@ -15,7 +18,7 @@ export interface IconButtonProps {
   icon: React.ReactNode;
   onPress: () => void;
   variant?: IconButtonVariant;
-  size?: number; // Outer container size, defaults to 44 or 48
+  size?: number;
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -26,22 +29,32 @@ export const IconButton: React.FC<IconButtonProps> = ({
   icon,
   onPress,
   variant = 'ghost',
-  size = 48,
+  size = 44,
   disabled = false,
   loading = false,
   style,
   accessibilityLabel,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+
   const getVariantStyle = (): ViewStyle => {
     switch (variant) {
       case 'primary':
-        return { backgroundColor: Colors.primary };
+        return { backgroundColor: colors.primary };
       case 'secondary':
-        return { backgroundColor: Colors.primaryMuted };
+        return { backgroundColor: colors.primarySoft };
       case 'surface':
-        return { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.borderLight };
+        return {
+          backgroundColor: colors.surfaceInteractive,
+          borderWidth: 1,
+          borderColor: colors.border,
+        };
       case 'outline':
-        return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.border };
+        return {
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderColor: colors.borderStrong,
+        };
       case 'ghost':
       default:
         return { backgroundColor: 'transparent' };
@@ -66,7 +79,10 @@ export const IconButton: React.FC<IconButtonProps> = ({
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'primary' ? Colors.white : Colors.primary} />
+        <ActivityIndicator
+          size="small"
+          color={variant === 'primary' ? colors.card : colors.primary}
+        />
       ) : (
         icon
       )}
@@ -74,7 +90,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -83,3 +99,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+let styles = createStyles(lightColors);

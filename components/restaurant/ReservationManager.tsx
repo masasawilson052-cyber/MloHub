@@ -18,6 +18,11 @@ import { Badge } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/Button';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface ReservationManagerProps {
   reservations: Reservation[];
   onUpdateStatus: (reservationId: string, nextStatus: ReservationStatus) => Promise<void>;
@@ -31,6 +36,7 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
   maxTablesCapacity = 20,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [activeTab, setActiveTab] = useState<string>('TODAY');
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -96,7 +102,7 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
           <Ionicons
             name={isNearCapacity ? 'warning-outline' : 'cafe-outline'}
             size={20}
-            color={isNearCapacity ? '#B45309' : Colors.primaryDark}
+            color={isNearCapacity ? '#B45309' : colors.primaryDark}
           />
           <View>
             <Text style={styles.capacityTitle}>
@@ -168,7 +174,7 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
                   <Text style={styles.customerName}>
                     {(res as any).customerName || 'Dine-in Guest'}
                   </Text>
-                  <Text style={{ fontSize: 11, color: Colors.muted, fontWeight: '700' }}>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, fontWeight: '700' }}>
                     Ref: {res.reference || res.id}
                   </Text>
                 </View>
@@ -180,19 +186,19 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
               {/* Booking Details Grid */}
               <View style={styles.detailsGrid}>
                 <View style={styles.detailItem}>
-                  <Ionicons name="calendar-outline" size={15} color={Colors.textMuted} />
+                  <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.detailText}>{res.reservationDate || 'Today'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Ionicons name="time-outline" size={15} color={Colors.textMuted} />
+                  <Ionicons name="time-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.detailText}>{res.reservationTime || '19:30'}</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Ionicons name="people-outline" size={15} color={Colors.textMuted} />
+                  <Ionicons name="people-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.detailText}>{res.partySize} Guests</Text>
                 </View>
                 <View style={styles.detailItem}>
-                  <Ionicons name="card-outline" size={15} color={Colors.textMuted} />
+                  <Ionicons name="card-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.detailText}>
                     {res.isDepositPaid
                       ? `Deposit Paid (TZS ${res.depositAmountTzs?.toLocaleString() || 0})`
@@ -204,13 +210,13 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
               </View>
 
               {res.areaPreference && res.areaPreference !== 'ANY' && (
-                <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 4 }}>
+                <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4 }}>
                   Area: {res.areaPreference}
                 </Text>
               )}
 
               {res.tableName && (
-                <Text style={{ fontSize: 11, color: Colors.primaryDark, fontWeight: '700', marginTop: 2 }}>
+                <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '700', marginTop: 2 }}>
                   Table: {res.tableName}
                 </Text>
               )}
@@ -231,7 +237,7 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
                       onPress={() => onUpdateStatus(res.id, 'REJECTED')}
                       variant="outline"
                       size="sm"
-                      style={{ borderColor: Colors.error }}
+                      style={{ borderColor: colors.danger }}
                     />
                     <Button
                       title="Accept Booking ✓"
@@ -276,7 +282,7 @@ export const ReservationManager: React.FC<ReservationManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -288,17 +294,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.md,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     marginBottom: Spacing.md,
     ...Shadows.sm,
   },
   capacityBannerWarning: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warning,
   },
   capacityLeft: {
     flexDirection: 'row',
@@ -308,15 +314,15 @@ const styles = StyleSheet.create({
   capacityTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   capacitySub: {
     fontSize: 11,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     marginTop: 2,
   },
   busyPill: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: Radii.full,
@@ -324,7 +330,7 @@ const styles = StyleSheet.create({
   busyPillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#B45309',
+    color: colors.warning,
   },
   filterRow: {
     flexDirection: 'row',
@@ -338,50 +344,50 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     gap: 4,
   },
   filterChipActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   filterChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   filterChipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   filterCountBadge: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: colors.divider,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: Radii.full,
   },
   filterCountBadgeActive: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
   },
   filterCountText: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   filterCountTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   listContainer: {
     gap: Spacing.sm,
     paddingBottom: Spacing.xl,
   },
   reservationCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   cardHeader: {
@@ -396,7 +402,7 @@ const styles = StyleSheet.create({
   customerName: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -415,10 +421,10 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 11,
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   notesBox: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.appBackground,
     padding: Spacing.xs,
     borderRadius: Radii.sm,
     marginTop: Spacing.xs,
@@ -426,11 +432,11 @@ const styles = StyleSheet.create({
   notesLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.textMuted,
+    color: colors.textMuted,
   },
   notesText: {
     fontSize: 11,
-    color: Colors.text,
+    color: colors.textPrimary,
     fontStyle: 'italic',
   },
   actionsRow: {
@@ -440,6 +446,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingTop: Spacing.xs,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
 });
+let styles = createStyles(lightColors);

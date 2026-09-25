@@ -47,6 +47,7 @@ import { runDesignSystemV2Tests } from './designSystemV2.test';
 import { runPack5aCustomerTestSuite } from './pack5aCustomerExperience.test';
 import { runDemoReadinessTestSuite } from './demoReadiness.test';
 import { runRestaurantDemoLifecycleTestSuite } from './restaurantDemoLifecycle.test';
+import { runThemeVisualClosureTests } from './themeVisualClosure.test';
 
 
 let passed = 0;
@@ -734,6 +735,11 @@ async function runMasterTestSuite() {
   const lifecycleResults = await runRestaurantDemoLifecycleTestSuite();
   passed += lifecycleResults.passedCount;
   failed += lifecycleResults.failedCount;
+
+  // Final Appearance, Light/Dark Theme & Portal Design Closure Suite
+  const themeClosureResults = await runThemeVisualClosureTests();
+  passed += themeClosureResults.passed;
+  failed += themeClosureResults.failed;
 
   // Final Results
   console.log('\n================================================================');

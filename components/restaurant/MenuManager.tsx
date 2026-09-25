@@ -21,6 +21,11 @@ import { Button } from '../ui/Button';
 import { FreshnessBadge } from '../ui/FreshnessBadge';
 import { EmptyState } from '../ui/EmptyState';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export interface MenuManagerProps {
   items: MenuItem[];
   categories: MenuCategory[];
@@ -48,6 +53,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
   onOpenCategoriesManager,
   language = 'en',
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
@@ -112,7 +118,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
       {/* Top Operating Control Bar */}
       <View style={styles.topControlBar}>
         <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder={language === 'sw' ? 'Tafuta chakula kwa jina...' : 'Search dishes by name...'}
@@ -121,7 +127,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -132,7 +138,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
             onPress={onOpenCategoriesManager}
             accessibilityRole="button"
           >
-            <Ionicons name="folder-outline" size={16} color={Colors.textPrimary} />
+            <Ionicons name="folder-outline" size={16} color={colors.textPrimary} />
             <Text style={styles.categoriesBtnText}>
               {language === 'sw' ? 'Makundi' : 'Categories'}
             </Text>
@@ -205,16 +211,16 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
 
           <View style={styles.bulkButtonsRow}>
             <TouchableOpacity
-              style={[styles.bulkBtn, { backgroundColor: '#DCFCE7' }]}
+              style={[styles.bulkBtn, { backgroundColor: colors.successSoft }]}
               onPress={() => handleBulkAvailability(true)}
             >
-              <Text style={[styles.bulkBtnText, { color: '#15803D' }]}>Mark Available</Text>
+              <Text style={[styles.bulkBtnText, { color: colors.success }]}>Mark Available</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.bulkBtn, { backgroundColor: '#FEE2E2' }]}
+              style={[styles.bulkBtn, { backgroundColor: colors.dangerSoft }]}
               onPress={() => handleBulkAvailability(false)}
             >
-              <Text style={[styles.bulkBtnText, { color: '#DC2626' }]}>Mark Sold Out</Text>
+              <Text style={[styles.bulkBtnText, { color: colors.danger }]}>Mark Sold Out</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -248,7 +254,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
                     onPress={() => toggleSelectItem(dish.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    {isSelected && <Ionicons name="checkmark" size={14} color={Colors.white} />}
+                    {isSelected && <Ionicons name="checkmark" size={14} color={colors.white} />}
                   </TouchableOpacity>
 
                   {/* Dish Info */}
@@ -295,7 +301,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
                     onPress={() => onVerifySingleDish(dish.id)}
                     activeOpacity={0.8}
                   >
-                    <Ionicons name="shield-checkmark-outline" size={14} color={Colors.primary} />
+                    <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary} />
                     <Text style={styles.verifyDishBtnText}>Verify Price Today</Text>
                   </TouchableOpacity>
 
@@ -305,7 +311,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
                       onPress={() => onEditDish(dish)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="pencil-outline" size={15} color={Colors.textSecondary} />
+                      <Ionicons name="pencil-outline" size={15} color={colors.textSecondary} />
                       <Text style={styles.editBtnText}>Edit</Text>
                     </TouchableOpacity>
 
@@ -323,7 +329,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
                       }
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="trash-outline" size={15} color={Colors.error} />
+                      <Ionicons name="trash-outline" size={15} color={colors.error} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -336,7 +342,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     padding: Spacing.md,
@@ -355,9 +361,9 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.sm,
     height: 42,
@@ -378,9 +384,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.md,
     paddingHorizontal: 12,
     height: 38,
@@ -388,10 +394,10 @@ const styles = StyleSheet.create({
   categoriesBtnText: {
     ...Typography.Caption,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   verifyMenuBtn: {
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   catChipsContainer: {
     gap: Spacing.xs,
@@ -402,31 +408,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   catFilterChipActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   catFilterText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   catFilterTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   bulkActionBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
     marginBottom: Spacing.sm,
     ...Shadows.sm,
   },
@@ -438,11 +444,11 @@ const styles = StyleSheet.create({
   bulkCountText: {
     ...Typography.BodyMedium,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   bulkSelectAllText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     textDecorationLine: 'underline',
   },
   bulkButtonsRow: {
@@ -463,10 +469,10 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   dishCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     padding: Spacing.md,
     ...Shadows.sm,
   },
@@ -483,14 +489,14 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: Spacing.sm,
   },
   checkboxActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
+    borderColor: colors.primaryDark,
   },
   dishDetails: {
     flex: 1,
@@ -505,12 +511,12 @@ const styles = StyleSheet.create({
     ...Typography.H3,
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   dishNameSw: {
     ...Typography.Body,
     fontSize: 13,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontStyle: 'italic',
   },
   metaPillsRow: {
@@ -521,7 +527,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   catPill: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: Radii.sm,
@@ -530,11 +536,11 @@ const styles = StyleSheet.create({
     ...Typography.Caption,
     fontSize: 10,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   prepTimeText: {
     ...Typography.Caption,
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 11,
   },
   priceActionCol: {
@@ -544,7 +550,7 @@ const styles = StyleSheet.create({
   priceText: {
     ...Typography.H3,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginBottom: 4,
   },
   availPill: {
@@ -553,10 +559,10 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   availOn: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successSoft,
   },
   availOff: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   availText: {
     ...Typography.Caption,
@@ -564,17 +570,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   availTextOn: {
-    color: '#15803D',
+    color: colors.success,
   },
   availTextOff: {
-    color: '#DC2626',
+    color: colors.danger,
   },
   dishCardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.xs,
     marginTop: Spacing.sm,
   },
@@ -586,7 +592,7 @@ const styles = StyleSheet.create({
   },
   verifyDishBtnText: {
     ...Typography.Caption,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   rightCardActions: {
@@ -601,10 +607,11 @@ const styles = StyleSheet.create({
   },
   editBtnText: {
     ...Typography.Caption,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   archiveBtn: {
     padding: 2,
   },
 });
+let styles = createStyles(lightColors);

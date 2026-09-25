@@ -1,12 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
-import { Typography } from '../../theme/typography';
 import { RestaurantRole } from '../../types/auth';
 import { RestaurantTab, RESTAURANT_NAV_ITEMS } from './RestaurantSidebar';
+import { useTheme } from '../../context/ThemeContext';
+
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export interface RestaurantMobileNavProps {
   activeTab: RestaurantTab;
@@ -27,12 +30,21 @@ export const RestaurantMobileNav: React.FC<RestaurantMobileNavProps> = ({
   kitchenBadgeCount = 0,
   reservationBadgeCount = 0,
 }) => {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const visibleItems = RESTAURANT_NAV_ITEMS.filter((item) =>
     item.allowedRoles.includes(userRole)
   );
 
   return (
-    <View style={styles.navContainer}>
+    <View
+      style={[
+        styles.navContainer,
+        {
+          backgroundColor: colors.topbarBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -48,24 +60,50 @@ export const RestaurantMobileNav: React.FC<RestaurantMobileNavProps> = ({
           return (
             <TouchableOpacity
               key={item.id}
-              style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+              style={[
+                styles.tabBtn,
+                {
+                  backgroundColor: isActive
+                    ? colors.primarySoft
+                    : colors.surfaceInteractive,
+                  borderColor: isActive ? colors.primary : colors.border,
+                },
+              ]}
               onPress={() => onSelectTab(item.id)}
               activeOpacity={0.8}
               accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
               accessibilityLabel={language === 'sw' ? item.labelSw : item.label}
             >
               <Ionicons
                 name={item.icon}
-                size={18}
-                color={isActive ? Colors.primaryDark : Colors.textSecondary}
+                size={16}
+                color={isActive ? colors.primary : colors.textSecondary}
                 style={{ marginRight: 6 }}
               />
-              <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: isActive ? colors.primary : colors.textSecondary,
+                    fontWeight: isActive ? '700' : '600',
+                  },
+                ]}
+              >
                 {language === 'sw' ? item.labelSw : item.label}
               </Text>
               {badge > 0 && (
-                <View style={[styles.badge, isActive && styles.badgeActive]}>
-                  <Text style={[styles.badgeText, isActive && styles.badgeTextActive]}>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: isActive
+                        ? colors.primary
+                        : colors.textMuted,
+                    },
+                  ]}
+                >
+                  <Text style={styles.badgeText}>
                     {badge > 99 ? '99+' : badge}
                   </Text>
                 </View>
@@ -78,59 +116,38 @@ export const RestaurantMobileNav: React.FC<RestaurantMobileNavProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   navContainer: {
-    backgroundColor: Colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   scrollContent: {
     paddingHorizontal: Spacing.md,
-    gap: Spacing.xs,
+    gap: 8,
     alignItems: 'center',
   },
   tabBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
-    backgroundColor: Colors.surfaceSecondary,
-    minHeight: 40,
-  },
-  tabBtnActive: {
-    backgroundColor: Colors.primaryMuted,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    minHeight: 38,
   },
   tabText: {
-    ...Typography.Caption,
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  tabTextActive: {
-    color: Colors.primaryDark,
-    fontWeight: '700',
+    fontSize: 12,
   },
   badge: {
-    backgroundColor: Colors.textSecondary,
     borderRadius: Radii.full,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 6,
   },
-  badgeActive: {
-    backgroundColor: Colors.primaryDark,
-  },
   badgeText: {
-    ...Typography.Caption,
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.white,
-  },
-  badgeTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
 });
+let styles = createStyles(lightColors);
