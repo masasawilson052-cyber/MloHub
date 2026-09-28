@@ -117,6 +117,23 @@ export class TemplateRenderer {
       };
     }
 
+    if (eventType === 'RESTAURANT_PAYMENT_CAPTURED') {
+      const amount = payload.amount_tzs || payload.amountTzs || '0';
+      const net = payload.net_payable_tzs || payload.netPayableTzs || '0';
+      if (locale === 'sw') {
+        return {
+          title: `Malipo ya Oda #${orderNum} Yamethibitishwa`,
+          body: `TZS ${amount} imepokelewa kwa oda #${orderNum}. Malipo ya mgahawa: TZS ${net}.`,
+          templateVersion: 1,
+        };
+      }
+      return {
+        title: `Payment Captured for Order #${orderNum}`,
+        body: `TZS ${amount} captured for order #${orderNum}. Net restaurant payable: TZS ${net}.`,
+        templateVersion: 1,
+      };
+    }
+
     return {
       title: 'Taarifa ya MloHub',
       body: 'Una ujumbe mpya kutoka MloHub.',

@@ -10,6 +10,7 @@ export * from './MenuItemEditor';
 export * from './CategoryManager';
 export * from './ReservationManager';
 export * from './EarningsOverview';
+export * from './RefundsDisputesPanel';
 export * from './ReviewsPanel';
 export * from './AnalyticsPanel';
 export * from './StaffManager';

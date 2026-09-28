@@ -53,6 +53,7 @@ import { runPaymentDeliveryClosureTests } from './paymentDeliveryClosure.test';
 import { runPaymentSecurityClosureTests } from './paymentSecurityClosure.test';
 import { runRestaurantOnboardingTwoGateTests } from './restaurantOnboardingTwoGate.test';
 import { runRestaurantOperationsPhase2Tests } from './restaurantOperationsPhase2.test';
+import { runRestaurantFinancePhase3Tests } from './restaurantFinancePhase3.test';
 
 
 let passed = 0;
@@ -770,6 +771,11 @@ async function runMasterTestSuite() {
   const restaurantPhase2Results = await runRestaurantOperationsPhase2Tests();
   passed += restaurantPhase2Results.passed;
   failed += restaurantPhase2Results.failed;
+
+  // Restaurant Phase 3: Merchant Finance, Payouts, Refunds & Analytics Suite
+  const restaurantPhase3Results = await runRestaurantFinancePhase3Tests();
+  passed += restaurantPhase3Results.passed;
+  failed += restaurantPhase3Results.failed;
 
   // Final Results
   console.log('\n================================================================');

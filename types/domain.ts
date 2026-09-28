@@ -919,6 +919,7 @@ export type FinancialDisputeStatus =
   | 'OPEN'
   | 'EVIDENCE_REQUIRED'
   | 'UNDER_REVIEW'
+  | 'RESOLVED'
   | 'RESOLVED_CUSTOMER'
   | 'RESOLVED_RESTAURANT'
   | 'RESOLVED_PLATFORM'
@@ -942,12 +943,14 @@ export type MerchantPayoutStatus =
   | 'PENDING'
   | 'PROCESSING'
   | 'SUCCESS'
+  | 'COMPLETED'
+  | 'PAID'
   | 'FAILED'
   | 'REVERSED'
   | 'ON_HOLD'
   | 'MANUAL_REVIEW';
 
-export type PayoutDestinationType = 'MOBILE_MONEY' | 'BANK';
+export type PayoutDestinationType = 'MOBILE_MONEY' | 'BANK' | 'BANK_ACCOUNT';
 
 export type DestinationVerificationStatus =
   | 'UNVERIFIED'
@@ -1074,6 +1077,7 @@ export interface FinancialDispute {
   reasonCode: string;
   description: string;
   status: FinancialDisputeStatus;
+  orderId?: string;
   openedAt: string;
   evidenceDeadlineAt?: string;
   assignedAdmin?: string;
@@ -1183,6 +1187,30 @@ export interface FinancialAdjustment {
   createdAt: string;
 }
 
+export interface RestaurantFinancialSummary {
+  restaurantId: string;
+  from?: string;
+  to?: string;
+  grossFoodSales: number;
+  platformCommission: number;
+  serviceFeePlatformRevenue: number;
+  refundDeductions: number;
+  adjustments: number;
+  deliveryRestaurantShare: number;
+  restaurantPayable: number;
+  settledAmount: number;
+  pendingAmount: number;
+  paidOutAmount: number;
+  totalGrossFoodSalesTzs?: string;
+  totalPlatformCommissionTzs?: string;
+  totalNetEntitlementTzs?: string;
+  totalSettledPaidTzs?: string;
+  unsettledPayableTzs?: string;
+  heldDisputedTzs?: string;
+  activeDisputesCount?: number;
+  lastSettlementAt?: string;
+}
+
 export interface ReconciliationRun {
   id: string;
   provider: string;
@@ -1208,18 +1236,6 @@ export interface ReconciliationItem {
   result: ReconciliationResult;
   notes?: string;
   createdAt: string;
-}
-
-export interface RestaurantFinancialSummary {
-  restaurantId: string;
-  totalGrossFoodSalesTzs: string;
-  totalPlatformCommissionTzs: string;
-  totalNetEntitlementTzs: string;
-  totalSettledPaidTzs: string;
-  unsettledPayableTzs: string;
-  heldDisputedTzs: string;
-  activeDisputesCount: number;
-  lastSettlementAt?: string;
 }
 
 // ============================================================================
@@ -1530,6 +1546,7 @@ export type NotificationDeliveryStatus =
 export type NotificationEventType =
   | 'ORDER_CREATED'
   | 'RESTAURANT_NEW_PAID_ORDER'
+  | 'RESTAURANT_PAYMENT_CAPTURED'
   | 'ORDER_ACCEPTED'
   | 'ORDER_PREPARING'
   | 'ORDER_READY'

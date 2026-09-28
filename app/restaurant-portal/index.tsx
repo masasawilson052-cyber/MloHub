@@ -38,6 +38,12 @@ import {
   Review,
   BranchOperationalMode,
   MenuModifierGroup,
+  MerchantSettlement,
+  MerchantPayout,
+  MerchantPayoutDestination,
+  RefundRequest,
+  FinancialDispute,
+  RestaurantFinancialSummary,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
@@ -55,6 +61,10 @@ import {
   ReviewResponsesRepository,
   BranchOperationsRepository,
   ApplicationRepository,
+  SettlementsRepository,
+  PayoutsRepository,
+  RefundsRepository,
+  DisputesRepository,
 } from '../../repositories';
 import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
 
@@ -463,6 +473,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [customMealInvitations, setCustomMealInvitations] = useState<any[]>([]);
   const [branchPrices, setBranchPrices] = useState<{ branchId: string; menuItemId: string; priceTzs: number }[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<RestaurantFinancialSummary | undefined>(undefined);
+  const [settlements, setSettlements] = useState<MerchantSettlement[]>([]);
+  const [payouts, setPayouts] = useState<MerchantPayout[]>([]);
+  const [payoutDestinations, setPayoutDestinations] = useState<MerchantPayoutDestination[]>([]);
+  const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
+  const [financialDisputes, setFinancialDisputes] = useState<FinancialDispute[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('LIVE');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [requestLoadError, setRequestLoadError] = useState<string | null>(null);
@@ -518,6 +534,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
           setSelectedBranchId(restBranches[0].id);
         }
         setMenuItems((dbRest?.menu || []) as any);
+        const [localSummary, localDests] = await Promise.all([
+          PayoutsRepository.getFinancialSummary(activeRestaurant.id).catch(() => undefined),
+          PayoutsRepository.listDestinations(activeRestaurant.id).catch(() => []),
+        ]);
+        if (localSummary) setFinancialSummary(localSummary);
+        setPayoutDestinations(localDests);
         return;
       }
 
@@ -532,6 +554,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         fetchedReviews,
         fetchedStaff,
         fetchedCustomMeals,
+        fetchedSummary,
+        fetchedSettlements,
+        fetchedPayouts,
+        fetchedDestinations,
+        fetchedRefunds,
+        fetchedDisputes,
       ] = await Promise.all([
         RestaurantRepository.getById(activeRestaurant.id).catch(() => null),
         BranchRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
@@ -543,6 +571,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         ReviewRepository.listForRestaurant(activeRestaurant.id).catch(() => []),
         RestaurantMemberRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
         CustomMealRepository.listInvitedRequestsForRestaurant(activeRestaurant.id).then((items) => { setRequestLoadError(null); return items; }).catch((error) => { setRequestLoadError(error.message || 'Could not load food requests. Refresh to retry.'); return null; }),
+        PayoutsRepository.getFinancialSummary(activeRestaurant.id).catch(() => undefined),
+        SettlementsRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
+        PayoutsRepository.listPayoutsByRestaurant(activeRestaurant.id).catch(() => []),
+        PayoutsRepository.listDestinations(activeRestaurant.id).catch(() => []),
+        RefundsRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
+        DisputesRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
       ]);
 
       if (fetchedRest) {
@@ -560,6 +594,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       setReviews(fetchedReviews);
       setStaffList(fetchedStaff);
       if (fetchedCustomMeals) setCustomMealInvitations(fetchedCustomMeals);
+      if (fetchedSummary) setFinancialSummary(fetchedSummary);
+      setSettlements(fetchedSettlements);
+      setPayouts(fetchedPayouts);
+      setPayoutDestinations(fetchedDestinations);
+      setRefundRequests(fetchedRefunds);
+      setFinancialDisputes(fetchedDisputes);
 
       if (selectedBranchId || fetchedBranches.length > 0) {
         const branchToQuery = selectedBranchId || fetchedBranches[0].id;
@@ -920,6 +960,18 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       setIsRefreshing(false);
     }
   }, [loadRestaurantWorkspace]);
+
+  const handleFinanceDateFilterChange = useCallback(
+    async (_preset: any, from?: string, to?: string) => {
+      try {
+        const updatedSummary = await PayoutsRepository.getFinancialSummary(activeRestaurant.id, from, to);
+        setFinancialSummary(updatedSummary);
+      } catch (e) {
+        console.warn('[RestaurantPortal] Financial date filter warning:', e);
+      }
+    },
+    [activeRestaurant.id]
+  );
 
   const handleLogout = useCallback(async () => {
     try {
@@ -1817,11 +1869,21 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
             {activeTab === 'earnings' && (
               <EarningsOverview
+                restaurantId={activeRestaurant.id}
+                summary={financialSummary}
                 todayGrossTzs={financialTotals.todayGross}
                 todayNetTzs={financialTotals.todayNet}
                 weekGrossTzs={financialTotals.weekGross}
                 monthGrossTzs={financialTotals.monthGross}
                 transactions={earningsTransactions}
+                settlements={settlements}
+                payouts={payouts}
+                destinations={payoutDestinations}
+                refunds={refundRequests}
+                disputes={financialDisputes}
+                userRole={userRole}
+                onRefresh={loadRestaurantWorkspace}
+                onDateFilterChange={handleFinanceDateFilterChange}
                 language={language as any}
               />
             )}
@@ -1829,6 +1891,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
             {activeTab === 'analytics' && (
               <AnalyticsPanel
                 data={discoveryAnalytics}
+                restaurantId={activeRestaurant.id}
+                orders={domainOrders}
+                payments={payments}
+                menuItems={menuItems}
+                branches={branches}
+                financialSummary={financialSummary}
                 language={language as any}
               />
             )}
