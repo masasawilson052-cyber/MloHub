@@ -79,11 +79,17 @@ export default function RestaurantDetailScreen() {
     !matched.isSuspended &&
     matched.verificationStatus !== 'SUSPENDED' &&
     matched.verificationStatus !== 'REJECTED' &&
+    matched.verificationStatus !== 'PENDING_VERIFICATION' &&
+    (matched as any).isVerified !== false &&
     matched.isActive !== false &&
-    matched.isPublished !== false;
+    matched.isPublished !== false &&
+    (!(matched as any).launchStatus || (matched as any).launchStatus === 'PUBLISHED');
   const restaurant: any = isAvailableForCustomers ? matched : undefined;
 
   const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
+  const [branchPrices, setBranchPrices] = useState<any[]>([]);
+  const [branchItemStates, setBranchItemStates] = useState<any[]>([]);
   const [isMenuLoading, setIsMenuLoading] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
@@ -94,9 +100,11 @@ export default function RestaurantDetailScreen() {
       BranchRepository.listByRestaurant(id)
         .then((bList) => {
           if (isMounted) {
-            setBranches(bList);
-            if (bList.length > 0) {
-              setSelectedBranch(bList[0]);
+            const activeBranches = bList.filter((b: any) => b.isActive !== false);
+            const resolvedList = activeBranches.length > 0 ? activeBranches : bList;
+            setBranches(resolvedList);
+            if (resolvedList.length > 0) {
+              setSelectedBranch(resolvedList[0]);
             }
           }
         })
@@ -113,10 +121,14 @@ export default function RestaurantDetailScreen() {
     let isMounted = true;
     if (id) {
       setIsMenuLoading(true);
-      MenuRepository.listItems(id)
-        .then((items: any) => {
+      Promise.all([
+        MenuRepository.listItems(id),
+        MenuRepository.listCategories(id).catch(() => []),
+      ])
+        .then(([items, cats]: [any, any]) => {
           if (isMounted) {
-            setDbMenuItems(items);
+            setDbMenuItems(items || []);
+            setDbCategories(cats || []);
             setIsMenuLoading(false);
           }
         })
@@ -130,23 +142,76 @@ export default function RestaurantDetailScreen() {
     };
   }, [id]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const branchIdToQuery = selectedBranch?.id || branches[0]?.id;
+    if (branchIdToQuery) {
+      Promise.all([
+        MenuRepository.listBranchPrices(branchIdToQuery).catch(() => []),
+        MenuRepository.getBranchMenuItems(branchIdToQuery).catch(() => []),
+      ]).then(([prices, itemStates]) => {
+        if (isMounted) {
+          setBranchPrices(prices || []);
+          setBranchItemStates(itemStates || []);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBranch?.id, branches]);
+
   const menuItems = useMemo(() => {
     if (dbMenuItems && dbMenuItems.length > 0) {
-      return dbMenuItems.map((item) => ({
-        id: item.id,
-        name: language === 'sw' && item.nameSw ? item.nameSw : (item.nameEn || item.name),
-        nameSw: item.nameSw,
-        desc: language === 'sw' && item.descriptionSw ? item.descriptionSw : (item.description || ''),
-        price: `TZS ${item.basePrice.toLocaleString()}`,
-        priceNum: item.basePrice,
-        popular: (item as any).isPopular ?? (item as any).popular ?? false,
-        category: item.categoryName || item.category || 'Dishes',
-        imageUrl: item.imageUrl,
-        photoUrl: item.imageUrl,
-      }));
+      const catMap = new Map<string, string>();
+      for (const c of dbCategories) {
+        catMap.set(c.id, language === 'sw' && c.nameSw ? c.nameSw : (c.nameEn || c.name));
+      }
+      return dbMenuItems
+        .filter((item) => {
+          const branchState = branchItemStates.find((bs: any) => bs.menuItemId === item.id);
+          return branchState?.operationalStatus !== 'HIDDEN';
+        })
+        .map((item) => {
+          const branchPriceRow = branchPrices.find((bp: any) => bp.menuItemId === item.id);
+          const branchState = branchItemStates.find((bs: any) => bs.menuItemId === item.id);
+          const effectivePrice =
+            branchPriceRow?.priceTzs && branchPriceRow.priceTzs > 0
+              ? branchPriceRow.priceTzs
+              : branchState?.priceOverrideTzs && branchState.priceOverrideTzs > 0
+              ? branchState.priceOverrideTzs
+              : item.basePrice;
+          const isBranchAvailable =
+            (branchPriceRow ? branchPriceRow.isAvailable !== false : true) &&
+            (branchState
+              ? branchState.isAvailable !== false && branchState.operationalStatus !== 'SOLD_OUT_TODAY'
+              : true);
+          const isAvailable = item.isAvailable !== false && isBranchAvailable;
+          const resolvedCat =
+            (item.categoryId && catMap.get(item.categoryId)) ||
+            item.categoryName ||
+            item.category ||
+            (language === 'sw' ? 'Vyakula' : 'Dishes');
+          return {
+            id: item.id,
+            name: language === 'sw' && item.nameSw ? item.nameSw : (item.nameEn || item.name),
+            nameSw: item.nameSw,
+            desc: language === 'sw' && item.descriptionSw ? item.descriptionSw : (item.description || ''),
+            price: `TZS ${effectivePrice.toLocaleString()}`,
+            priceNum: effectivePrice,
+            popular: (item as any).isPopular ?? (item as any).popular ?? false,
+            category: resolvedCat,
+            imageUrl: item.imageUrl,
+            photoUrl: item.imageUrl,
+            isAvailable,
+          };
+        });
     }
-    return (restaurant?.menu as any[]) || [];
-  }, [dbMenuItems, restaurant?.menu, language]);
+    return ((restaurant?.menu as any[]) || []).map((m) => ({
+      ...m,
+      isAvailable: m.isAvailable !== false,
+    }));
+  }, [dbMenuItems, dbCategories, branchPrices, branchItemStates, restaurant?.menu, language]);
 
   const isFavorite = restaurant ? favorites.includes(restaurant.id) : false;
   const highlightedItem = highlightDishId ? menuItems.find((m: any) => m.id === highlightDishId) : null;
@@ -608,6 +673,7 @@ export default function RestaurantDetailScreen() {
                 .reduce((sum, i) => sum + i.quantity, 0);
               const inCart = itemCartQuantity > 0;
               const isItemPending = isDishAddPending(item.id);
+              const isSoldOut = item.isAvailable === false;
               const priceVal = parsePriceTzs(item.price);
               const hasRealItemImage = Boolean(
                 item.imageUrl && !brokenImages[item.id]
@@ -622,7 +688,7 @@ export default function RestaurantDetailScreen() {
                 selectedBranch?.name || branches[0]?.name || restaurant?.name;
 
               const handleSelectMenuItem = () => {
-                if (isItemPending) return;
+                if (isItemPending || isSoldOut) return;
                 void requestAddToCart(
                   {
                     dishId: item.id,
@@ -645,10 +711,10 @@ export default function RestaurantDetailScreen() {
               return (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.menuCard}
+                  style={[styles.menuCard, isSoldOut && { opacity: 0.65 }]}
                   activeOpacity={0.88}
                   onPress={handleSelectMenuItem}
-                  disabled={isItemPending}
+                  disabled={isItemPending || isSoldOut}
                   accessible={true}
                   accessibilityRole="button"
                   accessibilityLabel={`Select and customize ${item.name}`}
@@ -676,10 +742,17 @@ export default function RestaurantDetailScreen() {
                   <View style={styles.menuItemLeft}>
                     <View style={styles.menuTitleRow}>
                       <Text style={styles.itemName}>{item.name}</Text>
-                      {item.popular && (
+                      {item.popular && !isSoldOut && (
                         <View style={styles.popBadge}>
                           <Text style={styles.popBadgeText}>{t('topPickBadge')}</Text>
                         </View>
+                      )}
+                      {isSoldOut && (
+                        <Badge
+                          label={language === 'sw' ? 'Imeisha' : 'Sold Out'}
+                          variant="error"
+                          size="sm"
+                        />
                       )}
                     </View>
                     <Text style={styles.itemDesc}>{item.desc}</Text>
@@ -690,9 +763,9 @@ export default function RestaurantDetailScreen() {
                     style={[
                       styles.menuAddBtn,
                       inCart && styles.menuAddBtnInCart,
-                      isItemPending && { opacity: 0.65 },
+                      (isItemPending || isSoldOut) && { opacity: 0.65 },
                     ]}
-                    disabled={isItemPending}
+                    disabled={isItemPending || isSoldOut}
                     onPress={(e) => {
                       e?.stopPropagation?.();
                       handleSelectMenuItem();
@@ -703,7 +776,13 @@ export default function RestaurantDetailScreen() {
                     accessibilityLabel={`Add or customize ${item.name}`}
                   >
                     <Text style={[styles.menuAddBtnText, inCart && styles.menuAddBtnTextInCart]}>
-                      {isItemPending ? '...' : inCart ? `✓ ${itemCartQuantity}` : '+ Add'}
+                      {isSoldOut
+                        ? (language === 'sw' ? 'Imeisha' : 'Sold Out')
+                        : isItemPending
+                        ? '...'
+                        : inCart
+                        ? `✓ ${itemCartQuantity}`
+                        : '+ Add'}
                     </Text>
                   </TouchableOpacity>
                 </TouchableOpacity>

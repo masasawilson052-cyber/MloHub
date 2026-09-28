@@ -43,12 +43,16 @@ export class OrderRepository {
       id: row.id,
       orderId: row.order_id,
       menuItemId: row.menu_item_id,
-      itemNameSnapshot: row.item_name_snapshot || row.item_name || 'Dish',
+      itemNameSnapshot: row.item_name_snapshot || row.item_name || '',
       priceSnapshot: row.price_snapshot || row.unit_price_tzs || 0,
       quantity: row.quantity || 1,
       subtotal: row.total_price_tzs || ((row.unit_price_tzs || 0) * (row.quantity || 1)),
       specialNotes: row.special_notes,
-      selectedModifiers: Array.isArray(row.selected_modifiers) ? row.selected_modifiers : [],
+      selectedModifiers: Array.isArray(row.selected_modifiers)
+        ? row.selected_modifiers
+        : Array.isArray(row.selectedModifiers)
+        ? row.selectedModifiers
+        : [],
       createdAt: row.created_at || new Date().toISOString(),
     };
   }
@@ -78,7 +82,7 @@ export class OrderRepository {
             menu_item_id: i.menuItemId,
             quantity: i.quantity || 1,
             special_notes: i.specialNotes || null,
-            selected_modifiers: (i as any).selectedModifiers || (i as any).selected_modifiers || null,
+            selected_modifiers: (i as any).selected_modifiers || (i as any).selectedModifiers || null,
           };
         }),
         p_fulfillment_type: order.fulfillmentType || 'Delivery',

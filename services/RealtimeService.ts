@@ -210,12 +210,20 @@ export class RealtimeServiceImpl {
     handler: RealtimeEventHandler<T>,
     tableConfig?: { table: string; filter?: string; schema?: string }
   ): () => void {
-    const subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
     if (!this.listenersByTopic.has(topic)) {
       this.listenersByTopic.set(topic, new Map());
     }
-    this.listenersByTopic.get(topic)!.set(subId, handler);
+    const existingMap = this.listenersByTopic.get(topic)!;
+    let subId = '';
+    existingMap.forEach((existingHandler, key) => {
+      if (existingHandler === handler) {
+        subId = key;
+      }
+    });
+    if (!subId) {
+      subId = `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      existingMap.set(subId, handler);
+    }
 
     if (tableConfig) this.tableConfigs.set(topic, tableConfig);
 

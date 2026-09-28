@@ -481,6 +481,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [financialDisputes, setFinancialDisputes] = useState<FinancialDispute[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('LIVE');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [workspaceLoadError, setWorkspaceLoadError] = useState<string | null>(null);
   const [requestLoadError, setRequestLoadError] = useState<string | null>(null);
   const [hasConfiguredHoursState, setHasConfiguredHoursState] = useState(false);
 
@@ -524,6 +525,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   // 6. loadRestaurantWorkspace - Authoritative Supabase Workspace Loader
   const loadRestaurantWorkspace = useCallback(async () => {
     try {
+      setWorkspaceLoadError(null);
       if (runtimeConfig.allowLocalDataFallbacks && !isSupabaseConfigured()) {
         const { DemoAuthAdapter } = require('../../services/demo/DemoAuthAdapter');
         const dbRest = DemoAuthAdapter.resolveActiveRestaurant(activeRestaurant.id);
@@ -622,8 +624,9 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         }
       }
       setHasConfiguredHoursState(branchHoursConfigured);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[RestaurantPortal] Error loading workspace:', err);
+      setWorkspaceLoadError(err?.message || 'Unable to sync workspace data. Tap Retry to reload.');
     }
   }, [activeRestaurant.id, selectedBranchId]);
 
@@ -651,7 +654,13 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
     const unsubscribeStatus = RealtimeService.onStatusChange((status) => {
       if (isMounted) {
-        setRealtimeStatus(status.state === 'LIVE' ? 'LIVE' : 'OFFLINE');
+        setRealtimeStatus(
+          status.state === 'LIVE'
+            ? 'LIVE'
+            : status.state === 'RECONNECTING' || status.state === 'CONNECTING'
+            ? 'RECONNECTING'
+            : 'OFFLINE'
+        );
       }
     });
 
@@ -1396,37 +1405,19 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       }
 
       const res = await RestaurantRepository.publishRestaurant(activeRestaurant.id);
-      if (res.launchStatus === 'GO_LIVE_REVIEW' || !res.isPublished) {
-        setActiveRestaurant((prev) => ({
-          ...prev,
-          launchStatus: 'GO_LIVE_REVIEW',
-          isPublished: false,
-        }));
-        Alert.alert(
-          language === 'sw' ? 'Ombi la Kuzindua Limetumwa!' : 'Launch Review Submitted!',
-          language === 'sw'
-            ? 'Vigezo vyako vimehakikiwa na ombi lako la kuzindua mgahawa limetumwa kwa timu ya usimamizi (Gate B). Utaarifiwa pindi mgahawa wako utakapoidhinishwa rasmi kuzinduliwa mtandaoni.'
-            : 'Your setup has been verified and your store launch review has been submitted to MloHub Administrators (Gate B). You will be notified when your store is approved and goes live.'
-        );
-      } else {
-        setActiveRestaurant((prev) => ({
-          ...prev,
-          isPublished: true,
-          isOpen: true,
-          isActive: true,
-          launchStatus: 'PUBLISHED',
-        }));
-        RealtimeEventEngine.publish('restaurants:updated', {
-          restaurantId: activeRestaurant.id,
-          data: { isPublished: true, isOpen: true },
-        });
-        Alert.alert(
-          language === 'sw' ? 'Mgahawa Umezinduliwa!' : 'Restaurant Published!',
-          language === 'sw'
-            ? 'Hongera! Mgahawa wako sasa unaonekana kwa wateja wote mtandaoni.'
-            : 'Congratulations! Your restaurant is now live and discoverable to customers.'
-        );
-      }
+      // Gate B: Merchants submit for launch review (GO_LIVE_REVIEW); only approve_restaurant_launch sets PUBLISHED ('Restaurant Published!' / 'live and discoverable')
+      const nextLaunchStatus = (res.launchStatus as any) || 'GO_LIVE_REVIEW';
+      setActiveRestaurant((prev) => ({
+        ...prev,
+        launchStatus: nextLaunchStatus === 'PUBLISHED' ? 'GO_LIVE_REVIEW' : nextLaunchStatus,
+        isPublished: false,
+      }));
+      Alert.alert(
+        language === 'sw' ? 'Ombi la Kuzindua Limetumwa!' : 'Launch Review Submitted!',
+        language === 'sw'
+          ? 'Vigezo vyako vimehakikiwa na ombi lako la kuzindua mgahawa limetumwa kwa timu ya usimamizi (Gate B). Utaarifiwa pindi mgahawa wako utakapoidhinishwa rasmi kuzinduliwa mtandaoni.'
+          : 'Your setup has been verified and your store launch review has been submitted to MloHub Administrators (Gate B). Once approved, your restaurant will be live and discoverable to customers.'
+      );
       await loadRestaurantWorkspace();
     } catch (err: any) {
       Alert.alert(
@@ -1568,6 +1559,41 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               language={language as any}
             />
           )}
+
+          {workspaceLoadError ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: colors.dangerSoft,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.danger,
+                paddingHorizontal: Spacing.md,
+                paddingVertical: Spacing.sm,
+                gap: Spacing.sm,
+              }}
+            >
+              <Text style={{ flex: 1, fontSize: 12.5, fontWeight: '600', color: colors.danger }}>
+                {workspaceLoadError}
+              </Text>
+              <TouchableOpacity
+                onPress={loadRestaurantWorkspace}
+                style={{
+                  backgroundColor: colors.danger,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: Radii.sm,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading workspace"
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.onPrimary }}>
+                  {language === 'sw' ? 'Jaribu Tena' : 'Retry'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {/* Tab Views */}
           <View style={styles.tabContentArea}>
@@ -1959,7 +1985,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.appBackground,
   },
   workspaceRow: {
     flex: 1,
@@ -1968,26 +1994,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   sidebarWrapper: {
     width: 250,
     borderRightWidth: 1,
-    borderRightColor: colors.primary,
-    backgroundColor: '#0b1120',
+    borderRightColor: colors.border,
+    backgroundColor: colors.sidebarBackground,
   },
   viewport: {
     flex: 1,
     flexDirection: 'column',
-    backgroundColor: colors.primary,
+    backgroundColor: colors.appBackground,
   },
   tabContentArea: {
     flex: 1,
   },
   gateContainer: {
     flex: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
   },
   gateCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.xl,
     alignItems: 'center',
@@ -1998,7 +2024,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   gateTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.appBackground,
+    color: colors.textPrimary,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
     textAlign: 'center',

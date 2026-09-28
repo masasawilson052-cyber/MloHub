@@ -272,7 +272,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.successSoft,
       borderRadius: Radii.lg,
       borderWidth: 1,
-      borderColor: '#1d6637',
+      borderColor: colors.success,
       gap: 10,
     },
     pinHeader: {
@@ -284,14 +284,14 @@ const createStyles = (colors: ThemeColors) =>
       width: 40,
       height: 40,
       borderRadius: Radii.full,
-      backgroundColor: '#ffffff',
+      backgroundColor: colors.card,
       justifyContent: 'center',
       alignItems: 'center',
     },
     pinTitle: {
       fontSize: 14,
       fontWeight: '800',
-      color: '#1d6637',
+      color: colors.success,
     },
     pinAddress: {
       fontSize: 11.5,
@@ -299,23 +299,23 @@ const createStyles = (colors: ThemeColors) =>
       marginTop: 1,
     },
     pinTag: {
-      backgroundColor: '#ffffff',
+      backgroundColor: colors.card,
       paddingHorizontal: 8,
       paddingVertical: 3,
       borderRadius: Radii.full,
       borderWidth: 1,
-      borderColor: '#1d6637',
+      borderColor: colors.success,
     },
     pinTagText: {
       fontSize: 10,
       fontWeight: '700',
-      color: '#1d6637',
+      color: colors.success,
     },
     pinDetailsRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       borderTopWidth: 1,
-      borderTopColor: 'rgba(29, 102, 55, 0.2)',
+      borderTopColor: colors.border,
       paddingTop: 8,
     },
     pinDetailItem: {
@@ -353,7 +353,7 @@ const createStyles = (colors: ThemeColors) =>
       borderColor: colors.border,
     },
     presetItemSelected: {
-      borderColor: '#1d6637',
+      borderColor: colors.success,
       backgroundColor: colors.successSoft,
     },
     presetName: {
@@ -362,7 +362,7 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.textPrimary,
     },
     presetNameSelected: {
-      color: '#1d6637',
+      color: colors.success,
     },
     presetSub: {
       fontSize: 11,
@@ -405,7 +405,7 @@ const createStyles = (colors: ThemeColors) =>
       gap: 6,
       paddingVertical: 12,
       borderRadius: Radii.lg,
-      backgroundColor: '#1d6637',
+      backgroundColor: colors.success,
     },
     confirmBtnText: {
       fontSize: 13.5,

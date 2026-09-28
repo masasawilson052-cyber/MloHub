@@ -219,17 +219,52 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
 
               {/* Items Snapshot */}
               <View style={styles.itemsList}>
-                {(order.items || []).map((item, idx) => (
-                  <View key={item.id || idx} style={styles.itemRow}>
-                    <Text style={styles.itemQty}>{item.quantity}x</Text>
-                    <Text style={styles.itemName} numberOfLines={1}>
-                      {item.itemNameSnapshot}
-                    </Text>
-                    <Text style={styles.itemPrice}>
-                      {formatTzs(item.subtotal || item.priceSnapshot * item.quantity)}
-                    </Text>
-                  </View>
-                ))}
+                {(order.items || []).map((item, idx) => {
+                  const mods = Array.isArray((item as any).selectedModifiers)
+                    ? (item as any).selectedModifiers
+                    : Array.isArray((item as any).selected_modifiers)
+                    ? (item as any).selected_modifiers
+                    : [];
+                  return (
+                    <View key={item.id || idx} style={{ marginBottom: 4 }}>
+                      <View style={styles.itemRow}>
+                        <Text style={styles.itemQty}>{item.quantity}x</Text>
+                        <Text style={styles.itemName} numberOfLines={1}>
+                          {item.itemNameSnapshot}
+                        </Text>
+                        <Text style={styles.itemPrice}>
+                          {formatTzs(item.subtotal || item.priceSnapshot * item.quantity)}
+                        </Text>
+                      </View>
+                      {mods.length > 0 && (
+                        <View style={{ paddingLeft: 28, marginTop: 2, gap: 1 }}>
+                          {mods.map((mod: any, mIdx: number) => {
+                            const modLabel =
+                              mod.option_name || mod.optionName || mod.name || '';
+                            const modGroup =
+                              mod.group_name || mod.groupName || '';
+                            const delta = Number(mod.price_delta_tzs ?? mod.priceDeltaTzs ?? 0);
+                            if (!modLabel) return null;
+                            return (
+                              <Text
+                                key={mod.option_id || mod.optionId || mIdx}
+                                style={{ fontSize: 11.5, color: colors.textSecondary }}
+                              >
+                                + {modGroup ? `${modGroup}: ` : ''}{modLabel}
+                                {delta > 0 ? ` (+${formatTzs(delta)})` : ''}
+                              </Text>
+                            );
+                          })}
+                        </View>
+                      )}
+                      {item.specialNotes ? (
+                        <Text style={{ paddingLeft: 28, fontSize: 11, fontStyle: 'italic', color: colors.textMuted, marginTop: 2 }}>
+                          Note: {item.specialNotes}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </View>
 
               {order.specialInstructions && (

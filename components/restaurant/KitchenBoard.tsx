@@ -67,23 +67,54 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
         <View style={[styles.timerBadge, { backgroundColor: timerBg }]}>
           <Ionicons name="time-outline" size={13} color={timerColor} />
           <Text style={[styles.timerText, { color: timerColor }]}>
-            {elapsedMinutes}m ago
+            {isLate ? 'LATE • ' : isAttention ? 'DUE • ' : ''}{elapsedMinutes}m ago
           </Text>
         </View>
       </View>
 
       {/* Items List */}
       <View style={styles.itemsContainer}>
-        {(order.items || []).map((item, idx) => (
-          <View key={item.id || idx} style={styles.itemRow}>
-            <View style={styles.qtyBadge}>
-              <Text style={styles.qtyBadgeText}>{item.quantity}</Text>
+        {(order.items || []).map((item, idx) => {
+          const mods = Array.isArray((item as any).selectedModifiers)
+            ? (item as any).selectedModifiers
+            : Array.isArray((item as any).selected_modifiers)
+            ? (item as any).selected_modifiers
+            : [];
+          return (
+            <View key={item.id || idx} style={{ marginBottom: 4 }}>
+              <View style={styles.itemRow}>
+                <View style={styles.qtyBadge}>
+                  <Text style={styles.qtyBadgeText}>{item.quantity}</Text>
+                </View>
+                <Text style={styles.itemName} numberOfLines={2}>
+                  {item.itemNameSnapshot}
+                </Text>
+              </View>
+              {mods.length > 0 && (
+                <View style={{ paddingLeft: 32, marginTop: 2, gap: 1 }}>
+                  {mods.map((mod: any, mIdx: number) => {
+                    const modLabel = mod.option_name || mod.optionName || mod.name || '';
+                    const modGroup = mod.group_name || mod.groupName || '';
+                    if (!modLabel) return null;
+                    return (
+                      <Text
+                        key={mod.option_id || mod.optionId || mIdx}
+                        style={{ fontSize: 11.5, fontWeight: '600', color: colors.textSecondary }}
+                      >
+                        • {modGroup ? `${modGroup}: ` : ''}{modLabel}
+                      </Text>
+                    );
+                  })}
+                </View>
+              )}
+              {item.specialNotes ? (
+                <Text style={{ paddingLeft: 32, fontSize: 11, fontStyle: 'italic', color: colors.warning, marginTop: 2 }}>
+                  ⚠️ {item.specialNotes}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.itemName} numberOfLines={2}>
-              {item.itemNameSnapshot}
-            </Text>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {/* Special Kitchen Notes */}

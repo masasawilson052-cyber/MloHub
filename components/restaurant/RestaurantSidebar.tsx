@@ -254,7 +254,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: 42,
+    height: 44,
     paddingHorizontal: 12,
     borderRadius: 9,
     marginBottom: 2,

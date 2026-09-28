@@ -52,7 +52,7 @@ export const RestaurantPortalHeader: React.FC<RestaurantPortalHeaderProps> = ({
     realtimeStatus === 'LIVE'
       ? { bg: colors.successSoft, dot: colors.success, text: colors.success, label: 'LIVE' }
       : realtimeStatus === 'RECONNECTING'
-      ? { bg: colors.warningSoft, dot: colors.warning, text: colors.warning, label: 'SYNCING' }
+      ? { bg: colors.warningSoft, dot: colors.warning, text: colors.warning, label: 'RECONNECTING' }
       : { bg: colors.dangerSoft, dot: colors.danger, text: colors.danger, label: 'OFFLINE' };
 
   return (

@@ -129,14 +129,15 @@ export class OrderService {
         specialInstructions: dto.specialInstructions?.trim() || undefined,
       };
 
-      const itemsData: (Partial<OrderItem> & { selectedModifiers?: any })[] = dto.items.map((it) => ({
+      const itemsData: (Partial<OrderItem> & { selectedModifiers?: any; selected_modifiers?: any })[] = dto.items.map((it) => ({
         menuItemId: it.menuItemId,
         itemNameSnapshot: it.name,
         priceSnapshot: it.unitPriceTzs,
         quantity: it.quantity,
         subtotal: it.totalPriceTzs,
         specialNotes: it.special_instructions,
-        selectedModifiers: it.selected_modifiers || it.selectedModifiers || null,
+        selected_modifiers: it.selected_modifiers || it.selectedModifiers || null,
+        selectedModifiers: it.selectedModifiers || it.selected_modifiers || null,
       }));
 
       // Persisted order MUST be priced authoritatively by create_order_secure RPC via OrderRepository
@@ -235,6 +236,8 @@ export class OrderService {
         priceSnapshot: it.unitPriceTzs,
         quantity: it.quantity,
         subtotal: it.totalPriceTzs,
+        specialNotes: it.special_instructions,
+        selectedModifiers: it.selectedModifiers || it.selected_modifiers || [],
         createdAt: mockOrder.createdAt,
       })),
     };

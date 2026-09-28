@@ -34,10 +34,11 @@ export class PaymentGatewayFactory {
 
     if (
       rawProvider === 'sandbox' &&
-      readPaymentEnvironment('NODE_ENV') !== 'test' &&
-      readPaymentEnvironment('MLOHUB_ALLOW_SANDBOX_PAYMENTS') !== 'true'
+      (readPaymentEnvironment('NODE_ENV') === 'production' ||
+        (readPaymentEnvironment('NODE_ENV') !== 'test' &&
+          readPaymentEnvironment('MLOHUB_ALLOW_SANDBOX_PAYMENTS') !== 'true'))
     ) {
-      throw new Error('SANDBOX_PROVIDER_NOT_ALLOWED: Sandbox payments require MLOHUB_ALLOW_SANDBOX_PAYMENTS=true on an isolated demo backend.');
+      throw new Error('SANDBOX_PROVIDER_NOT_ALLOWED: Sandbox payments require MLOHUB_ALLOW_SANDBOX_PAYMENTS=true on an isolated non-production backend.');
     }
 
     const provider: PaymentProvider = rawProvider;

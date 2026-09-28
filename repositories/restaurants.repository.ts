@@ -564,13 +564,12 @@ export class RestaurantRepository {
         p_restaurant_id: restaurantId,
       });
 
-      // Fallback 2 / Authoritative state sync: restore active + verified status
+      // Fallback 2 / Authoritative state sync: restore active + verified status (never set is_published from client)
       const { error: updateErr } = await supabase
         .from('restaurants')
         .update({
           is_open: true,
           is_verified: true,
-          is_published: true,
           is_active: true,
           verification_status: 'VERIFIED',
           updated_at: new Date().toISOString(),
@@ -637,12 +636,12 @@ export class RestaurantRepository {
   }
 
   /**
-   * Publish restaurant via server-side security definer RPC
-   * Requires at least one active branch and one available menu item with pricing
+   * Submit restaurant for Gate B launch review via server-side security definer RPC.
+   * Merchants cannot self-publish; only approve_restaurant_launch (admin AAL2) sets is_published = true.
    */
   public static async publishRestaurant(restaurantId: string): Promise<{ success: boolean; restaurantId: string; isPublished: boolean; launchStatus?: string }> {
     if (!isSupabaseConfigured()) {
-      return { success: true, restaurantId, isPublished: true, launchStatus: 'PUBLISHED' };
+      return { success: true, restaurantId, isPublished: false, launchStatus: 'GO_LIVE_REVIEW' };
     }
 
     const { data, error } = await supabase.rpc('publish_restaurant', {
@@ -668,7 +667,7 @@ export class RestaurantRepository {
     return {
       success: data?.success ?? true,
       restaurantId: data?.restaurant_id || restaurantId,
-      isPublished: data?.is_published ?? false,
+      isPublished: false,
       launchStatus: data?.launch_status || 'GO_LIVE_REVIEW',
     };
   }
@@ -734,25 +733,26 @@ export class RestaurantRepository {
       throw new Error(`Failed to calculate launch readiness: ${error.message}`);
     }
 
+    const c = data?.criteria || data || {};
     return {
-      restaurantId: data.restaurant_id,
-      readinessPercent: data.readiness_percent,
-      canSubmitForReview: data.can_submit_for_review,
+      restaurantId: data?.restaurant_id || restaurantId,
+      readinessPercent: data?.readiness_percent ?? 0,
+      canSubmitForReview: data?.can_submit_for_review ?? false,
       criteria: {
-        hasActiveBranch: data.criteria?.has_active_branch ?? false,
-        hasOperatingHours: data.criteria?.has_operating_hours ?? false,
-        hasValidMenuItem: data.criteria?.has_valid_menu_item ?? false,
-        hasPricedItem: data.criteria?.has_priced_item ?? false,
-        hasLogo: data.criteria?.has_logo ?? false,
-        hasCoverImage: data.criteria?.has_cover_image ?? false,
-        hasGalleryPhotos: data.criteria?.has_gallery_photos ?? false,
-        hasPhone: data.criteria?.has_phone ?? false,
-        hasAddress: data.criteria?.has_address ?? false,
-        hasCuisine: data.criteria?.has_cuisine ?? false,
-        hasPayoutConfigured: data.criteria?.has_payout_configured ?? false,
-        hasVerificationDoc: data.criteria?.has_verification_doc ?? false,
+        hasActiveBranch: c.has_active_branch ?? false,
+        hasOperatingHours: c.has_operating_hours ?? false,
+        hasValidMenuItem: c.has_valid_menu_item ?? false,
+        hasPricedItem: c.has_priced_item ?? false,
+        hasLogo: c.has_logo ?? false,
+        hasCoverImage: c.has_cover_image ?? false,
+        hasGalleryPhotos: c.has_gallery_photos ?? false,
+        hasPhone: c.has_phone ?? false,
+        hasAddress: c.has_address ?? false,
+        hasCuisine: c.has_cuisine ?? false,
+        hasPayoutConfigured: c.has_payout_configured ?? false,
+        hasVerificationDoc: c.has_verification_doc ?? false,
       },
-      blockers: data.blockers || [],
+      blockers: data?.blockers || data?.missing_requirements || [],
     };
   }
 

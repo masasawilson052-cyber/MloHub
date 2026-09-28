@@ -102,7 +102,7 @@ export class DiscoveryRepository {
               if (restIds.length > 0 && typeof supabase.from === 'function') {
                 const { data: restRows } = await supabase
                   .from('restaurants')
-                  .select('id, name, is_active, is_published, verification_status')
+                  .select('id, name, is_active, is_verified, is_published, verification_status, launch_status')
                   .in('id', restIds);
                 if (Array.isArray(restRows) && restRows.length > 0) {
                   const blockedIds = new Set(
@@ -111,8 +111,11 @@ export class DiscoveryRepository {
                         (r: any) =>
                           r.verification_status === 'SUSPENDED' ||
                           r.verification_status === 'REJECTED' ||
+                          r.verification_status === 'PENDING_VERIFICATION' ||
+                          r.is_verified === false ||
                           r.is_active === false ||
-                          r.is_published === false ||
+                          r.is_published !== true ||
+                          (r.launch_status && r.launch_status !== 'PUBLISHED') ||
                           (r.name || '').toUpperCase().startsWith('[DELETED]')
                       )
                       .map((r: any) => r.id)
@@ -179,25 +182,21 @@ export class DiscoveryRepository {
         });
 
         if (!error && data) {
+          const isRestaurantCustomerVisible = (r: any) =>
+            r.verification_status !== 'SUSPENDED' &&
+            r.verification_status !== 'REJECTED' &&
+            r.verification_status !== 'PENDING_VERIFICATION' &&
+            r.is_verified !== false &&
+            r.is_active !== false &&
+            r.is_published !== false &&
+            (!r.launch_status || r.launch_status === 'PUBLISHED') &&
+            !(r.name || '').toUpperCase().startsWith('[DELETED]');
+
           const rawRestaurants = Array.isArray(data.restaurants) ? data.restaurants : [];
-          const visibleRestaurants = rawRestaurants.filter(
-            (r: any) =>
-              r.verification_status !== 'SUSPENDED' &&
-              r.verification_status !== 'REJECTED' &&
-              r.is_active !== false &&
-              r.is_published !== false &&
-              !(r.name || '').toUpperCase().startsWith('[DELETED]')
-          );
+          const visibleRestaurants = rawRestaurants.filter(isRestaurantCustomerVisible);
           const blockedRestIds = new Set(
             rawRestaurants
-              .filter(
-                (r: any) =>
-                  r.verification_status === 'SUSPENDED' ||
-                  r.verification_status === 'REJECTED' ||
-                  r.is_active === false ||
-                  r.is_published === false ||
-                  (r.name || '').toUpperCase().startsWith('[DELETED]')
-              )
+              .filter((r: any) => !isRestaurantCustomerVisible(r))
               .map((r: any) => r.id)
           );
           const rawDishes = Array.isArray(data.dishes) ? data.dishes : [];
