@@ -254,7 +254,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
     borderRadius: Radii.full,
     borderWidth: 1,
-    borderColor: '#EBE6DD',
+    borderColor: colors.border,
     gap: 6,
     ...Shadows.sm,
   },
@@ -288,7 +288,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   welcomeSubtitle: {
     fontSize: 14,
-    color: '#5A6B7C',
+    color: colors.textSecondary,
     lineHeight: 22,
   },
   featureCard: {
@@ -296,7 +296,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#EBE6DD',
+    borderColor: colors.border,
     marginVertical: Spacing.md,
     ...Shadows.sm,
   },
@@ -329,7 +329,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   featureDivider: {
     height: 1,
-    backgroundColor: '#F5F2EA',
+    backgroundColor: colors.divider,
     marginVertical: 12,
   },
   ctaGroup: {
@@ -340,7 +340,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   primaryBtn: {
     width: '100%',
     height: 52,
-    backgroundColor: '#FA541C',
+    backgroundColor: colors.primaryCta,
     borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,7 +362,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#C6E6D1',
+    borderColor: colors.success,
   },
   secondaryBtnText: {
     color: colors.success,
@@ -380,11 +380,11 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textDecorationLine: 'underline',
   },
   partnerCard: {
-    backgroundColor: '#F5F3FF',
+    backgroundColor: colors.infoSoft,
     borderRadius: 16,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: colors.info,
     marginTop: Spacing.lg,
   },
   partnerRow: {
@@ -396,7 +396,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -407,7 +407,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   partnerQuestion: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: colors.info,
     marginBottom: 2,
   },
   partnerDesc: {
@@ -421,7 +421,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   partnerLinkText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: colors.info,
   },
 });
 let styles = createStyles(lightColors);

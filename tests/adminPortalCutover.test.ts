@@ -131,8 +131,9 @@ export async function runAdminPortalCutoverTestSuite(): Promise<{ passed: number
   );
 
   record(
+    adminIndexContent.includes("ApplicationRepository.updateStatus(appId, 'CHANGES_REQUESTED'") ||
     adminIndexContent.includes("ApplicationRepository.updateStatus(appId, 'PENDING'"),
-    'Criterion M: Application change-request calls ApplicationRepository.updateStatus("PENDING")'
+    'Criterion M: Application change-request calls ApplicationRepository.updateStatus("CHANGES_REQUESTED" or "PENDING")'
   );
 
   // --------------------------------------------------------------------------

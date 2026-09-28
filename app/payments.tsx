@@ -27,6 +27,7 @@ import { Button } from '../components/ui/Button';
 
 import { useTheme } from '../context/ThemeContext';
 import { ThemeColors, lightColors } from '../theme/palettes';
+import { PaymentProviderLogo } from '../components/payments/PaymentProviderLogo';
 
 let colors: ThemeColors = lightColors;
 
@@ -100,18 +101,18 @@ export default function PaymentsScreen() {
     const rawProvider = (payment.provider || '').toUpperCase();
 
     if (rawMethod.includes('AIRTEL') || rawProvider.includes('AIRTEL')) {
-      return { name: 'Airtel Money', emoji: '🔴', color: colors.danger, bg: '#FEE2E2' };
+      return { code: 'AIRTEL_MONEY', name: 'Airtel Money', color: colors.danger, bg: colors.dangerSoft };
     }
     if (rawMethod.includes('MIXX') || rawMethod.includes('TIGO') || rawProvider.includes('TIGO')) {
-      return { name: 'Mixx by Yas', emoji: '🔵', color: colors.info, bg: '#E0F2FE' };
+      return { code: 'MIXX_BY_YAS', name: 'Mixx by Yas', color: colors.info, bg: colors.infoSoft };
     }
     if (rawMethod.includes('HALO') || rawProvider.includes('HALO')) {
-      return { name: 'HaloPesa', emoji: '🟠', color: colors.primary, bg: '#FFEDD5' };
+      return { code: 'HALOPESA', name: 'HaloPesa', color: colors.primary, bg: colors.primarySoft };
     }
     if (rawMethod.includes('MPESA') || rawMethod.includes('M_PESA') || rawProvider.includes('VODACOM')) {
-      return { name: 'M-Pesa', emoji: '🟢', color: colors.success, bg: '#DCFCE7' };
+      return { code: 'MPESA', name: 'M-Pesa', color: colors.success, bg: colors.successSoft };
     }
-    return { name: payment.provider || 'Mobile Money', emoji: '💳', color: colors.textSecondary, bg: colors.surfaceInteractive };
+    return { code: 'MPESA', name: payment.provider || 'Mobile Money', color: colors.textSecondary, bg: colors.surfaceInteractive };
   };
 
   const getStatusBadge = (status: PaymentStatus) => {
@@ -313,12 +314,8 @@ export default function PaymentsScreen() {
                   >
                     <View style={styles.paymentCardTop}>
                       <View style={styles.providerBadgeRow}>
-                        <View
-                          style={[styles.providerIconCircle, { backgroundColor: provider.bg }]}
-                        >
-                          <Text style={styles.providerEmoji}>{provider.emoji}</Text>
-                        </View>
-                        <View>
+                        <PaymentProviderLogo methodCode={provider.code} size={38} />
+                        <View style={{ marginLeft: 8 }}>
                           <Text style={styles.providerName}>{provider.name}</Text>
                           <Text style={styles.paymentDate}>
                             {formatDate(payment.paidAt || payment.createdAt)}

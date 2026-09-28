@@ -1,25 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeadersFor } from '../_shared/cors.ts';
 import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
+import { enforceRateLimit, getRequestIp } from '../_shared/security/rateLimit.ts';
 import type {
   PaymentMethodCode,
   PaymentType,
 } from '../_shared/payments/paymentTypes.ts';
-
-const jsonHeaders = {
-  ...corsHeaders,
-  'Content-Type': 'application/json',
-};
-
-function response(
-  status: number,
-  body: Record<string, unknown>
-) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: jsonHeaders,
-  });
-}
 
 function dbPaymentMethod(method: PaymentMethodCode): string {
   switch (method) {
@@ -41,6 +27,16 @@ function dbPaymentMethod(method: PaymentMethodCode): string {
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsHeadersFor(req);
+  const response = (status: number, body: Record<string, unknown>) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    });
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
       headers: corsHeaders,
@@ -104,6 +100,42 @@ Deno.serve(async (req: Request) => {
       serviceRoleKey
     );
 
+    const clientIp = getRequestIp(req);
+
+    // Rate limit 1: User limit - user:<userId>:create-payment (max 8 hits / 60s)
+    const userRateLimit = await enforceRateLimit(adminClient, {
+      key: `user:${user.id}:create-payment`,
+      action: 'CREATE_PAYMENT',
+      maxHits: 8,
+      windowSeconds: 60,
+      ipAddress: clientIp,
+      identifier: user.id,
+      failClosed: true,
+    });
+
+    if (!userRateLimit.allowed) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((userRateLimit.resetAt.getTime() - Date.now()) / 1000)
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'RATE_LIMIT_EXCEEDED',
+          message:
+            'Too many payment creation attempts. Please wait a moment before trying again.',
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(retryAfter),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
     const {
       orderId,
@@ -132,6 +164,20 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (
+      (body as any).pin ||
+      (body as any).mpesaPin ||
+      (body as any).mpesa_pin ||
+      (body as any).user_pin ||
+      (body as any).paymentPin
+    ) {
+      return response(400, {
+        success: false,
+        error: 'PIN_PROHIBITED',
+        message: 'MloHub never accepts or handles mobile money PINs. Never submit PIN to MloHub servers.',
+      });
+    }
+
     if (methodCode === 'CASH_ON_DELIVERY') {
       return response(400, {
         success: false,
@@ -152,35 +198,44 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (idempotencyKey) {
-      const {
-        data: existing,
-      } = await adminClient
-        .from('payments')
-        .select('*')
-        .eq('idempotency_key', idempotencyKey)
-        .maybeSingle();
+    const targetId =
+      orderId ||
+      reservationId ||
+      (quoteId ? `${customMealRequestId}:${quoteId}` : customMealRequestId) ||
+      'unknown';
 
-      if (existing) {
-        const existingStatus = String(existing.status || '').toUpperCase();
-        if (existingStatus === 'FAILED' || existingStatus === 'CANCELLED') {
-          return response(409, {
-            success: false,
-            error: 'PAYMENT_ATTEMPT_TERMINAL',
-            paymentId: existing.id,
-            status: existing.status,
-            message: 'This payment attempt has ended. Start a new payment attempt.',
-          });
+    // Rate limit 2: Target limit - target:<targetId>:create-payment (max 4 hits / 300s)
+    const targetRateLimit = await enforceRateLimit(adminClient, {
+      key: `target:${targetId}:create-payment`,
+      action: 'CREATE_PAYMENT',
+      maxHits: 4,
+      windowSeconds: 300,
+      ipAddress: clientIp,
+      identifier: targetId,
+      failClosed: true,
+    });
+
+    if (!targetRateLimit.allowed) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((targetRateLimit.resetAt.getTime() - Date.now()) / 1000)
+      );
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'RATE_LIMIT_EXCEEDED',
+          message:
+            'Too many payment attempts for this order. Please wait a few minutes before trying again.',
+        }),
+        {
+          status: 429,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Retry-After': String(retryAfter),
+          },
         }
-        return response(200, {
-          success: true,
-          paymentId: existing.id,
-          providerReference: existing.provider_reference,
-          merchantReference: existing.merchant_reference,
-          status: existing.status,
-          amountTzs: existing.amount_tzs,
-        });
-      }
+      );
     }
 
     let restaurantId = '';
@@ -365,6 +420,45 @@ Deno.serve(async (req: Request) => {
         success: false,
         error: 'INVALID_AUTHORITATIVE_AMOUNT',
       });
+    }
+
+    if (idempotencyKey) {
+      let existingQuery = adminClient
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('idempotency_key', idempotencyKey);
+
+      if (orderId) {
+        existingQuery = existingQuery.eq('order_id', orderId);
+      } else if (reservationId) {
+        existingQuery = existingQuery.eq('reservation_id', reservationId);
+      } else if (customMealRequestId) {
+        existingQuery = existingQuery.eq('custom_meal_request_id', customMealRequestId);
+      }
+
+      const { data: existing } = await existingQuery.maybeSingle();
+
+      if (existing) {
+        const existingStatus = String(existing.status || '').toUpperCase();
+        if (existingStatus === 'FAILED' || existingStatus === 'CANCELLED') {
+          return response(409, {
+            success: false,
+            error: 'PAYMENT_ATTEMPT_TERMINAL',
+            paymentId: existing.id,
+            status: existing.status,
+            message: 'This payment attempt has ended. Start a new payment attempt.',
+          });
+        }
+        return response(200, {
+          success: true,
+          paymentId: existing.id,
+          providerReference: existing.provider_reference,
+          merchantReference: existing.merchant_reference,
+          status: existing.status,
+          amountTzs: existing.amount_tzs,
+        });
+      }
     }
 
     // Authoritative platform commission rate from platform_financial_settings

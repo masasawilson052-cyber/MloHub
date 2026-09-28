@@ -569,7 +569,7 @@ export class MenuRepository {
 
     if (groupsError) {
       console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, groupsError.message);
-      return [];
+      throw new Error(`MODIFIER_LOOKUP_FAILED: ${groupsError.message}`);
     }
 
     if (!groups || groups.length === 0) return [];
@@ -583,7 +583,7 @@ export class MenuRepository {
 
     if (optionsError) {
       console.error(`MenuRepository.getModifiersForItem(${menuItemId}) options error:`, optionsError.message);
-      return [];
+      throw new Error(`MODIFIER_LOOKUP_FAILED: ${optionsError.message}`);
     }
 
     const optionsByGroup: Record<string, MenuModifierOption[]> = {};

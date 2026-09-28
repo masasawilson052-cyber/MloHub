@@ -224,8 +224,8 @@ export const VerificationCenter: React.FC<VerificationCenterProps> = ({
           const isAging = item.status === 'AGING';
           const isFresh = item.status === 'FRESH' || item.status === 'RECENT';
 
-          const badgeBg = isNoCatalog ? colors.surfaceInteractive : isStale ? '#fee2e2' : isAging ? '#fef3c7' : '#dcfce7';
-          const badgeColor = isNoCatalog ? colors.textSecondary : isStale ? '#991b1b' : isAging ? '#92400e' : '#166534';
+          const badgeBg = isNoCatalog ? colors.surfaceInteractive : isStale ? colors.dangerSoft : isAging ? colors.warningSoft : colors.successSoft;
+          const badgeColor = isNoCatalog ? colors.textSecondary : isStale ? colors.danger : isAging ? colors.warning : colors.success;
 
           return (
             <View key={item.restaurant.id} style={styles.spotCard}>

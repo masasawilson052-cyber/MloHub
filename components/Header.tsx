@@ -1,12 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Radii } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useTheme } from '../context/ThemeContext';
-import { ThemeQuickSwitcher } from './theme/ThemeQuickSwitcher';
 
 import { ThemeColors, lightColors } from '../theme/palettes';
 
@@ -26,6 +25,8 @@ export const Header: React.FC<HeaderProps> = ({
   const router = useRouter();
   const { language, toggleLanguage } = useLanguage();
   const { unreadCount } = useNotifications();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   return (
@@ -81,8 +82,8 @@ export const Header: React.FC<HeaderProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Right Controls: [Language] [Theme] [Notifications] [Profile] */}
-      <View style={styles.rightRow}>
+      {/* Right Controls: [Language] [Notifications] [Profile] (+ shared mobile Theme slot) */}
+      <View style={[styles.rightRow, !isDesktop && { marginRight: 40 }]}>
         <TouchableOpacity
           style={[
             styles.langTogglePill,
@@ -100,9 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
             {language === 'en' ? 'EN' : 'SW'}
           </Text>
         </TouchableOpacity>
-
-        {/* Global Theme Quick Switcher */}
-        <ThemeQuickSwitcher compact />
 
         {/* Notification Bell with Dynamic Unread Badge */}
         <TouchableOpacity

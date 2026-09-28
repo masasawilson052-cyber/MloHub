@@ -56,8 +56,8 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         {/* Top Badges */}
         <View style={styles.badgeRow}>
           {/* SPECIALIST / TIER BADGE */}
-          <View style={[styles.specialistTagBadge, isBasicSeller && { backgroundColor: '#eaf4ed' }]}>
-            <Text style={[styles.specialistTagText, isBasicSeller && { color: '#113a26' }]}>
+          <View style={[styles.specialistTagBadge, isBasicSeller && { backgroundColor: colors.successSoft }]}>
+            <Text style={[styles.specialistTagText, isBasicSeller && { color: colors.success }]}>
               {isBasicSeller
                 ? (language === 'sw' ? '🍲 Mama Lishe' : '🍲 Basic Seller')
                 : (language === 'sw' ? (restaurant.specialistBadgeSw || '👑 Rasmi') : (restaurant.specialistBadge || '👑 Verified'))}
@@ -329,16 +329,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 10,
   },
   orderAheadPill: {
-    backgroundColor: '#eaf4ed',
+    backgroundColor: colors.successSoft,
     paddingVertical: 1,
     paddingHorizontal: 6,
     borderRadius: Radii.sm,
     borderWidth: 0.5,
-    borderColor: '#badbcc',
+    borderColor: colors.success,
   },
   orderAheadText: {
     fontSize: 9.5,
-    color: '#113a26',
+    color: colors.success,
     fontWeight: '800',
   },
   specialty: {

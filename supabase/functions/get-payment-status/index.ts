@@ -1,13 +1,14 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeadersFor } from '../_shared/cors.ts';
 import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
 
-const jsonHeaders = {
-  ...corsHeaders,
-  'Content-Type': 'application/json',
-};
-
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsHeadersFor(req);
+  const jsonHeaders = {
+    ...corsHeaders,
+    'Content-Type': 'application/json',
+  };
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
       headers: corsHeaders,

@@ -17,14 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { PriceText } from '../../components/ui/PriceText';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
-import { CartDrawer } from '../../components/cart/CartDrawer';
-import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 import { RealtimeService } from '../../services/RealtimeService';
 import { CustomMealRepository } from '../../repositories/customMeals.repository';
 import { PaymentCheckoutModal } from '../../components/PaymentCheckoutModal';
@@ -86,10 +82,6 @@ export default function CustomMealScreen() {
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
-
-  // Cart & Review Modal State
-  const { addToCart, isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
 
   // Flow Step: 'REQUEST' | 'QUOTES'
   const [activeTab, setActiveTab] = useState<'REQUEST' | 'QUOTES'>('REQUEST');
@@ -1003,25 +995,6 @@ export default function CustomMealScreen() {
           </View>
         )}
       </ScrollView>
-
-      {/* Floating Cart Button */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={(orderId) => {
-          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
-        }}
-      />
 
       {/* Custom Meal Quote Payment Modal */}
       {showPaymentModal && selectedQuoteForPayment && activeRequestId && (

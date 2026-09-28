@@ -83,6 +83,7 @@ export async function runThemeVisualClosureTests(): Promise<{
     'inputBorder',
     'inputPlaceholder',
     'primary',
+    'primaryCta',
     'primaryHover',
     'primaryPressed',
     'primarySoft',
@@ -130,14 +131,26 @@ export async function runThemeVisualClosureTests(): Promise<{
     'Light palette matches MloHub warm ivory hierarchy (#F7F7F5 / #FFFFFF / #172033)'
   );
   assert(
-    lightColors.primary === '#FF541F' && darkColors.primary === '#FF541F',
-    'Primary MloHub brand orange (#FF541F) is unified across Light and Dark modes'
+    lightColors.primary === '#FF541F' &&
+      darkColors.primary === '#FF541F' &&
+      lightColors.primaryCta === '#D63D0F' &&
+      darkColors.primaryCta === '#D63D0F',
+    'Primary MloHub brand orange (#FF541F) and contrast-safe primaryCta (#D63D0F) are unified across Light and Dark modes'
   );
 
   // --------------------------------------------------------------------------
   // Section 2: Theme Resolution, System Mode & Legacy Migration (Phases 2A, 6, 63, 75, 83)
   // --------------------------------------------------------------------------
   console.log('\n--- Section 2: Theme Resolution, System Mode & Legacy Migration ---');
+
+  const themeContextSrc = fs.readFileSync(path.join(rootDir, 'context/ThemeContext.tsx'), 'utf8');
+  assert(
+    themeContextSrc.includes("from '../theme/palettes'") &&
+      themeContextSrc.includes('migrateAndLoadThemePreference') &&
+      !themeContextSrc.includes('export function resolveThemeMode(') &&
+      !themeContextSrc.includes('export async function migrateAndLoadThemePreference('),
+    'context/ThemeContext.tsx imports and re-exports canonical theme helpers from theme/palettes.ts without duplicate implementations'
+  );
 
   assert(
     THEME_STORAGE_KEY === 'mlohub_theme_mode',
@@ -166,7 +179,7 @@ export async function runThemeVisualClosureTests(): Promise<{
       resolveThemeColors('SYSTEM', 'dark') === darkColors &&
       resolveThemeMode('SYSTEM', 'light') === 'LIGHT' &&
       resolveThemeColors('SYSTEM', 'light') === lightColors,
-    'SYSTEM mode dynamically follows OS color scheme without overwriting preference'
+    'SYSTEM mode dynamically follows OS color scheme only when SYSTEM is selected'
   );
   assert(
     computeNextToggledMode('LIGHT') === 'DARK' &&
@@ -202,6 +215,22 @@ export async function runThemeVisualClosureTests(): Promise<{
     'migrateAndLoadThemePreference migrates legacy mlohub_admin_theme_mode to mlohub_theme_mode and cleans up legacy key'
   );
 
+  const savedDarkStorage = createMockStorage({ [THEME_STORAGE_KEY]: 'DARK' });
+  const savedDarkMode = await migrateAndLoadThemePreference(savedDarkStorage);
+  assert(
+    savedDarkMode === 'DARK' && resolveThemeMode(savedDarkMode, 'light') === 'DARK',
+    'Saved DARK preference stays DARK across sessions'
+  );
+
+  const savedSystemStorage = createMockStorage({ [THEME_STORAGE_KEY]: 'SYSTEM' });
+  const savedSystemMode = await migrateAndLoadThemePreference(savedSystemStorage);
+  assert(
+    savedSystemMode === 'SYSTEM' &&
+      resolveThemeMode(savedSystemMode, 'dark') === 'DARK' &&
+      resolveThemeMode(savedSystemMode, 'light') === 'LIGHT',
+    'Saved SYSTEM preference stays SYSTEM and follows OS scheme'
+  );
+
   const existingStorage = createMockStorage({
     [THEME_STORAGE_KEY]: 'LIGHT',
     [LEGACY_ADMIN_THEME_KEY]: 'DARK',
@@ -215,8 +244,10 @@ export async function runThemeVisualClosureTests(): Promise<{
   const emptyStorage = createMockStorage({});
   const defaultMode = await migrateAndLoadThemePreference(emptyStorage);
   assert(
-    defaultMode === 'SYSTEM',
-    'migrateAndLoadThemePreference defaults to SYSTEM when no stored preference exists'
+    defaultMode === 'LIGHT' &&
+      resolveThemeMode(defaultMode, 'dark') === 'LIGHT' &&
+      resolveThemeColors(defaultMode, 'dark') === lightColors,
+    'Fresh install (no stored preference) defaults to LIGHT even when OS scheme is dark'
   );
 
   // --------------------------------------------------------------------------
@@ -237,7 +268,7 @@ export async function runThemeVisualClosureTests(): Promise<{
   );
 
   const headerFiles = [
-    { rel: 'components/Header.tsx', label: 'Customer Mobile Header' },
+    { rel: 'app/(tabs)/_layout.tsx', label: 'Customer Mobile Tab Layout Top-Right Switcher' },
     { rel: 'components/navigation/CustomerDesktopNav.tsx', label: 'Customer Desktop Top Nav' },
     { rel: 'components/admin/AdminHeader.tsx', label: 'Admin Top Header' },
     { rel: 'components/restaurant/RestaurantPortalHeader.tsx', label: 'Restaurant Portal Top Header' },
@@ -250,6 +281,12 @@ export async function runThemeVisualClosureTests(): Promise<{
       `${h.label} (${h.rel}) mounts <ThemeQuickSwitcher /> in top-right controls`
     );
   }
+
+  const mobileHeaderContent = fs.readFileSync(path.join(rootDir, 'components/Header.tsx'), 'utf8');
+  assert(
+    !mobileHeaderContent.includes('<ThemeQuickSwitcher'),
+    'components/Header.tsx does not render a duplicate <ThemeQuickSwitcher /> on Home tab'
+  );
 
   const profileContent = fs.readFileSync(path.join(rootDir, 'app/(tabs)/profile.tsx'), 'utf8');
   assert(
@@ -287,7 +324,7 @@ export async function runThemeVisualClosureTests(): Promise<{
   console.log('\n--- Section 4: Portal Theme Coverage & Structural Static Color Audit ---');
 
   const majorPortalFiles = [
-    // Customer
+    // Customer & Auth
     'app/(tabs)/_layout.tsx',
     'app/(tabs)/index.tsx',
     'app/(tabs)/explore.tsx',
@@ -295,6 +332,12 @@ export async function runThemeVisualClosureTests(): Promise<{
     'app/(tabs)/custom.tsx',
     'app/(tabs)/bookings.tsx',
     'app/(tabs)/profile.tsx',
+    'app/onboarding.tsx',
+    'app/auth/index.tsx',
+    'app/auth/login.tsx',
+    'app/auth/forgot-password.tsx',
+    'app/auth/reset-password.tsx',
+    'app/auth/register-restaurant.tsx',
     'app/payments.tsx',
     'app/restaurant/[id].tsx',
     'app/compare.tsx',
@@ -304,6 +347,9 @@ export async function runThemeVisualClosureTests(): Promise<{
     'components/LocationModal.tsx',
     'components/ReservationModal.tsx',
     'components/PaymentCheckoutModal.tsx',
+    'components/discovery/DiscoveryFilters.tsx',
+    'components/discovery/DishCard.tsx',
+    'components/discovery/DishCardSkeleton.tsx',
     // Restaurant
     'app/restaurant-portal/index.tsx',
     'components/restaurant/RestaurantPortalHeader.tsx',
@@ -321,6 +367,8 @@ export async function runThemeVisualClosureTests(): Promise<{
     'components/restaurant/AnalyticsPanel.tsx',
     'components/restaurant/StaffManager.tsx',
     'components/restaurant/RestaurantSettings.tsx',
+    'components/restaurant/BranchManager.tsx',
+    'components/restaurant/AttentionCenter.tsx',
     // Admin
     'app/admin/index.tsx',
     'components/admin/AdminHeader.tsx',
@@ -347,7 +395,7 @@ export async function runThemeVisualClosureTests(): Promise<{
   ];
 
   const bannedStructuralHexRx =
-    /#(ffffff|f8fafc|f1f5f9|e2e8f0|cbd5e1|94a3b8|64748b|475569|334155|1e293b|0f172a|faf8f3|f5f3ed|142033|0d1522)\b/gi;
+    /#(ffffff|f8fafc|f1f5f9|e2e8f0|cbd5e1|94a3b8|64748b|475569|334155|1e293b|0f172a|faf8f3|f5f3ed|142033|0d1522|fef3e2|fff5f5|fefcbf|feebc8|f0fff4|faf5ff|eaf4ed|f5faf6|fffdfd|edf2ee|dce4dd|ebf8ff|f1f5f2|e2e7e3|f1f5f3|e6ede8|e8ece9|e2e7e4|d8deda|edf1ee|f1f1f1|fffdf5|faf9f6|fffaf0|fffaf5|fff1f2|fdf2f8|f9fbf9|fbfdfb|fafcfa|e6f7ed|fee2e2|fef3c7|dcfce7|eff6ff|e0f2fe)\b/gi;
   const bannedStaticColorsObjRx =
     /\bColors\.(background|surface|warmIvory|creamSurface|brandInk|textSecondary|textMuted|border|borderLight|textPrimary)\b/g;
 
@@ -364,7 +412,7 @@ export async function runThemeVisualClosureTests(): Promise<{
     const colorObjViolations = content.match(bannedStaticColorsObjRx) || [];
     assert(
       hexViolations.length === 0 && colorObjViolations.length === 0,
-      `${rel} contains 0 unallowed structural hardcoded colors (found ${hexViolations.length} hex, ${colorObjViolations.length} Colors.*)`
+      `${rel} contains 0 unallowed structural hardcoded colors (found ${hexViolations.length} hex [${hexViolations.join(', ')}], ${colorObjViolations.length} Colors.*)`
     );
   }
 

@@ -20,6 +20,8 @@ import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useCartInteraction } from '../../hooks/useCartInteraction';
+import { prepareReorderItemWithCurrentMenu } from '../../services/cart/cartCore';
 import { OrderRepository } from '../../repositories/orders.repository';
 import { PaymentRepository } from '../../repositories/payments.repository';
 import { RefundsRepository } from '../../repositories/refunds.repository';
@@ -59,7 +61,8 @@ export default function OrdersScreen() {
   const params = useLocalSearchParams<{ orderId?: string }>();
   const { t, language } = useLanguage();
   const { user, isAuthenticated } = useAuth();
-  const { addToCart } = useCart();
+  const { setIsCartOpen } = useCart();
+  const { requestAddToCart } = useCartInteraction();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
@@ -114,30 +117,79 @@ export default function OrdersScreen() {
     );
   };
 
-  const handleReorder = (order: Order) => {
-    if (!order.items || order.items.length === 0) return;
-    let count = 0;
-    order.items.forEach((it) => {
-      if (it.menuItemId) {
-        addToCart({
-          dishId: it.menuItemId,
-          dishName: it.itemNameSnapshot,
-          priceTzs: it.priceSnapshot,
+  const handleReorder = async (order: Order) => {
+    if (!order.items || order.items.length === 0 || isActionLoading) return;
+    setIsActionLoading(true);
+    try {
+      let count = 0;
+      for (const it of order.items) {
+        const prep = await prepareReorderItemWithCurrentMenu({
+          menuItemId: it.menuItemId,
+          historicalModifiers: it.selectedModifiers,
+        });
+
+        if (prep.status === 'UNAVAILABLE') {
+          Alert.alert(
+            language === 'sw' ? 'Chakula Hakipatikani' : 'Item Unavailable',
+            prep.reason
+          );
+          return;
+        }
+
+        if (prep.status === 'LOOKUP_FAILED') {
+          Alert.alert(
+            language === 'sw' ? 'Imeshindikana Kupakia Machaguo' : 'Unable to load meal options',
+            prep.reason
+          );
+          return;
+        }
+
+        const currentItem = prep.currentItem;
+        const qty = Math.max(1, it.quantity || 1);
+        const outcome = await requestAddToCart({
+          dishId: currentItem.id,
+          dishName: currentItem.nameEn || currentItem.name || it.itemNameSnapshot,
+          dishNameSwahili: currentItem.nameSw,
+          description: currentItem.description,
+          priceTzs: currentItem.basePrice,
+          basePriceTzs: currentItem.basePrice,
+          imageUrl: currentItem.imageUrl,
           restaurantId: order.restaurantId,
           restaurantName: order.restaurantName || 'Restaurant',
-          quantity: it.quantity,
+          branchId: order.branchId,
+          quantity: qty,
           notes: it.specialNotes,
+          prefetchedModifierGroups: prep.modifierGroups,
+          initialSelectedOptionIds: prep.initialSelectedOptionIds,
         });
-        count += it.quantity;
+
+        if (outcome === 'CANCELLED' || outcome === 'FAILED') {
+          return;
+        }
+        count += qty;
       }
-    });
-    Alert.alert(
-      language === 'sw' ? 'Vyakula Vimeongezwa' : 'Items Added to Cart',
-      language === 'sw'
-        ? `Vyakula ${count} vimeongezwa kwenye kikapu chako.`
-        : `${count} items have been added to your cart.`,
-      [{ text: language === 'sw' ? 'Gundua Zaidi' : 'Continue Shopping', onPress: () => router.push('/(tabs)') }]
-    );
+
+      if (count > 0) {
+        Alert.alert(
+          language === 'sw' ? 'Vyakula Vimeongezwa' : 'Items Added to Cart',
+          language === 'sw'
+            ? `Vyakula ${count} vimeongezwa kwenye kikapu chako.`
+            : `${count} items have been added to your cart.`,
+          [
+            {
+              text: language === 'sw' ? 'Angalia Kikapu' : 'View Cart',
+              onPress: () => setIsCartOpen(true),
+            },
+            {
+              text: language === 'sw' ? 'Gundua Zaidi' : 'Continue Shopping',
+              onPress: () => router.push('/(tabs)'),
+            },
+          ]
+        );
+      }
+    } finally {
+      setIsActionLoading(false);
+    }
   };
 
   const fetchOrders = useCallback(async () => {

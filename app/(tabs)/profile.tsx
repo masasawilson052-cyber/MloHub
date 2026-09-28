@@ -577,12 +577,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   scrollContent: {
     padding: Spacing.md,
+    paddingTop: 52,
     paddingBottom: 100,
   },
   largeScreenContainer: {
     maxWidth: 700,
     width: '100%',
     alignSelf: 'center',
+    paddingTop: Spacing.md,
   },
   menuGroup: {
     borderRadius: 14,

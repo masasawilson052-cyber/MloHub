@@ -12,65 +12,27 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { PaymentRepository } from '../../repositories/payments.repository';
-import { Order } from '../../types/domain';
+import { Order, Payment } from '../../types/domain';
 import { formatTzs } from '../../utils/formatters';
 import { normalizeTanzaniaPhone, isValidTanzaniaPhone, formatTanzaniaPhoneDisplay } from '../../utils/phone';
-import { Button } from '../ui/Button';
-
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
+import {
+  MOBILE_MONEY_METHODS,
+  MobileMoneyMethodConfig,
+  getMobileMoneyMethodConfig,
+  detectCarrierFromPhone,
+  PAYMENT_SECURITY_PIN_NOTICE_EN,
+  PAYMENT_SECURITY_PIN_NOTICE_SW,
+} from '../../constants/paymentMethods';
+import { PaymentMethodCard } from '../payments/PaymentMethodCard';
+import { generatePaymentAttemptId } from '../payments/paymentFlow';
 
 let colors: ThemeColors = lightColors;
-
-type PaymentMethodCode = 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA';
-
-interface PaymentProviderOption {
-  id: PaymentMethodCode;
-  name: string;
-  shortName: string;
-  emoji: string;
-  badgeBg: string;
-  badgeTextColor: string;
-}
-
-const PAYMENT_PROVIDERS: PaymentProviderOption[] = [
-  {
-    id: 'MPESA',
-    name: 'Vodacom M-Pesa',
-    shortName: 'M-Pesa',
-    emoji: '🟢',
-    badgeBg: '#DCFCE7',
-    badgeTextColor: '#15803D',
-  },
-  {
-    id: 'AIRTEL_MONEY',
-    name: 'Airtel Money',
-    shortName: 'Airtel',
-    emoji: '🔴',
-    badgeBg: '#FEE2E2',
-    badgeTextColor: '#B91C1C',
-  },
-  {
-    id: 'MIXX_BY_YAS',
-    name: 'Mixx by Yas',
-    shortName: 'Mixx',
-    emoji: '🔵',
-    badgeBg: '#E0F2FE',
-    badgeTextColor: '#0369A1',
-  },
-  {
-    id: 'HALOPESA',
-    name: 'Halotel HaloPesa',
-    shortName: 'HaloPesa',
-    emoji: '🟠',
-    badgeBg: '#FFEDD5',
-    badgeTextColor: '#C2410C',
-  },
-];
 
 interface PaymentRetryModalProps {
   visible: boolean;
@@ -85,13 +47,17 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
   onClose,
   onPaymentSuccess,
 }) => {
-  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { colors: _tc } = useTheme();
+  colors = _tc;
+  const styles = createStyles(colors);
   const { language } = useLanguage();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
-  const [selectedProvider, setSelectedProvider] = useState<PaymentMethodCode>('MPESA');
+  const [selectedMethod, setSelectedMethod] = useState<MobileMoneyMethodConfig>(
+    MOBILE_MONEY_METHODS[0]
+  );
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -101,7 +67,7 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
       setErrorMessage(null);
       const initialPhone = order.customerPhone || user?.phone || '';
       setPhoneNumber(initialPhone);
-      setSelectedProvider('MPESA');
+      setSelectedMethod(MOBILE_MONEY_METHODS[0]);
     }
   }, [visible, order, user?.phone]);
 
@@ -130,14 +96,39 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
       return;
     }
 
-    setIsSubmitting(true);
     try {
-      const attemptId = `retry_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const idempotencyKey = `order_payment_${order.id}_${attemptId}`;
+      setIsSubmitting(true);
+      const existingPayments = await PaymentRepository.getByOrderId(order.id).catch(() => []);
+      const isAlreadyPaid =
+        existingPayments.some(
+          (p: Payment) => p.status === 'SUCCESS' || (p.status as any) === 'PAID' || (p.status as any) === 'COMPLETED'
+        ) || order.paymentStatus === 'SUCCESS' || (order.paymentStatus as any) === 'PAID';
+
+      if (isAlreadyPaid) {
+        Alert.alert(
+          language === 'sw' ? 'Agizo Limekwishalipwa' : 'Order Already Paid',
+          language === 'sw'
+            ? 'Malipo ya agizo hili tayari yamethibitishwa. Hakuna haja ya kulipa tena.'
+            : 'This order has already been successfully paid. No additional payment is required.',
+          [
+            {
+              text: language === 'sw' ? 'Sawa' : 'OK',
+              onPress: () => {
+                onClose();
+                if (onPaymentSuccess) onPaymentSuccess();
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      const attemptId = generatePaymentAttemptId();
+      const idempotencyKey = `order_retry_${order.id}_${attemptId}`;
 
       const result = await PaymentRepository.createForOrder({
         orderId: order.id,
-        methodCode: selectedProvider,
+        methodCode: selectedMethod.id,
         payerPhone: normalizedPhone,
         idempotencyKey,
       });
@@ -146,12 +137,11 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
         throw new Error(result.error || 'Payment request was not accepted by payment gateway.');
       }
 
-      const providerObj = PAYMENT_PROVIDERS.find((p) => p.id === selectedProvider);
       Alert.alert(
         language === 'sw' ? 'Ombi la Malipo Limetumwa' : 'Payment Prompt Sent',
         language === 'sw'
-          ? `Ombi la malipo la ${formatTzs(order.totalTzs)} limetumwa kwenye namba ${formatTanzaniaPhoneDisplay(normalizedPhone)} kupitia ${providerObj?.name || 'Mobile Money'}.\n\nTafadhali angalia simu yako na uweke namba yako ya siri (PIN) ili kuidhinisha malipo.`
-          : `A payment prompt of ${formatTzs(order.totalTzs)} was sent to ${formatTanzaniaPhoneDisplay(normalizedPhone)} via ${providerObj?.name || 'Mobile Money'}.\n\nPlease check your phone and enter your mobile money PIN to authorize the payment.`,
+          ? `Ombi la malipo la ${formatTzs(order.totalTzs)} limetumwa kwenye namba ${formatTanzaniaPhoneDisplay(normalizedPhone)} kupitia ${selectedMethod.displayName}.\n\n${selectedMethod.ussdGuidanceSw}\n\nUsalama: MloHub haitakuomba au kuhifadhi PIN yako ya mtandao wa simu.`
+          : `A payment prompt of ${formatTzs(order.totalTzs)} was sent to ${formatTanzaniaPhoneDisplay(normalizedPhone)} via ${selectedMethod.displayName}.\n\n${selectedMethod.ussdGuidanceEn}\n\nSecurity Notice: MloHub will never ask for or store your mobile-money PIN.`,
         [
           {
             text: language === 'sw' ? 'Sawa, Nimeelewa' : 'OK, Understood',
@@ -169,8 +159,6 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  const selectedProviderObj = PAYMENT_PROVIDERS.find((p) => p.id === selectedProvider);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -198,149 +186,100 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
                 {language === 'sw' ? 'Kiasi Kinacholipwa' : 'Total Amount Due'}
               </Text>
               <Text style={styles.amountValue}>{formatTzs(order.totalTzs)}</Text>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownText}>
-                  {language === 'sw' ? 'Vyakula' : 'Items'}: {formatTzs(order.subtotalTzs)}
-                </Text>
-                <Text style={styles.breakdownDot}>•</Text>
-                <Text style={styles.breakdownText}>
-                  {language === 'sw' ? 'Huduma' : 'Service'}: {formatTzs(order.serviceFeeTzs)}
-                </Text>
-                {order.deliveryFeeTzs > 0 && (
-                  <>
-                    <Text style={styles.breakdownDot}>•</Text>
-                    <Text style={styles.breakdownText}>
-                      {language === 'sw' ? 'Usafiri' : 'Delivery'}: {formatTzs(order.deliveryFeeTzs)}
-                    </Text>
-                  </>
-                )}
-              </View>
             </View>
 
-            {/* Error Banner */}
-            {errorMessage ? (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={20} color="#DC2626" />
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            ) : null}
-
             {/* Provider Selection */}
-            <Text style={styles.sectionHeading}>
-              {language === 'sw' ? 'Chagua Njia ya Malipo' : 'Select Mobile Money Provider'}
+            <Text style={styles.sectionLabel}>
+              {language === 'sw' ? 'Chagua Mtandao wa Malipo' : 'Select Mobile Money Provider'}
             </Text>
-            <View style={styles.providersGrid}>
-              {PAYMENT_PROVIDERS.map((provider) => {
-                const isSelected = selectedProvider === provider.id;
-                return (
-                  <TouchableOpacity
-                    key={provider.id}
-                    style={[styles.providerCard, isSelected && styles.providerCardSelected]}
-                    onPress={() => setSelectedProvider(provider.id)}
-                    activeOpacity={0.8}
-                    disabled={isSubmitting}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isSelected }}
-                  >
-                    <View style={styles.providerCardHeader}>
-                      <Text style={styles.providerEmoji}>{provider.emoji}</Text>
-                      <View
-                        style={[
-                          styles.radioCircle,
-                          isSelected && styles.radioCircleSelected,
-                        ]}
-                      >
-                        {isSelected && <View style={styles.radioInnerDot} />}
-                      </View>
-                    </View>
-                    <Text
-                      style={[
-                        styles.providerName,
-                        isSelected && styles.providerNameSelected,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {provider.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.providersList} accessibilityRole="radiogroup">
+              {MOBILE_MONEY_METHODS.map((provider) => (
+                <PaymentMethodCard
+                  key={provider.id}
+                  method={provider}
+                  selected={selectedMethod.id === provider.id}
+                  onSelect={(p) => setSelectedMethod(p)}
+                  disabled={isSubmitting}
+                />
+              ))}
             </View>
 
             {/* Phone Number Input */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                {language === 'sw'
-                  ? `Namba ya Simu (${selectedProviderObj?.shortName || 'Simu'})`
-                  : `Mobile Money Phone (${selectedProviderObj?.shortName || 'Mobile'})`}
-              </Text>
-              <View style={styles.phoneInputContainer}>
-                <View style={styles.phonePrefixBox}>
-                  <Text style={styles.phonePrefixText}>🇹🇿 +255</Text>
-                </View>
-                <TextInput
-                  style={styles.phoneTextInput}
-                  value={phoneNumber}
-                  onChangeText={(val) => {
-                    setPhoneNumber(val);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  placeholder="07XXXXXXXX au 7XXXXXXXX"
-                  placeholderTextColor={colors.inputPlaceholder}
-                  keyboardType="phone-pad"
-                  editable={!isSubmitting}
-                  autoCapitalize="none"
-                />
-              </View>
-              <Text style={styles.inputHelp}>
-                {language === 'sw'
-                  ? 'Weka namba iliyosajiliwa na mtandao uliouchagua kupokea ujumbe wa idhini ya PIN.'
-                  : 'Enter the registered mobile money phone to receive the USSD PIN authorization prompt.'}
+            <Text style={styles.sectionLabel}>
+              {language === 'sw' ? 'Namba ya Simu ya Malipo' : 'Payment Phone Number'}
+            </Text>
+            <View
+              style={[
+                styles.phoneInputContainer,
+                {
+                  backgroundColor: colors.surfaceInteractive,
+                  borderColor: errorMessage ? colors.danger : colors.border,
+                },
+              ]}
+            >
+              <Ionicons name="call-outline" size={20} color={colors.textSecondary} style={styles.phoneIcon} />
+              <TextInput
+                style={[styles.phoneInput, { color: colors.text }]}
+                value={phoneNumber}
+                onChangeText={(val) => {
+                  setPhoneNumber(val);
+                  setErrorMessage(null);
+                }}
+                placeholder="0754 000 000 au +255..."
+                placeholderTextColor={colors.textMuted}
+                keyboardType="phone-pad"
+                editable={!isSubmitting}
+                maxLength={16}
+              />
+            </View>
+
+            {/* PIN Security Notice */}
+            <View style={styles.securityBox}>
+              <Ionicons name="shield-checkmark" size={16} color={colors.success} />
+              <Text style={styles.securityText}>
+                {language === 'sw' ? PAYMENT_SECURITY_PIN_NOTICE_SW : PAYMENT_SECURITY_PIN_NOTICE_EN}
               </Text>
             </View>
 
-            {/* Instructions Notice */}
-            <View style={styles.noticeCard}>
-              <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.noticeTitle}>
-                  {language === 'sw' ? 'Jinsi Malipo Yanavyofanya Kazi' : 'How It Works'}
-                </Text>
-                <Text style={styles.noticeBody}>
-                  {language === 'sw'
-                    ? 'Baada ya kubonyeza kitufe hapa chini, utapokea ujumbe mfupi (USSD push) kwenye simu yako ukiomba kuweka namba yako ya siri (PIN). Malipo yatakamilika mara moja.'
-                    : 'After initiating, an automated USSD prompt will pop up on your mobile handset asking for your PIN to authorize the transaction via ClickPesa.'}
-                </Text>
+            {/* Error Message */}
+            {errorMessage && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.danger} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
               </View>
-            </View>
+            )}
 
-            {/* Pay Button */}
-            <View style={styles.actionButtons}>
-              <Button
-                title={
-                  isSubmitting
-                    ? (language === 'sw' ? 'Inatuma ombi...' : 'Sending Prompt...')
-                    : (language === 'sw'
-                        ? `Lipa ${formatTzs(order.totalTzs)} kupitia ${selectedProviderObj?.shortName || 'Simu'}`
-                        : `Pay ${formatTzs(order.totalTzs)} via ${selectedProviderObj?.shortName || 'Mobile'}`)
-                }
-                onPress={handlePay}
-                variant="primary"
-                size="lg"
-                fullWidth={true}
-                disabled={isSubmitting}
-                loading={isSubmitting}
-              />
-              <Button
-                title={language === 'sw' ? 'Ghairi' : 'Cancel'}
-                onPress={onClose}
-                variant="ghost"
-                size="md"
-                fullWidth={true}
-                disabled={isSubmitting}
-                style={{ marginTop: Spacing.sm }}
-              />
-            </View>
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.submitBtn,
+                { backgroundColor: colors.primary, opacity: isSubmitting ? 0.6 : 1 },
+              ]}
+              onPress={handlePay}
+              disabled={isSubmitting}
+              activeOpacity={0.8}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="phone-portrait-outline" size={20} color="#FFFFFF" />
+                  <Text style={styles.submitBtnText}>
+                    {language === 'sw' ? 'Tuma Ombi la Malipo' : 'Request Payment Prompt'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onClose}
+              disabled={isSubmitting}
+            >
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
+                {language === 'sw' ? 'Lipa Baadaye' : 'Pay Later'}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
       </View>
@@ -348,235 +287,157 @@ export const PaymentRetryModal: React.FC<PaymentRetryModalProps> = ({
   );
 };
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    maxHeight: '90%',
-    paddingBottom: 24,
-  },
-  largeSheet: {
-    maxWidth: 560,
-    width: '100%',
-    alignSelf: 'center',
-    borderRadius: Radii.xl,
-    marginVertical: 40,
-    maxHeight: '85%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  closeBtn: {
-    padding: 6,
-  },
-  scroll: {
-    padding: Spacing.lg,
-  },
-  amountCard: {
-    backgroundColor: colors.appBackground,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  amountLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  amountValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.primary,
-    marginTop: 4,
-    marginBottom: 6,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  breakdownText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  breakdownDot: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.dangerSoft,
-    borderWidth: 1,
-    borderColor: colors.danger,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    gap: 10,
-  },
-  errorText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.danger,
-    lineHeight: 18,
-  },
-  sectionHeading: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  providersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: Spacing.lg,
-  },
-  providerCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: Radii.md,
-    padding: 12,
-    justifyContent: 'space-between',
-  },
-  providerCardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.successSoft,
-  },
-  providerCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  providerEmoji: {
-    fontSize: 18,
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioCircleSelected: {
-    borderColor: colors.primary,
-  },
-  radioInnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-  },
-  providerName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  providerNameSelected: {
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  inputGroup: {
-    marginBottom: Spacing.md,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 6,
-  },
-  phoneInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: Radii.md,
-    backgroundColor: colors.card,
-    overflow: 'hidden',
-  },
-  phonePrefixBox: {
-    backgroundColor: colors.surfaceInteractive,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-  },
-  phonePrefixText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  phoneTextInput: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  inputHelp: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.successSoft,
-    borderRadius: Radii.md,
-    borderWidth: 1,
-    borderColor: colors.success,
-    padding: Spacing.md,
-    gap: 10,
-    marginBottom: Spacing.lg,
-  },
-  noticeTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.success,
-    marginBottom: 2,
-  },
-  noticeBody: {
-    fontSize: 12,
-    color: colors.success,
-    lineHeight: 18,
-  },
-  actionButtons: {
-    paddingBottom: Spacing.lg,
-  },
-});
-let styles = createStyles(lightColors);
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: Radii.xxl,
+      borderTopRightRadius: Radii.xxl,
+      maxHeight: '90%',
+      paddingBottom: 24,
+      ...Shadows.lg,
+    },
+    largeSheet: {
+      maxWidth: 520,
+      alignSelf: 'center',
+      borderRadius: Radii.xxl,
+      marginBottom: 'auto',
+      marginTop: 'auto',
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.xl,
+      paddingTop: Spacing.xl,
+      paddingBottom: Spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 2,
+    },
+    closeBtn: {
+      padding: 6,
+      borderRadius: Radii.full,
+      backgroundColor: colors.surfaceHover,
+    },
+    scroll: {
+      paddingHorizontal: Spacing.xl,
+      paddingTop: Spacing.lg,
+    },
+    amountCard: {
+      backgroundColor: colors.surfaceInteractive,
+      borderRadius: Radii.lg,
+      padding: Spacing.lg,
+      alignItems: 'center',
+      marginBottom: Spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    amountLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    amountValue: {
+      fontSize: 26,
+      fontWeight: '900',
+      color: colors.primary,
+      marginTop: 4,
+    },
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: Spacing.sm,
+    },
+    providersList: {
+      marginBottom: Spacing.md,
+    },
+    phoneInputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderRadius: Radii.md,
+      paddingHorizontal: Spacing.md,
+      marginBottom: Spacing.md,
+    },
+    phoneIcon: {
+      marginRight: Spacing.sm,
+    },
+    phoneInput: {
+      flex: 1,
+      height: 48,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    securityBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: colors.surfaceInteractive,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: Spacing.md,
+    },
+    securityText: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: colors.text,
+      flex: 1,
+    },
+    errorContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.dangerSoft || '#FEE2E2',
+      borderRadius: Radii.md,
+      padding: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    errorText: {
+      fontSize: 13,
+      color: colors.danger,
+      flex: 1,
+    },
+    submitBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      height: 50,
+      borderRadius: Radii.lg,
+      marginBottom: Spacing.sm,
+    },
+    submitBtnText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    cancelBtn: {
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelBtnText: {
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });

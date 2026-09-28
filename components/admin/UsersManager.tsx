@@ -375,7 +375,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardSuspended: {
     borderColor: colors.danger,
-    backgroundColor: '#fffaf0',
+    backgroundColor: colors.dangerSoft,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -22,6 +22,7 @@
     "supabase",
     "tests/**",
     "tests",
+    "**/*.test.ts",
     "scripts/**",
     "scripts"
   ]

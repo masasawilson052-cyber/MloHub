@@ -191,8 +191,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <Text style={styles.metricLabel}>
               {language === 'sw' ? 'Mauzo ya Leo' : "Today's Sales"}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: '#F3E8FF' }]}>
-              <Ionicons name="cash-outline" size={18} color="#7E22CE" />
+            <View style={[styles.iconPill, { backgroundColor: colors.primarySoft }]}>
+              <Ionicons name="cash-outline" size={18} color={colors.primary} />
             </View>
           </View>
           <Text style={styles.metricValue}>{formatTzs(metrics.todaySalesTzs)}</Text>
@@ -303,7 +303,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   metricCardAlert: {
     borderColor: colors.warning,
-    backgroundColor: '#FFFDF5',
+    backgroundColor: colors.warningSoft,
   },
   metricCardWarning: {
     borderColor: colors.success,

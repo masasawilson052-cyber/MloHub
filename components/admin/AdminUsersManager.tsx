@@ -371,9 +371,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderColor: colors.info,
   },
   roleOptionActiveSuper: {
-    backgroundColor: '#fdf2f8',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#ec4899',
+    borderColor: colors.primary,
   },
   roleOptionText: {
     fontSize: 11,
@@ -384,7 +384,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.info,
   },
   roleOptionTextActiveSuper: {
-    color: '#be185d',
+    color: colors.primary,
   },
   inviteActions: {
     flexDirection: 'row',
@@ -476,7 +476,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.infoSoft,
   },
   roleSuper: {
-    backgroundColor: '#fdf2f8',
+    backgroundColor: colors.primarySoft,
   },
   roleTagText: {
     fontSize: 10,
@@ -487,7 +487,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.info,
   },
   roleSuperText: {
-    color: '#be185d',
+    color: colors.primary,
   },
   cardMeta: {
     backgroundColor: colors.appBackground,

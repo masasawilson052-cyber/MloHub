@@ -20,6 +20,7 @@ import { Typography } from '../../theme/typography';
 import { RestaurantBranch } from '../../types/domain';
 import { BranchRepository } from '../../repositories/branches.repository';
 import { Button } from '../ui/Button';
+import { BranchLocationPickerModal } from './BranchLocationPickerModal';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -42,6 +43,8 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBranch, setEditingBranch] = useState<RestaurantBranch | null>(null);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [showAdvancedGps, setShowAdvancedGps] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
@@ -56,6 +59,22 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleLocationPicked = (loc: {
+    region: string;
+    district: string;
+    ward: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    setRegion(loc.region);
+    setDistrict(loc.district);
+    setWard(loc.ward);
+    setAddress(loc.address);
+    setLatStr(String(loc.latitude));
+    setLngStr(String(loc.longitude));
+  };
 
   const openAddModal = () => {
     setEditingBranch(null);
@@ -270,6 +289,29 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
             ) : null}
 
             <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+              {/* Preset / Map Location Picker CTA */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  backgroundColor: colors.successSoft,
+                  borderRadius: Radii.lg,
+                  borderWidth: 1,
+                  borderColor: '#1d6637',
+                  marginBottom: Spacing.md,
+                }}
+                onPress={() => setIsLocationPickerOpen(true)}
+              >
+                <Ionicons name="map-outline" size={18} color="#1d6637" />
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#1d6637' }}>
+                  {language === 'sw' ? 'Chagua Eneo kwenye Ramani na Vituo (Presets)' : 'Pick Location from Map & Presets'}
+                </Text>
+              </TouchableOpacity>
+
               {/* Branch Name */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>
@@ -356,36 +398,66 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
                 />
               </View>
 
-              {/* Coordinates (Optional) */}
-              <View style={styles.fieldRow}>
-                <View style={[styles.fieldGroup, { flex: 1, marginRight: Spacing.sm }]}>
-                  <Text style={styles.fieldLabel}>
-                    {language === 'sw' ? 'Latitude (GPS)' : 'Latitude (GPS)'}
+              {/* Collapsible Advanced GPS Section */}
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  backgroundColor: colors.surfaceInteractive,
+                  borderRadius: Radii.md,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  marginBottom: Spacing.sm,
+                }}
+                onPress={() => setShowAdvancedGps(!showAdvancedGps)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name={showAdvancedGps ? 'chevron-down' : 'chevron-forward'} size={16} color={colors.textSecondary} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                    {language === 'sw' ? 'Mipangilio ya Kina ya GPS (Advanced GPS)' : 'Advanced GPS Coordinates'}
                   </Text>
-                  <TextInput
-                    style={styles.input}
-                    value={latStr}
-                    onChangeText={setLatStr}
-                    placeholder="-6.7645"
-                    keyboardType="numeric"
-                    placeholderTextColor={colors.inputPlaceholder}
-                  />
                 </View>
+                {latStr && lngStr ? (
+                  <View style={{ backgroundColor: colors.successSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radii.sm }}>
+                    <Text style={{ fontSize: 10, fontWeight: '700', color: '#1d6637' }}>✓ GPS Set</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
 
-                <View style={[styles.fieldGroup, { flex: 1 }]}>
-                  <Text style={styles.fieldLabel}>
-                    {language === 'sw' ? 'Longitude (GPS)' : 'Longitude (GPS)'}
-                  </Text>
-                  <TextInput
-                    style={styles.input}
-                    value={lngStr}
-                    onChangeText={setLngStr}
-                    placeholder="39.2450"
-                    keyboardType="numeric"
-                    placeholderTextColor={colors.inputPlaceholder}
-                  />
+              {showAdvancedGps && (
+                <View style={styles.fieldRow}>
+                  <View style={[styles.fieldGroup, { flex: 1, marginRight: Spacing.sm }]}>
+                    <Text style={styles.fieldLabel}>
+                      {language === 'sw' ? 'Latitude (GPS)' : 'Latitude (GPS)'}
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      value={latStr}
+                      onChangeText={setLatStr}
+                      placeholder="-6.7645"
+                      keyboardType="numeric"
+                      placeholderTextColor={colors.inputPlaceholder}
+                    />
+                  </View>
+
+                  <View style={[styles.fieldGroup, { flex: 1 }]}>
+                    <Text style={styles.fieldLabel}>
+                      {language === 'sw' ? 'Longitude (GPS)' : 'Longitude (GPS)'}
+                    </Text>
+                    <TextInput
+                      style={styles.input}
+                      value={lngStr}
+                      onChangeText={setLngStr}
+                      placeholder="39.2450"
+                      keyboardType="numeric"
+                      placeholderTextColor={colors.inputPlaceholder}
+                    />
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Active Toggle */}
               <View style={styles.toggleRow}>
@@ -435,6 +507,17 @@ export const BranchManager: React.FC<BranchManagerProps> = ({
           </View>
         </View>
       </Modal>
+
+      <BranchLocationPickerModal
+        visible={isLocationPickerOpen}
+        onClose={() => setIsLocationPickerOpen(false)}
+        onSelectLocation={handleLocationPicked}
+        initialCoordinates={{
+          latitude: latStr ? parseFloat(latStr) : undefined,
+          longitude: lngStr ? parseFloat(lngStr) : undefined,
+        }}
+        language={language}
+      />
     </View>
   );
 };
@@ -488,7 +571,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f9fbf9',
+    backgroundColor: colors.cardElevated,
     borderRadius: Radii.md,
     borderWidth: 1,
     borderColor: colors.divider,
@@ -511,7 +594,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: Spacing.sm,
   },
   branchCard: {
-    backgroundColor: '#fbfdfb',
+    backgroundColor: colors.cardElevated,
     borderRadius: Radii.md,
     padding: Spacing.md,
     borderWidth: 1,
@@ -539,7 +622,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: Radii.full,
   },
   statusActive: {
-    backgroundColor: '#e6f7ed',
+    backgroundColor: colors.successSoft,
   },
   statusInactive: {
     backgroundColor: colors.surfaceInteractive,
@@ -549,7 +632,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
   },
   statusTextActive: {
-    color: '#0d7337',
+    color: colors.success,
   },
   statusTextInactive: {
     color: colors.textMuted,
@@ -657,7 +740,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 8,
     fontSize: 13,
     color: colors.textPrimary,
-    backgroundColor: '#fafcfa',
+    backgroundColor: colors.inputBg,
   },
   toggleRow: {
     flexDirection: 'row',

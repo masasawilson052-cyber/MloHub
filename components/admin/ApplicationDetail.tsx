@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,16 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantApplicationEntity } from '../../db/types';
+import { RestaurantVerificationDocument } from '../../types/domain';
+import {
+  listDocumentsForApplication,
+  createTemporaryDocumentAccessUrl,
+} from '../../services/MerchantVerificationService';
 
 import { useTheme } from '../../context/ThemeContext';
 
@@ -44,6 +50,29 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [requestMode, setRequestMode] = useState(false);
   const [changeNote, setChangeNote] = useState('');
+  const [documents, setDocuments] = useState<RestaurantVerificationDocument[]>([]);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+
+  useEffect(() => {
+    if (visible && application?.id) {
+      setIsLoadingDocs(true);
+      listDocumentsForApplication(application.id)
+        .then(setDocuments)
+        .catch(() => setDocuments([]))
+        .finally(() => setIsLoadingDocs(false));
+    } else {
+      setDocuments([]);
+    }
+  }, [visible, application?.id]);
+
+  const handleOpenDoc = async (storagePath: string) => {
+    try {
+      const url = await createTemporaryDocumentAccessUrl(storagePath, 900);
+      await Linking.openURL(url);
+    } catch (err: any) {
+      Alert.alert('Document Error', err?.message || 'Failed to open document preview.');
+    }
+  };
 
   if (!application) return null;
 
@@ -193,6 +222,62 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
               </View>
             )}
 
+            {/* Verification Documents (Private Storage) */}
+            <View style={styles.cardSection}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={styles.sectionHeader}>Verification Documents (Private)</Text>
+                {isLoadingDocs && <ActivityIndicator size="small" color={colors.primary} />}
+              </View>
+
+              {documents.length === 0 ? (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', marginTop: 4 }}>
+                  No uploaded verification files attached to this application.
+                </Text>
+              ) : (
+                <View style={{ gap: 8, marginTop: 6 }}>
+                  {documents.map((doc) => (
+                    <View
+                      key={doc.id}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: 8,
+                        backgroundColor: colors.appBackground,
+                        borderRadius: Radii.md,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                          {doc.documentType}
+                        </Text>
+                        <Text style={{ fontSize: 10.5, color: colors.textSecondary }}>
+                          Status: {doc.verificationStatus} • {new Date(doc.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
+                          paddingVertical: 5,
+                          paddingHorizontal: 10,
+                          backgroundColor: colors.primarySoft,
+                          borderRadius: Radii.sm,
+                        }}
+                        onPress={() => handleOpenDoc(doc.storagePath)}
+                      >
+                        <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>View</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
             {/* Reject Form Input */}
             {rejectMode && (
               <View style={styles.inputPromptBox}>
@@ -264,43 +349,48 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
             )}
           </ScrollView>
 
-          {/* Action Footer */}
-          {application.status === 'PENDING' && !rejectMode && !requestMode && (
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.rejectBtn}
-                onPress={() => setRejectMode(true)}
-                disabled={isProcessing}
-              >
-                <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
-                <Text style={styles.rejectBtnText}>Reject</Text>
-              </TouchableOpacity>
+          {/* Action Footer (Gate A Approval) */}
+          {(application.status === 'PENDING' ||
+            application.status === 'SUBMITTED' ||
+            application.status === 'UNDER_REVIEW' ||
+            application.status === 'CHANGES_REQUESTED') &&
+            !rejectMode &&
+            !requestMode && (
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.rejectBtn}
+                  onPress={() => setRejectMode(true)}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
+                  <Text style={styles.rejectBtnText}>Reject</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.requestChangesBtn}
-                onPress={() => setRequestMode(true)}
-                disabled={isProcessing}
-              >
-                <Ionicons name="create-outline" size={18} color="#0284c7" />
-                <Text style={styles.requestChangesText}>Request Info</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.requestChangesBtn}
+                  onPress={() => setRequestMode(true)}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="create-outline" size={18} color="#0284c7" />
+                  <Text style={styles.requestChangesText}>Request Info</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.approveBtn}
-                onPress={handleApprove}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.onPrimary} />
-                    <Text style={styles.approveBtnText}>Approve & Activate</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
+                <TouchableOpacity
+                  style={styles.approveBtn}
+                  onPress={handleApprove}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="shield-checkmark" size={18} color={colors.onPrimary} />
+                      <Text style={styles.approveBtnText}>Approve Merchant (Gate A)</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
         </View>
       </View>
     </Modal>

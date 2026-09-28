@@ -166,7 +166,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   heroBanner: {
-    backgroundColor: '#FFFDF5',
+    backgroundColor: colors.warningSoft,
     borderRadius: Radii.lg,
     padding: Spacing.lg,
     borderWidth: 1,

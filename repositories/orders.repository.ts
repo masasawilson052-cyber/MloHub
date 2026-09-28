@@ -21,6 +21,11 @@ export class OrderRepository {
       fulfillmentType: row.dining_option || 'Delivery',
       deliveryAddress: row.delivery_address,
       specialInstructions: row.special_instructions,
+      deliveryQuoteId: row.delivery_quote_id || undefined,
+      deliveryDistanceMeters: row.delivery_distance_meters || undefined,
+      deliveryDurationSeconds: row.delivery_duration_seconds || undefined,
+      deliveryDestinationLatitude: row.delivery_destination_latitude || undefined,
+      deliveryDestinationLongitude: row.delivery_destination_longitude || undefined,
       estimatedPrepMinutes: row.estimated_prep_minutes || 30,
       acceptedAt: row.accepted_at,
       readyAt: row.ready_at,
@@ -43,6 +48,7 @@ export class OrderRepository {
       quantity: row.quantity || 1,
       subtotal: row.total_price_tzs || ((row.unit_price_tzs || 0) * (row.quantity || 1)),
       specialNotes: row.special_notes,
+      selectedModifiers: Array.isArray(row.selected_modifiers) ? row.selected_modifiers : [],
       createdAt: row.created_at || new Date().toISOString(),
     };
   }
@@ -77,6 +83,7 @@ export class OrderRepository {
         }),
         p_fulfillment_type: order.fulfillmentType || 'Delivery',
         p_delivery_zone_id: order.fulfillmentType === 'Delivery' ? (order.deliveryZoneId || null) : null,
+        p_delivery_quote_id: order.fulfillmentType === 'Delivery' ? (order.deliveryQuoteId || null) : null,
         p_delivery_address: order.fulfillmentType === 'Delivery' ? (order.deliveryAddress?.trim() || null) : null,
         p_special_instructions: order.specialInstructions?.trim() || null,
       };

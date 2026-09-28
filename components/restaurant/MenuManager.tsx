@@ -478,7 +478,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   dishCardSoldOut: {
     opacity: 0.65,
-    backgroundColor: '#FAF9F6',
+    backgroundColor: colors.surfaceInteractive,
   },
   dishCardMain: {
     flexDirection: 'row',

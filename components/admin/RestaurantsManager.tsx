@@ -18,7 +18,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 let colors: ThemeColors = lightColors;
 
-type RestaurantFilter = 'ALL' | 'BASIC_SELLER' | 'VERIFIED' | 'SUSPENDED' | 'ARCHIVED';
+type RestaurantFilter = 'ALL' | 'LAUNCH_REVIEW' | 'BASIC_SELLER' | 'VERIFIED' | 'SUSPENDED' | 'ARCHIVED';
 
 interface RestaurantsManagerProps {
   restaurants: RestaurantEntity[];
@@ -31,6 +31,8 @@ interface RestaurantsManagerProps {
   onDelete?: (restaurantId: string) => Promise<void>;
   onArchive?: (restaurantId: string, reason: string) => Promise<void>;
   onUnarchive?: (restaurantId: string) => Promise<void>;
+  onApproveLaunch?: (restaurantId: string) => Promise<void>;
+  onRequestLaunchCorrections?: (restaurantId: string, reason: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -42,6 +44,8 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   onDelete,
   onArchive,
   onUnarchive,
+  onApproveLaunch,
+  onRequestLaunchCorrections,
   language = 'en',
 }) => {
   const { colors: _tc, isDark } = useTheme(); colors = _tc; styles = createStyles(colors);
@@ -57,6 +61,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   const activeRestaurants = restaurants.filter((r) => !isRestaurantArchived(r));
 
   const allCount = activeRestaurants.length;
+  const launchReviewCount = activeRestaurants.filter((r) => r.launchStatus === 'GO_LIVE_REVIEW').length;
   const basicCount = activeRestaurants.filter((r) => r.sellerTier === 'BASIC_SELLER' && !r.isSuspended).length;
   const verifiedCount = activeRestaurants.filter(
     (r) => (r.sellerTier === 'VERIFIED_RESTAURANT' || r.sellerTier === 'VERIFIED_SELLER') && !r.isSuspended
@@ -72,6 +77,7 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
       if (!isArchived) return false;
     } else {
       if (isArchived) return false;
+      if (filter === 'LAUNCH_REVIEW' && r.launchStatus !== 'GO_LIVE_REVIEW') return false;
       if (filter === 'BASIC_SELLER' && (isVerified || isSuspended)) return false;
       if (filter === 'VERIFIED' && (!isVerified || isSuspended)) return false;
       if (filter === 'SUSPENDED' && !isSuspended) return false;
@@ -121,6 +127,24 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
               ]}
             >
               All ({allCount})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              filter === 'LAUNCH_REVIEW' && styles.filterPillActive,
+            ]}
+            onPress={() => setFilter('LAUNCH_REVIEW')}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                { color: colors.textSecondary },
+                filter === 'LAUNCH_REVIEW' && styles.filterPillTextActive,
+              ]}
+            >
+              Launch Review ({launchReviewCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -321,6 +345,8 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         onDelete={onDelete}
         onArchive={onArchive}
         onUnarchive={onUnarchive}
+        onApproveLaunch={onApproveLaunch}
+        onRequestLaunchCorrections={onRequestLaunchCorrections}
         language={language}
       />
     </View>
@@ -437,7 +463,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardSuspended: {
     borderColor: colors.danger,
-    backgroundColor: '#fffaf0',
+    backgroundColor: colors.dangerSoft,
   },
   cardHeader: {
     flexDirection: 'row',

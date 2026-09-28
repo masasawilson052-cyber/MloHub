@@ -18,6 +18,7 @@
     "demo:preview": "node scripts/serve-demo.cjs dist-offline",
     "test:offline": "tsx tests/offlineDemo.test.ts",
     "security:test": "tsx --require ./lib/e2eBootstrap.js scripts/security-smoke-test.ts",
+    "security:audit": "tsx scripts/security-static-audit.ts",
     "e2e:pack4a": "tsx --require ./lib/e2eBootstrap.js scripts/test-pack4a-custom-meals-e2e.ts",
     "e2e:pack4b": "tsx scripts/test-pack4b-reservation-capacity-e2e.ts",
     "e2e:pack4c": "tsx scripts/test-pack4c-financial-authority-e2e.ts",
@@ -48,6 +49,7 @@
     "expo-constants": "~57.0.19",
     "expo-crypto": "~57.0.3",
     "expo-font": "~57.0.4",
+    "expo-haptics": "~57.0.3",
     "expo-image-manipulator": "~57.0.19",
     "expo-image-picker": "~57.0.19",
     "expo-linking": "~57.0.10",
@@ -56,12 +58,15 @@
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0"
+    "react-native-web": "~0.21.0",
+    "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

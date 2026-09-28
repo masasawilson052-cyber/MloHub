@@ -81,6 +81,7 @@ import {
   RefundsDisputesCenter,
   SettlementsPayoutsCenter,
 } from '../../components/admin';
+import { AdminMfaGate } from '../../components/admin/security/AdminMfaGate';
 
 
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -411,7 +412,27 @@ export default function AdminPortalScreen() {
     if (!activeUser?.id) {
       throw new Error('Authenticated administrator is required.');
     }
-    await ApplicationRepository.updateStatus(appId, 'PENDING', activeUser.id, note);
+    await ApplicationRepository.updateStatus(appId, 'CHANGES_REQUESTED', activeUser.id, note);
+    await loadPlatformData();
+  };
+
+  // 3b. Gate B Store Launch Approval via server RPC
+  const handleApproveLaunch = async (restaurantId: string) => {
+    if (!activeUser?.id) {
+      throw new Error('Authenticated administrator is required.');
+    }
+    await RestaurantRepository.approveLaunch(restaurantId);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'PUBLISHED' });
+    await loadPlatformData();
+  };
+
+  // 3c. Gate B Store Launch Corrections via server RPC
+  const handleRequestLaunchCorrections = async (restaurantId: string, reason: string) => {
+    if (!activeUser?.id) {
+      throw new Error('Authenticated administrator is required.');
+    }
+    await RestaurantRepository.requestLaunchCorrections(restaurantId, reason);
+    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'CORRECTIONS_REQUIRED' });
     await loadPlatformData();
   };
 
@@ -728,10 +749,11 @@ export default function AdminPortalScreen() {
   );
 
   return (
-    <SafeAreaView
-      style={[styles.screenContainer, { backgroundColor: colors.appBackground }]}
-      edges={['top', 'left', 'right']}
-    >
+    <AdminMfaGate>
+      <SafeAreaView
+        style={[styles.screenContainer, { backgroundColor: colors.appBackground }]}
+        edges={['top', 'left', 'right']}
+      >
       {/* 1. Header */}
       <AdminHeader
         userName={activeUser?.fullName || 'Operator'}
@@ -847,6 +869,8 @@ export default function AdminPortalScreen() {
               onDelete={handleDeleteRestaurant}
               onArchive={handleArchiveRestaurant}
               onUnarchive={handleUnarchiveRestaurant}
+              onApproveLaunch={handleApproveLaunch}
+              onRequestLaunchCorrections={handleRequestLaunchCorrections}
               language={language}
             />
           )}
@@ -1045,6 +1069,7 @@ export default function AdminPortalScreen() {
         </Modal>
       )}
     </SafeAreaView>
+    </AdminMfaGate>
   );
 }
 

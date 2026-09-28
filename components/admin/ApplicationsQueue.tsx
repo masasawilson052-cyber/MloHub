@@ -17,7 +17,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 let colors: ThemeColors = lightColors;
 
-type AppFilterStatus = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED';
+type AppFilterStatus = 'ALL' | 'PENDING' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
 
 interface ApplicationsQueueProps {
   applications: RestaurantApplicationEntity[];
@@ -40,8 +40,11 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
   const [activeApp, setActiveApp] = useState<RestaurantApplicationEntity | null>(null);
 
   const filteredApps = applications.filter((app) => {
+    const isPending = app.status === 'PENDING' || app.status === 'SUBMITTED' || app.status === 'UNDER_REVIEW';
     const matchesFilter =
-      selectedFilter === 'ALL' || app.status === selectedFilter;
+      selectedFilter === 'ALL' ||
+      (selectedFilter === 'PENDING' && isPending) ||
+      app.status === selectedFilter;
 
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -54,7 +57,10 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
     return matchesFilter && matchesSearch;
   });
 
-  const pendingCount = applications.filter((a) => a.status === 'PENDING').length;
+  const pendingCount = applications.filter(
+    (a) => a.status === 'PENDING' || a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW'
+  ).length;
+  const changesRequestedCount = applications.filter((a) => a.status === 'CHANGES_REQUESTED').length;
   const approvedCount = applications.filter((a) => a.status === 'APPROVED').length;
   const rejectedCount = applications.filter((a) => a.status === 'REJECTED').length;
 
@@ -64,7 +70,7 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>
-            {language === 'sw' ? 'Maombi ya Migahawa na Vibanda' : 'Restaurant Applications Queue'}
+            {language === 'sw' ? 'Maombi ya Migahawa na Vibanda' : 'Restaurant Applications Queue (Gate A)'}
           </Text>
           <Text style={styles.subtitle}>
             Review registration submissions, verify TIN credentials, and provision owner access.
@@ -81,6 +87,14 @@ export const ApplicationsQueue: React.FC<ApplicationsQueueProps> = ({
           >
             <Text style={[styles.filterPillText, selectedFilter === 'PENDING' && styles.filterPillTextActive]}>
               Pending ({pendingCount})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterPill, selectedFilter === 'CHANGES_REQUESTED' && styles.filterPillActive]}
+            onPress={() => setSelectedFilter('CHANGES_REQUESTED')}
+          >
+            <Text style={[styles.filterPillText, selectedFilter === 'CHANGES_REQUESTED' && styles.filterPillTextActive]}>
+              Changes Requested ({changesRequestedCount})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity

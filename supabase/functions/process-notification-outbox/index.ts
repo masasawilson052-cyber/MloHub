@@ -1,7 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
 
-const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+const jsonHeaders = { 'Content-Type': 'application/json' };
 const response = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 
@@ -10,7 +9,7 @@ function render(template: string, payload: Record<string, unknown>): string {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204 });
   if (req.method !== 'POST') return response(405, { success: false, error: 'METHOD_NOT_ALLOWED' });
 
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

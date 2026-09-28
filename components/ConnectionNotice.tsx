@@ -28,10 +28,10 @@ export function ConnectionNotice() {
     finally { clearTimeout(timer); setChecking(false); }
   };
   useEffect(() => { void check(); const timer = setInterval(check, 30000); return () => clearInterval(timer); }, []);
-  if (runtimeConfig.isDemo) return <View style={{padding:10,backgroundColor:'#fff3cd'}}><Text style={{textAlign:'center',color:'#724800'}}>Demo data · SMS and payments are simulated</Text></View>;
+  if (runtimeConfig.isDemo) return <View style={{padding:10,backgroundColor:colors.warningSoft}}><Text style={{textAlign:'center',color:colors.warning}}>Demo data · SMS and payments are simulated</Text></View>;
   if (!offline && !dataError) return null;
-  return <View accessibilityRole="alert" style={{padding:12,backgroundColor:'#fff1f0',flexDirection:'row',gap:12,alignItems:'center'}}>
-    <View style={{flex:1}}><Text style={{fontWeight:'700',color:'#9b241b'}}>{offline ? 'Connection unavailable / Hakuna muunganisho' : 'We could not load your data / Imeshindikana kupakia taarifa'}</Text><Text style={{color:'#713b35',marginTop:3}}>Please try again. If this continues, contact MloHub support.</Text></View>
-    <TouchableOpacity disabled={checking} accessibilityRole="button" onPress={() => { void check(); refreshState(); }} style={{padding:10}}><Text style={{color:'#9b241b',fontWeight:'700'}}>{checking ? 'Checking…' : 'Retry'}</Text></TouchableOpacity>
+  return <View accessibilityRole="alert" style={{padding:12,backgroundColor:colors.dangerSoft,flexDirection:'row',gap:12,alignItems:'center'}}>
+    <View style={{flex:1}}><Text style={{fontWeight:'700',color:colors.danger}}>{offline ? 'Connection unavailable / Hakuna muunganisho' : 'We could not load your data / Imeshindikana kupakia taarifa'}</Text><Text style={{color:colors.textSecondary,marginTop:3}}>Please try again. If this continues, contact MloHub support.</Text></View>
+    <TouchableOpacity disabled={checking} accessibilityRole="button" onPress={() => { void check(); refreshState(); }} style={{padding:10}}><Text style={{color:colors.danger,fontWeight:'700'}}>{checking ? 'Checking…' : 'Retry'}</Text></TouchableOpacity>
   </View>;
 }

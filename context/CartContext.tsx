@@ -1,59 +1,37 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { OrderService, OrderQuote } from '../services/OrderService';
 import { RealtimeService } from '../services/RealtimeService';
 import { PlatformSettingsRepository } from '../repositories/platformSettings.repository';
 
-export interface ModifierOptionSelection {
-  group_id: string;
-  group_name: string;
-  option_id: string;
-  option_name: string;
-  price_delta_tzs: number;
-}
+import {
+  CartAddOutcome,
+  ModifierOptionSelection,
+  CartItem,
+  CartItemInput,
+  CartStateSnapshot,
+  createCartLineSignature,
+  normalizeCartItemInput,
+  mergeCartItemList,
+  processCartAddRequest,
+} from '../services/cart/cartCore';
 
-export interface CartItem {
-  dishId: string;
-  cartLineId?: string;
-  dishName: string;
-  dishNameSwahili?: string;
-  restaurantId: string;
-  restaurantName: string;
-  branchId?: string;
-  branchName?: string;
-  priceTzs: number;
-  basePriceTzs?: number;
-  quantity: number;
-  imageUrl?: string;
-  notes?: string;
-  selectedModifiers?: ModifierOptionSelection[];
-  rpcModifiersPayload?: {
-    group_id: string;
-    option_ids: string[];
-  }[];
-}
+export type {
+  CartAddOutcome,
+  ModifierOptionSelection,
+  CartItem,
+  CartItemInput,
+  CartStateSnapshot,
+};
 
-export function createCartLineSignature(
-  dishId: string,
-  selectedModifiers?: ModifierOptionSelection[] | { group_id: string; option_ids: string[] }[],
-  notes?: string
-): string {
-  const modParts: string[] = [];
-  if (selectedModifiers && Array.isArray(selectedModifiers)) {
-    for (const m of selectedModifiers) {
-      if ('option_id' in m) {
-        modParts.push(`${m.group_id}:${m.option_id}`);
-      } else if ('option_ids' in m && Array.isArray((m as any).option_ids)) {
-        modParts.push(`${m.group_id}:${(m as any).option_ids.sort().join(',')}`);
-      }
-    }
-  }
-  const modStr = modParts.sort().join('|');
-  const noteStr = (notes || '').trim().toLowerCase();
-  return `${dishId}::${modStr}::${noteStr}`;
-}
+export {
+  createCartLineSignature,
+  normalizeCartItemInput,
+  mergeCartItemList,
+  processCartAddRequest,
+};
 
-interface CartContextType {
+export interface CartContextType {
   items: CartItem[];
   restaurantId: string | null;
   restaurantName: string | null;
@@ -62,7 +40,7 @@ interface CartContextType {
   pricingDisclaimer: string;
   customerServiceFeeTzs: number;
   minimumOrderValueTzs: number;
-  addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
+  addToCart: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => Promise<CartAddOutcome>;
   removeFromCart: (cartLineIdOrDishId: string) => void;
   updateQuantity: (cartLineIdOrDishId: string, quantity: number) => void;
   clearCart: () => void;
@@ -91,6 +69,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [customerServiceFeeTzs, setCustomerServiceFeeTzs] = useState(1500);
   const [minimumOrderValueTzs, setMinimumOrderValueTzs] = useState(2000);
 
+  const itemsRef = useRef<CartItem[]>([]);
+  const restaurantIdRef = useRef<string | null>(null);
+  const restaurantNameRef = useRef<string | null>(null);
+  const branchIdRef = useRef<string | null>(null);
+  const branchNameRef = useRef<string | null>(null);
+
   // Load authoritative platform financial settings
   useEffect(() => {
     let isMounted = true;
@@ -114,12 +98,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Sync restaurant and branch metadata with items
   useEffect(() => {
+    itemsRef.current = items;
     if (items.length === 0) {
+      restaurantIdRef.current = null;
+      restaurantNameRef.current = null;
+      branchIdRef.current = null;
+      branchNameRef.current = null;
       setRestaurantId(null);
       setRestaurantName(null);
       setBranchId(null);
       setBranchName(null);
     } else {
+      restaurantIdRef.current = items[0].restaurantId;
+      restaurantNameRef.current = items[0].restaurantName;
+      branchIdRef.current = items[0].branchId || null;
+      branchNameRef.current = items[0].branchName || null;
       setRestaurantId(items[0].restaurantId);
       setRestaurantName(items[0].restaurantName);
       setBranchId(items[0].branchId || null);
@@ -159,7 +152,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return item;
         });
 
-        return hasChanges ? updated : currentItems;
+        if (hasChanges) {
+          itemsRef.current = updated;
+          return updated;
+        }
+        return currentItems;
       });
     });
 
@@ -168,103 +165,124 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [restaurantId]);
 
-  const addToCart = (newItem: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
-    const qty = newItem.quantity && newItem.quantity > 0 ? newItem.quantity : 1;
-    const lineSignature = newItem.cartLineId || createCartLineSignature(
-      newItem.dishId,
-      newItem.selectedModifiers || newItem.rpcModifiersPayload,
-      newItem.notes
-    );
-    const itemWithLineId: CartItem = {
-      ...newItem,
-      cartLineId: lineSignature,
-      quantity: qty,
-    };
+  const addToCart = useCallback(
+    async (newItem: Omit<CartItem, 'quantity'> & { quantity?: number }): Promise<CartAddOutcome> => {
+      const snapshot: CartStateSnapshot = {
+        items: itemsRef.current,
+        restaurantId: restaurantIdRef.current,
+        restaurantName: restaurantNameRef.current,
+        branchId: branchIdRef.current,
+        branchName: branchNameRef.current,
+      };
 
-    // Check if adding from a different restaurant or different branch
-    const isDifferentRestaurant = restaurantId && restaurantId !== newItem.restaurantId;
-    const currentBranch = branchId || (items.length > 0 ? items[0].branchId : null);
-    const isDifferentBranch = currentBranch && newItem.branchId && currentBranch !== newItem.branchId;
+      const { state: nextState, outcome } = await processCartAddRequest(
+        snapshot,
+        newItem,
+        (title, message) =>
+          new Promise<boolean>((resolve) => {
+            let settled = false;
+            const finish = (confirmed: boolean) => {
+              if (!settled) {
+                settled = true;
+                resolve(confirmed);
+              }
+            };
 
-    if (items.length > 0 && (isDifferentRestaurant || isDifferentBranch)) {
-      const message = isDifferentRestaurant
-        ? `Your cart contains dishes from ${restaurantName || 'another restaurant'}. Do you want to clear your cart and start an order with ${newItem.restaurantName}?`
-        : `Your cart contains dishes from a different branch of ${restaurantName || 'this restaurant'}. Do you want to start a new order from this branch?`;
-
-      Alert.alert(
-        'Start new order?',
-        message,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Start New Order',
-            style: 'destructive',
-            onPress: () => {
-              setItems([itemWithLineId]);
-              setRestaurantId(newItem.restaurantId);
-              setRestaurantName(newItem.restaurantName);
-              setBranchId(newItem.branchId || null);
-              setBranchName(newItem.branchName || null);
-            },
-          },
-        ]
+            Alert.alert(
+              title,
+              message,
+              [
+                {
+                  text: 'Cancel',
+                  style: 'cancel',
+                  onPress: () => finish(false),
+                },
+                {
+                  text: 'Start New Order',
+                  style: 'destructive',
+                  onPress: () => finish(true),
+                },
+              ],
+              {
+                cancelable: true,
+                onDismiss: () => finish(false),
+              }
+            );
+          })
       );
-      return;
-    }
 
-    setItems((prev) => {
-      const existingIndex = prev.findIndex((i) => {
-        const itemLineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
-        return itemLineId === lineSignature;
-      });
-
-      if (existingIndex > -1) {
-        const updated = [...prev];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: updated[existingIndex].quantity + qty,
-        };
-        return updated;
+      if (outcome === 'ADDED' || outcome === 'REPLACED_CART') {
+        itemsRef.current = nextState.items;
+        restaurantIdRef.current = nextState.restaurantId;
+        restaurantNameRef.current = nextState.restaurantName;
+        branchIdRef.current = nextState.branchId;
+        branchNameRef.current = nextState.branchName;
+        setItems(nextState.items);
+        setRestaurantId(nextState.restaurantId);
+        setRestaurantName(nextState.restaurantName);
+        setBranchId(nextState.branchId);
+        setBranchName(nextState.branchName);
       }
-      return [...prev, itemWithLineId];
-    });
-  };
 
-  const removeFromCart = (cartLineIdOrDishId: string) => {
-    setItems((prev) =>
-      prev.filter((i) => {
-        const lineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
+      return outcome;
+    },
+    []
+  );
+
+  const removeFromCart = useCallback((cartLineIdOrDishId: string) => {
+    setItems((prev) => {
+      const next = prev.filter((i) => {
+        const lineId =
+          i.cartLineId ||
+          createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
         if (lineId === cartLineIdOrDishId) return false;
         // Legacy fallback: if passed pure dishId and line doesn't match, also match on dishId if no custom lineId
         if (i.dishId === cartLineIdOrDishId && !i.selectedModifiers?.length && !i.notes) return false;
         return true;
-      })
-    );
-  };
+      });
+      itemsRef.current = next;
+      return next;
+    });
+  }, []);
 
-  const updateQuantity = (cartLineIdOrDishId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(cartLineIdOrDishId);
-      return;
-    }
-    setItems((prev) =>
-      prev.map((i) => {
-        const lineId = i.cartLineId || createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
-        if (lineId === cartLineIdOrDishId || (i.dishId === cartLineIdOrDishId && !i.selectedModifiers?.length && !i.notes)) {
-          return { ...i, quantity };
-        }
-        return i;
-      })
-    );
-  };
+  const updateQuantity = useCallback(
+    (cartLineIdOrDishId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeFromCart(cartLineIdOrDishId);
+        return;
+      }
+      setItems((prev) => {
+        const next = prev.map((i) => {
+          const lineId =
+            i.cartLineId ||
+            createCartLineSignature(i.dishId, i.selectedModifiers || i.rpcModifiersPayload, i.notes);
+          if (
+            lineId === cartLineIdOrDishId ||
+            (i.dishId === cartLineIdOrDishId && !i.selectedModifiers?.length && !i.notes)
+          ) {
+            return { ...i, quantity };
+          }
+          return i;
+        });
+        itemsRef.current = next;
+        return next;
+      });
+    },
+    [removeFromCart]
+  );
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
+    itemsRef.current = [];
+    restaurantIdRef.current = null;
+    restaurantNameRef.current = null;
+    branchIdRef.current = null;
+    branchNameRef.current = null;
     setItems([]);
     setRestaurantId(null);
     setRestaurantName(null);
     setBranchId(null);
     setBranchName(null);
-  };
+  }, []);
 
   const getOrderQuote = useCallback(
     (diningOption: 'Delivery' | 'Dine-In' | 'Takeaway' = 'Delivery', deliveryFeeTzs?: number): OrderQuote => {
@@ -324,3 +342,4 @@ export const useCart = (): CartContextType => {
   }
   return context;
 };
+

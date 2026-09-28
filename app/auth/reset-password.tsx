@@ -11,28 +11,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { supabase } from '../../lib/supabase';
 import { useLanguage } from '../../context/LanguageContext';
 import { Colors, Radii, Shadows, Spacing } from '../../constants/theme';
+import { extractPkceCodeFromResetInput } from '../../utils/authUrls';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
 let colors: ThemeColors = lightColors;
-
-function getCodeFromCurrentUrl(paramCode?: string): string | undefined {
-  if (paramCode && typeof paramCode === 'string' && paramCode.trim()) {
-    return paramCode.trim();
-  }
-  if (typeof window !== 'undefined' && window.location?.search) {
-    const searchParams = new URLSearchParams(window.location.search);
-    const code = searchParams.get('code');
-    if (code && code.trim()) {
-      return code.trim();
-    }
-  }
-  return undefined;
-}
 
 function cleanRecoveryUrlOnWeb(): void {
   if (
@@ -53,6 +41,7 @@ export default function ResetPasswordScreen() {
     error?: string;
     error_description?: string;
   }>();
+  const incomingLinkingUrl = Linking.useURL();
   const { language } = useLanguage();
   const sw = language === 'sw';
 
@@ -65,124 +54,124 @@ export default function ResetPasswordScreen() {
   const [formError, setFormError] = useState('');
   const [done, setDone] = useState(false);
   const hasExchangedRef = useRef(false);
+  const recoveryVerifiedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
 
-    // 1. Check URL parameters for error flags without exposing raw provider messages
-    if (params.error || params.error_description) {
+    const invalidLinkMsg = sw
+      ? 'Kiungo hiki cha kurejesha nenosiri hakitumiki tena.'
+      : 'This password reset link is no longer valid.';
+
+    const markRecoveryValid = () => {
+      recoveryVerifiedRef.current = true;
       cleanRecoveryUrlOnWeb();
       if (mounted) {
-        setRecoveryReady(false);
-        setRecoveryError(
-          sw
-            ? 'Kiungo hiki cha kurejesha nenosiri hakitumiki tena.'
-            : 'This password reset link is no longer valid.'
-        );
-        setReady(true);
-      }
-      return;
-    }
-
-    // 2. Subscribe to PASSWORD_RECOVERY auth event
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
-      if (!mounted) return;
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && newSession)) {
-        cleanRecoveryUrlOnWeb();
         setRecoveryReady(true);
         setRecoveryError('');
         setReady(true);
       }
+    };
+
+    const markRecoveryInvalid = () => {
+      cleanRecoveryUrlOnWeb();
+      if (mounted && !recoveryVerifiedRef.current) {
+        setRecoveryReady(false);
+        setRecoveryError(invalidLinkMsg);
+        setReady(true);
+      }
+    };
+
+    // 1. Subscribe strictly to PASSWORD_RECOVERY auth event (never unlock on generic SIGNED_IN)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (!mounted) return;
+      if (event === 'PASSWORD_RECOVERY') {
+        markRecoveryValid();
+      }
     });
 
+    const processCandidateInput = async (candidateUrl?: string | null): Promise<boolean> => {
+      const extracted = extractPkceCodeFromResetInput(params, candidateUrl);
+
+      if (extracted.hasError) {
+        markRecoveryInvalid();
+        return true;
+      }
+
+      if (extracted.code) {
+        if (hasExchangedRef.current) {
+          return true;
+        }
+        hasExchangedRef.current = true;
+        try {
+          const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(
+            extracted.code
+          );
+          if (exchangeErr || !data?.session) {
+            markRecoveryInvalid();
+            return true;
+          }
+          markRecoveryValid();
+          return true;
+        } catch {
+          markRecoveryInvalid();
+          return true;
+        }
+      }
+
+      return false;
+    };
+
     const initializeRecovery = async () => {
-      if (hasExchangedRef.current) {
+      if (recoveryVerifiedRef.current || hasExchangedRef.current) {
         return;
       }
 
-      const code = getCodeFromCurrentUrl(params.code);
+      // Check router params + current web/linking URL first
+      const handledImmediately = await processCandidateInput(incomingLinkingUrl);
+      if (handledImmediately || recoveryVerifiedRef.current) {
+        return;
+      }
 
-      if (code) {
-        hasExchangedRef.current = true;
+      // On native, also check Linking.getInitialURL() for cold-start deep links
+      if (Platform.OS !== 'web') {
         try {
-          const { data, error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
-          cleanRecoveryUrlOnWeb();
-
-          if (exchangeErr || !data?.session) {
-            if (mounted) {
-              setRecoveryReady(false);
-              setRecoveryError(
-                sw
-                  ? 'Kiungo hiki cha kurejesha nenosiri hakitumiki tena.'
-                  : 'This password reset link is no longer valid.'
-              );
-              setReady(true);
+          const initialUrl = await Linking.getInitialURL();
+          if (initialUrl) {
+            const handledInitial = await processCandidateInput(initialUrl);
+            if (handledInitial || recoveryVerifiedRef.current) {
+              return;
             }
-            return;
           }
-
-          if (mounted) {
-            setRecoveryReady(true);
-            setRecoveryError('');
-            setReady(true);
-          }
-          return;
         } catch {
-          cleanRecoveryUrlOnWeb();
-          if (mounted) {
-            setRecoveryReady(false);
-            setRecoveryError(
-              sw
-                ? 'Kiungo hiki cha kurejesha nenosiri hakitumiki tena.'
-                : 'This password reset link is no longer valid.'
-            );
-            setReady(true);
-          }
-          return;
+          // Ignore linking read error and fall through
         }
       }
 
-      /*
-       * Existing PASSWORD_RECOVERY session may already exist.
-       */
-      try {
-        const {
-          data: { session },
-          error: sessionErr,
-        } = await supabase.auth.getSession();
-
-        if (!sessionErr && session) {
-          if (mounted) {
-            setRecoveryReady(true);
-            setRecoveryError('');
-            setReady(true);
-          }
-          return;
-        }
-      } catch {
-        // Handled by expired state below
-      }
-
-      if (mounted) {
-        setRecoveryReady(false);
-        setRecoveryError(
-          sw
-            ? 'Kiungo hiki cha kurejesha nenosiri hakitumiki tena.'
-            : 'This password reset link is no longer valid.'
-        );
-        setReady(true);
+      if (!recoveryVerifiedRef.current) {
+        markRecoveryInvalid();
       }
     };
 
     initializeRecovery();
 
+    const urlSub =
+      Platform.OS !== 'web'
+        ? Linking.addEventListener('url', (event) => {
+            if (!recoveryVerifiedRef.current && !hasExchangedRef.current) {
+              void processCandidateInput(event.url);
+            }
+          })
+        : null;
+
     return () => {
       mounted = false;
       subscription?.unsubscribe();
+      urlSub?.remove();
     };
-  }, [params.code, params.error, params.error_description, sw]);
+  }, [params.code, params.error, params.error_description, incomingLinkingUrl, sw]);
 
   // Redirect to Sign In approximately 2 seconds after successful password update
   useEffect(() => {

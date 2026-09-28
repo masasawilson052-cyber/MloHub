@@ -19,7 +19,6 @@ import { AccountType, RestaurantRole, UserProfile, AuthenticatedUser } from '../
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { RealtimeService } from '../services/RealtimeService';
 import { OtpApi } from '../services/api/OtpApi';
-import { RestaurantCredentialsService } from '../lib/restaurantCredentials';
 import { getPasswordResetRedirectUrl } from '../utils/authUrls';
 
 export interface AuthorizedWorkspaceOption {
@@ -142,186 +141,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Helper function to resolve profile and memberships from Supabase
   const fetchProfileAndMemberships = async (
-    sbUser: SupabaseUser | null,
-    restaurantEmailOverride?: string | null
+    sbUser: SupabaseUser | null
   ): Promise<{
     profile: UserProfile | null;
     memberships: RestaurantMembershipEntity[];
     activeRest: RestaurantEntity | null;
   }> => {
-    const activeRestEmail =
-      restaurantEmailOverride !== undefined
-        ? restaurantEmailOverride
-        : await RestaurantCredentialsService.getActiveRestaurantLoginEmail();
-
-    // If a restaurant applicant logged in via RestaurantCredentialsService, resolve their specific restaurant identity
-    if (activeRestEmail) {
-      try {
-        if (sbUser && isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
-          const { data: appRows } = await supabase
-            .from('restaurant_applications')
-            .select('*')
-            .ilike('owner_email', activeRestEmail)
-            .order('created_at', { ascending: false });
-
-          if (appRows && appRows.length > 0) {
-            for (const row of appRows) {
-              const { cleanNotes, credHash } = RestaurantCredentialsService.extractHashAndCleanNotes(row.notes);
-              const status = row.status || 'PENDING';
-              await RestaurantCredentialsService.syncFromApplicationRow(
-                {
-                  id: row.id,
-                  applicantUserId: row.applicant_user_id,
-                  businessName: row.business_name,
-                  ownerName: row.owner_name,
-                  ownerPhone: row.owner_phone,
-                  ownerEmail: row.owner_email,
-                  cuisineType: row.cuisine_type || '',
-                  neighborhood: row.neighborhood || '',
-                  address: row.address || '',
-                  hasTinOrLicense: row.has_tin_or_license ?? false,
-                  tinNumber: row.tin_number,
-                  status,
-                  rejectionReason: row.rejection_reason || (status === 'REJECTED' ? cleanNotes : undefined),
-                  notes: cleanNotes,
-                  restaurantId: row.restaurant_id || row.restaurantId,
-                  createdAt: row.created_at || new Date().toISOString(),
-                  updatedAt: row.updated_at || new Date().toISOString(),
-                },
-                credHash
-              );
-            }
-          }
-        }
-
-        const rec = await RestaurantCredentialsService.getRecordByEmail(activeRestEmail);
-        if (rec) {
-          const isApproved = rec.status === 'APPROVED';
-          const resolvedRole = isApproved ? UserRole.RESTAURANT_OWNER : UserRole.CUSTOMER;
-          const roles: UserRole[] = isApproved
-            ? [UserRole.CUSTOMER, UserRole.RESTAURANT_OWNER]
-            : [UserRole.CUSTOMER];
-          const resolvedUserId = sbUser?.id || rec.applicantUserId || `rest_user_${rec.applicationId}`;
-
-          let activeRest: RestaurantEntity | null = null;
-          let userMemberships: RestaurantMembershipEntity[] = [];
-
-          if (isApproved && isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) {
-            try {
-              let restRow: any = null;
-              if (rec.restaurantId) {
-                const { data } = await supabase
-                  .from('restaurants')
-                  .select('*')
-                  .eq('id', rec.restaurantId)
-                  .maybeSingle();
-                restRow = data;
-              }
-              if (!restRow && rec.businessName) {
-                const { data } = await supabase
-                  .from('restaurants')
-                  .select('*')
-                  .ilike('name', rec.businessName)
-                  .order('created_at', { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                restRow = data;
-              }
-              if (!restRow && sbUser?.id) {
-                const { data } = await supabase
-                  .from('restaurants')
-                  .select('*')
-                  .eq('owner_id', sbUser.id)
-                  .order('created_at', { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                restRow = data;
-              }
-              if (restRow) {
-                activeRest = mapRestaurantRowToEntity(restRow);
-                if (rec.restaurantId !== restRow.id) {
-                  await RestaurantCredentialsService.saveCredentialRecord({
-                    email: rec.email,
-                    applicationId: rec.applicationId,
-                    restaurantId: restRow.id,
-                    status: 'APPROVED',
-                  });
-                }
-              }
-            } catch (restErr) {
-              console.warn('[AuthContext] Error resolving approved restaurant:', restErr);
-            }
-
-            if (!activeRest) {
-              const fallbackRestId = rec.restaurantId || `rest_${rec.applicationId}`;
-              activeRest = {
-                id: fallbackRestId,
-                ownerId: resolvedUserId,
-                sellerTier: 'BASIC_SELLER',
-                name: rec.businessName,
-                slug: fallbackRestId,
-                cuisine: rec.cuisineType || 'Swahili',
-                rating: 0,
-                reviewsCount: 0,
-                minPrice: 0,
-                maxPrice: 0,
-                address: rec.address || 'Dar es Salaam',
-                neighborhood: rec.neighborhood || 'Dar es Salaam',
-                regionCity: 'Dar es Salaam',
-                distanceKm: 1.0,
-                estimatedPrepTimeMinutes: 25,
-                isOpen: false,
-                isVerified: true,
-                isPublished: false,
-                isActive: true,
-                verificationStatus: 'VERIFIED',
-                emoji: '🍲',
-                specialty: rec.cuisineType || 'Swahili',
-                tags: [],
-                menu: [],
-                createdAt: rec.createdAt,
-                updatedAt: rec.updatedAt,
-              };
-            }
-
-            userMemberships = [
-              {
-                id: `mem_${activeRest.id}_${resolvedUserId}`,
-                userId: resolvedUserId,
-                restaurantId: activeRest.id,
-                role: 'OWNER',
-                status: 'ACTIVE',
-                permissions: ['all'],
-                isPrimaryOwner: true,
-                createdAt: rec.createdAt,
-              },
-            ];
-          }
-
-          const parsedProfile: UserProfile = {
-            id: resolvedUserId,
-            fullName: rec.ownerName || splitEmail(rec.email),
-            email: rec.email,
-            phone: rec.ownerPhone || '',
-            accountType: 'RESTAURANT',
-            role: resolvedRole,
-            roles,
-            status: 'ACTIVE',
-            preferredLanguage: 'sw',
-            location: rec.neighborhood || '',
-            dietaryPreferences: [],
-            activeRestaurantId: activeRest?.id,
-            createdAt: rec.createdAt,
-            updatedAt: rec.updatedAt,
-          };
-
-          return { profile: parsedProfile, memberships: userMemberships, activeRest };
-        }
-      } catch (overrideErr) {
-        console.warn('[AuthContext] Error resolving restaurant credential override:', overrideErr);
-      }
-    }
-
     if (!sbUser) {
       return { profile: null, memberships: [], activeRest: null };
     }
@@ -418,58 +243,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updatedAt: profileRow?.updated_at,
       };
 
-      // Warm up RestaurantCredentialsService from visible restaurant_applications rows
-      if (!runtimeConfig.allowLocalDataFallbacks && isSupabaseConfigured()) {
-        try {
-          const { data: visibleApps } = await supabase
-            .from('restaurant_applications')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(50);
-          if (visibleApps && visibleApps.length > 0) {
-            const wasAdminReviewer = visibleApps.some(
-              (row: any) => row.reviewed_by && row.reviewed_by === sbUser.id
-            );
-            if (wasAdminReviewer && !isAdminUser) {
-              isAdminUser = true;
-              resolvedRole = UserRole.SUPER_ADMIN;
-              parsedProfile.role = UserRole.SUPER_ADMIN;
-              parsedProfile.accountType = 'ADMIN';
-              if (!parsedProfile.roles.includes(UserRole.SUPER_ADMIN)) {
-                parsedProfile.roles.unshift(UserRole.SUPER_ADMIN);
-              }
-            }
-            for (const row of visibleApps) {
-              if (row.owner_email) {
-                const { cleanNotes, credHash } = RestaurantCredentialsService.extractHashAndCleanNotes(row.notes);
-                const st = row.status || 'PENDING';
-                await RestaurantCredentialsService.syncFromApplicationRow(
-                  {
-                    id: row.id,
-                    applicantUserId: row.applicant_user_id,
-                    businessName: row.business_name,
-                    ownerName: row.owner_name,
-                    ownerPhone: row.owner_phone,
-                    ownerEmail: row.owner_email,
-                    cuisineType: row.cuisine_type || '',
-                    neighborhood: row.neighborhood || '',
-                    address: row.address || '',
-                    hasTinOrLicense: row.has_tin_or_license ?? false,
-                    tinNumber: row.tin_number,
-                    status: st,
-                    rejectionReason: row.rejection_reason || (st === 'REJECTED' ? cleanNotes : undefined),
-                    notes: cleanNotes,
-                    restaurantId: row.restaurant_id || row.restaurantId,
-                    createdAt: row.created_at || new Date().toISOString(),
-                    updatedAt: row.updated_at || new Date().toISOString(),
-                  },
-                  credHash
-                );
-              }
-            }
-          }
-        } catch {}
-      }
+
 
       // 2. Fetch Memberships from public.restaurant_members
       let userMemberships: RestaurantMembershipEntity[] = [];
@@ -564,12 +338,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           parsedProfile.roles.push(UserRole.RESTAURANT_OWNER);
         }
         parsedProfile.accountType = 'RESTAURANT';
-      } else if (!isAdminUser && userEmail) {
-        // Also check if this email has a pending or rejected restaurant application so they can view its status in the portal
-        const appRec = await RestaurantCredentialsService.getRecordByEmail(userEmail);
-        if (appRec) {
-          parsedProfile.accountType = 'RESTAURANT';
-        }
+      } else if (!isAdminUser && sbUser.id && isSupabaseConfigured()) {
+        try {
+          const { data: userApps } = await supabase
+            .from('restaurant_applications')
+            .select('id')
+            .eq('applicant_user_id', sbUser.id)
+            .limit(1);
+          if (userApps && userApps.length > 0) {
+            parsedProfile.accountType = 'RESTAURANT';
+          }
+        } catch {}
       }
 
       return { profile: parsedProfile, memberships: userMemberships, activeRest };
@@ -582,15 +361,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Hydrate user and session
   const applyAuthState = async (
-    currentSession: Session | null,
-    restaurantEmailOverride?: string | null
+    currentSession: Session | null
   ) => {
-    const activeRestEmail =
-      restaurantEmailOverride !== undefined
-        ? restaurantEmailOverride
-        : await RestaurantCredentialsService.getActiveRestaurantLoginEmail();
-
-    if (!currentSession?.user && !activeRestEmail) {
+    if (!currentSession?.user) {
       setSession(null);
       setProfile(null);
       setAuthUser(null);
@@ -602,18 +375,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    if (currentSession?.user) {
-      setSession(currentSession);
-      await RestaurantCredentialsService.saveConfirmedBridge({
-        accessToken: currentSession.access_token,
-        refreshToken: currentSession.refresh_token,
-        userId: currentSession.user.id,
-        email: currentSession.user.email,
-      });
-    }
+    setSession(currentSession);
 
     const { profile: userProfile, memberships: userMems, activeRest } =
-      await fetchProfileAndMemberships(currentSession?.user || null, activeRestEmail);
+      await fetchProfileAndMemberships(currentSession.user);
     setProfile(userProfile);
     setMemberships(userMems);
     setActiveRestaurant(activeRest);
@@ -625,9 +390,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           'Your account has been suspended by administration. Please contact support at support@mlohub.co.tz.'
         );
         try {
-          await supabase.auth.signOut({ scope: 'local' });
+          await supabase.auth.signOut();
         } catch {}
-        await RestaurantCredentialsService.setActiveRestaurantLoginEmail(null);
         setSession(null);
         setProfile(null);
         setAuthUser(null);
@@ -736,16 +500,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (isMounted) {
             if (initialSession) {
               await applyAuthState(initialSession);
+            } else if (runtimeConfig.allowLocalDataFallbacks) {
+              await fallbackBootstrap();
             } else {
-              const savedRestEmail = await RestaurantCredentialsService.getActiveRestaurantLoginEmail();
-              if (savedRestEmail) {
-                const bridgeSession = await RestaurantCredentialsService.ensureSupabaseBridgeSession(supabase);
-                await applyAuthState(bridgeSession, savedRestEmail);
-              } else if (runtimeConfig.allowLocalDataFallbacks) {
-                await fallbackBootstrap();
-              } else {
-                await applyAuthState(null);
-              }
+              await applyAuthState(null);
             }
           }
         } else {
@@ -841,13 +599,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               .eq('id', data.session.user.id);
           } catch {}
         }
-        await RestaurantCredentialsService.saveConfirmedBridge({
-          email,
-          password: params.password,
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          userId: data.session.user.id,
-        });
         await applyAuthState(data.session);
       }
 
@@ -861,7 +612,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       const email = params.email.trim().toLowerCase();
-      await RestaurantCredentialsService.setActiveRestaurantLoginEmail(null);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password: params.password,
@@ -872,14 +622,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.session) {
-        await RestaurantCredentialsService.saveConfirmedBridge({
-          email,
-          password: params.password,
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          userId: data.session.user.id,
-        });
-        await applyAuthState(data.session, null);
+        await applyAuthState(data.session);
       }
 
       return data;
@@ -891,16 +634,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signOut = async (): Promise<void> => {
     setLoading(true);
     try {
-      await RestaurantCredentialsService.setActiveRestaurantLoginEmail(null);
       if (isSupabaseConfigured()) {
-        // Use local scope so confirmed bridge refresh tokens are not revoked on the server
-        await supabase.auth.signOut({ scope: 'local' });
+        await supabase.auth.signOut();
       }
       if (runtimeConfig.allowLocalDataFallbacks) {
         const { DemoAuthAdapter } = require('../services/demo/DemoAuthAdapter');
         await DemoAuthAdapter.logout(session?.access_token || '');
       }
-      await applyAuthState(null, null);
+      await applyAuthState(null);
     } catch (err) {
       console.warn('[AuthContext] SignOut error:', err);
     } finally {
@@ -951,11 +692,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const refreshProfile = async (): Promise<void> => {
-    const activeRestEmail = await RestaurantCredentialsService.getActiveRestaurantLoginEmail();
-    if (session?.user || activeRestEmail) {
+    if (session?.user) {
       const { profile: p, memberships: m, activeRest: r } = await fetchProfileAndMemberships(
-        session?.user || null,
-        activeRestEmail
+        session.user
       );
       setProfile(p);
       setMemberships(m);
@@ -968,119 +707,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await fallbackBootstrap();
       }
     }
-  };
-
-  // Helper to verify & resolve restaurant application login when direct Supabase Auth fails
-  const authenticateViaRestaurantCredentials = async (
-    emailOrPhone: string,
-    password: string
-  ): Promise<AuthSessionResponse | null> => {
-    const cleanInput = emailOrPhone.trim().toLowerCase();
-    let bridgeSession: Session | null = null;
-
-    if (isSupabaseConfigured()) {
-      bridgeSession = await RestaurantCredentialsService.ensureSupabaseBridgeSession(supabase);
-      if (bridgeSession?.user) {
-        try {
-          const { data: appRows } = await supabase
-            .from('restaurant_applications')
-            .select('*')
-            .ilike('owner_email', cleanInput)
-            .order('created_at', { ascending: false });
-
-          if (appRows && appRows.length > 0) {
-            for (const row of appRows) {
-              const { cleanNotes, credHash } = RestaurantCredentialsService.extractHashAndCleanNotes(row.notes);
-              const st = row.status || 'PENDING';
-              await RestaurantCredentialsService.syncFromApplicationRow(
-                {
-                  id: row.id,
-                  applicantUserId: row.applicant_user_id,
-                  businessName: row.business_name,
-                  ownerName: row.owner_name,
-                  ownerPhone: row.owner_phone,
-                  ownerEmail: row.owner_email,
-                  cuisineType: row.cuisine_type || '',
-                  neighborhood: row.neighborhood || '',
-                  address: row.address || '',
-                  hasTinOrLicense: row.has_tin_or_license ?? false,
-                  tinNumber: row.tin_number,
-                  status: st,
-                  rejectionReason: row.rejection_reason || (st === 'REJECTED' ? cleanNotes : undefined),
-                  notes: cleanNotes,
-                  restaurantId: row.restaurant_id || row.restaurantId,
-                  createdAt: row.created_at || new Date().toISOString(),
-                  updatedAt: row.updated_at || new Date().toISOString(),
-                },
-                credHash
-              );
-            }
-          }
-        } catch {}
-      }
-    }
-
-    const rec = await RestaurantCredentialsService.getRecordByEmail(cleanInput);
-    if (!rec) {
-      return null;
-    }
-
-    const inputHash = RestaurantCredentialsService.computeHash(rec.email, password);
-    if (rec.passwordHash) {
-      if (rec.passwordHash !== inputHash) {
-        throw new Error('Barua pepe au nenosiri si sahihi. Tafadhali hakiki na ujaribu tena.');
-      }
-    } else {
-      // Legacy application submitted before credential hash embedding: bind password on first login
-      if (!password || password.length < 6) {
-        throw new Error('Barua pepe au nenosiri si sahihi. Tafadhali hakiki na ujaribu tena.');
-      }
-      await RestaurantCredentialsService.saveCredentialRecord({
-        email: rec.email,
-        applicationId: rec.applicationId,
-        passwordHash: inputHash,
-      });
-    }
-
-    await RestaurantCredentialsService.setActiveRestaurantLoginEmail(rec.email);
-    await applyAuthState(bridgeSession, rec.email);
-
-    const { profile: freshProfile, memberships: freshMemberships, activeRest: freshActiveRest } =
-      await fetchProfileAndMemberships(bridgeSession?.user || null, rec.email);
-
-    const roleToUse = freshProfile?.role || (rec.status === 'APPROVED' ? UserRole.RESTAURANT_OWNER : UserRole.CUSTOMER);
-    const activeWs = 'RESTAURANT_OWNER';
-    setSelectedWorkspace(activeWs);
-
-    const authenticatedUser = freshProfile
-      ? {
-          ...freshProfile,
-          restaurantMemberships: freshMemberships,
-          activeRole: roleToUse,
-          activeWorkspace: activeWs,
-        }
-      : {
-          id: bridgeSession?.user?.id || rec.applicantUserId || `rest_user_${rec.applicationId}`,
-          email: rec.email,
-          fullName: rec.ownerName,
-          phone: rec.ownerPhone,
-          accountType: 'RESTAURANT' as AccountType,
-          role: roleToUse,
-          roles: [roleToUse],
-          status: 'ACTIVE' as const,
-          restaurantMemberships: freshMemberships,
-          activeRestaurantId: freshActiveRest?.id,
-          activeRole: roleToUse,
-          activeWorkspace: activeWs,
-        };
-
-    return {
-      user: authenticatedUser as any,
-      customerProfile: undefined,
-      memberships: freshMemberships,
-      activeRestaurant: freshActiveRest || undefined,
-      token: bridgeSession?.access_token || 'sb-restaurant-bridge-token',
-    };
   };
 
   // ---------------------------------------------------------------------------
@@ -1117,12 +743,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           } catch {}
         }
-        if (!matchedEmail) {
-          const recMatch = await RestaurantCredentialsService.getRecordByEmail(dto.emailOrPhone);
-          if (recMatch?.email) {
-            matchedEmail = recMatch.email.toLowerCase();
-          }
-        }
         if (matchedEmail) {
           emailToUse = matchedEmail;
         } else {
@@ -1144,7 +764,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         let freshMemberships: any[] = [];
         let freshActiveRest: any = null;
         if (currentUser) {
-          const res = await fetchProfileAndMemberships(currentUser, null);
+          const res = await fetchProfileAndMemberships(currentUser);
           freshProfile = res.profile;
           freshMemberships = res.memberships;
           freshActiveRest = res.activeRest;
@@ -1190,20 +810,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           token: result.session?.access_token || 'sb-active-token',
         };
       } catch (supaErr: any) {
-        // Check if this is a registered restaurant application logging in with its registration credentials
-        try {
-          const restLoginRes = await authenticateViaRestaurantCredentials(emailToUse, dto.password);
-          if (restLoginRes) {
-            return restLoginRes;
-          }
-        } catch (restErr: any) {
-          cloudAuthError = restErr;
-          if (!runtimeConfig.allowLocalDataFallbacks) {
-            throw restErr;
-          }
-        }
-
-        cloudAuthError = cloudAuthError || supaErr;
+        cloudAuthError = supaErr;
         // In real modes (development, staging, production), fail closed immediately!
         if (!runtimeConfig.allowLocalDataFallbacks) {
           throw cloudAuthError;

@@ -33,7 +33,7 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
           iconColor: colors.success,
           bgColor: colors.successLight,
           textColor: colors.success,
-          borderColor: '#C6F6D5',
+          borderColor: colors.success,
           defaultLabel: 'Verified today',
         };
       case 'RECENT':
@@ -42,7 +42,7 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
           iconColor: colors.primary,
           bgColor: colors.primaryMuted,
           textColor: colors.primaryDark,
-          borderColor: '#D4EDDA',
+          borderColor: colors.primaryLight,
           defaultLabel: 'Verified recently',
         };
       case 'AGING':
@@ -51,7 +51,7 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
           iconColor: colors.warning,
           bgColor: colors.warningLight,
           textColor: colors.warning,
-          borderColor: '#FEEBC8',
+          borderColor: colors.warning,
           defaultLabel: 'Updated this month',
         };
       case 'STALE':
@@ -60,7 +60,7 @@ export const FreshnessBadge: React.FC<FreshnessBadgeProps> = ({
           iconColor: colors.error,
           bgColor: colors.errorLight,
           textColor: colors.error,
-          borderColor: '#FED7D7',
+          borderColor: colors.danger,
           defaultLabel: 'Price may be outdated',
         };
       case 'UNKNOWN':

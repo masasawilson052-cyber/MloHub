@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -12,7 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radii, Spacing, Shadows } from '../../constants/theme';
 import { formatTzs } from '../../utils/formatters';
-import { useCart } from '../../context/CartContext';
+import { useCartInteraction } from '../../hooks/useCartInteraction';
+import { measureViewRect } from '../menu/MenuItemCustomizationModal';
 import { useLanguage } from '../../context/LanguageContext';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -49,31 +50,55 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { language } = useLanguage();
-  const { addToCart } = useCart();
+  const { requestAddToCart, isDishAddPending } = useCartInteraction();
   const [quantity, setQuantity] = useState(1);
+  const [imageError, setImageError] = useState(false);
+  const dishImageRef = useRef<View | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      setQuantity(1);
+      setImageError(false);
+    }
+  }, [visible, dish?.id]);
 
   if (!dish) return null;
 
   const displayName = language === 'sw' && dish.nameSw ? dish.nameSw : dish.name;
   const totalPrice = dish.priceNum * quantity;
+  const hasRealImage = Boolean(dish.imageUrl && !imageError);
+  const isAddPending = isDishAddPending(dish.id);
 
-  const handleAddToCart = () => {
-    if (!dish.branchId) return;
-    for (let i = 0; i < quantity; i++) {
-      addToCart({
+  const handleAddToCart = async () => {
+    if (!dish.branchId || isAddPending) return;
+    const selectedQty = quantity;
+    const realImageUrl = hasRealImage ? dish.imageUrl : undefined;
+    const measuredRect = realImageUrl ? await measureViewRect(dishImageRef) : null;
+
+    const outcome = await requestAddToCart(
+      {
         dishId: dish.id,
         dishName: dish.name,
         dishNameSwahili: dish.nameSw,
+        description: dish.desc,
         restaurantId: dish.restaurantId,
         restaurantName: dish.restaurantName,
         branchId: dish.branchId,
         branchName: dish.branchName,
         priceTzs: dish.priceNum,
-        imageUrl: dish.imageUrl,
-      });
+        quantity: selectedQty,
+        imageUrl: realImageUrl,
+      },
+      {
+        sourceRect: measuredRect,
+        sourceRef: dishImageRef,
+      }
+    );
+
+    if (outcome === 'ADDED' || outcome === 'REPLACED_CART') {
+      setQuantity(1);
+      onClose();
     }
-    setQuantity(1);
-    onClose();
   };
 
   return (
@@ -94,8 +119,15 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
 
           {/* Dish Image */}
           <View style={styles.imageBox}>
-            {dish.imageUrl ? (
-              <Image source={{ uri: dish.imageUrl }} style={styles.dishImage} resizeMode="cover" />
+            {hasRealImage ? (
+              <View ref={dishImageRef} collapsable={false} style={styles.dishImage}>
+                <Image
+                  source={{ uri: dish.imageUrl }}
+                  style={styles.dishImage}
+                  resizeMode="cover"
+                  onError={() => setImageError(true)}
+                />
+              </View>
             ) : (
               <View style={styles.placeholderBox}>
                 <Text style={styles.placeholderEmoji}>🍲</Text>
@@ -170,9 +202,15 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
             </View>
 
             <TouchableOpacity
-              style={[styles.addCartBtn, !Boolean(dish.branchId) && { opacity: 0.5, backgroundColor: colors.subtle }]}
+              style={[
+                styles.addCartBtn,
+                (!Boolean(dish.branchId) || isAddPending) && {
+                  opacity: 0.65,
+                  backgroundColor: !Boolean(dish.branchId) ? colors.subtle : colors.primary,
+                },
+              ]}
               onPress={handleAddToCart}
-              disabled={!Boolean(dish.branchId)}
+              disabled={!Boolean(dish.branchId) || isAddPending}
               activeOpacity={0.88}
               accessible={true}
               accessibilityRole="button"
@@ -181,6 +219,8 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               <Text style={styles.addCartText}>
                 {!Boolean(dish.branchId)
                   ? (language === 'sw' ? 'Tawi Halipatikani' : 'Branch Unavailable')
+                  : isAddPending
+                  ? (language === 'sw' ? 'Inaweka...' : 'Adding...')
                   : (language === 'sw' ? `Ongeza • ${formatTzs(totalPrice)}` : `Add to Cart • ${formatTzs(totalPrice)}`)}
               </Text>
             </TouchableOpacity>

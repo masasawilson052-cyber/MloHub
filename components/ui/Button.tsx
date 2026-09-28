@@ -91,7 +91,7 @@ export const Button: React.FC<ButtonProps> = ({
         break;
       case 'primary':
       default:
-        stylesList.push({ backgroundColor: colors.primary });
+        stylesList.push({ backgroundColor: colors.primaryCta });
         break;
     }
 

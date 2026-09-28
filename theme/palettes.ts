@@ -52,6 +52,7 @@ export interface ThemeColors {
   primary: string;
   primaryHover: string;
   primaryPressed: string;
+  primaryCta: string;
   primarySoft: string;
 
   // Semantic
@@ -170,18 +171,19 @@ export const lightColors: ThemeColors = {
   // Typography
   textPrimary: '#172033',
   textSecondary: '#566174',
-  textMuted: '#88919E',
+  textMuted: '#647080',
   textInverse: '#FFFFFF',
 
   // Inputs
   inputBackground: '#F7F7F5',
   inputBorder: '#DDE0DC',
-  inputPlaceholder: '#949CA7',
+  inputPlaceholder: '#647080',
 
   // Brand
   primary: '#FF541F',
   primaryHover: '#EA4816',
   primaryPressed: '#D63D0F',
+  primaryCta: '#D63D0F',
   primarySoft: '#FFF0E9',
 
   // Semantic
@@ -228,9 +230,9 @@ export const lightColors: ThemeColors = {
   borderLight: '#ECEDEA',
   borderFocus: '#FF541F',
   text: '#172033',
-  textTertiary: '#88919E',
+  textTertiary: '#647080',
   muted: '#566174',
-  subtle: '#88919E',
+  subtle: '#647080',
   textOnPrimary: '#FFFFFF',
   primaryDark: '#D63D0F',
   primaryLight: '#FF7741',
@@ -267,7 +269,7 @@ export const lightColors: ThemeColors = {
   lime: '#FFF6DF',
   disabled: '#D6D9D5',
   disabledSurface: '#F3F4F2',
-  disabledText: '#88919E',
+  disabledText: '#6E7A89',
   inputBg: '#F7F7F5',
   badgeBg: '#F3F4F2',
   white: '#FFFFFF',
@@ -300,18 +302,19 @@ export const darkColors: ThemeColors = {
   // Typography
   textPrimary: '#F7F7F5',
   textSecondary: '#C0C4C9',
-  textMuted: '#818790',
+  textMuted: '#949BA4',
   textInverse: '#111213',
 
   // Inputs
   inputBackground: '#161719',
   inputBorder: '#34363A',
-  inputPlaceholder: '#777D86',
+  inputPlaceholder: '#8C939D',
 
   // Brand
   primary: '#FF541F',
   primaryHover: '#FF6636',
-  primaryPressed: '#E94614',
+  primaryPressed: '#D63D0F',
+  primaryCta: '#D63D0F',
   primarySoft: 'rgba(255,84,31,0.14)',
 
   // Semantic
@@ -358,9 +361,9 @@ export const darkColors: ThemeColors = {
   borderLight: '#292B2E',
   borderFocus: '#FF541F',
   text: '#F7F7F5',
-  textTertiary: '#818790',
+  textTertiary: '#949BA4',
   muted: '#C0C4C9',
-  subtle: '#818790',
+  subtle: '#949BA4',
   textOnPrimary: '#FFFFFF',
   primaryDark: '#FF6636',
   primaryLight: '#FF7B43',
@@ -397,7 +400,7 @@ export const darkColors: ThemeColors = {
   lime: 'rgba(245,158,11,0.14)',
   disabled: '#34363A',
   disabledSurface: '#202224',
-  disabledText: '#777D86',
+  disabledText: '#8C939D',
   inputBg: '#161719',
   badgeBg: '#242628',
   white: '#FFFFFF',
@@ -464,6 +467,6 @@ export async function migrateAndLoadThemePreference(
   } catch (e) {
     console.warn('Failed to load or migrate theme preference:', e);
   }
-  return 'SYSTEM';
+  return 'LIGHT';
 }
 

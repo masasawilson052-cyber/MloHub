@@ -429,6 +429,7 @@ function mapDomainRestaurantToEntity(rest: any): RestaurantEntity {
     isPublished: rest.isPublished ?? false,
     isActive: rest.isActive ?? true,
     verificationStatus: rest.verificationStatus || 'PENDING_VERIFICATION',
+    launchStatus: rest.launchStatus || 'SETUP_REQUIRED',
     logoUrl: rest.logoUrl,
     coverImageUrl: rest.coverImageUrl,
     emoji: rest.emoji || '🍲',
@@ -1256,24 +1257,39 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         } catch {}
       }
 
-      await RestaurantRepository.publishRestaurant(activeRestaurant.id);
-      setActiveRestaurant((prev) => ({
-        ...prev,
-        isPublished: true,
-        isOpen: true,
-        isActive: true,
-      }));
-      RealtimeEventEngine.publish('restaurants:updated', {
-        restaurantId: activeRestaurant.id,
-        data: { isPublished: true, isOpen: true },
-      });
+      const res = await RestaurantRepository.publishRestaurant(activeRestaurant.id);
+      if (res.launchStatus === 'GO_LIVE_REVIEW' || !res.isPublished) {
+        setActiveRestaurant((prev) => ({
+          ...prev,
+          launchStatus: 'GO_LIVE_REVIEW',
+          isPublished: false,
+        }));
+        Alert.alert(
+          language === 'sw' ? 'Ombi la Kuzindua Limetumwa!' : 'Launch Review Submitted!',
+          language === 'sw'
+            ? 'Vigezo vyako vimehakikiwa na ombi lako la kuzindua mgahawa limetumwa kwa timu ya usimamizi (Gate B). Utaarifiwa pindi mgahawa wako utakapoidhinishwa rasmi kuzinduliwa mtandaoni.'
+            : 'Your setup has been verified and your store launch review has been submitted to MloHub Administrators (Gate B). You will be notified when your store is approved and goes live.'
+        );
+      } else {
+        setActiveRestaurant((prev) => ({
+          ...prev,
+          isPublished: true,
+          isOpen: true,
+          isActive: true,
+          launchStatus: 'PUBLISHED',
+        }));
+        RealtimeEventEngine.publish('restaurants:updated', {
+          restaurantId: activeRestaurant.id,
+          data: { isPublished: true, isOpen: true },
+        });
+        Alert.alert(
+          language === 'sw' ? 'Mgahawa Umezinduliwa!' : 'Restaurant Published!',
+          language === 'sw'
+            ? 'Hongera! Mgahawa wako sasa unaonekana kwa wateja wote mtandaoni.'
+            : 'Congratulations! Your restaurant is now live and discoverable to customers.'
+        );
+      }
       await loadRestaurantWorkspace();
-      Alert.alert(
-        language === 'sw' ? 'Mgahawa Umezinduliwa!' : 'Restaurant Published!',
-        language === 'sw'
-          ? 'Hongera! Mgahawa wako sasa unaonekana kwa wateja wote mtandaoni.'
-          : 'Congratulations! Your restaurant is now live and discoverable to customers.'
-      );
     } catch (err: any) {
       Alert.alert(
         language === 'sw' ? 'Hauwezi Kuzindua' : 'Cannot Publish',
@@ -1312,29 +1328,55 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       {!activeRestaurant.isPublished && (
         <View style={styles.publishBanner}>
           <View style={styles.publishBannerContent}>
-            <Ionicons name="alert-circle" size={24} color="#b45309" />
+            <Ionicons
+              name={activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? 'time' : 'alert-circle'}
+              size={24}
+              color={activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? colors.info : colors.warning}
+            />
             <View style={{ flex: 1 }}>
               <Text style={styles.publishBannerTitle}>
-                {language === 'sw' ? 'Usajili Haujakamilika / Mgahawa Haujazinduliwa' : 'Setup Incomplete / Unpublished'}
+                {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                  ? (language === 'sw' ? 'Uhakiki wa Kuzindua Unaendelea (Gate B)' : 'Launch Review Pending Admin Approval')
+                  : activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
+                  ? (language === 'sw' ? 'Marekebisho Yanahitajika Kabla ya Kuzindua' : 'Corrections Required Before Launch')
+                  : (language === 'sw' ? 'Usajili Haujakamilika / Mgahawa Haujazinduliwa' : 'Setup Incomplete / Unpublished')}
               </Text>
               <Text style={styles.publishBannerSub}>
-                {!hasActiveBranch
+                {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                  ? (language === 'sw'
+                      ? 'Ombi lako la kuzindua mgahawa linakaguliwa na wasimamizi. Wateja hawataona mgahawa mpaka utakapoidhinishwa rasmi.'
+                      : 'Your store launch request is currently under Gate B administrative review. Customers will not see your store until launch approval is granted.')
+                  : activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
+                  ? (language === 'sw'
+                      ? '⚠️ Wasimamizi wameomba marekebisho kwenye usanidi wako. Tafadhali fanya marekebisho kisha uwasilishe tena.'
+                      : '⚠️ Admin requested changes to your setup before launch. Please review the requirements and resubmit.')
+                  : !hasActiveBranch
                   ? (language === 'sw' ? '⚠️ Hatua ya lazima: Ongeza angalau tawi 1 hai kwenye Mipangilio kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 active branch in Settings before publishing.')
                   : !hasValidMenuItem
                   ? (language === 'sw' ? '⚠️ Hatua ya lazima: Weka angalau chakula 1 chenye bei > 0 kwenye Menyu kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 menu item with price > 0 before publishing.')
-                  : (language === 'sw' ? 'Vigezo vyote vimekamilika! Bonyeza hapa kulia kuzindua mgahawa.' : 'All prerequisites met! Click on the right to publish your restaurant.')}
+                  : (language === 'sw' ? 'Vigezo vyote vimekamilika! Bonyeza hapa kulia kuwasilisha ombi la kuzindua mgahawa.' : 'All prerequisites met! Click on the right to submit your store for launch review.')}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: colors.textMuted }]}
-              onPress={handlePublishRestaurant}
-              disabled={!isPublishPrerequisitesMet}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.publishActionBtnText}>
-                {language === 'sw' ? 'Zindua Mgahawa' : 'Publish Restaurant'}
-              </Text>
-            </TouchableOpacity>
+            {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? (
+              <View style={[styles.publishActionBtn, { backgroundColor: colors.infoSoft, borderColor: colors.info, borderWidth: 1 }]}>
+                <Text style={[styles.publishActionBtnText, { color: colors.info }]}>
+                  {language === 'sw' ? 'Inakaguliwa...' : 'In Review...'}
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: colors.textMuted }]}
+                onPress={handlePublishRestaurant}
+                disabled={!isPublishPrerequisitesMet}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.publishActionBtnText}>
+                  {activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
+                    ? (language === 'sw' ? 'Wasilisha Tena' : 'Resubmit Launch')
+                    : (language === 'sw' ? 'Wasilisha Kuzindua' : 'Submit for Launch')}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       )}
@@ -1474,15 +1516,26 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                       <TouchableOpacity
                         style={[
                           styles.publishActionBtn,
-                          { backgroundColor: isPublishPrerequisitesMet ? '#16a34a' : colors.textMuted },
-                          !isPublishPrerequisitesMet && { opacity: 0.6 },
+                          {
+                            backgroundColor:
+                              activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                                ? colors.info
+                                : isPublishPrerequisitesMet
+                                ? '#16a34a'
+                                : colors.textMuted,
+                          },
+                          (!isPublishPrerequisitesMet || activeRestaurant.launchStatus === 'GO_LIVE_REVIEW') && { opacity: 0.7 },
                         ]}
                         onPress={handlePublishRestaurant}
-                        disabled={!isPublishPrerequisitesMet}
+                        disabled={!isPublishPrerequisitesMet || activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'}
                         activeOpacity={0.85}
                       >
                         <Text style={styles.publishActionBtnText}>
-                          {language === 'sw' ? 'Zindua Mgahawa Sasa' : 'Publish Restaurant Now'}
+                          {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                            ? (language === 'sw' ? 'Inakaguliwa...' : 'Review Pending...')
+                            : activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
+                            ? (language === 'sw' ? 'Wasilisha Tena' : 'Resubmit Launch')
+                            : (language === 'sw' ? 'Wasilisha Kuzindua' : 'Submit for Launch')}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -1492,7 +1545,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                         marginTop: 14,
                         paddingTop: 12,
                         borderTopWidth: 1,
-                        borderTopColor: '#dcfce7',
+                        borderTopColor: colors.success,
                         backgroundColor: colors.successSoft,
                         paddingHorizontal: 12,
                         paddingBottom: 10,

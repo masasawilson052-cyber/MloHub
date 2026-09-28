@@ -26,6 +26,7 @@ export interface SubmitMenuOrderDTO {
   diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
   deliveryAddress?: string;
   deliveryZoneId?: string;
+  deliveryQuoteId?: string;
   specialInstructions?: string;
 }
 
@@ -106,8 +107,8 @@ export class OrderService {
       if (!dto.deliveryAddress || !dto.deliveryAddress.trim()) {
         throw new Error('A valid delivery address is required for delivery orders.');
       }
-      if (!dto.deliveryZoneId || !dto.deliveryZoneId.trim()) {
-        throw new Error('A valid delivery zone is required for delivery orders.');
+      if ((!dto.deliveryQuoteId || !dto.deliveryQuoteId.trim()) && (!dto.deliveryZoneId || !dto.deliveryZoneId.trim())) {
+        throw new Error('A valid delivery quote or delivery zone is required for delivery orders.');
       }
     }
 
@@ -119,6 +120,7 @@ export class OrderService {
         restaurantId: dto.restaurantId,
         branchId: dto.branchId,
         deliveryZoneId: dto.diningOption === 'Delivery' ? dto.deliveryZoneId : undefined,
+        deliveryQuoteId: dto.diningOption === 'Delivery' ? dto.deliveryQuoteId : undefined,
         orderNumber,
         status: 'PENDING',
         paymentStatus: 'PENDING',
@@ -182,9 +184,10 @@ export class OrderService {
     }
 
     // Mock / Offline Fallback for automated tests
+    const TEST_ONLY_PROVISIONAL_DELIVERY_FEE = 2500;
     const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
     const serviceFee = 1500;
-    const deliveryFee = dto.diningOption === 'Delivery' ? 2500 : 0;
+    const deliveryFee = dto.diningOption === 'Delivery' ? TEST_ONLY_PROVISIONAL_DELIVERY_FEE : 0;
     const totalTzs = subtotal + serviceFee + deliveryFee;
 
     const itemsSummary = dto.items.map((i) => `${i.quantity}x ${i.name}`).join(', ');

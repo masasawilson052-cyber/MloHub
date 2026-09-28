@@ -402,6 +402,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: Spacing.sm,
+    paddingRight: 44,
   },
   searchBarCol: {
     flex: 1,
@@ -438,9 +439,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: Radii.full,
-    backgroundColor: '#edf2ee',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#dce4dd',
+    borderColor: colors.border,
   },
   sortChipActive: {
     backgroundColor: colors.primarySoft,
@@ -552,7 +553,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   restaurantMiniHeader: {
     height: 70,
-    backgroundColor: '#eaf4ed',
+    backgroundColor: colors.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -264,7 +264,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: Radii.xxl,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#e5e3df',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
     borderColor: colors.border,
     ...Shadows.md,
@@ -275,7 +275,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   nativeMapBackdrop: {
     flex: 1,
-    backgroundColor: '#e8ece9',
+    backgroundColor: colors.cardElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -286,7 +286,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     left: 0,
     right: 0,
     borderWidth: 1,
-    borderColor: '#d2ddd5',
+    borderColor: colors.border,
   },
   nativeMapTitle: {
     fontSize: 16,

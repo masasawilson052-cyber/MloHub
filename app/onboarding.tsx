@@ -299,13 +299,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   serviceChipViolet: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F0FC',
+    backgroundColor: colors.infoSoft,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: Radii.full,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#D8B4FE',
+    borderColor: colors.info,
     ...Shadows.sm,
   },
   serviceChipText: {
@@ -347,7 +347,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   subText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#5A6B7C',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginTop: 8,
@@ -370,12 +370,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   dotInactive: {
     width: 8,
-    backgroundColor: '#CBD5E0',
+    backgroundColor: colors.borderStrong,
   },
   primaryCtaBtn: {
     width: '100%',
     height: 54,
-    backgroundColor: '#FA541C',
+    backgroundColor: colors.primaryCta,
     borderRadius: Radii.full,
     flexDirection: 'row',
     alignItems: 'center',

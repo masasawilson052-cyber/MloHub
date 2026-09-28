@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   View,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../../context/CartContext';
@@ -47,6 +48,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     totalBillTzs,
     totalItems,
   } = useCart();
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
   if (!visible) return null;
 
@@ -112,8 +114,32 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               >
                 {items.map((item) => {
                   const lineId = item.cartLineId || item.dishId;
+                  const hasValidImage = Boolean(
+                    item.imageUrl && item.imageUrl.trim().length > 0 && !brokenImages[lineId]
+                  );
                   return (
                     <View key={lineId} style={styles.itemRow}>
+                      <View style={styles.itemThumbWrap}>
+                        {hasValidImage ? (
+                          <Image
+                            source={{ uri: item.imageUrl }}
+                            style={styles.itemThumbImage}
+                            resizeMode="cover"
+                            onError={() =>
+                              setBrokenImages((prev) => ({ ...prev, [lineId]: true }))
+                            }
+                          />
+                        ) : (
+                          <View style={styles.itemThumbPlaceholder}>
+                            <Ionicons
+                              name="restaurant-outline"
+                              size={20}
+                              color={colors.textMuted}
+                            />
+                          </View>
+                        )}
+                      </View>
+
                       <View style={styles.itemDetails}>
                         <Text style={styles.dishName}>{item.dishName}</Text>
                         {item.dishNameSwahili ? (
@@ -276,6 +302,27 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
+  },
+  itemThumbWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: Radii.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceMuted,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  itemThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itemThumbPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
   },
   itemDetails: {
     flex: 1,

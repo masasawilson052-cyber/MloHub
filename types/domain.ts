@@ -6,6 +6,15 @@ import { UserRole } from '../db/types';
 
 export type SellerTier = 'BASIC_SELLER' | 'VERIFIED_SELLER';
 export type VerificationStatus = 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+export type RestaurantLaunchStatus =
+  | 'SETUP_REQUIRED'
+  | 'SETUP_IN_PROGRESS'
+  | 'READY_FOR_REVIEW'
+  | 'GO_LIVE_REVIEW'
+  | 'CORRECTIONS_REQUIRED'
+  | 'APPROVED_FOR_LAUNCH'
+  | 'PUBLISHED'
+  | 'SUSPENDED';
 
 export interface Restaurant {
   id: string;
@@ -29,6 +38,7 @@ export interface Restaurant {
   isPublished?: boolean;
   isActive?: boolean;
   verificationStatus: VerificationStatus;
+  launchStatus?: RestaurantLaunchStatus;
   tinNumber?: string;
   businessLicenseNumber?: string;
   payoutPhoneNumber?: string;
@@ -129,6 +139,76 @@ export interface RestaurantMember {
   updatedAt: string;
 }
 
+export type ApplicationStatus =
+  | 'DRAFT'
+  | 'PENDING'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'CHANGES_REQUESTED'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export type VerificationDocumentType =
+  | 'BUSINESS_LICENSE'
+  | 'TIN_DOCUMENT'
+  | 'OWNER_IDENTITY'
+  | 'FOOD_OPERATION_DOCUMENT'
+  | 'STOREFRONT_PROOF'
+  | 'OTHER';
+
+export type DocumentVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+
+export interface RestaurantVerificationDocument {
+  id: string;
+  applicationId?: string;
+  restaurantId?: string;
+  ownerUserId: string;
+  documentType: VerificationDocumentType;
+  storagePath: string;
+  verificationStatus: DocumentVerificationStatus;
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface RestaurantLaunchReadinessCriteria {
+  hasActiveBranch: boolean;
+  hasOperatingHours: boolean;
+  hasValidMenuItem: boolean;
+  hasPricedItem: boolean;
+  hasLogo: boolean;
+  hasCoverImage: boolean;
+  hasGalleryPhotos: boolean;
+  hasPhone: boolean;
+  hasAddress: boolean;
+  hasCuisine: boolean;
+  hasPayoutConfigured: boolean;
+  hasVerificationDoc: boolean;
+}
+
+export interface RestaurantLaunchReadiness {
+  restaurantId: string;
+  businessVerified?: boolean;
+  hasActiveBranch?: boolean;
+  branchHasCoordinates?: boolean;
+  hasOpeningHours?: boolean;
+  hasLogo?: boolean;
+  hasCoverImage?: boolean;
+  hasStorefrontImage?: boolean;
+  hasVerifiedContact?: boolean;
+  hasMenu?: boolean;
+  menuItemCount?: number;
+  menuItemsWithImages?: number;
+  hasPayoutDestination?: boolean;
+  deliveryConfigured?: boolean;
+  readinessPercent: number;
+  missingRequirements?: string[];
+  blockers?: string[];
+  canSubmitForReview: boolean;
+  criteria?: RestaurantLaunchReadinessCriteria;
+}
+
 export interface RestaurantApplication {
   id: string;
   applicantUserId?: string;
@@ -143,7 +223,7 @@ export interface RestaurantApplication {
   hasTinOrLicense: boolean;
   tinNumber?: string;
   licenseNumber?: string;
-  status: 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED';
+  status: ApplicationStatus;
   rejectionReason?: string;
   notes?: string;
   reviewedBy?: string;
@@ -277,6 +357,11 @@ export interface Order {
   confirmedAt?: string;
   readyAt?: string;
   completedAt?: string;
+  deliveryQuoteId?: string;
+  deliveryDistanceMeters?: number;
+  deliveryDurationSeconds?: number;
+  deliveryDestinationLatitude?: number;
+  deliveryDestinationLongitude?: number;
   cancelledAt?: string;
   cancellationReason?: string;
   items?: OrderItem[];
@@ -284,7 +369,48 @@ export interface Order {
   updatedAt: string;
 }
 
+export interface DeliveryQuote {
+  id: string;
+  userId: string;
+  branchId: string;
+  pickupLatitude: number;
+  pickupLongitude: number;
+  destinationLatitude: number;
+  destinationLongitude: number;
+  distanceMeters: number;
+  durationSeconds: number;
+  deliveryFeeTzs: number;
+  pricingConfig: Record<string, any>;
+  expiresAt: string;
+  consumedAt?: string;
+  consumedByOrderId?: string;
+  createdAt: string;
+}
+
+export interface BranchDeliveryPricing {
+  branchId: string;
+  baseFeeTzs: number;
+  includedDistanceMeters: number;
+  billingIncrementMeters: number;
+  feePerIncrementTzs: number;
+  minimumFeeTzs: number;
+  maximumFeeTzs: number;
+  maxDeliveryDistanceMeters: number;
+  configurationConfirmed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type OrderEntity = Order;
+
+export interface OrderItemModifierSelectionSnapshot {
+  group_id: string;
+  group_name?: string;
+  option_id?: string;
+  option_ids?: string[];
+  option_name?: string;
+  price_delta_tzs?: number;
+}
 
 export interface OrderItem {
   id: string;
@@ -296,6 +422,7 @@ export interface OrderItem {
   quantity: number;
   subtotal: number;
   specialNotes?: string;
+  selectedModifiers?: OrderItemModifierSelectionSnapshot[];
   createdAt: string;
 }
 

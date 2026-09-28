@@ -28,7 +28,9 @@ import { BranchOperationsRepository } from '../../repositories/branchOperations.
 import { CustomerAddressesRepository } from '../../repositories/customerAddresses.repository';
 import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { PaymentCheckoutModal } from '../PaymentCheckoutModal';
-
+import { DeliveryQuoteApi, DeliveryQuoteResult } from '../../services/api/DeliveryQuoteApi';
+import { MOBILE_MONEY_METHODS } from '../../constants/paymentMethods';
+import { PaymentProviderLogo } from '../payments/PaymentProviderLogo';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
@@ -166,10 +168,94 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     }
   }, [user, customerLocation]);
 
+  const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuoteResult | null>(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [isOutsideDeliveryRange, setIsOutsideDeliveryRange] = useState(false);
+
+  const destinationCoords = React.useMemo(() => {
+    if (selectedAddressId) {
+      const selected = savedAddresses.find((a) => a.id === selectedAddressId);
+      if (selected?.latitude != null && selected?.longitude != null) {
+        return { latitude: selected.latitude, longitude: selected.longitude };
+      }
+    }
+    if (customerLocation.latitude != null && customerLocation.longitude != null) {
+      return { latitude: customerLocation.latitude, longitude: customerLocation.longitude };
+    }
+    return null;
+  }, [selectedAddressId, savedAddresses, customerLocation.latitude, customerLocation.longitude]);
+
+  // Debounced route-based delivery quote calculation
+  useEffect(() => {
+    let isMounted = true;
+    if (visible && fulfillment === 'Delivery' && effectiveBranchId) {
+      if (destinationCoords) {
+        setIsLoadingQuote(true);
+        setQuoteError(null);
+        setIsOutsideDeliveryRange(false);
+
+        const timer = setTimeout(async () => {
+          try {
+            const quote = await DeliveryQuoteApi.getQuote({
+              branchId: effectiveBranchId,
+              destinationLatitude: destinationCoords.latitude,
+              destinationLongitude: destinationCoords.longitude,
+            });
+            if (!isMounted) return;
+            setDeliveryQuote(quote);
+            setIsOutsideDeliveryRange(false);
+            setQuoteError(null);
+          } catch (err: any) {
+            if (!isMounted) return;
+            console.warn('[OrderReviewModal] Quote error:', err);
+            const isOutside =
+              err?.code === 'OUTSIDE_DELIVERY_RANGE' ||
+              (err?.message && err.message.includes('OUTSIDE_DELIVERY_RANGE'));
+            if (isOutside) {
+              setIsOutsideDeliveryRange(true);
+              setQuoteError(
+                err?.message ||
+                  'The delivery location is outside the maximum delivery radius for this branch.'
+              );
+            } else {
+              setQuoteError(err?.message || 'Could not compute delivery quote.');
+            }
+            setDeliveryQuote(null);
+          } finally {
+            if (isMounted) setIsLoadingQuote(false);
+          }
+        }, 350);
+
+        return () => {
+          clearTimeout(timer);
+        };
+      } else {
+        setDeliveryQuote(null);
+        setIsLoadingQuote(false);
+      }
+    } else {
+      setDeliveryQuote(null);
+      setIsOutsideDeliveryRange(false);
+      setQuoteError(null);
+      setIsLoadingQuote(false);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [visible, fulfillment, effectiveBranchId, destinationCoords]);
+
   const currentQuote = React.useMemo(() => {
-    const fee = fulfillment === 'Delivery' ? (selectedDeliveryZone?.feeTzs ?? 0) : 0;
+    let fee = 0;
+    if (fulfillment === 'Delivery') {
+      if (deliveryQuote) {
+        fee = deliveryQuote.deliveryFeeTzs;
+      } else if (selectedDeliveryZone) {
+        fee = selectedDeliveryZone.feeTzs;
+      }
+    }
     return getOrderQuote(fulfillment, fee);
-  }, [getOrderQuote, fulfillment, selectedDeliveryZone]);
+  }, [getOrderQuote, fulfillment, deliveryQuote, selectedDeliveryZone]);
 
   if (!visible) return null;
 
@@ -202,6 +288,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     }
 
     if (fulfillment === 'Delivery') {
+      if (isOutsideDeliveryRange) {
+        Alert.alert(
+          'Outside Delivery Range',
+          quoteError || 'The delivery location is outside the maximum delivery radius for this branch. Please choose Takeaway or Dine-In.'
+        );
+        return;
+      }
       if (!deliveryAddress.trim()) {
         Alert.alert(
           'Delivery Address Required',
@@ -209,23 +302,23 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
         );
         return;
       }
-      if (!selectedDeliveryZone) {
+      if (!deliveryQuote && !selectedDeliveryZone) {
         Alert.alert(
-          'Delivery Area Required',
-          deliveryZones.length === 0
-            ? 'No delivery zones are configured for this branch. Please choose Takeaway or Dine-In.'
-            : 'Please select your delivery area to calculate delivery fee and proceed.'
+          'Delivery Route Calculation Required',
+          'Please set your delivery location on the map to compute your driving route and delivery fee.'
         );
         return;
       }
-      const zoneMin = selectedDeliveryZone.minimumOrderTzs || 0;
-      const effectiveMinimum = Math.max(platformMin, zoneMin);
-      if (currentQuote.subtotalTzs < effectiveMinimum) {
-        Alert.alert(
-          'Minimum Order Required',
-          `The minimum order for ${selectedDeliveryZone.zoneName} is TZS ${effectiveMinimum.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
-        );
-        return;
+      if (selectedDeliveryZone) {
+        const zoneMin = selectedDeliveryZone.minimumOrderTzs || 0;
+        const effectiveMinimum = Math.max(platformMin, zoneMin);
+        if (currentQuote.subtotalTzs < effectiveMinimum) {
+          Alert.alert(
+            'Minimum Order Required',
+            `The minimum order for ${selectedDeliveryZone.zoneName} is TZS ${effectiveMinimum.toLocaleString()}. Your current subtotal is TZS ${currentQuote.subtotalTzs.toLocaleString()}.`
+          );
+          return;
+        }
       }
     }
 
@@ -258,7 +351,8 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
         })),
         diningOption: fulfillment,
         deliveryAddress: fulfillment === 'Delivery' ? deliveryAddress.trim() : undefined,
-        deliveryZoneId: fulfillment === 'Delivery' ? selectedDeliveryZone?.id : undefined,
+        deliveryQuoteId: fulfillment === 'Delivery' ? (deliveryQuote?.id || undefined) : undefined,
+        deliveryZoneId: fulfillment === 'Delivery' ? (selectedDeliveryZone?.id || undefined) : undefined,
         specialInstructions: items.map((it) => it.notes).filter(Boolean).join('; ') || undefined,
       });
 
@@ -274,10 +368,19 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
     }
   };
 
-  const handlePaymentSuccess = (payment: PaymentTransactionEntity) => {
+  const handlePaymentVerified = (payment: PaymentTransactionEntity) => {
+    // Verified in background by server - clear cart, keep modal on SUCCESS screen until Continue
+    clearCart();
+  };
+
+  const handleFlowComplete = (payment: PaymentTransactionEntity) => {
     setShowPaymentModal(false);
     clearCart();
     setStep('CONFIRMED');
+  };
+
+  const handlePaymentSuccess = (payment: PaymentTransactionEntity) => {
+    clearCart();
   };
 
   const handlePaymentClose = () => {
@@ -430,7 +533,61 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Select Delivery Area / Zone</Text>
+                      <Text style={styles.inputLabel}>Route & Delivery Pricing</Text>
+                      {isLoadingQuote ? (
+                        <View style={[styles.routeQuoteCard, { borderColor: colors.border, backgroundColor: colors.surfaceInteractive }]}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                          <Text style={[styles.routeQuoteText, { color: colors.textSecondary }]}>
+                            Calculating live driving route & transit fee...
+                          </Text>
+                        </View>
+                      ) : isOutsideDeliveryRange ? (
+                        <View style={[styles.routeQuoteCard, { borderColor: colors.danger, backgroundColor: colors.dangerSoft || '#FEE2E2' }]}>
+                          <Ionicons name="warning-outline" size={20} color={colors.danger} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.danger }}>
+                              Outside Delivery Radius
+                            </Text>
+                            <Text style={{ fontSize: 12, color: colors.danger, marginTop: 2 }}>
+                              {quoteError || 'Selected destination exceeds the maximum delivery radius for this branch. Please choose Takeaway or Dine-In.'}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : deliveryQuote ? (
+                        <View style={[styles.routeQuoteCard, { borderColor: colors.primary, backgroundColor: colors.surfaceInteractive }]}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <Ionicons name="navigate-circle" size={24} color={colors.primary} />
+                              <View>
+                                <Text style={{ fontSize: 14, fontWeight: '800', color: colors.text }}>
+                                  {DeliveryQuoteApi.formatDistance(deliveryQuote.distanceMeters)} • {DeliveryQuoteApi.formatDuration(deliveryQuote.durationSeconds)}
+                                </Text>
+                                <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                                  Route verified by server
+                                  {deliveryQuote.isProvisional ? ' (Standard Rate)' : ''}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={{ fontSize: 15, fontWeight: '900', color: colors.primary }}>
+                              TZS {deliveryQuote.deliveryFeeTzs.toLocaleString()}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : !destinationCoords ? (
+                        <TouchableOpacity
+                          style={[styles.routeQuoteCard, { borderColor: colors.border, backgroundColor: colors.surfaceHover }]}
+                          onPress={openLocationSelector}
+                        >
+                          <Ionicons name="location-outline" size={20} color={colors.primary} />
+                          <Text style={[styles.routeQuoteText, { color: colors.primary, fontWeight: '600' }]}>
+                            Pin your exact location on map to calculate delivery route & fee
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Delivery Area</Text>
                       {isLoadingZones ? (
                         <View style={{ paddingVertical: 12, alignItems: 'center' }}>
                           <ActivityIndicator size="small" color={colors.primary} />
@@ -440,7 +597,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                         <Text style={{ fontSize: 12, color: colors.danger, marginVertical: 4 }}>{zoneLoadError}</Text>
                       ) : deliveryZones.length === 0 ? (
                         <Text style={{ fontSize: 12, color: colors.textMuted, marginVertical: 4 }}>
-                          No delivery areas found for this branch. Please choose Takeaway or Dine-In.
+                          {deliveryQuote ? 'Delivery available via verified route pricing.' : 'No delivery areas found for this branch. Please choose Takeaway or Dine-In.'}
                         </Text>
                       ) : (
                         <View style={{ gap: 8, marginTop: 4 }}>
@@ -499,12 +656,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               <View style={styles.sectionCard}>
                 <Text style={styles.sectionLabel}>Payment Method (Mobile Money)</Text>
                 <View style={styles.paymentMethodsGrid}>
-                  {[
-                    { id: 'MPESA', label: 'Vodacom M-Pesa', emoji: '🟢' },
-                    { id: 'AIRTEL_MONEY', label: 'Airtel Money', emoji: '🔴' },
-                    { id: 'MIXX_BY_YAS', label: 'Mixx by Yas', emoji: '🔵' },
-                    { id: 'HALOPESA', label: 'HaloPesa', emoji: '🟠' },
-                  ].map((pm) => (
+                  {MOBILE_MONEY_METHODS.map((pm) => (
                     <TouchableOpacity
                       key={pm.id}
                       style={[
@@ -514,16 +666,16 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                       onPress={() => setSelectedMethod(pm.id as PaymentMethodCode)}
                       accessible={true}
                       accessibilityRole="button"
-                      accessibilityLabel={pm.label}
+                      accessibilityLabel={pm.displayName}
                     >
-                      <Text style={styles.pmEmoji}>{pm.emoji}</Text>
+                      <PaymentProviderLogo methodCode={pm.id} size={32} />
                       <Text
                         style={[
                           styles.pmLabel,
                           selectedMethod === pm.id && styles.pmLabelSelected,
                         ]}
                       >
-                        {pm.label}
+                        {pm.displayName}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -549,9 +701,9 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 </View>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Estimated Delivery Fee</Text>
-                  {fulfillment === 'Delivery' && !selectedDeliveryZone ? (
+                  {fulfillment === 'Delivery' && !deliveryQuote && !selectedDeliveryZone ? (
                     <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
-                      Select delivery area to calculate delivery fee
+                      Set location or area to calculate delivery fee
                     </Text>
                   ) : (
                     <PriceText amountTzs={currentQuote.deliveryFeeTzs} size="sm" />
@@ -640,7 +792,8 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
         <PaymentCheckoutModal
           visible={showPaymentModal}
           onClose={handlePaymentClose}
-          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentVerified={handlePaymentVerified}
+          onFlowComplete={handleFlowComplete}
           restaurantName={restaurantName || 'Restaurant'}
           restaurantId={createdOrder.restaurantId}
           orderId={createdOrder.id}
@@ -931,6 +1084,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   zoneFeeSelected: {
     color: colors.primary,
+  },
+  routeQuoteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    marginTop: 4,
+    gap: 8,
+  },
+  routeQuoteText: {
+    fontSize: 13,
+    lineHeight: 18,
+    flex: 1,
   },
 });
 let styles = createStyles(lightColors);

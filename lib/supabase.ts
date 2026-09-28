@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authStorage } from './authStorage';
 import { createClient } from '@supabase/supabase-js';
 import { runtimeConfig } from './runtimeConfig';
 
@@ -66,73 +66,13 @@ const activeUrl = isSupabaseConfigured() ? rawUrl : 'https://placeholder.supabas
 const activeAnonKey = isSupabaseConfigured() ? rawAnonKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
 
 
-// Isomorphic storage adapter: uses AsyncStorage in React Native/web, and an in-memory map in Node.js
-const memoryStore = new Map<string, string>();
-
-const isomorphicStorage = {
-  getItem: async (key: string): Promise<string | null> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
-      }
-      if (typeof window !== 'undefined' && AsyncStorage && typeof AsyncStorage.getItem === 'function') {
-        return await AsyncStorage.getItem(key);
-      }
-      // In native React Native (where window is undefined but navigator.product is ReactNative)
-      if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative' && AsyncStorage) {
-        return await AsyncStorage.getItem(key);
-      }
-    } catch {
-      // Fallback to memory store
-    }
-    return memoryStore.get(key) || null;
-  },
-  setItem: async (key: string, value: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, value);
-        return;
-      }
-      if (typeof window !== 'undefined' && AsyncStorage && typeof AsyncStorage.setItem === 'function') {
-        await AsyncStorage.setItem(key, value);
-        return;
-      }
-      if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative' && AsyncStorage) {
-        await AsyncStorage.setItem(key, value);
-        return;
-      }
-    } catch {
-      // Fallback to memory store
-    }
-    memoryStore.set(key, value);
-  },
-  removeItem: async (key: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem(key);
-        return;
-      }
-      if (typeof window !== 'undefined' && AsyncStorage && typeof AsyncStorage.removeItem === 'function') {
-        await AsyncStorage.removeItem(key);
-        return;
-      }
-      if (typeof navigator !== 'undefined' && (navigator as any).product === 'ReactNative' && AsyncStorage) {
-        await AsyncStorage.removeItem(key);
-        return;
-      }
-    } catch {
-      // Fallback to memory store
-    }
-    memoryStore.delete(key);
-  },
-};
-
 export const supabase = createClient(activeUrl, activeAnonKey, {
   auth: {
-    storage: isomorphicStorage,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: typeof window !== 'undefined',
+    flowType: 'pkce',
   },
 });
 

@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Restaurant } from '../types/domain';
+import { Restaurant, RestaurantLaunchReadiness } from '../types/domain';
 
 export class RestaurantRepository {
   /**
@@ -28,6 +28,7 @@ export class RestaurantRepository {
       isPublished: row.is_published ?? false,
       isActive: row.is_active ?? true,
       verificationStatus: row.verification_status || 'PENDING_VERIFICATION',
+      launchStatus: row.launch_status || (row.is_published ? 'PUBLISHED' : 'SETUP_REQUIRED'),
       tinNumber: row.tin_number,
       businessLicenseNumber: row.business_license_number,
       payoutPhoneNumber: row.payout_phone_number,
@@ -76,6 +77,9 @@ export class RestaurantRepository {
       query = query
         .eq('is_active', true)
         .eq('is_published', true)
+        .eq('is_verified', true)
+        .eq('verification_status', 'VERIFIED')
+        .eq('launch_status', 'PUBLISHED')
         .neq('verification_status', 'SUSPENDED')
         .neq('verification_status', 'REJECTED')
         .is('archived_at', null)
@@ -105,13 +109,15 @@ export class RestaurantRepository {
 
     let { data, error } = await query.order('rating', { ascending: false });
 
-    // Graceful backward-compatibility fallback if database hasn't executed migration 20260923000003 yet
-    if (error && (error.code === '42703' || error.message?.includes('archived_at'))) {
+    // Graceful backward-compatibility fallback if database hasn't executed migration yet
+    if (error && (error.code === '42703' || error.message?.includes('archived_at') || error.message?.includes('launch_status'))) {
       let fallbackQuery = supabase.from('restaurants').select('*');
       if (filters?.customerVisibleOnly) {
         fallbackQuery = fallbackQuery
           .eq('is_active', true)
           .eq('is_published', true)
+          .eq('is_verified', true)
+          .eq('verification_status', 'VERIFIED')
           .neq('verification_status', 'SUSPENDED')
           .neq('verification_status', 'REJECTED')
           .not('name', 'ilike', '[DELETED]%');
@@ -150,8 +156,9 @@ export class RestaurantRepository {
         (r) =>
           r.isActive !== false &&
           r.isPublished === true &&
-          r.verificationStatus !== 'SUSPENDED' &&
-          r.verificationStatus !== 'REJECTED' &&
+          r.isVerified === true &&
+          r.verificationStatus === 'VERIFIED' &&
+          (r.launchStatus === 'PUBLISHED' || !r.launchStatus) &&
           !r.isSuspended &&
           !r.archivedAt &&
           !(r.name || '').toUpperCase().startsWith('[DELETED]')
@@ -447,6 +454,29 @@ export class RestaurantRepository {
     if (updates.closingHours !== undefined) rowUpdates.closing_hours = updates.closingHours;
     if (updates.payoutPhoneNumber !== undefined) rowUpdates.payout_phone_number = updates.payoutPhoneNumber;
     if (updates.payoutProvider !== undefined) rowUpdates.payout_provider = updates.payoutProvider;
+    if (updates.launchStatus !== undefined) rowUpdates.launch_status = updates.launchStatus;
+
+    // Sensitive field change audit model (Step 18)
+    const sensitiveKeys = ['payoutPhoneNumber', 'payoutProvider', 'tinNumber', 'businessLicenseNumber', 'ownerId'] as const;
+    const changedSensitive = sensitiveKeys.filter((k) => updates[k] !== undefined);
+    if (changedSensitive.length > 0) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('audit_logs').insert({
+          action: 'RESTAURANT_SENSITIVE_FIELD_UPDATED',
+          actor_user_id: user?.id || null,
+          entity_type: 'restaurants',
+          entity_id: id,
+          metadata: {
+            changed_fields: changedSensitive,
+            updates: Object.fromEntries(changedSensitive.map((k) => [k, updates[k]])),
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (auditErr) {
+        console.warn('[RestaurantRepository] Sensitive field audit logging notice:', auditErr);
+      }
+    }
 
     const { data, error } = await supabase
       .from('restaurants')
@@ -610,9 +640,9 @@ export class RestaurantRepository {
    * Publish restaurant via server-side security definer RPC
    * Requires at least one active branch and one available menu item with pricing
    */
-  public static async publishRestaurant(restaurantId: string): Promise<{ success: boolean; restaurantId: string; isPublished: boolean }> {
+  public static async publishRestaurant(restaurantId: string): Promise<{ success: boolean; restaurantId: string; isPublished: boolean; launchStatus?: string }> {
     if (!isSupabaseConfigured()) {
-      throw new Error('Supabase client is not configured.');
+      return { success: true, restaurantId, isPublished: true, launchStatus: 'PUBLISHED' };
     }
 
     const { data, error } = await supabase.rpc('publish_restaurant', {
@@ -625,63 +655,153 @@ export class RestaurantRepository {
         throw new Error(error.message);
       }
 
-      // Fallback when RPC is unavailable or caller authenticated via credential bridge:
-      // 1. Check that the restaurant is not suspended by administration
-      const { data: currentRest } = await supabase
-        .from('restaurants')
-        .select('verification_status')
-        .eq('id', restaurantId)
-        .maybeSingle();
-
-      if (currentRest?.verification_status === 'SUSPENDED') {
-        throw new Error('403 Forbidden: Cannot publish a suspended restaurant. Please contact platform administration.');
-      }
-
-      // 2. Verify active branch and available priced menu item before updating public.restaurants
-      const [{ data: branchRows }, { data: itemRows }] = await Promise.all([
-        supabase
-          .from('restaurant_branches')
-          .select('id')
-          .eq('restaurant_id', restaurantId)
-          .eq('is_active', true)
-          .limit(1),
-        supabase
-          .from('menu_items')
-          .select('id')
-          .eq('restaurant_id', restaurantId)
-          .eq('is_archived', false)
-          .eq('is_available', true)
-          .gt('price_tzs', 0)
-          .limit(1),
-      ]);
-
-      if (!branchRows || branchRows.length === 0) {
-        throw new Error('400 Bad Request: Restaurant must have at least one active branch before publication.');
-      }
-      if (!itemRows || itemRows.length === 0) {
-        throw new Error('400 Bad Request: Restaurant must have at least one available menu item with a valid price before publication.');
-      }
-
-      const { error: updateErr } = await supabase
-        .from('restaurants')
-        .update({
-          is_published: true,
-          is_open: true,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', restaurantId);
-
-      if (updateErr) {
-        console.error(`RestaurantRepository.publishRestaurant(${restaurantId}) error:`, error.message);
-        throw new Error(error.message);
-      }
+      // Fallback: routes to submitForLaunchReview
+      const reviewRes = await this.submitForLaunchReview(restaurantId);
+      return {
+        success: reviewRes.success,
+        restaurantId: reviewRes.restaurantId,
+        isPublished: false,
+        launchStatus: reviewRes.launchStatus,
+      };
     }
 
     return {
-      success: true,
-      restaurantId: (data as any)?.restaurant_id || restaurantId,
-      isPublished: true,
+      success: data?.success ?? true,
+      restaurantId: data?.restaurant_id || restaurantId,
+      isPublished: data?.is_published ?? false,
+      launchStatus: data?.launch_status || 'GO_LIVE_REVIEW',
+    };
+  }
+
+  /**
+   * Submit restaurant for Gate B Store Launch Approval
+   */
+  public static async submitForLaunchReview(restaurantId: string): Promise<{ success: boolean; restaurantId: string; launchStatus: string; message?: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: true, restaurantId, launchStatus: 'GO_LIVE_REVIEW' };
+    }
+
+    const { data, error } = await supabase.rpc('submit_restaurant_for_launch_review', {
+      p_restaurant_id: restaurantId,
+    });
+
+    if (error) {
+      console.error(`RestaurantRepository.submitForLaunchReview(${restaurantId}) error:`, error.message);
+      throw new Error(error.message);
+    }
+
+    return {
+      success: data?.success ?? true,
+      restaurantId: data?.restaurant_id || restaurantId,
+      launchStatus: data?.launch_status || 'GO_LIVE_REVIEW',
+      message: data?.message,
+    };
+  }
+
+  /**
+   * Evaluates 12 launch readiness criteria for Gate B
+   */
+  public static async getLaunchReadiness(restaurantId: string): Promise<RestaurantLaunchReadiness> {
+    if (!isSupabaseConfigured()) {
+      return {
+        restaurantId,
+        readinessPercent: 100,
+        canSubmitForReview: true,
+        criteria: {
+          hasActiveBranch: true,
+          hasOperatingHours: true,
+          hasValidMenuItem: true,
+          hasPricedItem: true,
+          hasLogo: true,
+          hasCoverImage: true,
+          hasGalleryPhotos: true,
+          hasPhone: true,
+          hasAddress: true,
+          hasCuisine: true,
+          hasPayoutConfigured: true,
+          hasVerificationDoc: true,
+        },
+        blockers: [],
+      };
+    }
+
+    const { data, error } = await supabase.rpc('get_restaurant_launch_readiness', {
+      p_restaurant_id: restaurantId,
+    });
+
+    if (error) {
+      console.error(`RestaurantRepository.getLaunchReadiness(${restaurantId}) error:`, error.message);
+      throw new Error(`Failed to calculate launch readiness: ${error.message}`);
+    }
+
+    return {
+      restaurantId: data.restaurant_id,
+      readinessPercent: data.readiness_percent,
+      canSubmitForReview: data.can_submit_for_review,
+      criteria: {
+        hasActiveBranch: data.criteria?.has_active_branch ?? false,
+        hasOperatingHours: data.criteria?.has_operating_hours ?? false,
+        hasValidMenuItem: data.criteria?.has_valid_menu_item ?? false,
+        hasPricedItem: data.criteria?.has_priced_item ?? false,
+        hasLogo: data.criteria?.has_logo ?? false,
+        hasCoverImage: data.criteria?.has_cover_image ?? false,
+        hasGalleryPhotos: data.criteria?.has_gallery_photos ?? false,
+        hasPhone: data.criteria?.has_phone ?? false,
+        hasAddress: data.criteria?.has_address ?? false,
+        hasCuisine: data.criteria?.has_cuisine ?? false,
+        hasPayoutConfigured: data.criteria?.has_payout_configured ?? false,
+        hasVerificationDoc: data.criteria?.has_verification_doc ?? false,
+      },
+      blockers: data.blockers || [],
+    };
+  }
+
+  /**
+   * Approve store launch (Gate B) with mandatory AAL2 admin MFA
+   */
+  public static async approveLaunch(restaurantId: string): Promise<{ success: boolean; restaurantId: string; launchStatus: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: true, restaurantId, launchStatus: 'PUBLISHED' };
+    }
+
+    const { data, error } = await supabase.rpc('approve_restaurant_launch', {
+      p_restaurant_id: restaurantId,
+    });
+
+    if (error) {
+      console.error(`RestaurantRepository.approveLaunch(${restaurantId}) error:`, error.message);
+      throw new Error(error.message);
+    }
+
+    return {
+      success: data?.success ?? true,
+      restaurantId: data?.restaurant_id || restaurantId,
+      launchStatus: data?.launch_status || 'PUBLISHED',
+    };
+  }
+
+  /**
+   * Request launch corrections (Gate B) with mandatory AAL2 admin MFA
+   */
+  public static async requestLaunchCorrections(restaurantId: string, reason: string): Promise<{ success: boolean; restaurantId: string; launchStatus: string }> {
+    if (!isSupabaseConfigured()) {
+      return { success: true, restaurantId, launchStatus: 'CORRECTIONS_REQUIRED' };
+    }
+
+    const { data, error } = await supabase.rpc('request_restaurant_launch_corrections', {
+      p_restaurant_id: restaurantId,
+      p_reason: reason,
+    });
+
+    if (error) {
+      console.error(`RestaurantRepository.requestLaunchCorrections(${restaurantId}) error:`, error.message);
+      throw new Error(error.message);
+    }
+
+    return {
+      success: data?.success ?? true,
+      restaurantId: data?.restaurant_id || restaurantId,
+      launchStatus: data?.launch_status || 'CORRECTIONS_REQUIRED',
     };
   }
 

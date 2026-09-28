@@ -53,42 +53,42 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
   const getStatusColor = (status: SubsystemStatus) => {
     switch (status) {
       case 'HEALTHY':
-        return '#10b981';
+        return colors.success;
       case 'DEGRADED':
-        return '#f59e0b';
+        return colors.warning;
       case 'DOWN':
-        return '#ef4444';
+        return colors.danger;
       case 'UNVERIFIED':
       default:
-        return '#3b82f6';
+        return colors.info;
     }
   };
 
   const getStatusBg = (status: SubsystemStatus) => {
     switch (status) {
       case 'HEALTHY':
-        return isDark ? '#064e3b30' : '#ecfdf5';
+        return colors.successSoft;
       case 'DEGRADED':
-        return isDark ? '#78350f30' : '#fffbeb';
+        return colors.warningSoft;
       case 'DOWN':
-        return isDark ? '#7f1d1d30' : '#fef2f2';
+        return colors.dangerSoft;
       case 'UNVERIFIED':
       default:
-        return isDark ? '#1e3a8a30' : '#eff6ff';
+        return colors.infoSoft;
     }
   };
 
   const getStatusBorder = (status: SubsystemStatus) => {
     switch (status) {
       case 'HEALTHY':
-        return isDark ? '#059669' : '#a7f3d0';
+        return colors.success;
       case 'DEGRADED':
-        return isDark ? '#d97706' : '#fde68a';
+        return colors.warning;
       case 'DOWN':
-        return isDark ? '#dc2626' : '#fecaca';
+        return colors.danger;
       case 'UNVERIFIED':
       default:
-        return isDark ? '#2563eb' : '#bfdbfe';
+        return colors.info;
     }
   };
 

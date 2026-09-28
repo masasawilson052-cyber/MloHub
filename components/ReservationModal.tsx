@@ -332,7 +332,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                           style={[
                             styles.pill,
                             isSelected && styles.pillActive,
-                            !slot.isAvailable && { backgroundColor: '#f1f1f1', opacity: 0.5 },
+                            !slot.isAvailable && { backgroundColor: colors.surfaceInteractive, opacity: 0.5 },
                           ]}
                           onPress={() => setSelectedSlot(slot)}
                         >
@@ -340,7 +340,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                             style={[
                               styles.pillText,
                               isSelected && styles.pillTextActive,
-                              !slot.isAvailable && { color: '#999' },
+                              !slot.isAvailable && { color: colors.textMuted },
                             ]}
                           >
                             {formatSlotTime(slot.slotStart)}

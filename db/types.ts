@@ -145,7 +145,8 @@ export interface RestaurantApplicationEntity {
   address: string;
   hasTinOrLicense: boolean;
   tinNumber?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'DRAFT' | 'PENDING' | 'SUBMITTED' | 'UNDER_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string;
   notes?: string;
   reviewedBy?: string;
   createdAt: string;
@@ -229,6 +230,7 @@ export interface RestaurantEntity {
   isPublished?: boolean;
   isActive?: boolean;
   verificationStatus: RestaurantVerificationStatus;
+  launchStatus?: 'SETUP_REQUIRED' | 'SETUP_IN_PROGRESS' | 'READY_FOR_REVIEW' | 'GO_LIVE_REVIEW' | 'CORRECTIONS_REQUIRED' | 'APPROVED_FOR_LAUNCH' | 'PUBLISHED' | 'SUSPENDED';
   payoutPhoneNumber?: string;
   payoutProvider?: string;
   acceptedPaymentMethods?: string[];

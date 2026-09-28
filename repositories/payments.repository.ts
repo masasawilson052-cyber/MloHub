@@ -174,6 +174,23 @@ export class PaymentRepository {
     return data ? this.mapRowToPayment(data) : null;
   }
 
+  public static async getByOrderId(orderId: string): Promise<Payment[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(`PaymentRepository.getByOrderId(${orderId}) error:`, error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToPayment);
+  }
+
   public static async updateStatus(
     id: string,
     status: PaymentStatus,

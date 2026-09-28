@@ -91,15 +91,15 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
   const getReportTypeBadge = (type: DataReportType) => {
     switch (type) {
       case 'WRONG_PRICE':
-        return { label: 'Wrong Price', bg: '#fee2e2', color: colors.danger, icon: 'pricetag-outline' as const };
+        return { label: 'Wrong Price', bg: colors.dangerSoft, color: colors.danger, icon: 'pricetag-outline' as const };
       case 'ITEM_UNAVAILABLE':
-        return { label: 'Unavailable', bg: '#ffedd5', color: colors.primary, icon: 'close-circle-outline' as const };
+        return { label: 'Unavailable', bg: colors.primarySoft, color: colors.primary, icon: 'close-circle-outline' as const };
       case 'WRONG_HOURS':
-        return { label: 'Wrong Hours', bg: '#fef3c7', color: colors.warning, icon: 'time-outline' as const };
+        return { label: 'Wrong Hours', bg: colors.warningSoft, color: colors.warning, icon: 'time-outline' as const };
       case 'RESTAURANT_CLOSED':
-        return { label: 'Closed Spot', bg: '#fee2e2', color: colors.danger, icon: 'lock-closed-outline' as const };
+        return { label: 'Closed Spot', bg: colors.dangerSoft, color: colors.danger, icon: 'lock-closed-outline' as const };
       default:
-        return { label: type, bg: '#eff6ff', color: colors.info, icon: 'alert-circle-outline' as const };
+        return { label: type, bg: colors.infoSoft, color: colors.info, icon: 'alert-circle-outline' as const };
     }
   };
 
@@ -230,7 +230,7 @@ export const CustomerReportsAdmin: React.FC<CustomerReportsAdminProps> = ({
                   style={[
                     styles.card,
                     { backgroundColor: colors.card, borderColor: colors.border },
-                    isSelected && { borderColor: colors.primary, backgroundColor: isDark ? '#261b14' : '#fffaf5' },
+                    isSelected && { borderColor: colors.primary, backgroundColor: colors.primarySoft },
                   ]}
                 >
                   <View style={styles.cardHeader}>
@@ -472,7 +472,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardSelected: {
     borderColor: colors.primary,
-    backgroundColor: '#fffaf5',
+    backgroundColor: colors.primarySoft,
   },
   cardHeader: {
     flexDirection: 'row',

@@ -134,3 +134,78 @@ export function getPasswordResetRedirectUrl(
 
   return appUrl + '/auth/reset-password';
 }
+
+export interface ResetPasswordParamInput {
+  code?: string | string[];
+  error?: string | string[];
+  error_description?: string | string[];
+  access_token?: string | string[];
+  refresh_token?: string | string[];
+}
+
+function firstNonEmptyString(val?: string | string[] | null): string | undefined {
+  if (Array.isArray(val)) {
+    for (const item of val) {
+      if (typeof item === 'string' && item.trim()) {
+        return item.trim();
+      }
+    }
+    return undefined;
+  }
+  if (typeof val === 'string' && val.trim()) {
+    return val.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Extracts a PKCE authorization `code` or error flag from Expo Router params,
+ * browser URLs, or native `mlohub://auth/reset-password?code=...` deep links.
+ * Strictly ignores implicit-grant `access_token` / `refresh_token` parameters.
+ */
+export function extractPkceCodeFromResetInput(
+  params?: ResetPasswordParamInput,
+  url?: string | null
+): { code?: string; hasError: boolean } {
+  const paramError =
+    firstNonEmptyString(params?.error) ||
+    firstNonEmptyString(params?.error_description);
+  if (paramError) {
+    return { hasError: true };
+  }
+
+  const paramCode = firstNonEmptyString(params?.code);
+  if (paramCode) {
+    return { code: paramCode, hasError: false };
+  }
+
+  const rawUrl =
+    url !== undefined
+      ? url
+      : typeof window !== 'undefined' && window.location?.href
+      ? window.location.href
+      : null;
+
+  if (typeof rawUrl === 'string' && rawUrl.trim()) {
+    const qIndex = rawUrl.indexOf('?');
+    if (qIndex !== -1) {
+      const hashIndex = rawUrl.indexOf('#', qIndex);
+      const queryPart =
+        hashIndex !== -1
+          ? rawUrl.slice(qIndex + 1, hashIndex)
+          : rawUrl.slice(qIndex + 1);
+      const searchParams = new URLSearchParams(queryPart);
+      const urlErr =
+        searchParams.get('error') || searchParams.get('error_description');
+      if (urlErr && urlErr.trim()) {
+        return { hasError: true };
+      }
+      const urlCode = searchParams.get('code');
+      if (urlCode && urlCode.trim()) {
+        return { code: urlCode.trim(), hasError: false };
+      }
+    }
+  }
+
+  return { hasError: false };
+}

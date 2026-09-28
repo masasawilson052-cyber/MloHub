@@ -76,14 +76,14 @@ export const OrdersMonitor: React.FC<OrdersMonitorProps> = ({
   const getStatusBadge = (status: OrderStatus | string) => {
     switch (status) {
       case 'COMPLETED':
-        return { bg: '#dcfce7', color: colors.success };
+        return { bg: colors.successSoft, color: colors.success };
       case 'ACCEPTED':
       case 'PREPARING':
-        return { bg: '#e0f2fe', color: colors.info };
+        return { bg: colors.infoSoft, color: colors.info };
       case 'READY':
-        return { bg: '#fef3c7', color: colors.warning };
+        return { bg: colors.warningSoft, color: colors.warning };
       case 'CANCELLED':
-        return { bg: '#fee2e2', color: colors.danger };
+        return { bg: colors.dangerSoft, color: colors.danger };
       case 'PENDING':
       default:
         return { bg: colors.surfaceInteractive, color: colors.textSecondary };
@@ -600,7 +600,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardException: {
     borderColor: colors.danger,
-    backgroundColor: '#fffdfd',
+    backgroundColor: colors.dangerSoft,
   },
   exceptionBanner: {
     flexDirection: 'row',

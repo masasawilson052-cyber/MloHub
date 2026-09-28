@@ -60,15 +60,15 @@ export const AuditLogViewer: React.FC<AuditLogViewerProps> = ({
 
   const getActionBadge = (action: string) => {
     if (action.includes('REJECT') || action.includes('SUSPEND') || action.includes('REVOKE')) {
-      return { bg: '#fee2e2', color: colors.danger };
+      return { bg: colors.dangerSoft, color: colors.danger };
     }
     if (action.includes('APPROVE') || action.includes('REACTIVATE') || action.includes('GRANT')) {
-      return { bg: '#dcfce7', color: colors.success };
+      return { bg: colors.successSoft, color: colors.success };
     }
     if (action.includes('BROADCAST')) {
-      return { bg: '#fef3c7', color: colors.warning };
+      return { bg: colors.warningSoft, color: colors.warning };
     }
-    return { bg: '#eff6ff', color: colors.info };
+    return { bg: colors.infoSoft, color: colors.info };
   };
 
   const sanitizeDetails = (details: Record<string, any> | undefined) => {

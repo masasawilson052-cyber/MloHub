@@ -1,9 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
 import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
 
 const jsonHeaders = {
-  ...corsHeaders,
   'Content-Type': 'application/json',
 };
 
@@ -19,9 +17,7 @@ function response(
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 204 });
   }
 
   if (req.method !== 'POST') {

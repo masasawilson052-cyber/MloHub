@@ -1,7 +1,9 @@
 import {
   getPasswordResetRedirectUrl,
   PRODUCTION_RESET_PASSWORD_URL,
+  NATIVE_RESET_PASSWORD_URL,
   isLocalhostUrl,
+  extractPkceCodeFromResetInput,
 } from './authUrls';
 
 export function runAuthUrlsAndRecoveryTestSuite(): {
@@ -92,16 +94,63 @@ export function runAuthUrlsAndRecoveryTestSuite(): {
     delete process.env.EXPO_PUBLIC_AUTH_RESET_REDIRECT_URL;
     const nativeUrl = getPasswordResetRedirectUrl();
     assert(
-      nativeUrl === 'mlohub://auth/reset-password' && !isLocalhostUrl(nativeUrl),
+      nativeUrl === NATIVE_RESET_PASSWORD_URL && !isLocalhostUrl(nativeUrl),
       `Native platform returns app scheme URL (${nativeUrl}) without localhost`
     );
 
-    // 6. Verify AuthContext, ForgotPasswordScreen, ResetPasswordScreen, and Templates
+    // 6. PKCE code extraction across router params, web URL, and native deep link URL
+    const fromRouterParams = extractPkceCodeFromResetInput({ code: 'pkce-router-code-123' }, null);
+    assert(
+      fromRouterParams.code === 'pkce-router-code-123' && !fromRouterParams.hasError,
+      'extractPkceCodeFromResetInput extracts PKCE code from Expo Router search params'
+    );
+
+    const fromWebUrl = extractPkceCodeFromResetInput(
+      {},
+      'https://mlohub.expo.app/auth/reset-password?code=pkce-web-code-456'
+    );
+    assert(
+      fromWebUrl.code === 'pkce-web-code-456' && !fromWebUrl.hasError,
+      'extractPkceCodeFromResetInput extracts PKCE code from web HTTPS reset URL'
+    );
+
+    const fromNativeUrl = extractPkceCodeFromResetInput(
+      {},
+      'mlohub://auth/reset-password?code=pkce-native-code-789'
+    );
+    assert(
+      fromNativeUrl.code === 'pkce-native-code-789' && !fromNativeUrl.hasError,
+      'extractPkceCodeFromResetInput extracts PKCE code from native mlohub://auth/reset-password?code=... URL'
+    );
+
+    const fromExpiredLink = extractPkceCodeFromResetInput(
+      {},
+      'mlohub://auth/reset-password?error=access_denied&error_description=Email+link+is+invalid+or+has+expired'
+    );
+    assert(
+      fromExpiredLink.hasError && fromExpiredLink.code === undefined,
+      'extractPkceCodeFromResetInput flags invalid/expired reset links with hasError=true'
+    );
+
+    const fromImplicitTokensOnly = extractPkceCodeFromResetInput(
+      { access_token: 'implicit-token', refresh_token: 'implicit-refresh' },
+      'https://mlohub.expo.app/auth/reset-password?access_token=implicit-token&refresh_token=implicit-refresh'
+    );
+    assert(
+      fromImplicitTokensOnly.code === undefined && !fromImplicitTokensOnly.hasError,
+      'extractPkceCodeFromResetInput ignores access_token / refresh_token query parameters'
+    );
+
+    // 7. Verify Supabase client, AuthContext, ForgotPasswordScreen, ResetPasswordScreen, and Templates
     const nodeRequire = (globalThis as any).require || eval('require');
     const fs = nodeRequire('fs');
     const path = nodeRequire('path');
     const rootDir = (globalThis as any).process?.cwd?.() || '.';
 
+    const supabaseClientSrc = fs.readFileSync(
+      path.join(rootDir, 'lib/supabase.ts'),
+      'utf8'
+    );
     const authContextSrc = fs.readFileSync(
       path.join(rootDir, 'context/AuthContext.tsx'),
       'utf8'
@@ -123,6 +172,10 @@ export function runAuthUrlsAndRecoveryTestSuite(): {
       'utf8'
     );
 
+    assert(
+      supabaseClientSrc.includes("flowType: 'pkce'"),
+      "lib/supabase.ts explicitly configures flowType: 'pkce'"
+    );
     assert(
       authContextSrc.includes('getPasswordResetRedirectUrl()'),
       'AuthContext.tsx uses getPasswordResetRedirectUrl() for password recovery'
@@ -147,9 +200,17 @@ export function runAuthUrlsAndRecoveryTestSuite(): {
     );
     assert(
       resetSrc.includes('exchangeCodeForSession') &&
+        resetSrc.includes('extractPkceCodeFromResetInput') &&
+        resetSrc.includes('Linking.getInitialURL') &&
         resetSrc.includes('hasExchangedRef') &&
         resetSrc.includes("window.history.replaceState({}, docTitle, '/auth/reset-password')"),
-      'reset-password.tsx exchanges PKCE code once and cleans ?code= from browser history'
+      'reset-password.tsx exchanges PKCE code once across web and native deep links and cleans ?code= from browser history'
+    );
+    assert(
+      resetSrc.includes("event === 'PASSWORD_RECOVERY'") &&
+        !resetSrc.includes("event === 'SIGNED_IN'") &&
+        !resetSrc.includes('supabase.auth.getSession()'),
+      'reset-password.tsx strictly requires PASSWORD_RECOVERY or PKCE code exchange (normal SIGNED_IN / getSession() cannot unlock recovery)'
     );
     assert(
       resetSrc.includes('Create New Password') &&
@@ -172,10 +233,24 @@ export function runAuthUrlsAndRecoveryTestSuite(): {
         !recoveryHtml.includes('Supabase Auth'),
       'supabase/templates/recovery.html is MloHub branded and uses {{ .ConfirmationURL }}'
     );
+
+    const uncommentedConfigLines = configToml
+      .split(/\r?\n/)
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0 && !line.startsWith('#'));
+
     assert(
-      configToml.includes('subject = "Reset your MloHub password"') &&
-        configToml.includes('sender_name = "MloHub"'),
-      'supabase/config.toml sets recovery subject to "Reset your MloHub password" and sender_name to "MloHub"'
+      uncommentedConfigLines.includes('minimum_password_length = 10'),
+      'supabase/config.toml sets active (uncommented) minimum_password_length = 10'
+    );
+    assert(
+      uncommentedConfigLines.includes('subject = "Reset your MloHub password"') &&
+        uncommentedConfigLines.includes('sender_name = "MloHub"'),
+      'supabase/config.toml sets active (uncommented) recovery subject = "Reset your MloHub password" and [local_smtp] sender_name = "MloHub"'
+    );
+    assert(
+      !uncommentedConfigLines.includes('[auth.email.smtp]'),
+      'supabase/config.toml keeps [auth.email.smtp] commented so local config is never falsely reported as hosted production SMTP'
     );
   } finally {
     if (origTestOs === undefined) {
@@ -197,12 +272,16 @@ export function runAuthUrlsAndRecoveryTestSuite(): {
     else process.env.EXPO_PUBLIC_APP_ENV = origAppEnv;
   }
 
+  console.log(
+    `\n🏁 AUTH URLS & RECOVERY SUITE RESULTS: ${passedCount} Passed | ${failedCount} Failed\n`
+  );
+
   return { passedCount, failedCount };
 }
 
-const maybeRequire = (globalThis as any).require;
-const maybeModule = (globalThis as any).module;
-if (maybeRequire && maybeModule && maybeRequire.main === maybeModule) {
+if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
   const res = runAuthUrlsAndRecoveryTestSuite();
-  if (res.failedCount > 0) (globalThis as any).process?.exit?.(1);
+  if (res.failedCount > 0) {
+    process.exit(1);
+  }
 }

@@ -406,10 +406,10 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
 
         <View style={styles.statusOptionsRow}>
           {[
-            { id: 'OPEN', label: 'Open ✓', color: colors.success, bg: '#DCFCE7' },
-            { id: 'BUSY', label: 'Busy (Rush)', color: colors.warning, bg: '#FEF3C7' },
-            { id: 'PAUSED', label: 'Paused ⏸', color: colors.warning, bg: '#FFF7ED' },
-            { id: 'CLOSED', label: 'Closed ✕', color: colors.danger, bg: '#FEE2E2' },
+            { id: 'OPEN', label: 'Open ✓', color: colors.success, bg: colors.successSoft },
+            { id: 'BUSY', label: 'Busy (Rush)', color: colors.warning, bg: colors.warningSoft },
+            { id: 'PAUSED', label: 'Paused ⏸', color: colors.warning, bg: colors.warningSoft },
+            { id: 'CLOSED', label: 'Closed ✕', color: colors.danger, bg: colors.dangerSoft },
           ].map((st) => (
             <TouchableOpacity
               key={st.id}

@@ -48,6 +48,10 @@ import { runPack5aCustomerTestSuite } from './pack5aCustomerExperience.test';
 import { runDemoReadinessTestSuite } from './demoReadiness.test';
 import { runRestaurantDemoLifecycleTestSuite } from './restaurantDemoLifecycle.test';
 import { runThemeVisualClosureTests } from './themeVisualClosure.test';
+import { runCartInteractionTestSuite } from './cartInteraction.test';
+import { runPaymentDeliveryClosureTests } from './paymentDeliveryClosure.test';
+import { runPaymentSecurityClosureTests } from './paymentSecurityClosure.test';
+import { runRestaurantOnboardingTwoGateTests } from './restaurantOnboardingTwoGate.test';
 
 
 let passed = 0;
@@ -740,6 +744,26 @@ async function runMasterTestSuite() {
   const themeClosureResults = await runThemeVisualClosureTests();
   passed += themeClosureResults.passed;
   failed += themeClosureResults.failed;
+
+  // Smart Cart Interaction & Real Food Image Integrity Suite
+  const cartInteractionResults = await runCartInteractionTestSuite();
+  passed += cartInteractionResults.passedCount;
+  failed += cartInteractionResults.failedCount;
+
+  // Final Payment Experience & Route-Based Delivery Quote Suite
+  const paymentDeliveryResults = await runPaymentDeliveryClosureTests();
+  passed += paymentDeliveryResults.passed;
+  failed += paymentDeliveryResults.failed;
+
+  // Payment, Selcom & Security Production Closure Suite
+  const paymentSecurityResults = await runPaymentSecurityClosureTests();
+  passed += paymentSecurityResults.passed;
+  failed += paymentSecurityResults.failed;
+
+  // Restaurant Phase 1: Two-Gate Onboarding & Store Launch Control Suite
+  const restaurantPhase1Results = await runRestaurantOnboardingTwoGateTests();
+  passed += restaurantPhase1Results.passed;
+  failed += restaurantPhase1Results.failed;
 
   // Final Results
   console.log('\n================================================================');

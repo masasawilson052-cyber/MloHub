@@ -1,10 +1,31 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Appearance, Platform, useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemeMode, ThemeColors, lightColors, darkColors } from '../theme/palettes';
+import * as SystemUI from 'expo-system-ui';
+import {
+  ThemeMode,
+  ThemeColors,
+  lightColors,
+  THEME_STORAGE_KEY,
+  LEGACY_ADMIN_THEME_KEY,
+  isValidThemeMode,
+  resolveThemeMode,
+  resolveThemeColors,
+  computeNextToggledMode,
+  StorageLike,
+  migrateAndLoadThemePreference,
+} from '../theme/palettes';
 
-export const THEME_STORAGE_KEY = 'mlohub_theme_mode';
-export const LEGACY_ADMIN_THEME_KEY = 'mlohub_admin_theme_mode';
+export {
+  THEME_STORAGE_KEY,
+  LEGACY_ADMIN_THEME_KEY,
+  isValidThemeMode,
+  resolveThemeMode,
+  resolveThemeColors,
+  computeNextToggledMode,
+  migrateAndLoadThemePreference,
+};
+export type { StorageLike };
 
 export interface ThemeContextValue {
   mode: ThemeMode;
@@ -18,55 +39,7 @@ export interface ThemeContextValue {
 
 export type AppThemeContextValue = ThemeContextValue;
 
-export function isValidThemeMode(val: unknown): val is ThemeMode {
-  return val === 'LIGHT' || val === 'DARK' || val === 'SYSTEM';
-}
-
-export function resolveThemeMode(
-  mode: ThemeMode,
-  systemScheme?: 'light' | 'dark' | null
-): 'LIGHT' | 'DARK' {
-  if (mode === 'LIGHT') return 'LIGHT';
-  if (mode === 'DARK') return 'DARK';
-  return systemScheme === 'dark' ? 'DARK' : 'LIGHT';
-}
-
-export interface StorageLike {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  removeItem(key: string): Promise<void>;
-}
-
-/**
- * Loads global theme mode from `mlohub_theme_mode`, migrating from legacy
- * `mlohub_admin_theme_mode` if present.
- */
-export async function migrateAndLoadThemePreference(
-  storage: StorageLike = AsyncStorage
-): Promise<ThemeMode> {
-  try {
-    const saved = await storage.getItem(THEME_STORAGE_KEY);
-    if (isValidThemeMode(saved)) {
-      return saved;
-    }
-
-    const legacy = await storage.getItem(LEGACY_ADMIN_THEME_KEY);
-    if (isValidThemeMode(legacy)) {
-      await storage.setItem(THEME_STORAGE_KEY, legacy);
-      try {
-        await storage.removeItem(LEGACY_ADMIN_THEME_KEY);
-      } catch {
-        // Non-fatal cleanup
-      }
-      return legacy;
-    }
-  } catch (e) {
-    console.warn('Failed to load or migrate theme preference:', e);
-  }
-  return 'SYSTEM';
-}
-
-function getInitialSyncWebMode(): { mode: ThemeMode; hydrated: boolean } {
+export function getInitialSyncWebMode(): { mode: ThemeMode; hydrated: boolean } {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
     try {
       const current = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -79,11 +52,12 @@ function getInitialSyncWebMode(): { mode: ThemeMode; hydrated: boolean } {
         window.localStorage.removeItem(LEGACY_ADMIN_THEME_KEY);
         return { mode: legacy, hydrated: true };
       }
+      return { mode: 'LIGHT', hydrated: true };
     } catch {
       // Ignore storage access errors in restricted webviews
     }
   }
-  return { mode: 'SYSTEM', hydrated: false };
+  return { mode: 'LIGHT', hydrated: false };
 }
 
 function getWebSystemScheme(): 'light' | 'dark' | null {
@@ -102,7 +76,7 @@ function getWebSystemScheme(): 'light' | 'dark' | null {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  mode: 'SYSTEM',
+  mode: 'LIGHT',
   resolvedMode: 'LIGHT',
   isDark: false,
   isThemeHydrated: false,
@@ -215,16 +189,40 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const toggleMode = useCallback(async () => {
-    const nextMode: ThemeMode = resolvedMode === 'DARK' ? 'LIGHT' : 'DARK';
+    const nextMode: ThemeMode = computeNextToggledMode(mode, systemScheme);
     await setMode(nextMode);
-  }, [resolvedMode, setMode]);
+  }, [mode, systemScheme, setMode]);
 
   const isDark = resolvedMode === 'DARK';
 
   const colors: ThemeColors = useMemo(
-    () => (resolvedMode === 'DARK' ? darkColors : lightColors),
-    [resolvedMode]
+    () => resolveThemeColors(mode, systemScheme),
+    [mode, systemScheme]
   );
+
+  // Synchronize native Appearance color scheme and SystemUI root background
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      try {
+        if (typeof Appearance?.setColorScheme === 'function') {
+          const targetScheme =
+            mode === 'LIGHT'
+              ? 'light'
+              : mode === 'DARK'
+              ? 'dark'
+              : (null as unknown as 'light' | 'dark');
+          Appearance.setColorScheme(targetScheme);
+        }
+      } catch {
+        // Ignore unsupported Appearance.setColorScheme environments
+      }
+      try {
+        SystemUI.setBackgroundColorAsync(colors.appBackground).catch(() => {});
+      } catch {
+        // Ignore SystemUI errors in headless environments
+      }
+    }
+  }, [mode, colors.appBackground]);
 
   // Immediately synchronize Web DOM root attributes on change
   useEffect(() => {
@@ -259,3 +257,4 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 export const useTheme = (): ThemeContextValue => {
   return useContext(ThemeContext);
 };
+

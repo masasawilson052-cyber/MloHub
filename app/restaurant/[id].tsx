@@ -1,5 +1,5 @@
 import { directionsUrl } from '../../utils/directions';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { MenuRepository } from '../../repositories';
 import { BranchRepository } from '../../repositories/branches.repository';
 import { runtimeConfig } from '../../lib/runtimeConfig';
@@ -26,16 +26,14 @@ import { Colors, Spacing, Radii, Shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
 import { useCart } from '../../context/CartContext';
-import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
-import { CartDrawer } from '../../components/cart/CartDrawer';
-import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
+import { useCartInteraction } from '../../hooks/useCartInteraction';
+import { CustomerCartHost } from '../../components/cart/CustomerCartHost';
 import { FreshnessBadge } from '../../components/ui/FreshnessBadge';
 import { Badge } from '../../components/ui/Badge';
 import { PriceText } from '../../components/ui/PriceText';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../../components/trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../../components/trust/ReportDiscrepancyModal';
-import { MenuItemCustomizationModal } from '../../components/menu/MenuItemCustomizationModal';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -57,13 +55,23 @@ export default function RestaurantDetailScreen() {
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
-  const { addToCart, items, isCartOpen, setIsCartOpen } = useCart();
+  const { items } = useCart();
+  const { requestAddToCart, isDishAddPending } = useCartInteraction();
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [customizingItem, setCustomizingItem] = useState<any | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+
+  const highlightedImageRef = useRef<View | null>(null);
+  const menuImageRefs = useRef<Record<string, React.RefObject<View | null>>>({});
+
+  const getMenuImageRef = (dishId: string): React.RefObject<View | null> => {
+    if (!menuImageRefs.current[dishId]) {
+      menuImageRefs.current[dishId] = React.createRef<View | null>();
+    }
+    return menuImageRefs.current[dishId];
+  };
 
   const matched = restaurants.find((r) => r.id === id);
   const isAvailableForCustomers =
@@ -127,6 +135,7 @@ export default function RestaurantDetailScreen() {
       return dbMenuItems.map((item) => ({
         id: item.id,
         name: language === 'sw' && item.nameSw ? item.nameSw : (item.nameEn || item.name),
+        nameSw: item.nameSw,
         desc: language === 'sw' && item.descriptionSw ? item.descriptionSw : (item.description || ''),
         price: `TZS ${item.basePrice.toLocaleString()}`,
         priceNum: item.basePrice,
@@ -484,31 +493,77 @@ export default function RestaurantDetailScreen() {
               ) : null}
             </View>
             <View style={styles.highlightedCard}>
+              {highlightedItem.imageUrl && !brokenImages[`highlight-${highlightedItem.id}`] ? (
+                <View
+                  ref={highlightedImageRef}
+                  collapsable={false}
+                  style={styles.menuItemThumbWrap}
+                >
+                  <Image
+                    source={{ uri: highlightedItem.imageUrl }}
+                    style={styles.menuItemThumb}
+                    resizeMode="cover"
+                    onError={() =>
+                      setBrokenImages((prev) => ({
+                        ...prev,
+                        [`highlight-${highlightedItem.id}`]: true,
+                      }))
+                    }
+                  />
+                </View>
+              ) : null}
               <View style={styles.highlightedLeft}>
                 <Text style={styles.highlightedName}>{highlightedItem.name}</Text>
                 <Text style={styles.highlightedDesc}>{highlightedItem.desc}</Text>
                 <Text style={styles.highlightedPrice}>{highlightedItem.price}</Text>
               </View>
               <TouchableOpacity
-                style={styles.addHighlightedBtn}
-                onPress={() =>
-                  addToCart({
-                    dishId: highlightedItem.id,
-                    dishName: highlightedItem.name,
-                    restaurantId: restaurant.id,
-                    restaurantName: restaurant.name,
-                    branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
-                    branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
-                    priceTzs: parsePriceTzs(highlightedItem.price),
-                    imageUrl: coverImage,
-                  })
-                }
+                style={[
+                  styles.addHighlightedBtn,
+                  isDishAddPending(highlightedItem.id) && { opacity: 0.65 },
+                ]}
+                disabled={isDishAddPending(highlightedItem.id)}
+                onPress={() => {
+                  if (isDishAddPending(highlightedItem.id)) return;
+                  const hasRealHighlightImg = Boolean(
+                    highlightedItem.imageUrl &&
+                      !brokenImages[`highlight-${highlightedItem.id}`]
+                  );
+                  void requestAddToCart(
+                    {
+                      dishId: highlightedItem.id,
+                      dishName: highlightedItem.name,
+                      dishNameSwahili: highlightedItem.nameSw,
+                      description: highlightedItem.desc,
+                      restaurantId: restaurant.id,
+                      restaurantName: restaurant.name,
+                      branchId:
+                        selectedBranch?.id ||
+                        branches[0]?.id ||
+                        restaurant?.branchId ||
+                        restaurant?.id,
+                      branchName:
+                        selectedBranch?.name ||
+                        branches[0]?.name ||
+                        restaurant?.name,
+                      priceTzs: parsePriceTzs(highlightedItem.price),
+                      imageUrl: hasRealHighlightImg
+                        ? highlightedItem.imageUrl
+                        : undefined,
+                    },
+                    {
+                      sourceRef: highlightedImageRef,
+                    }
+                  );
+                }}
                 activeOpacity={0.85}
                 accessible={true}
                 accessibilityRole="button"
                 accessibilityLabel={`Add ${highlightedItem.name} to meal order`}
               >
-                <Text style={styles.addHighlightedBtnText}>+ Add to Order</Text>
+                <Text style={styles.addHighlightedBtnText}>
+                  {isDishAddPending(highlightedItem.id) ? 'Adding...' : '+ Add to Order'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -548,32 +603,76 @@ export default function RestaurantDetailScreen() {
 
           <View style={styles.menuList}>
             {filteredMenu.map((item) => {
-              const inCart = items.find((i) => i.dishId === item.id);
+              const itemCartQuantity = items
+                .filter((i) => i.dishId === item.id)
+                .reduce((sum, i) => sum + i.quantity, 0);
+              const inCart = itemCartQuantity > 0;
+              const isItemPending = isDishAddPending(item.id);
               const priceVal = parsePriceTzs(item.price);
+              const hasRealItemImage = Boolean(
+                item.imageUrl && !brokenImages[item.id]
+              );
+              const itemImageRef = getMenuImageRef(item.id);
+              const targetBranchId =
+                selectedBranch?.id ||
+                branches[0]?.id ||
+                restaurant?.branchId ||
+                restaurant?.id;
+              const targetBranchName =
+                selectedBranch?.name || branches[0]?.name || restaurant?.name;
+
+              const handleSelectMenuItem = () => {
+                if (isItemPending) return;
+                void requestAddToCart(
+                  {
+                    dishId: item.id,
+                    dishName: item.name,
+                    dishNameSwahili: item.nameSw,
+                    description: item.desc,
+                    restaurantId: restaurant.id,
+                    restaurantName: restaurant.name,
+                    branchId: targetBranchId,
+                    branchName: targetBranchName,
+                    priceTzs: priceVal,
+                    imageUrl: hasRealItemImage ? item.imageUrl : undefined,
+                  },
+                  {
+                    sourceRef: itemImageRef,
+                  }
+                );
+              };
 
               return (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.menuCard}
                   activeOpacity={0.88}
-                  onPress={() =>
-                    setCustomizingItem({
-                      id: item.id,
-                      name: item.name,
-                      nameSw: item.nameSw,
-                      description: item.desc,
-                      price: priceVal,
-                      imageUrl: coverImage,
-                      restaurantId: restaurant.id,
-                      restaurantName: restaurant.name,
-                      branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
-                      branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
-                    })
-                  }
+                  onPress={handleSelectMenuItem}
+                  disabled={isItemPending}
                   accessible={true}
                   accessibilityRole="button"
                   accessibilityLabel={`Select and customize ${item.name}`}
                 >
+                  {hasRealItemImage ? (
+                    <View
+                      ref={itemImageRef}
+                      collapsable={false}
+                      style={styles.menuItemThumbWrap}
+                    >
+                      <Image
+                        source={{ uri: item.imageUrl }}
+                        style={styles.menuItemThumb}
+                        resizeMode="cover"
+                        onError={() =>
+                          setBrokenImages((prev) => ({
+                            ...prev,
+                            [item.id]: true,
+                          }))
+                        }
+                      />
+                    </View>
+                  ) : null}
+
                   <View style={styles.menuItemLeft}>
                     <View style={styles.menuTitleRow}>
                       <Text style={styles.itemName}>{item.name}</Text>
@@ -588,28 +687,23 @@ export default function RestaurantDetailScreen() {
                   </View>
 
                   <TouchableOpacity
-                    style={[styles.menuAddBtn, inCart && styles.menuAddBtnInCart]}
-                    onPress={() =>
-                      setCustomizingItem({
-                        id: item.id,
-                        name: item.name,
-                        nameSw: item.nameSw,
-                        description: item.desc,
-                        price: priceVal,
-                        imageUrl: coverImage,
-                        restaurantId: restaurant.id,
-                        restaurantName: restaurant.name,
-                        branchId: selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id,
-                        branchName: selectedBranch?.name || branches[0]?.name || restaurant?.name,
-                      })
-                    }
+                    style={[
+                      styles.menuAddBtn,
+                      inCart && styles.menuAddBtnInCart,
+                      isItemPending && { opacity: 0.65 },
+                    ]}
+                    disabled={isItemPending}
+                    onPress={(e) => {
+                      e?.stopPropagation?.();
+                      handleSelectMenuItem();
+                    }}
                     activeOpacity={0.85}
                     accessible={true}
                     accessibilityRole="button"
                     accessibilityLabel={`Add or customize ${item.name}`}
                   >
                     <Text style={[styles.menuAddBtnText, inCart && styles.menuAddBtnTextInCart]}>
-                      {inCart ? `✓ ${inCart.quantity}` : '+ Add'}
+                      {isItemPending ? '...' : inCart ? `✓ ${itemCartQuantity}` : '+ Add'}
                     </Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -654,23 +748,9 @@ export default function RestaurantDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Floating Cart Button */}
-      <FloatingCartButton />
-
-      {/* Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Checkout Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={(orderId) => {
-          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
-        }}
+      {/* Unified Customer Cart Host (Floating Cart Dock + Drawer + Order Review) */}
+      <CustomerCartHost
+        showWhenEmpty={true}
         isVerifiedRestaurant={(restaurant as any)?.isVerified || false}
       />
 
@@ -696,32 +776,6 @@ export default function RestaurantDetailScreen() {
         restaurantId={restaurant.id}
         restaurantName={restaurant.name}
         dishName={restaurant.name + ' Listing'}
-      />
-
-      {/* Menu Item Customization Modal */}
-      <MenuItemCustomizationModal
-        visible={!!customizingItem}
-        menuItem={customizingItem}
-        onClose={() => setCustomizingItem(null)}
-        onAddToCart={(customizedItem) => {
-          addToCart({
-            dishId: customizedItem.dishId,
-            dishName: customizedItem.dishName,
-            dishNameSwahili: customizedItem.dishNameSwahili,
-            restaurantId: customizedItem.restaurantId,
-            restaurantName: customizedItem.restaurantName,
-            branchId: customizedItem.branchId,
-            branchName: customizedItem.branchName,
-            priceTzs: customizedItem.priceTzs,
-            basePriceTzs: customizedItem.basePriceTzs,
-            quantity: customizedItem.quantity,
-            selectedModifiers: customizedItem.selectedModifiers,
-            rpcModifiersPayload: customizedItem.rpcModifiersPayload,
-            notes: customizedItem.notes,
-            imageUrl: customizedItem.imageUrl,
-          });
-          setCustomizingItem(null);
-        }}
       />
     </SafeAreaView>
   );
@@ -1013,6 +1067,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.divider,
     ...Shadows.sm,
+  },
+  menuItemThumbWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: Radii.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceInteractive,
+    marginRight: Spacing.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  menuItemThumb: {
+    width: '100%',
+    height: '100%',
   },
   menuItemLeft: {
     flex: 1,

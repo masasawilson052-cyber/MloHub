@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,8 @@ import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { DishDiscoveryResult } from '../types/discovery';
 import { formatTzs, formatDistance, formatFreshnessBadge } from '../utils/formatters';
 import { useCart } from '../context/CartContext';
-import { FloatingCartButton } from '../components/cart/FloatingCartButton';
-import { CartDrawer } from '../components/cart/CartDrawer';
-import { OrderReviewModal } from '../components/checkout/OrderReviewModal';
+import { useCartInteraction } from '../hooks/useCartInteraction';
+import { CustomerCartHost } from '../components/cart/CustomerCartHost';
 import { FreshnessBadge } from '../components/ui/FreshnessBadge';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -32,8 +31,17 @@ export default function CompareScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ dishes?: string }>();
   const { width } = useWindowDimensions();
-  const { addToCart, items, isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
+  const { items } = useCart();
+  const { requestAddToCart, isDishAddPending } = useCartInteraction();
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const dishImageRefs = useRef<Record<string, React.RefObject<View | null>>>({});
+
+  const getCompareImageRef = (dishId: string): React.RefObject<View | null> => {
+    if (!dishImageRefs.current[dishId]) {
+      dishImageRefs.current[dishId] = React.createRef<View | null>();
+    }
+    return dishImageRefs.current[dishId];
+  };
 
   let dishes: DishDiscoveryResult[] = [];
   try {
@@ -105,17 +113,34 @@ export default function CompareScreen() {
           {/* Horizontal Comparison Columns */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columnsContainer}>
             {dishes.map((dish) => {
-              const inCart = items.find((i) => i.dishId === dish.menuItemId);
+              const dishCartQuantity = items
+                .filter((i) => i.dishId === dish.menuItemId)
+                .reduce((sum, i) => sum + i.quantity, 0);
+              const inCart = dishCartQuantity > 0;
               const isBestPrice = dish.priceTzs === bestMetrics.minPrice;
               const isNearest = dish.distanceKm === bestMetrics.minDistance;
               const isTopRated = dish.restaurantRating === bestMetrics.maxRating;
+              const hasRealImg = Boolean(dish.imageUrl && !brokenImages[dish.menuItemId]);
+              const imageRef = getCompareImageRef(dish.menuItemId);
 
               return (
                 <View key={dish.menuItemId} style={styles.columnCard}>
                   {/* Dish Image */}
                   <View style={styles.imageBox}>
-                    {dish.imageUrl ? (
-                      <Image source={{ uri: dish.imageUrl }} style={styles.dishImg} resizeMode="cover" />
+                    {hasRealImg ? (
+                      <View ref={imageRef} collapsable={false} style={styles.dishImg}>
+                        <Image
+                          source={{ uri: dish.imageUrl }}
+                          style={styles.dishImg}
+                          resizeMode="cover"
+                          onError={() =>
+                            setBrokenImages((prev) => ({
+                              ...prev,
+                              [dish.menuItemId]: true,
+                            }))
+                          }
+                        />
+                      </View>
                     ) : (
                       <View style={styles.imgPlaceholder}>
                         <Text style={styles.imgPlaceholderText}>🍲</Text>
@@ -199,24 +224,40 @@ export default function CompareScreen() {
 
                   {/* Add to Cart CTA */}
                   <TouchableOpacity
-                    style={[styles.addBtn, inCart && styles.addBtnInCart]}
-                    onPress={() =>
-                      addToCart({
-                        dishId: dish.menuItemId,
-                        dishName: dish.dishName,
-                        dishNameSwahili: dish.dishNameSw,
-                        restaurantId: dish.restaurantId,
-                        restaurantName: dish.restaurantName,
-                        branchId: dish.branchId,
-                        branchName: dish.branchName,
-                        priceTzs: dish.priceTzs,
-                        imageUrl: dish.imageUrl,
-                      })
-                    }
+                    style={[
+                      styles.addBtn,
+                      inCart && styles.addBtnInCart,
+                      isDishAddPending(dish.menuItemId) && { opacity: 0.65 },
+                    ]}
+                    disabled={isDishAddPending(dish.menuItemId)}
+                    onPress={() => {
+                      if (isDishAddPending(dish.menuItemId)) return;
+                      void requestAddToCart(
+                        {
+                          dishId: dish.menuItemId,
+                          dishName: dish.dishName,
+                          dishNameSwahili: dish.dishNameSw,
+                          description: dish.description,
+                          restaurantId: dish.restaurantId,
+                          restaurantName: dish.restaurantName,
+                          branchId: dish.branchId,
+                          branchName: dish.branchName,
+                          priceTzs: dish.priceTzs,
+                          imageUrl: hasRealImg ? dish.imageUrl : undefined,
+                        },
+                        {
+                          sourceRef: imageRef,
+                        }
+                      );
+                    }}
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.addBtnText, inCart && styles.addBtnTextInCart]}>
-                      {inCart ? `✓ In Order (${inCart.quantity})` : '+ Add to Order'}
+                      {isDishAddPending(dish.menuItemId)
+                        ? 'Adding...'
+                        : inCart
+                        ? `✓ In Order (${dishCartQuantity})`
+                        : '+ Add to Order'}
                     </Text>
                   </TouchableOpacity>
 
@@ -234,24 +275,8 @@ export default function CompareScreen() {
         </ScrollView>
       )}
 
-      {/* Floating Cart Button */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={(orderId) => {
-          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
-        }}
-      />
+      {/* Unified Customer Cart Host */}
+      <CustomerCartHost showWhenEmpty={true} />
     </SafeAreaView>
   );
 }
@@ -325,7 +350,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 130,
     borderRadius: Radii.md,
     overflow: 'hidden',
-    backgroundColor: '#edf2ee',
+    backgroundColor: colors.surfaceInteractive,
     marginBottom: Spacing.sm,
     position: 'relative',
   },

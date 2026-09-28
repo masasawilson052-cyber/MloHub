@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
 import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
+
+const jsonHeaders = { 'Content-Type': 'application/json' };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,13 +55,13 @@ function isAuthorized(req: Request, serviceRoleKey: string): boolean {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { status: 204 });
   }
 
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ success: false, error: 'METHOD_NOT_ALLOWED' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 405, headers: jsonHeaders }
     );
   }
 
@@ -70,7 +71,7 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !serviceRoleKey) {
     return new Response(
       JSON.stringify({ success: false, error: 'SERVER_CONFIGURATION_ERROR' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: jsonHeaders }
     );
   }
 
@@ -78,7 +79,7 @@ Deno.serve(async (req: Request) => {
   if (!isAuthorized(req, serviceRoleKey)) {
     return new Response(
       JSON.stringify({ success: false, error: 'UNAUTHORIZED' }),
-      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 401, headers: jsonHeaders }
     );
   }
 
@@ -101,7 +102,7 @@ Deno.serve(async (req: Request) => {
       console.error('[reconcile-payments] Failed to fetch stale payments:', fetchErr);
       return new Response(
         JSON.stringify({ success: false, error: 'FETCH_FAILED', message: fetchErr.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: jsonHeaders }
       );
     }
 
@@ -121,7 +122,7 @@ Deno.serve(async (req: Request) => {
 
       return new Response(
         JSON.stringify({ success: true, processed: 0, results: [] }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: jsonHeaders }
       );
     }
 
@@ -162,13 +163,13 @@ Deno.serve(async (req: Request) => {
         errors,
         results,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: jsonHeaders }
     );
   } catch (err: any) {
     console.error('[reconcile-payments] Unexpected error:', err);
     return new Response(
       JSON.stringify({ success: false, error: 'RECONCILE_ERROR', message: err?.message || 'Unexpected error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: jsonHeaders }
     );
   }
 });

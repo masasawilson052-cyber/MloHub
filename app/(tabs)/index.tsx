@@ -28,11 +28,7 @@ import { useMloHubDB } from '../../context/DbContext';
 import { DiscoveryService } from '../../services/DiscoveryService';
 import { DishDiscoveryResult } from '../../types/discovery';
 import { AnalyticsService } from '../../services/AnalyticsService';
-import { useCart } from '../../context/CartContext';
 import { useCustomerLocation } from '../../context/CustomerLocationContext';
-import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
-import { CartDrawer } from '../../components/cart/CartDrawer';
-import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -74,10 +70,6 @@ export default function HomeScreen() {
 
   // Reservation Modal
   const [selectedReserveRestaurant, setSelectedReserveRestaurant] = useState<Restaurant | null>(null);
-
-  // Cart & Order Review Modal State
-  const { isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
 
   // Load Popular and Recommended Dishes on Mount / Location Change
   useEffect(() => {
@@ -426,25 +418,6 @@ export default function HomeScreen() {
         restaurant={selectedReserveRestaurant as any}
         onClose={() => setSelectedReserveRestaurant(null)}
       />
-
-      {/* Floating Cart Button (Presents when user has items in cart) */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={(orderId) => {
-          router.push({ pathname: '/(tabs)/orders', params: { orderId } });
-        }}
-      />
     </SafeAreaView>
   );
 }
@@ -477,7 +450,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#cce3d3',
+    borderColor: colors.primaryLight,
   },
   pulsingDot: {
     width: 8,
@@ -517,9 +490,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f2',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#e2e7e3',
+    borderColor: colors.border,
   },
   quickChipActive: {
     backgroundColor: colors.primarySoft,

@@ -32,7 +32,7 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
           iconName: 'radio-button-on' as const,
           color: colors.success,
           bgColor: colors.successLight,
-          borderColor: '#C6F6D5',
+          borderColor: colors.success,
         };
       case 'LOW_STOCK':
         return {
@@ -40,7 +40,7 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
           iconName: 'alert-circle' as const,
           color: colors.warning,
           bgColor: colors.warningLight,
-          borderColor: '#FEEBC8',
+          borderColor: colors.warning,
         };
       case 'SOLD_OUT':
         return {
@@ -48,7 +48,7 @@ export const AvailabilityBadge: React.FC<AvailabilityBadgeProps> = ({
           iconName: 'close-circle' as const,
           color: colors.danger,
           bgColor: colors.errorLight,
-          borderColor: '#FED7D7',
+          borderColor: colors.danger,
         };
       case 'UNKNOWN':
       default:

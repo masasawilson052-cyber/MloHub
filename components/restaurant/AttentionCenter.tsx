@@ -75,24 +75,24 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
     switch (severity) {
       case 'HIGH':
         return {
-          bg: '#FEF2F2',
-          border: '#FCA5A5',
-          text: '#991B1B',
-          iconColor: '#DC2626',
+          bg: colors.dangerSoft,
+          border: colors.danger,
+          text: colors.danger,
+          iconColor: colors.danger,
         };
       case 'MEDIUM':
         return {
-          bg: '#FFFBEB',
-          border: '#FDE68A',
-          text: '#92400E',
-          iconColor: '#D97706',
+          bg: colors.warningSoft,
+          border: colors.warning,
+          text: colors.warning,
+          iconColor: colors.warning,
         };
       default:
         return {
-          bg: '#EFF6FF',
-          border: '#BFDBFE',
-          text: '#1E40AF',
-          iconColor: '#2563EB',
+          bg: colors.infoSoft,
+          border: colors.info,
+          text: colors.info,
+          iconColor: colors.info,
         };
     }
   };

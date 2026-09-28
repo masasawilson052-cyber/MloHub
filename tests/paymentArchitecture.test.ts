@@ -414,9 +414,14 @@ export async function runPaymentArchitectureTestSuite(): Promise<{ passed: numbe
   const sandboxGw = PaymentGatewayFactory.getGateway('sandbox');
   assert(sandboxGw.provider === 'sandbox', 'PaymentGatewayFactory resolves Sandbox gateway');
 
+  process.env.ALLOW_LEGACY_CLICKPESA = 'true';
   const clickpesaGw = PaymentGatewayFactory.getGateway('clickpesa');
   assert(clickpesaGw.provider === 'clickpesa', 'PaymentGatewayFactory resolves ClickPesa gateway');
 
+  process.env.SELCOM_BASE_URL = process.env.SELCOM_BASE_URL || 'https://api.selcom.net';
+  process.env.SELCOM_VENDOR_ID = process.env.SELCOM_VENDOR_ID || 'VEND-001';
+  process.env.SELCOM_API_KEY = process.env.SELCOM_API_KEY || 'test_key';
+  process.env.SELCOM_API_SECRET = process.env.SELCOM_API_SECRET || 'test_secret';
   const selcomGw = PaymentGatewayFactory.getGateway('selcom');
   assert(selcomGw.provider === 'selcom', 'PaymentGatewayFactory resolves Selcom gateway');
 

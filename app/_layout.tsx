@@ -1,7 +1,8 @@
 import '../lib/alertPolyfill';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DbProvider, useMloHubDB } from '../context/DbContext';
@@ -9,18 +10,40 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/LanguageContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { CartProvider } from '../context/CartContext';
+import { CartInteractionProvider } from '../context/CartInteractionContext';
 import { ConnectionNotice } from '../components/ConnectionNotice';
 
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { AdminPreviewProvider } from '../context/AdminPreviewContext';
 import { CustomerLocationProvider } from '../context/CustomerLocationContext';
 
+if (Platform.OS !== 'web') {
+  SplashScreen.preventAutoHideAsync().catch(() => {
+    // Ignore if splash screen was already prevented or unavailable
+  });
+}
+
 function RootNavigationLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { isReady, hasCompletedOnboarding } = useMloHubDB();
   const { isAuthLoading, isAuthenticated, currentRole, activeWorkspace, user } = useAuth();
-  const { isDark, resolvedMode, colors } = useTheme();
+  const { isDark, resolvedMode, isThemeHydrated, colors } = useTheme();
+  const [splashFallbackReady, setSplashFallbackReady] = useState(Platform.OS === 'web');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (isThemeHydrated) {
+      setSplashFallbackReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSplashFallbackReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [isThemeHydrated]);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -36,7 +59,7 @@ function RootNavigationLayout() {
   }, [resolvedMode, colors]);
 
   useEffect(() => {
-    if (!isReady || isAuthLoading) return;
+    if (!isReady || isAuthLoading || (!isThemeHydrated && !splashFallbackReady)) return;
 
     const inOnboarding = segments[0] === 'onboarding';
     const inAuth = segments[0] === 'auth';
@@ -76,7 +99,11 @@ function RootNavigationLayout() {
         return;
       }
     }
-  }, [isReady, isAuthLoading, hasCompletedOnboarding, isAuthenticated, currentRole, activeWorkspace, user, segments]);
+  }, [isReady, isAuthLoading, isThemeHydrated, splashFallbackReady, hasCompletedOnboarding, isAuthenticated, currentRole, activeWorkspace, user, segments]);
+
+  if (Platform.OS !== 'web' && !isThemeHydrated && !splashFallbackReady) {
+    return null;
+  }
 
   return (
     <>
@@ -178,7 +205,9 @@ export default function RootLayout() {
                 <NotificationProvider>
                   <CustomerLocationProvider>
                     <CartProvider>
-                      <RootNavigationLayout />
+                      <CartInteractionProvider>
+                        <RootNavigationLayout />
+                      </CartInteractionProvider>
                     </CartProvider>
                   </CustomerLocationProvider>
                 </NotificationProvider>

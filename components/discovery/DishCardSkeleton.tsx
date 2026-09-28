@@ -40,7 +40,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   imagePlaceholder: {
     height: 140,
     width: '100%',
-    backgroundColor: '#e8ece9',
+    backgroundColor: colors.surfaceInteractive,
   },
   body: {
     padding: Spacing.md,
@@ -55,19 +55,19 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '60%',
     height: 16,
     borderRadius: Radii.sm,
-    backgroundColor: '#e2e7e4',
+    backgroundColor: colors.surfaceInteractive,
   },
   pricePlaceholder: {
     width: '25%',
     height: 16,
     borderRadius: Radii.sm,
-    backgroundColor: '#d8deda',
+    backgroundColor: colors.surfaceInteractive,
   },
   subPlaceholder: {
     width: '45%',
     height: 12,
     borderRadius: Radii.sm,
-    backgroundColor: '#edf1ee',
+    backgroundColor: colors.cardElevated,
     marginBottom: 12,
   },
   footerRow: {
@@ -82,13 +82,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 60,
     height: 14,
     borderRadius: Radii.sm,
-    backgroundColor: '#edf1ee',
+    backgroundColor: colors.cardElevated,
   },
   badgePlaceholder: {
     width: 80,
     height: 20,
     borderRadius: Radii.full,
-    backgroundColor: '#edf1ee',
+    backgroundColor: colors.cardElevated,
   },
 });
 let styles = createStyles(lightColors);

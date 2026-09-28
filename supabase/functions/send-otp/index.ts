@@ -2,7 +2,19 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 // @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeadersFor } from '../_shared/cors.ts';
+import { enforceRateLimit, getRequestIp } from '../_shared/security/rateLimit.ts';
+import { recordSecurityEvent } from '../_shared/security/auditLog.ts';
+
+export const ALLOWED_OTP_PURPOSES = [
+  'CUSTOMER_VERIFICATION',
+  'CUSTOMER_REGISTRATION',
+  'PASSWORD_RESET',
+  'LOGIN',
+  'VENDOR_ACTIVATION',
+] as const;
+
+export type OtpPurpose = typeof ALLOWED_OTP_PURPOSES[number];
 
 // Tanzanian Telecom Prefixes & Carrier Detection
 function detectCarrier(subscriber9: string): string {
@@ -55,27 +67,110 @@ async function hmacSha256(message: string, secret: string): Promise<string> {
 }
 
 serve(async (req: Request) => {
+  const headers = corsHeadersFor(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405, headers });
+  }
+
   try {
     const { phone, purpose = 'CUSTOMER_VERIFICATION', language = 'sw' } = await req.json();
-
-    const norm = normalizePhone(phone);
-    if (!norm.valid || !norm.e164) {
-      return new Response(
-        JSON.stringify({ success: false, error: norm.error || 'Invalid Tanzanian phone number' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const clientIp = getRequestIp(req);
 
     // Initialize Supabase Service Role client
     // @ts-ignore
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     // @ts-ignore
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // 1. Validate OTP Purpose Binding
+    if (!ALLOWED_OTP_PURPOSES.includes(purpose as any)) {
+      await recordSecurityEvent(supabase, {
+        eventType: 'INVALID_OTP_PURPOSE',
+        severity: 'MEDIUM',
+        ipAddress: clientIp,
+        endpoint: '/send-otp',
+        details: { attemptedPurpose: purpose, phone },
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Invalid purpose '${purpose}'. Allowed purposes: ${ALLOWED_OTP_PURPOSES.join(', ')}`,
+        }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const norm = normalizePhone(phone);
+    if (!norm.valid || !norm.e164) {
+      return new Response(
+        JSON.stringify({ success: false, error: norm.error || 'Invalid Tanzanian phone number' }),
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2. IP Rate Limiting (10 requests per 10 minutes)
+    const ipLimit = await enforceRateLimit(supabase, {
+      key: `ip:${clientIp}:send-otp`,
+      action: 'SEND_OTP_IP',
+      maxHits: 10,
+      windowSeconds: 600,
+      ipAddress: clientIp,
+    });
+
+    if (!ipLimit.allowed) {
+      await recordSecurityEvent(supabase, {
+        eventType: 'RATE_LIMIT_EXCEEDED',
+        severity: 'HIGH',
+        ipAddress: clientIp,
+        endpoint: '/send-otp',
+        details: { reason: 'IP OTP limit reached', hits: ipLimit.currentHits },
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Too many OTP requests from this connection. Please try again later.',
+        }),
+        { status: 429, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 3. Phone Rate Limiting (5 requests per 15 minutes)
+    const phoneLimit = await enforceRateLimit(supabase, {
+      key: `phone:${norm.e164}:send-otp`,
+      action: 'SEND_OTP_PHONE',
+      maxHits: 5,
+      windowSeconds: 900,
+      ipAddress: clientIp,
+      identifier: norm.e164,
+    });
+
+    if (!phoneLimit.allowed) {
+      await recordSecurityEvent(supabase, {
+        eventType: 'RATE_LIMIT_EXCEEDED',
+        severity: 'HIGH',
+        ipAddress: clientIp,
+        endpoint: '/send-otp',
+        details: { reason: 'Phone OTP limit reached', phone: norm.e164 },
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Too many OTP requests for this phone number. Please try again later.',
+        }),
+        { status: 429, headers: { ...headers, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 4. Pepper Configuration Check
     // @ts-ignore
     const pepper = Deno.env.get('SMS_OTP_PEPPER');
     if (!pepper) {
@@ -88,21 +183,20 @@ serve(async (req: Request) => {
         {
           status: 500,
           headers: {
-            ...corsHeaders,
+            ...headers,
             'Content-Type': 'application/json',
           },
         }
       );
     }
+
     // @ts-ignore
     const smsProvider = (Deno.env.get('SMS_PROVIDER') || '').toLowerCase();
     if (!['beem', 'nextsms'].includes(smsProvider)) throw new Error('A real SMS_PROVIDER (beem or nextsms) must be configured.');
     if (smsProvider === 'beem' && (!Deno.env.get('BEEM_API_KEY') || !Deno.env.get('BEEM_SECRET_KEY'))) throw new Error('SMS credentials are missing.');
     if (smsProvider === 'nextsms' && (!Deno.env.get('NEXTSMS_USERNAME') || !Deno.env.get('NEXTSMS_PASSWORD'))) throw new Error('SMS credentials are missing.');
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // 1. Check Rate Limiting (60s cooldown)
+    // 5. Check 60s cooldown per phone
     const { data: recentChallenges } = await supabase
       .from('otp_challenges')
       .select('id, created_at, invalidated_at')
@@ -121,12 +215,12 @@ serve(async (req: Request) => {
             error: `Please wait ${remaining}s before requesting a new code.`,
             cooldownRemainingSeconds: remaining,
           }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: 429, headers: { ...headers, 'Content-Type': 'application/json' } }
         );
       }
     }
 
-    // 2. Invalidate all older unverified challenges for this phone
+    // 6. Invalidate all older unverified challenges for this phone
     await supabase
       .from('otp_challenges')
       .update({ invalidated_at: new Date().toISOString() })
@@ -134,16 +228,16 @@ serve(async (req: Request) => {
       .eq('is_verified', false)
       .is('invalidated_at', null);
 
-    // 3. Generate Cryptographic 6-digit OTP
+    // 7. Generate Cryptographic 6-digit OTP
     const array = new Uint32Array(1);
     crypto.getRandomValues(array);
     const rawOtp = (100000 + (array[0] % 900000)).toString();
 
-    // 4. Compute Salted & Peppered HMAC-SHA256 Hash
+    // 8. Compute Salted & Peppered HMAC-SHA256 Hash
     const otpHash = await hmacSha256(`${rawOtp}:${norm.e164}`, pepper);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    // 5. Insert new challenge record
+    // 9. Insert new challenge record with explicit purpose
     const challengeId = `otp_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
     const { error: dbError } = await supabase.from('otp_challenges').insert({
       id: challengeId,
@@ -159,11 +253,11 @@ serve(async (req: Request) => {
     if (dbError) {
       return new Response(
         JSON.stringify({ success: false, error: 'Database error saving challenge' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 6. Deliver via configured SMS Gateway
+    // 10. Deliver via configured SMS Gateway
     let messageId = '';
     let deliveryStatus = 'SENT';
 
@@ -225,7 +319,8 @@ serve(async (req: Request) => {
     }
 
     if (!messageId) throw new Error('SMS was not accepted by the provider.');
-    // 7. Log to sms_logs
+
+    // 11. Log to sms_logs
     await supabase.from('sms_logs').insert({
       id: `sms_log_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`,
       recipient: norm.e164,
@@ -246,12 +341,13 @@ serve(async (req: Request) => {
             ? `Msimbo umetumwa kwa njia ya SMS kupitia ${norm.carrier}.`
             : `Verification code dispatched via ${norm.carrier}.`,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } }
     );
   } catch (err: any) {
+    console.error('Send OTP error:', err);
     return new Response(
       JSON.stringify({ success: false, error: err?.message || 'Server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...headers, 'Content-Type': 'application/json' } }
     );
   }
 });

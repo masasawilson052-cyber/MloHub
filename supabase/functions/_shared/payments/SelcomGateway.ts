@@ -1,7 +1,12 @@
-import { readPaymentEnvironment } from './environment.ts';
 /**
- * Selcom Mobile Money Gateway Implementation (Secondary / Future Architecture)
- * Tanzanian secondary gateway provider for mobile money and card collections.
+ * Selcom Mobile Money Gateway Implementation
+ *
+ * Implements the PaymentGateway interface for Selcom Pay (Tanzania).
+ * Built with strict fail-closed security:
+ * - Requires explicit credentials via requireSelcomConfig()
+ * - Never guesses or defaults production URLs
+ * - Uses decoupled Web Crypto primitives (hmacSha256Hex, timingSafeEqualText)
+ * - Fails closed if official merchant contract is unverified in production
  */
 
 import { PaymentGateway } from './PaymentGateway.ts';
@@ -15,41 +20,74 @@ import {
   PaymentProvider,
   getCarrierDetails,
 } from './paymentTypes.ts';
-import { ClickPesaGateway } from './ClickPesaGateway.ts';
+import { readPaymentEnvironment } from './environment.ts';
+import { hmacSha256Hex, timingSafeEqualText } from '../security/crypto.ts';
+import { SelcomMapper } from './selcom/SelcomMapper.ts';
+import { SelcomContractNotVerifiedError } from './selcom/SelcomContract.ts';
 
 export interface SelcomConfig {
-  baseUrl?: string;
-  vendorId?: string;
-  apiKey?: string;
-  apiSecret?: string;
+  baseUrl: string;
+  vendorId: string;
+  apiKey: string;
+  apiSecret: string;
+}
+
+/**
+ * Validates and requires complete Selcom configuration.
+ * Never defaults to sandbox or guessed URLs in production.
+ */
+export function requireSelcomConfig(overrideConfig?: Partial<SelcomConfig>): SelcomConfig {
+  const baseUrl = overrideConfig?.baseUrl || readPaymentEnvironment('SELCOM_BASE_URL');
+  const vendorId = overrideConfig?.vendorId || readPaymentEnvironment('SELCOM_VENDOR_ID');
+  const apiKey = overrideConfig?.apiKey || readPaymentEnvironment('SELCOM_API_KEY');
+  const apiSecret = overrideConfig?.apiSecret || readPaymentEnvironment('SELCOM_API_SECRET');
+
+  if (!baseUrl || !vendorId || !apiKey || !apiSecret) {
+    throw new Error('SELCOM_CONFIGURATION_INCOMPLETE: SELCOM_BASE_URL, SELCOM_VENDOR_ID, SELCOM_API_KEY, and SELCOM_API_SECRET must all be set.');
+  }
+
+  return {
+    baseUrl: baseUrl.replace(/\/$/, ''),
+    vendorId,
+    apiKey,
+    apiSecret,
+  };
 }
 
 export class SelcomGateway implements PaymentGateway {
   public readonly provider: PaymentProvider = 'selcom';
 
-  private readonly baseUrl: string;
-  private readonly vendorId: string;
-  private readonly apiKey: string;
-  private readonly apiSecret: string;
+  private readonly config: SelcomConfig;
+  private readonly isContractVerified: boolean;
 
-  constructor(config?: SelcomConfig) {
-    this.baseUrl = (config?.baseUrl || readPaymentEnvironment('SELCOM_BASE_URL') || 'https://sandbox.selcom.net/v1').replace(/\/$/, '');
-    this.vendorId = config?.vendorId || readPaymentEnvironment('SELCOM_VENDOR_ID') || '';
-    this.apiKey = config?.apiKey || readPaymentEnvironment('SELCOM_API_KEY') || '';
-    this.apiSecret = config?.apiSecret || readPaymentEnvironment('SELCOM_API_SECRET') || '';
+  constructor(overrideConfig?: Partial<SelcomConfig>, isContractVerifiedOverride?: boolean) {
+    this.config = requireSelcomConfig(overrideConfig);
+    this.isContractVerified =
+      isContractVerifiedOverride !== undefined
+        ? isContractVerifiedOverride
+        : readPaymentEnvironment('SELCOM_CONTRACT_VERIFIED') === 'true';
   }
 
   /**
-   * Generate Selcom Authorization Header (Digest & HMAC-SHA256)
+   * Asserts contract verification before live network operations
    */
-  private async generateAuthHeaders(path: string, body: string): Promise<Record<string, string>> {
+  private assertContractVerified(): void {
+    if (!this.isContractVerified) {
+      throw new SelcomContractNotVerifiedError();
+    }
+  }
+
+  /**
+   * Generates official Selcom Authorization Headers (Digest & HMAC-SHA256)
+   */
+  public async generateAuthHeaders(path: string, body: string): Promise<Record<string, string>> {
     const timestamp = new Date().toISOString();
     const message = `timestamp=${timestamp}&path=${path}&body=${body}`;
-    const signature = await ClickPesaGateway.computeHmacSha256(this.apiSecret, message);
+    const signature = await hmacSha256Hex(this.config.apiSecret, message);
 
     return {
       'Content-Type': 'application/json',
-      Authorization: `SELCOM ${this.apiKey}`,
+      Authorization: `SELCOM ${this.config.apiKey}`,
       'Digest-Method': 'HS256',
       Digest: signature,
       Timestamp: timestamp,
@@ -57,11 +95,13 @@ export class SelcomGateway implements PaymentGateway {
   }
 
   public async initiateUssdPush(request: InitiateUssdPushRequest): Promise<InitiateUssdPushResponse> {
+    this.assertContractVerified();
+
     const carrier = getCarrierDetails(request.methodCode);
     const orderId = request.orderReference.substring(0, 20);
 
     const payload = {
-      vendor: this.vendorId,
+      vendor: this.config.vendorId,
       order_id: orderId,
       buyer_phone: request.phoneNumber.replace(/[^0-9]/g, ''),
       amount: request.amount,
@@ -76,7 +116,7 @@ export class SelcomGateway implements PaymentGateway {
     const headers = await this.generateAuthHeaders(path, bodyStr);
 
     try {
-      const response = await fetch(`${this.baseUrl}${path}`, {
+      const response = await fetch(`${this.config.baseUrl}${path}`, {
         method: 'POST',
         headers,
         body: bodyStr,
@@ -84,40 +124,13 @@ export class SelcomGateway implements PaymentGateway {
 
       const data = await response.json().catch(() => ({}));
 
-      if (!response.ok || data.result !== 'SUCCESS') {
-        return {
-          success: false,
-          provider: this.provider,
-          gatewayReference: '',
-          merchantReference: request.orderReference,
-          status: 'FAILED',
-          amountTzs: request.amount,
-          carrierName: carrier.name,
-          ussdCode: carrier.ussd,
-          carrierPromptText: '',
-          expiresAt: new Date(Date.now() + 120000).toISOString(),
-          rawResponse: data,
-          error: data.message || `Selcom error [${response.status}]`,
-        };
-      }
-
-      const gatewayReference = data.data?.[0]?.transid || `SEL-${Date.now()}`;
-      const expiresAt = new Date(Date.now() + 120000).toISOString();
-      const promptMessage = `Ombi la Selcom TZS ${request.amount.toLocaleString()} limetumwa. Thibitisha kwa PIN yako ya ${carrier.name}.`;
-
-      return {
-        success: true,
-        provider: this.provider,
-        gatewayReference,
-        merchantReference: request.orderReference,
-        status: 'PENDING',
-        amountTzs: request.amount,
-        carrierName: carrier.name,
-        ussdCode: carrier.ussd,
-        carrierPromptText: promptMessage,
-        expiresAt,
-        rawResponse: data,
-      };
+      return SelcomMapper.mapCollectionResponse(
+        data,
+        request.orderReference,
+        request.amount,
+        carrier.name,
+        carrier.ussd
+      );
     } catch (err: any) {
       return {
         success: false,
@@ -130,7 +143,7 @@ export class SelcomGateway implements PaymentGateway {
         ussdCode: carrier.ussd,
         carrierPromptText: '',
         expiresAt: new Date(Date.now() + 120000).toISOString(),
-        error: err.message,
+        error: err.message || 'Network error connecting to payment gateway.',
       };
     }
   }
@@ -143,9 +156,9 @@ export class SelcomGateway implements PaymentGateway {
     const timestamp = headers['timestamp'] || '';
 
     let isSignatureValid = false;
-    if (this.apiSecret && signature) {
-      const expected = await ClickPesaGateway.computeHmacSha256(this.apiSecret, rawBody);
-      isSignatureValid = signature.toLowerCase() === expected.toLowerCase();
+    if (this.config.apiSecret && signature) {
+      const expected = await hmacSha256Hex(this.config.apiSecret, rawBody);
+      isSignatureValid = timingSafeEqualText(signature.toLowerCase(), expected.toLowerCase());
     }
 
     let parsed: any = {};
@@ -168,66 +181,23 @@ export class SelcomGateway implements PaymentGateway {
       };
     }
 
-    const eventId = parsed.transid || parsed.reference || `sel_evt_${Date.now()}`;
-    const merchantReference = parsed.order_id || parsed.orderReference || '';
-    const gatewayReference = parsed.transid || '';
-    const amountTzs = Number(parsed.amount || 0);
-    const currency = parsed.currency || 'TZS';
-    const payerPhone = parsed.phone || parsed.buyer_phone || '';
-    const paymentStatus = (parsed.payment_status || parsed.result || '').toUpperCase();
-
-    let status: any = 'FAILED';
-    if (paymentStatus === 'COMPLETED' || paymentStatus === 'SUCCESS') {
-      status = 'PAID';
-    } else if (paymentStatus === 'PENDING') {
-      status = 'PROCESSING';
-    } else if (paymentStatus === 'CANCELLED') {
-      status = 'CANCELLED';
-    }
-
-    return {
-      isValid: isSignatureValid,
-      provider: this.provider,
-      eventId,
-      merchantReference,
-      gatewayReference,
-      status,
-      amountTzs,
-      currency,
-      timestamp: timestamp || new Date().toISOString(),
-      payerPhone,
-      rawPayload: parsed,
-      error: !isSignatureValid ? 'Invalid Selcom HMAC signature' : undefined,
-    };
+    return SelcomMapper.mapWebhookPayload(parsed, isSignatureValid, timestamp);
   }
 
   public async queryStatus(gatewayReference: string, merchantReference?: string): Promise<StatusQueryResponse> {
+    this.assertContractVerified();
+
     const path = `/checkout/order-status?order_id=${merchantReference || gatewayReference}`;
     const headers = await this.generateAuthHeaders(path, '');
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await fetch(`${this.config.baseUrl}${path}`, {
       method: 'GET',
       headers,
     });
 
     const data = await response.json().catch(() => ({}));
-    const rawStatus = (data.data?.[0]?.payment_status || data.result || '').toUpperCase();
-    let status: any = 'PENDING';
-    if (rawStatus === 'COMPLETED' || rawStatus === 'SUCCESS') {
-      status = 'PAID';
-    } else if (rawStatus === 'FAILED') {
-      status = 'FAILED';
-    }
 
-    return {
-      success: response.ok,
-      status,
-      amountTzs: Number(data.data?.[0]?.amount || 0),
-      gatewayReference,
-      merchantReference: merchantReference || '',
-      paidAt: data.data?.[0]?.payment_date,
-      rawResponse: data,
-    };
+    return SelcomMapper.mapStatusResponse(data, gatewayReference, merchantReference || '');
   }
 
   public async refund(request: RefundGatewayRequest): Promise<RefundGatewayResponse> {
@@ -236,7 +206,7 @@ export class SelcomGateway implements PaymentGateway {
       refundReference: '',
       amountTzs: request.amountTzs,
       status: 'FAILED',
-      message: 'Automated Selcom refunds are not implemented. No money has been refunded.',
+      message: 'SELCOM_REFUND_MANUAL_REQUIRED: Automated Selcom refunds are not implemented. Manual refund workflow required.',
     };
   }
 }

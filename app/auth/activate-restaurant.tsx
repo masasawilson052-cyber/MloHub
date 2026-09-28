@@ -103,11 +103,35 @@ export default function ActivateRestaurantScreen() {
   // Step 3: Set Secure Password and Activate
   const handleSetPassword = async () => {
     setErrorMessage(null);
-    if (!password || password.length < 6) {
+    if (!password || password.length < 10) {
       setErrorMessage(
         language === 'sw'
-          ? 'Nenosiri lazima liwe na angalau herufi 6.'
-          : 'Password must be at least 6 characters.'
+          ? 'Nenosiri lazima liwe na angalau herufi 10.'
+          : 'Password must be at least 10 characters long.'
+      );
+      return;
+    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
+      setErrorMessage(
+        language === 'sw'
+          ? 'Nenosiri lazima liwe na herufi kubwa na ndogo.'
+          : 'Password must contain uppercase and lowercase letters.'
+      );
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setErrorMessage(
+        language === 'sw'
+          ? 'Nenosiri lazima liwe na angalau namba moja.'
+          : 'Password must contain at least one digit.'
+      );
+      return;
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setErrorMessage(
+        language === 'sw'
+          ? 'Nenosiri lazima liwe na alama maalumu (!@#$).'
+          : 'Password must contain at least one special symbol.'
       );
       return;
     }

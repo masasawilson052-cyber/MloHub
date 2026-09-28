@@ -103,31 +103,31 @@ export default function NotificationsScreen() {
       case 'reservation_confirmed':
         return { icon: 'calendar', color: colors.primary, bg: colors.primaryMuted, label: 'RESERVATION' };
       case 'reservation_pending':
-        return { icon: 'time-outline', color: '#c05621', bg: '#fef3e2', label: 'PENDING' };
+        return { icon: 'time-outline', color: colors.warning, bg: colors.warningSoft, label: 'PENDING' };
       case 'reservation_cancelled':
-        return { icon: 'close-circle-outline', color: '#e53e3e', bg: '#fff5f5', label: 'CANCELLED' };
+        return { icon: 'close-circle-outline', color: colors.danger, bg: colors.dangerSoft, label: 'CANCELLED' };
       case 'reservation_reminder':
         return { icon: 'alarm-outline', color: colors.primary, bg: colors.accentLight, label: 'REMINDER' };
       case 'custom_meal_received':
-        return { icon: 'mail-outline', color: colors.info, bg: '#ebf8ff', label: 'CUSTOM MEAL' };
+        return { icon: 'mail-outline', color: colors.info, bg: colors.infoSoft, label: 'CUSTOM MEAL' };
       case 'custom_meal_accepted':
         return { icon: 'checkmark-circle-outline', color: colors.primary, bg: colors.primaryMuted, label: 'ACCEPTED' };
       case 'custom_meal_rejected':
-        return { icon: 'alert-circle-outline', color: '#d69e2e', bg: '#fefcbf', label: 'MEAL UPDATE' };
+        return { icon: 'alert-circle-outline', color: colors.warning, bg: colors.warningSoft, label: 'MEAL UPDATE' };
       case 'custom_meal_preparing':
-        return { icon: 'restaurant-outline', color: '#dd6b20', bg: '#feebc8', label: 'KITCHEN' };
+        return { icon: 'restaurant-outline', color: colors.warning, bg: colors.warningSoft, label: 'KITCHEN' };
       case 'custom_meal_ready':
         return { icon: 'gift-outline', color: colors.primary, bg: colors.primaryMuted, label: 'ORDER READY' };
       case 'payment_success':
-        return { icon: 'card-outline', color: '#2f855a', bg: '#f0fff4', label: 'PAYMENT' };
+        return { icon: 'card-outline', color: colors.success, bg: colors.successSoft, label: 'PAYMENT' };
       case 'payment_failed':
-        return { icon: 'warning-outline', color: '#e53e3e', bg: '#fff5f5', label: 'PAYMENT FAILED' };
+        return { icon: 'warning-outline', color: colors.danger, bg: colors.dangerSoft, label: 'PAYMENT FAILED' };
       case 'review_reminder':
         return { icon: 'star-outline', color: colors.primary, bg: colors.accentLight, label: 'REVIEW' };
       case 'promotion':
-        return { icon: 'pricetag-outline', color: '#6b46c1', bg: '#faf5ff', label: 'OFFER' };
+        return { icon: 'pricetag-outline', color: colors.mutedViolet, bg: colors.violetLight, label: 'OFFER' };
       default:
-        return { icon: 'notifications-outline', color: colors.textPrimary, bg: colors.background, label: 'ALERT' };
+        return { icon: 'notifications-outline', color: colors.textPrimary, bg: colors.surfaceInteractive, label: 'ALERT' };
     }
   };
 
@@ -884,17 +884,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textPrimary,
   },
   reasonBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: colors.dangerSoft,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: 4,
     borderLeftWidth: 3,
-    borderLeftColor: '#e53e3e',
+    borderLeftColor: colors.danger,
   },
   reasonLabel: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#e53e3e',
+    color: colors.danger,
     textTransform: 'uppercase',
   },
   reasonText: {
@@ -1023,8 +1023,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   receiptStatus: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#2f855a',
-    backgroundColor: '#f0fff4',
+    color: colors.success,
+    backgroundColor: colors.successSoft,
     paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: Radii.full,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { DishDiscoveryResult } from '../../types/discovery';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { formatTzs, formatDistance, formatFreshnessBadge } from '../../utils/formatters';
 import { useCart } from '../../context/CartContext';
+import { useCartInteraction } from '../../hooks/useCartInteraction';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../trust/ReportDiscrepancyModal';
@@ -41,10 +42,15 @@ export const DishCard: React.FC<DishCardProps> = ({
   const [imageError, setImageError] = useState(false);
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const { addToCart, items } = useCart();
+  const { items } = useCart();
+  const { requestAddToCart, isDishAddPending } = useCartInteraction();
+  const dishImageRef = useRef<View | null>(null);
 
-  const cartItem = items.find((i) => i.dishId === dish.menuItemId);
-  const isDishInCart = Boolean(cartItem);
+  const dishCartQuantity = items
+    .filter((i) => i.dishId === dish.menuItemId)
+    .reduce((sum, i) => sum + i.quantity, 0);
+  const isDishInCart = dishCartQuantity > 0;
+  const isAddPending = isDishAddPending(dish.menuItemId);
 
   const trustAssessment = TrustService.computeDishTrust({
     dishId: dish.menuItemId,
@@ -73,6 +79,7 @@ export const DishCard: React.FC<DishCardProps> = ({
 
   const isAvailable = dish.isAvailable;
   const isLowStock = dish.stockStatus === 'LOW_STOCK';
+  const hasRealImage = Boolean(dish.imageUrl && !imageError);
 
   return (
     <TouchableOpacity
@@ -84,13 +91,15 @@ export const DishCard: React.FC<DishCardProps> = ({
     >
       {/* Visual / Image Section */}
       <View style={styles.imageContainer}>
-        {dish.imageUrl && !imageError ? (
-          <Image
-            source={{ uri: dish.imageUrl }}
-            style={styles.image}
-            resizeMode="cover"
-            onError={() => setImageError(true)}
-          />
+        {hasRealImage ? (
+          <View ref={dishImageRef} collapsable={false} style={styles.image}>
+            <Image
+              source={{ uri: dish.imageUrl }}
+              style={styles.image}
+              resizeMode="cover"
+              onError={() => setImageError(true)}
+            />
+          </View>
         ) : (
           <View style={styles.placeholderContainer}>
             <Text style={styles.placeholderEmoji}>🍲</Text>
@@ -203,7 +212,10 @@ export const DishCard: React.FC<DishCardProps> = ({
             {showCompareButton && onToggleCompare ? (
               <TouchableOpacity
                 style={[styles.compareBtn, isCompared && styles.compareBtnActive]}
-                onPress={() => onToggleCompare(dish)}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  onToggleCompare(dish);
+                }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Compare ${dish.dishName}`}
@@ -216,26 +228,39 @@ export const DishCard: React.FC<DishCardProps> = ({
 
             {isAvailable && Boolean(dish.branchId) ? (
               <TouchableOpacity
-                style={[styles.addOrderBtn, isDishInCart && styles.addOrderBtnInCart]}
-                onPress={() =>
-                  addToCart({
-                    dishId: dish.menuItemId,
-                    dishName: dish.dishName,
-                    dishNameSwahili: dish.dishNameSw,
-                    restaurantId: dish.restaurantId,
-                    restaurantName: dish.restaurantName,
-                    branchId: dish.branchId,
-                    branchName: dish.branchName,
-                    priceTzs: dish.priceTzs,
-                    imageUrl: dish.imageUrl,
-                  })
-                }
+                style={[
+                  styles.addOrderBtn,
+                  isDishInCart && styles.addOrderBtnInCart,
+                  isAddPending && { opacity: 0.65 },
+                ]}
+                disabled={isAddPending}
+                onPress={(e) => {
+                  e?.stopPropagation?.();
+                  if (isAddPending) return;
+                  void requestAddToCart(
+                    {
+                      dishId: dish.menuItemId,
+                      dishName: dish.dishName,
+                      dishNameSwahili: dish.dishNameSw,
+                      description: dish.description,
+                      restaurantId: dish.restaurantId,
+                      restaurantName: dish.restaurantName,
+                      branchId: dish.branchId,
+                      branchName: dish.branchName,
+                      priceTzs: dish.priceTzs,
+                      imageUrl: hasRealImage ? dish.imageUrl : undefined,
+                    },
+                    {
+                      sourceRef: dishImageRef,
+                    }
+                  );
+                }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Add ${dish.dishName} to order`}
               >
                 <Text style={[styles.addOrderBtnText, isDishInCart && styles.addOrderBtnTextInCart]}>
-                  {isDishInCart ? `✓ ${cartItem?.quantity}` : '+ Add'}
+                  {isAddPending ? '...' : isDishInCart ? `✓ ${dishCartQuantity}` : '+ Add'}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -281,7 +306,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     height: 140,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#f1f5f3',
+    backgroundColor: colors.surfaceInteractive,
   },
   image: {
     width: '100%',
@@ -291,7 +316,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e6ede8',
+    backgroundColor: colors.cardElevated,
   },
   placeholderEmoji: {
     fontSize: 40,

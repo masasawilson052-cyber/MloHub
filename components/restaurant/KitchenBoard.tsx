@@ -40,8 +40,8 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
   const isAttention = elapsedMinutes >= 15 && elapsedMinutes < 30;
   const isLate = elapsedMinutes >= 30;
 
-  const timerColor = isLate ? '#DC2626' : isAttention ? '#D97706' : '#15803D';
-  const timerBg = isLate ? '#FEE2E2' : isAttention ? '#FEF3C7' : '#DCFCE7';
+  const timerColor = isLate ? colors.danger : isAttention ? colors.warning : colors.success;
+  const timerBg = isLate ? colors.dangerSoft : isAttention ? colors.warningSoft : colors.successSoft;
 
   return (
     <View style={[styles.card, isLate && styles.cardLate]}>
@@ -401,7 +401,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   cardLate: {
     borderColor: colors.danger,
-    backgroundColor: '#FFFDFD',
+    backgroundColor: colors.dangerSoft,
   },
   cardHeader: {
     flexDirection: 'row',

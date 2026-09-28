@@ -67,6 +67,13 @@ supabase secrets set BEEM_SENDER_NAME="MLOHUB"
 supabase secrets set SMS_OTP_PEPPER="<GENERATE_A_64_CHAR_HEX_STRING>"
 ```
 
+### C. Google Routes API (Server-Authoritative Delivery Quotes)
+```bash
+# Server-side Google Routes API Key (Compute Routes v2)
+# NEVER expose to client bundles or EXPO_PUBLIC_* variables
+supabase secrets set GOOGLE_ROUTES_API_KEY="<YOUR_GOOGLE_ROUTES_API_KEY>"
+```
+
 ---
 
 ## 3. External Webhook Registration (ClickPesa)
@@ -119,16 +126,26 @@ supabase functions deploy get-payment-status
 supabase functions deploy request-refund
 supabase functions deploy send-otp --no-verify-jwt
 supabase functions deploy verify-otp --no-verify-jwt
+supabase functions deploy quote-delivery
 ```
 
 ---
 
 ## 6. Pending Database Migrations
 
-Before launching live custom meal workflows, execute Migration 06 in the Supabase SQL Editor:
+### A. Custom Meal Privacy & Direct Write Guards
 - **File**: `supabase/migrations/20260921000006_custom_meal_privacy_and_direct_write_guards.sql`
 - **Action**: Paste into Supabase SQL Editor and click **Run**.
 - **What it does**:
   1. Creates `public.custom_meal_delivery_details` with customer/admin/accepted-kitchen RLS.
   2. Creates secure RPC `get_custom_meal_delivery_details`.
   3. Attaches direct-write blocking triggers to `custom_meal_requests` and `restaurant_quotes`.
+
+### B. Server-Authoritative Route Delivery Quotes & Branch Pricing
+- **File**: `supabase/migrations/20260927000100_route_delivery_quotes.sql`
+- **Action**: Paste into Supabase SQL Editor and click **Run**.
+- **What it does**:
+  1. Creates `public.branch_delivery_pricing` with `configuration_confirmed` provisional flag.
+  2. Creates `public.delivery_quotes` table with 15-minute TTL and atomic single-use consumption.
+  3. Adds quote linkage columns (`delivery_quote_id`, `delivery_distance_meters`, `delivery_duration_seconds`) to `public.orders`.
+  4. Upgrades `create_order_secure` RPC to validate and consume quotes atomically for delivery orders (and enforce 0 TZS for Takeaway/Dine-In).

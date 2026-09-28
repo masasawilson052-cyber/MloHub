@@ -32,6 +32,8 @@ interface RestaurantDetailAdminProps {
   onDelete?: (restaurantId: string) => Promise<void>;
   onArchive?: (restaurantId: string, reason: string) => Promise<void>;
   onUnarchive?: (restaurantId: string) => Promise<void>;
+  onApproveLaunch?: (restaurantId: string) => Promise<void>;
+  onRequestLaunchCorrections?: (restaurantId: string, reason: string) => Promise<void>;
   language?: 'en' | 'sw';
 }
 
@@ -45,6 +47,8 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   onDelete,
   onArchive,
   onUnarchive,
+  onApproveLaunch,
+  onRequestLaunchCorrections,
   language = 'en',
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
@@ -56,6 +60,8 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const [licenseNumber, setLicenseNumber] = useState('');
   const [archiveMode, setArchiveMode] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
+  const [correctionsMode, setCorrectionsMode] = useState(false);
+  const [correctionsReason, setCorrectionsReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (!restaurant) return null;
@@ -65,8 +71,44 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     setSuspendMode(false);
     setUpgradeMode(false);
     setArchiveMode(false);
+    setCorrectionsMode(false);
+    setCorrectionsReason('');
     setActionError(null);
     onClose();
+  };
+
+  const handleApproveLaunch = async () => {
+    if (!onApproveLaunch) return;
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await onApproveLaunch(restaurant.id);
+      onClose();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to approve launch.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleConfirmCorrections = async () => {
+    if (!onRequestLaunchCorrections) return;
+    if (!correctionsReason.trim()) {
+      Alert.alert('Reason Required', 'Please specify what corrections the merchant must make.');
+      return;
+    }
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      await onRequestLaunchCorrections(restaurant.id, correctionsReason.trim());
+      setCorrectionsMode(false);
+      setCorrectionsReason('');
+      onClose();
+    } catch (err: any) {
+      setActionError(err?.message || 'Failed to request corrections.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleConfirmSuspend = async () => {
@@ -206,18 +248,125 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
 
             {/* Archive Warning Notice */}
             {isArchived && (
-              <View style={[styles.cardSection, { backgroundColor: '#fff1f2', borderColor: '#fecdd3' }]}>
+              <View style={[styles.cardSection, { backgroundColor: colors.dangerSoft, borderColor: colors.danger }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="archive" size={16} color="#be123c" />
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#be123c' }}>Archived Restaurant</Text>
+                  <Ionicons name="archive" size={16} color={colors.danger} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: colors.danger }}>Archived Restaurant</Text>
                 </View>
-                <Text style={{ fontSize: 12, color: '#9f1239', marginTop: 2 }}>
+                <Text style={{ fontSize: 12, color: colors.textPrimary, marginTop: 2 }}>
                   Reason: {(restaurant as any).archiveReason || (restaurant as any).archive_reason || 'Archived by platform operator'}
                 </Text>
                 {((restaurant as any).archivedAt || (restaurant as any).archived_at) && (
-                  <Text style={{ fontSize: 11, color: '#e11d48', marginTop: 2 }}>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
                     Archived at: {new Date((restaurant as any).archivedAt || (restaurant as any).archived_at).toLocaleString()}
                   </Text>
+                )}
+              </View>
+            )}
+
+            {/* Gate B Store Launch Review Card */}
+            {(restaurant.launchStatus || (restaurant as any).launch_status) && (
+              <View style={[styles.cardSection, { borderColor: '#1d6637', backgroundColor: colors.successSoft }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="rocket-outline" size={18} color="#1d6637" />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#1d6637' }}>
+                      Gate B Store Launch Status
+                    </Text>
+                  </View>
+                  <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: '#1d6637', borderWidth: 1 }]}>
+                    <Text style={[styles.pillText, { color: '#1d6637', fontWeight: '800' }]}>
+                      {restaurant.launchStatus || (restaurant as any).launch_status || 'SETUP_REQUIRED'}
+                    </Text>
+                  </View>
+                </View>
+
+                {(restaurant.launchStatus === 'GO_LIVE_REVIEW' || (restaurant as any).launch_status === 'GO_LIVE_REVIEW') && !correctionsMode && (
+                  <View style={{ marginTop: 8, gap: 6 }}>
+                    <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 16 }}>
+                      This vendor has submitted their store setup for Administrator Gate B Launch Approval. Approval requires AAL2 MFA clearance and will publish the store to Dar es Salaam diners.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                      {onRequestLaunchCorrections && (
+                        <TouchableOpacity
+                          style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: Radii.md,
+                            backgroundColor: colors.card,
+                            borderWidth: 1,
+                            borderColor: colors.border,
+                            alignItems: 'center',
+                          }}
+                          onPress={() => setCorrectionsMode(true)}
+                          disabled={isProcessing}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                            Request Corrections
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      {onApproveLaunch && (
+                        <TouchableOpacity
+                          style={{
+                            flex: 1.5,
+                            paddingVertical: 10,
+                            borderRadius: Radii.md,
+                            backgroundColor: '#1d6637',
+                            flexDirection: 'row',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            gap: 6,
+                          }}
+                          onPress={handleApproveLaunch}
+                          disabled={isProcessing}
+                        >
+                          {isProcessing ? (
+                            <ActivityIndicator size="small" color={colors.onPrimary} />
+                          ) : (
+                            <>
+                              <Ionicons name="checkmark-done-circle" size={16} color={colors.onPrimary} />
+                              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.onPrimary }}>
+                                Approve Launch (Gate B)
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {correctionsMode && (
+                  <View style={{ marginTop: 8, gap: 6 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                      Instructions / Corrections Required:
+                    </Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.card }]}
+                      placeholder="e.g. Please update branch operating hours and add high-res photos..."
+                      value={correctionsReason}
+                      onChangeText={setCorrectionsReason}
+                      multiline
+                      numberOfLines={3}
+                    />
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                      <TouchableOpacity
+                        style={[styles.promptCancelBtn, { paddingVertical: 8, paddingHorizontal: 14 }]}
+                        onPress={() => setCorrectionsMode(false)}
+                        disabled={isProcessing}
+                      >
+                        <Text style={styles.promptCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.promptDeleteConfirmBtn, { backgroundColor: '#ea580c', paddingVertical: 8, paddingHorizontal: 14 }]}
+                        onPress={handleConfirmCorrections}
+                        disabled={isProcessing}
+                      >
+                        <Text style={styles.promptConfirmText}>Send Corrections</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
               </View>
             )}
@@ -589,17 +738,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlign: 'right',
   },
   suspendedAlertCard: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fecdd3',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   suspendedAlertTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#be123c',
+    color: colors.danger,
   },
   suspendedAlertText: {
     fontSize: 13,
-    color: '#9f1239',
+    color: colors.textPrimary,
     marginTop: 2,
   },
   inputPromptBox: {
