@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -16,7 +16,7 @@ import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Shadows } from '../../theme/shadows';
 import { Typography } from '../../theme/typography';
-import { MenuItem, MenuCategory } from '../../types/domain';
+import { MenuItem, MenuCategory, MenuModifierGroup } from '../../types/domain';
 import { Button } from '../ui/Button';
 import {
   StorageService,
@@ -24,6 +24,8 @@ import {
   PickedImageResult,
   MediaUploadResult,
 } from '../../services/StorageService';
+import { MenuRepository } from '../../repositories/menus.repository';
+import { MenuModifierEditor } from './MenuModifierEditor';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -43,7 +45,11 @@ export interface MenuItemEditorProps {
   categories: MenuCategory[];
   branches?: { id: string; name: string }[];
   branchOverrides?: BranchPriceOverride[];
-  onSave: (savedItem: Partial<MenuItem>, branchOverrides?: BranchPriceOverride[]) => Promise<void>;
+  onSave: (
+    savedItem: Partial<MenuItem>,
+    branchOverrides?: BranchPriceOverride[],
+    modifiers?: MenuModifierGroup[]
+  ) => Promise<void>;
   onClose: () => void;
   language?: 'en' | 'sw';
 }
@@ -89,6 +95,31 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
     });
     return init;
   });
+
+  const [modifierGroups, setModifierGroups] = useState<MenuModifierGroup[]>([]);
+  const [isLoadingModifiers, setIsLoadingModifiers] = useState(false);
+
+  useEffect(() => {
+    if (!item?.id) {
+      setModifierGroups([]);
+      return;
+    }
+    let isMounted = true;
+    setIsLoadingModifiers(true);
+    MenuRepository.getModifiersForItem(item.id)
+      .then((mods) => {
+        if (isMounted) setModifierGroups(mods);
+      })
+      .catch((err) => {
+        console.warn('[MenuItemEditor] Failed to load modifiers:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingModifiers(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [item?.id]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -146,6 +177,16 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
       setErrorMsg('Branch prices must be positive whole amounts in TZS.');
       return;
     }
+
+    try {
+      if (modifierGroups.length > 0) {
+        MenuRepository.validateModifierGroups(modifierGroups);
+      }
+    } catch (valErr: any) {
+      setErrorMsg(valErr?.message || 'Invalid modifier configuration.');
+      return;
+    }
+
     let uploadedMedia: MediaUploadResult | null = null;
     const targetItemId = item?.id || generateUuid();
     const oldPhotoUrl = item?.photoUrl || item?.imageUrl;
@@ -196,7 +237,14 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
           : undefined,
       }));
 
-      await onSave(partialItem, updatedOverrides);
+      await onSave(partialItem, updatedOverrides, modifierGroups);
+
+      // Persist modifiers authoritatively
+      if (modifierGroups.length > 0 || item?.id) {
+        await MenuRepository.replaceModifiersForItem(targetItemId, modifierGroups).catch((e) => {
+          console.warn('[MenuItemEditor] Failed to persist modifiers:', e);
+        });
+      }
 
       // Safe replacement: delete previous owned media only after DB persistence succeeds
       if ((pendingImage || isPhotoRemoved) && oldPhotoUrl) {
@@ -237,7 +285,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
 
           {errorMsg && (
             <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={16} color="#DC2626" />
+              <Ionicons name="alert-circle" size={16} color={colors.danger} />
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
           )}
@@ -417,7 +465,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
                       onPress={handleRemovePhoto}
                       disabled={isSaving}
                     >
-                      <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                      <Ionicons name="trash-outline" size={16} color={colors.danger} />
                       <Text style={[styles.photoActionText, { color: colors.danger }]}>
                         {language === 'sw' ? 'Ondoa Picha' : 'Remove Photo'}
                       </Text>
@@ -472,6 +520,13 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
                 <Text style={styles.toggleText}>{isAvailable ? 'Available ✓' : 'Sold Out ✕'}</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Customizations & Modifiers */}
+            <MenuModifierEditor
+              groups={modifierGroups}
+              onChangeGroups={setModifierGroups}
+              language={language}
+            />
           </ScrollView>
 
           {/* Footer Actions */}
@@ -670,7 +725,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   spicePillActive: {
     backgroundColor: colors.warningSoft,
-    borderColor: '#F97316',
+    borderColor: colors.primary,
   },
   spicePillText: {
     ...Typography.Caption,

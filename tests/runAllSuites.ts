@@ -52,6 +52,7 @@ import { runCartInteractionTestSuite } from './cartInteraction.test';
 import { runPaymentDeliveryClosureTests } from './paymentDeliveryClosure.test';
 import { runPaymentSecurityClosureTests } from './paymentSecurityClosure.test';
 import { runRestaurantOnboardingTwoGateTests } from './restaurantOnboardingTwoGate.test';
+import { runRestaurantOperationsPhase2Tests } from './restaurantOperationsPhase2.test';
 
 
 let passed = 0;
@@ -764,6 +765,11 @@ async function runMasterTestSuite() {
   const restaurantPhase1Results = await runRestaurantOnboardingTwoGateTests();
   passed += restaurantPhase1Results.passed;
   failed += restaurantPhase1Results.failed;
+
+  // Restaurant Phase 2: Daily Operations, Kitchen & Menu Customization Suite
+  const restaurantPhase2Results = await runRestaurantOperationsPhase2Tests();
+  passed += restaurantPhase2Results.passed;
+  failed += restaurantPhase2Results.failed;
 
   // Final Results
   console.log('\n================================================================');

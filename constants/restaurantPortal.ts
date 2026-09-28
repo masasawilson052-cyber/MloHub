@@ -1,5 +1,6 @@
 import { RestaurantRole } from '../types/auth';
-import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
+import type { Ionicons } from '@expo/vector-icons';
 
 export type RestaurantTab =
   | 'overview'
@@ -18,7 +19,7 @@ export interface NavItemConfig {
   id: RestaurantTab;
   label: string;
   labelSw: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: ComponentProps<typeof Ionicons>['name'];
   badgeCount?: number;
   allowedRoles: RestaurantRole[];
 }
@@ -103,3 +104,6 @@ export const RESTAURANT_NAV_ITEMS: NavItemConfig[] = [
     allowedRoles: ['OWNER', 'MANAGER'],
   },
 ];
+
+export const RESTAURANT_MOBILE_PRIMARY = ['overview', 'orders', 'kitchen', 'menu'] as const;
+

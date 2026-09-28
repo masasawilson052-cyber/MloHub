@@ -50,6 +50,8 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   // Accept Modal State
   const [acceptingOrder, setAcceptingOrder] = useState<Order | null>(null);
   const [prepMinutes, setPrepMinutes] = useState(25);
+  const [isCustomPrep, setIsCustomPrep] = useState(false);
+  const [customPrepMinutesText, setCustomPrepMinutesText] = useState('25');
   const [isSubmittingAccept, setIsSubmittingAccept] = useState(false);
 
   // Reject Modal State
@@ -57,6 +59,13 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
   const [rejectionReason, setRejectionReason] = useState('Item unavailable');
   const [customReason, setCustomReason] = useState('');
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
+
+  const openAcceptModal = (order: Order) => {
+    setAcceptingOrder(order);
+    setPrepMinutes(25);
+    setIsCustomPrep(false);
+    setCustomPrepMinutesText('25');
+  };
 
   const filterMap = (o: Order) => {
     if (statusFilter === 'ALL') return true;
@@ -74,7 +83,10 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
     if (!acceptingOrder) return;
     try {
       setIsSubmittingAccept(true);
-      await onAcceptOrder(acceptingOrder.id, prepMinutes);
+      const minutesToUse = isCustomPrep
+        ? Math.max(5, parseInt(customPrepMinutesText, 10) || 25)
+        : prepMinutes;
+      await onAcceptOrder(acceptingOrder.id, minutesToUse);
       setAcceptingOrder(null);
     } finally {
       setIsSubmittingAccept(false);
@@ -182,15 +194,21 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                 </View>
                 <View style={styles.orderMetaRight}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {getStatusBadge(order.status)}
-                    {order.status === 'PENDING' && order.paymentStatus !== 'SUCCESS' ? (
-                      <Badge label="Awaiting Payment" variant="warning" size="sm" />
+                    {order.status === 'PENDING' ? (
+                      order.paymentStatus === 'SUCCESS' ? (
+                        <Badge label="NEW • PAID" variant="success" size="sm" />
+                      ) : (
+                        <Badge label="PAYMENT PENDING" variant="warning" size="sm" />
+                      )
                     ) : (
-                      <Badge
-                        label={order.paymentStatus === 'SUCCESS' ? 'Paid' : order.paymentStatus}
-                        variant={order.paymentStatus === 'SUCCESS' ? 'success' : 'neutral'}
-                        size="sm"
-                      />
+                      <>
+                        {getStatusBadge(order.status)}
+                        <Badge
+                          label={order.paymentStatus === 'SUCCESS' ? 'Paid' : order.paymentStatus}
+                          variant={order.paymentStatus === 'SUCCESS' ? 'success' : 'neutral'}
+                          size="sm"
+                        />
+                      </>
                     )}
                   </View>
                   <Text style={styles.orderTime}>
@@ -231,29 +249,35 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                 <View style={styles.actionsRow}>
                   {order.status === 'PENDING' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     <>
-                      <TouchableOpacity
-                        style={styles.rejectBtn}
-                        onPress={() => setRejectingOrder(order)}
-                      >
-                        <Text style={styles.rejectBtnText}>Reject</Text>
-                      </TouchableOpacity>
-                      {(() => {
-                        const isPaid = order.paymentStatus === 'SUCCESS';
-                        return (
+                      {order.paymentStatus === 'SUCCESS' ? (
+                        <>
                           <TouchableOpacity
-                            style={[
-                              styles.acceptBtn,
-                              !isPaid && { opacity: 0.45, backgroundColor: colors.divider },
-                            ]}
-                            disabled={!isPaid}
-                            onPress={() => isPaid && setAcceptingOrder(order)}
+                            style={styles.rejectBtn}
+                            onPress={() => setRejectingOrder(order)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Reject"
                           >
-                            <Text style={[styles.acceptBtnText, !isPaid && { color: colors.textMuted }]}>
-                              {isPaid ? 'Accept Order' : 'Awaiting Payment'}
-                            </Text>
+                            <Text style={styles.rejectBtnText}>Reject</Text>
                           </TouchableOpacity>
-                        );
-                      })()}
+                          <TouchableOpacity
+                            style={styles.acceptBtn}
+                            onPress={() => openAcceptModal(order)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Accept & Set Prep Time"
+                          >
+                            <Text style={styles.acceptBtnText}>Accept & Set Prep Time</Text>
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <View style={styles.unpaidWarningBox}>
+                          <Ionicons name="time-outline" size={14} color={colors.warning} />
+                          <Text style={styles.unpaidWarningText}>
+                            {language === 'sw'
+                              ? "Inasubiri malipo ya mteja. Huwezi kukubali oda hii bado."
+                              : "Waiting for customer payment. You can't accept this order yet."}
+                          </Text>
+                        </View>
+                      )}
                     </>
                   )}
 
@@ -280,7 +304,7 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                   {order.status === 'READY' && (!userRole || userRole === 'OWNER' || userRole === 'MANAGER') && (
                     order.fulfillmentType === 'Delivery' ? (
                       <TouchableOpacity
-                        style={[styles.actionTransitionBtn, { backgroundColor: '#2563eb' }]}
+                        style={[styles.actionTransitionBtn, { backgroundColor: colors.info }]}
                         onPress={() => onUpdateStatus(order.id, 'OUT_FOR_DELIVERY')}
                         accessibilityRole="button"
                         accessibilityLabel="Dispatch Order"
@@ -335,18 +359,59 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
             </Text>
 
             <View style={styles.prepOptionsRow}>
-              {[15, 25, 40, 60].map((mins) => (
+              {[15, 25, 35, 45].map((mins) => (
                 <TouchableOpacity
                   key={mins}
-                  style={[styles.prepPill, prepMinutes === mins && styles.prepPillActive]}
-                  onPress={() => setPrepMinutes(mins)}
+                  style={[styles.prepPill, !isCustomPrep && prepMinutes === mins && styles.prepPillActive]}
+                  onPress={() => {
+                    setIsCustomPrep(false);
+                    setPrepMinutes(mins);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${mins} mins`}
                 >
-                  <Text style={[styles.prepPillText, prepMinutes === mins && styles.prepPillTextActive]}>
-                    {mins} mins
+                  <Text style={[styles.prepPillText, !isCustomPrep && prepMinutes === mins && styles.prepPillTextActive]}>
+                    {mins}m
                   </Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                style={[styles.prepPill, isCustomPrep && styles.prepPillActive]}
+                onPress={() => setIsCustomPrep(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Custom preparation time"
+              >
+                <Text style={[styles.prepPillText, isCustomPrep && styles.prepPillTextActive]}>
+                  Custom
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {isCustomPrep && (
+              <View style={styles.customPrepBox}>
+                <Text style={styles.customPrepLabel}>
+                  {language === 'sw' ? 'Weka dakika maalum:' : 'Custom prep time:'}
+                </Text>
+                <TextInput
+                  style={styles.customPrepInput}
+                  value={customPrepMinutesText}
+                  onChangeText={(val) => {
+                    const cleaned = val.replace(/[^0-9]/g, '');
+                    setCustomPrepMinutesText(cleaned);
+                    const parsed = parseInt(cleaned, 10);
+                    if (parsed && parsed > 0) {
+                      setPrepMinutes(parsed);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  placeholder="50"
+                  placeholderTextColor={colors.textMuted}
+                />
+                <Text style={styles.customPrepUnit}>
+                  {language === 'sw' ? 'dakika' : 'mins'}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.modalActionsRow}>
               <Button
@@ -720,6 +785,56 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.sm,
     marginVertical: Spacing.sm,
     ...Typography.Body,
+  },
+  unpaidWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.warningSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    maxWidth: '100%',
+  },
+  unpaidWarningText: {
+    ...Typography.Caption,
+    color: colors.warning,
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  customPrepBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: Spacing.md,
+    backgroundColor: colors.surfaceInteractive,
+    padding: 10,
+    borderRadius: Radii.sm,
+  },
+  customPrepLabel: {
+    ...Typography.Caption,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  customPrepInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: Radii.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  customPrepUnit: {
+    ...Typography.Caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
 });
 let styles = createStyles(lightColors);

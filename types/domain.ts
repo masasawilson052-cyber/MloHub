@@ -1529,6 +1529,7 @@ export type NotificationDeliveryStatus =
 
 export type NotificationEventType =
   | 'ORDER_CREATED'
+  | 'RESTAURANT_NEW_PAID_ORDER'
   | 'ORDER_ACCEPTED'
   | 'ORDER_PREPARING'
   | 'ORDER_READY'
@@ -1915,6 +1916,8 @@ export interface MenuModifierGroup {
   name: string;
   minSelections: number;
   maxSelections: number;
+  minSelect?: number;
+  maxSelect?: number;
   isRequired: boolean;
   sortOrder: number;
   options: MenuModifierOption[];

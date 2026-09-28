@@ -37,6 +37,7 @@ import {
   Payment,
   Review,
   BranchOperationalMode,
+  MenuModifierGroup,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
@@ -87,6 +88,7 @@ import {
   OperatingOverride,
 } from '../../components/restaurant';
 
+import { OrderNotificationSoundService } from '../../services/OrderNotificationSoundService';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
@@ -593,9 +595,17 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   useEffect(() => {
     let isMounted = true;
 
-    const handleRealtimeEvent = () => {
+    const handleRealtimeEvent = (payload?: any) => {
       if (isMounted) {
         loadRestaurantWorkspace();
+        if (
+          payload?.eventType === 'RESTAURANT_NEW_PAID_ORDER' ||
+          payload?.event === 'order:paid' ||
+          payload?.data?.paymentStatus === 'SUCCESS' ||
+          payload?.data?.payment_status === 'SUCCESS'
+        ) {
+          OrderNotificationSoundService.playNewPaidOrderAlert().catch(() => undefined);
+        }
       }
     };
 
@@ -648,22 +658,67 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     });
   }, [branches, branchPrices, editingItem?.id]);
 
-  // 10. Attention Alerts Feed
+  // 10. Attention Alerts Feed (Priorities 1 - 4)
   const alerts: AttentionAlert[] = useMemo(() => {
     const list: AttentionAlert[] = [];
 
-    if (pendingOrders.length > 0) {
+    // Priority 1: PAID orders waiting for acceptance / prep time (never unpaid rows)
+    const paidPendingOrders = pendingOrders.filter((o) => o.paymentStatus === 'SUCCESS');
+    if (paidPendingOrders.length > 0) {
       list.push({
-        id: 'alert-pending-orders',
+        id: 'alert-paid-pending-orders',
         type: 'ORDER',
         severity: 'HIGH',
-        title: language === 'sw' ? 'Oda Mpya Zinazosubiri' : 'Pending Incoming Orders',
+        priority: 1,
+        title: language === 'sw' ? 'Oda Mpya Zilizolipwa' : 'New Paid Orders',
         description:
           language === 'sw'
-            ? `Kuna oda ${pendingOrders.length} zinahitaji kukubaliwa mara moja jikoni.`
-            : `You have ${pendingOrders.length} order(s) waiting for kitchen acceptance.`,
+            ? `Kuna oda ${paidPendingOrders.length} zilizolipwa zinazosubiri kukubaliwa na kupangiwa muda wa maandalizi.`
+            : `You have ${paidPendingOrders.length} paid order(s) waiting for acceptance and prep time.`,
         actionLabel: language === 'sw' ? 'Tazama Oda' : 'Review Orders',
         targetTab: 'orders',
+      });
+    }
+
+    // Priority 2: Late kitchen orders (>30m prep elapsed)
+    const nowMs = Date.now();
+    const lateKitchenOrders = domainOrders.filter((o) => {
+      if (o.status !== 'ACCEPTED' && o.status !== 'PREPARING') return false;
+      const createdMs = new Date(o.createdAt).getTime();
+      return Math.floor((nowMs - createdMs) / (1000 * 60)) >= 30;
+    });
+
+    if (lateKitchenOrders.length > 0) {
+      list.push({
+        id: 'alert-late-kitchen',
+        type: 'KITCHEN_LATE',
+        severity: 'HIGH',
+        priority: 2,
+        title: language === 'sw' ? 'Oda Zimechelewa Jikoni (>30m)' : 'Late Kitchen Orders (>30m)',
+        description:
+          language === 'sw'
+            ? `Oda ${lateKitchenOrders.length} zimezidi dakika 30 katika uandaaji jikoni.`
+            : `${lateKitchenOrders.length} active order(s) have exceeded 30 minutes in preparation.`,
+        actionLabel: language === 'sw' ? 'Tazama Jikoni' : 'Open Kitchen',
+        targetTab: 'kitchen',
+      });
+    }
+
+    // Priority 3: Sold-out items or menu issues
+    const unavailableItems = menuItems.filter((m) => !m.isAvailable);
+    if (unavailableItems.length > 0) {
+      list.push({
+        id: 'alert-stock',
+        type: 'STOCK',
+        severity: 'MEDIUM',
+        priority: 3,
+        title: language === 'sw' ? 'Vyakula Vilivyoisha' : 'Sold-out Items',
+        description:
+          language === 'sw'
+            ? `Vyakula ${unavailableItems.length} vimewekwa kuwa havipatikani.`
+            : `${unavailableItems.length} menu items are currently marked sold out.`,
+        actionLabel: language === 'sw' ? 'Sasisha Upatikanaji' : 'Manage Stock',
+        targetTab: 'menu',
       });
     }
 
@@ -678,34 +733,40 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         id: 'alert-verify-menu',
         type: 'VERIFICATION',
         severity: 'MEDIUM',
+        priority: 3,
         title: language === 'sw' ? 'Thibitisha Bei za Menyu' : 'Price Verification Overdue',
         description:
           language === 'sw'
-            ? `Vyakula ${itemsNeedingVerification.length} havijathibitishwa kwa zaidi ya siku 7. Vithibitishe kupata nafasi ya kwanza discovery.`
-            : `${itemsNeedingVerification.length} dish(es) have unverified prices. Verify now to maintain top discovery ranking.`,
+            ? `Vyakula ${itemsNeedingVerification.length} havijathibitishwa kwa zaidi ya siku 7.`
+            : `${itemsNeedingVerification.length} dish(es) have unverified prices. Verify to maintain discovery ranking.`,
         actionLabel: language === 'sw' ? 'Thibitisha Menyu' : 'Verify Menu',
         targetTab: 'menu',
       });
     }
 
-    const unavailableItems = menuItems.filter((m) => !m.isAvailable);
-    if (unavailableItems.length > 0) {
+    // Priority 4: Reservations / reports
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    const reservationsToday = reservations.filter(
+      (r) => r.reservationDate === todayDateStr && r.status !== 'CANCELLED'
+    );
+    if (reservationsToday.length > 0) {
       list.push({
-        id: 'alert-stock',
-        type: 'STOCK',
+        id: 'alert-reservations-today',
+        type: 'RESERVATION',
         severity: 'INFO',
-        title: language === 'sw' ? 'Vyakula Vilivyoisha' : 'Unavailable Menu Items',
+        priority: 4,
+        title: language === 'sw' ? 'Nafasi za Meza za Leo' : "Today's Table Bookings",
         description:
           language === 'sw'
-            ? `Vyakula ${unavailableItems.length} vimewekwa kuwa havipatikani.`
-            : `${unavailableItems.length} menu items are currently marked sold out.`,
-        actionLabel: language === 'sw' ? 'Sasisha Upatikanaji' : 'Manage Stock',
-        targetTab: 'menu',
+            ? `Kuna wageni ${reservationsToday.length} wameweka nafasi ya meza leo.`
+            : `${reservationsToday.length} confirmed table reservations scheduled for today.`,
+        actionLabel: language === 'sw' ? 'Tazama Meza' : 'View Bookings',
+        targetTab: 'reservations',
       });
     }
 
     return list;
-  }, [pendingOrders.length, menuItems, language]);
+  }, [pendingOrders, domainOrders, menuItems, reservations, language]);
 
   // 11. Financial Totals & Metrics strictly from public.payments
   const financialTotals = useMemo(() => {
@@ -742,8 +803,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     return { todayGross, todayNet, weekGross, monthGross };
   }, [payments]);
 
-  // Dashboard Metrics
+  // Dashboard Metrics (4 Canonical: Orders today, Food sales, Net payout, Prep time)
   const metrics: DashboardMetrics = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const ordersToday = domainOrders.filter((o) => new Date(o.createdAt).getTime() >= todayStart);
     const cookingCount = domainOrders.filter((o) => o.status === 'PREPARING').length;
     const unavailableCount = menuItems.filter((m) => !m.isAvailable).length;
     const needingVerifyCount = menuItems.filter((item) => {
@@ -751,10 +815,24 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       return diffDays > 7;
     }).length;
 
-    const todayDateStr = new Date().toISOString().split('T')[0];
-    const reservationsToday = reservations.filter((r) => r.reservationDate === todayDateStr && r.status !== 'CANCELLED').length;
+    const todayDateStr = now.toISOString().split('T')[0];
+    const reservationsToday = reservations.filter(
+      (r) => r.reservationDate === todayDateStr && r.status !== 'CANCELLED'
+    ).length;
+
+    const prepMinutesList = ordersToday
+      .map((o) => o.estimatedPrepMinutes)
+      .filter((m): m is number => typeof m === 'number' && m > 0);
+    const avgPrep =
+      prepMinutesList.length > 0
+        ? Math.round(prepMinutesList.reduce((sum, m) => sum + m, 0) / prepMinutesList.length)
+        : 25;
 
     return {
+      ordersTodayCount: ordersToday.length,
+      foodSalesTzs: financialTotals.todayGross,
+      restaurantNetTzs: financialTotals.todayNet,
+      averagePrepTimeMinutes: avgPrep,
       openOrdersCount: pendingOrders.length,
       cookingOrdersCount: cookingCount,
       reservationsTodayCount: reservationsToday,
@@ -764,7 +842,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       averageRating: activeRestaurant.rating || 0,
       totalReviewsCount: reviews.length || activeRestaurant.reviewsCount || 0,
     };
-  }, [domainOrders, pendingOrders.length, menuItems, reservations, reviews.length, activeRestaurant, financialTotals.todayGross]);
+  }, [domainOrders, pendingOrders.length, menuItems, reservations, reviews.length, activeRestaurant, financialTotals]);
 
   // 12. Financial Transactions strictly from public.payments (no completed order fallback)
   const earningsTransactions: EarningsRecord[] = useMemo(() => {
@@ -964,7 +1042,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   );
 
   const handleSaveMenuItem = useCallback(
-    async (savedItem: Partial<MenuItem>, overrides?: BranchPriceOverride[]) => {
+    async (
+      savedItem: Partial<MenuItem>,
+      overrides?: BranchPriceOverride[],
+      modifiers?: MenuModifierGroup[]
+    ) => {
       try {
         let targetItemId: string;
         if (editingItem) {
@@ -984,6 +1066,10 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               await MenuRepository.setBranchPrice(ov.branchId, targetItemId, ov.customPriceTzs);
             }
           }
+        }
+
+        if (modifiers && modifiers.length > 0) {
+          await MenuRepository.replaceModifiersForItem(targetItemId, modifiers);
         }
 
         RealtimeEventEngine.publish('menu:updated', { restaurantId: activeRestaurant.id });
@@ -1307,6 +1393,26 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     language,
   ]);
 
+  const handleToggleStoreStatus = useCallback(async () => {
+    try {
+      const nextOpen = !activeRestaurant.isOpen;
+      await RestaurantRepository.update(activeRestaurant.id, { isOpen: nextOpen });
+      setActiveRestaurant((prev: any) => ({ ...prev, isOpen: nextOpen }));
+      RealtimeEventEngine.publish('restaurants:updated', {
+        restaurantId: activeRestaurant.id,
+        data: { isOpen: nextOpen },
+      });
+      Alert.alert(
+        language === 'sw' ? 'Hali Imesasishwa' : 'Store Status Updated',
+        nextOpen
+          ? language === 'sw' ? 'Mgahawa unafunguliwa na kupokea oda.' : 'Restaurant is now accepting orders.'
+          : language === 'sw' ? 'Oda zimesitishwa kwa muda.' : 'Incoming orders are paused temporarily.'
+      );
+    } catch (e: any) {
+      Alert.alert('Hitilafu', e?.message || 'Imeshindikana kubadili hali ya mgahawa.');
+    }
+  }, [activeRestaurant.id, activeRestaurant.isOpen, language]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* 1. Header Bar */}
@@ -1588,6 +1694,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   alerts={alerts}
                   onNavigateTab={setActiveTab}
                   onQuickVerifyMenu={handleVerifyFullMenu}
+                  onPauseOrders={handleToggleStoreStatus}
+                  onAddDish={() => {
+                    setEditingItem(null);
+                    setIsEditorVisible(true);
+                  }}
+                  isOrdersPaused={!activeRestaurant.isOpen}
                   language={language as any}
                 />
               </ScrollView>

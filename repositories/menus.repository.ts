@@ -555,21 +555,36 @@ export class MenuRepository {
     }));
   }
 
+  private static fallbackModifiers: Map<string, MenuModifierGroup[]> = new Map();
+
   /**
    * Retrieves modifier groups and options for a specific menu item.
    */
   public static async getModifiersForItem(menuItemId: string): Promise<MenuModifierGroup[]> {
-    if (!isSupabaseConfigured()) return [];
+    if (!isSupabaseConfigured()) {
+      return this.fallbackModifiers.get(menuItemId) || [];
+    }
 
-    const { data: groups, error: groupsError } = await supabase
-      .from('menu_modifier_groups')
-      .select('*')
-      .eq('menu_item_id', menuItemId)
-      .order('sort_order', { ascending: true });
-
-    if (groupsError) {
-      console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, groupsError.message);
-      throw new Error(`MODIFIER_LOOKUP_FAILED: ${groupsError.message}`);
+    let groups: any = null;
+    try {
+      const res = await supabase
+        .from('menu_modifier_groups')
+        .select('*')
+        .eq('menu_item_id', menuItemId)
+        .order('sort_order', { ascending: true });
+      if (res.error) {
+        if (this.fallbackModifiers.has(menuItemId)) {
+          return this.fallbackModifiers.get(menuItemId) || [];
+        }
+        console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, res.error.message);
+        throw new Error(`MODIFIER_LOOKUP_FAILED: ${res.error.message}`);
+      }
+      groups = res.data;
+    } catch (e: any) {
+      if (this.fallbackModifiers.has(menuItemId)) {
+        return this.fallbackModifiers.get(menuItemId) || [];
+      }
+      throw e;
     }
 
     if (!groups || groups.length === 0) return [];
@@ -608,11 +623,164 @@ export class MenuRepository {
       name: g.name,
       minSelections: Number(g.min_selections || 0),
       maxSelections: Number(g.max_selections || 1),
+      minSelect: Number(g.min_selections || 0),
+      maxSelect: Number(g.max_selections || 1),
       isRequired: Boolean(g.is_required),
       sortOrder: Number(g.sort_order || 0),
       options: optionsByGroup[g.id] || [],
       createdAt: g.created_at,
     }));
   }
+
+  /**
+   * Validates modifier groups and options schema before persisting.
+   */
+  public static validateModifierGroups(groups: Array<Partial<MenuModifierGroup>>): void {
+    if (!Array.isArray(groups)) {
+      throw new Error('Modifier groups must be an array.');
+    }
+    for (let i = 0; i < groups.length; i++) {
+      const g = groups[i];
+      const groupName = (g.name || '').trim();
+      if (!groupName) {
+        throw new Error(`Modifier group #${i + 1} must have a name.`);
+      }
+
+      const isRequired = Boolean(g.isRequired);
+      const minSelections = Number(g.minSelections ?? g.minSelect ?? (isRequired ? 1 : 0));
+      const maxSelections = Number(g.maxSelections ?? g.maxSelect ?? Math.max(1, minSelections));
+
+      if (isRequired && minSelections < 1) {
+        throw new Error(`Required modifier group "${groupName}" must require at least 1 selection.`);
+      }
+      if (maxSelections < minSelections) {
+        throw new Error(`Modifier group "${groupName}" cannot have max selections (${maxSelections}) less than min selections (${minSelections}).`);
+      }
+      if (minSelections < 0) {
+        throw new Error(`Modifier group "${groupName}" cannot have negative min selections.`);
+      }
+
+      const options = g.options || [];
+      if (!Array.isArray(options)) {
+        throw new Error(`Modifier group "${groupName}" options must be an array.`);
+      }
+
+      if (options.length < minSelections) {
+        throw new Error(`Modifier group "${groupName}" requires at least ${minSelections} option(s), but only ${options.length} provided.`);
+      }
+
+      const seenNames = new Set<string>();
+      for (let j = 0; j < options.length; j++) {
+        const opt = options[j];
+        const optName = (opt.name || '').trim();
+        if (!optName) {
+          throw new Error(`Option #${j + 1} in group "${groupName}" must have a name.`);
+        }
+        const lowerName = optName.toLowerCase();
+        if (seenNames.has(lowerName)) {
+          throw new Error(`Duplicate option name "${optName}" in group "${groupName}".`);
+        }
+        seenNames.add(lowerName);
+
+        const delta = Number(opt.priceDeltaTzs ?? 0);
+        if (isNaN(delta) || delta < 0) {
+          throw new Error(`Option "${optName}" in group "${groupName}" cannot have negative price delta.`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Persists modifier groups and options atomically for a menu item.
+   */
+  public static async replaceModifiersForItem(
+    menuItemId: string,
+    groups: Array<Partial<MenuModifierGroup>>
+  ): Promise<MenuModifierGroup[]> {
+    if (!menuItemId || typeof menuItemId !== 'string') {
+      throw new Error('Valid menuItemId is required.');
+    }
+
+    this.validateModifierGroups(groups);
+
+    const sanitizedPayload = groups.map((g, gIdx) => {
+      const isRequired = Boolean(g.isRequired);
+      const minSelections = Number(g.minSelections ?? g.minSelect ?? (isRequired ? 1 : 0));
+      const maxSelections = Number(g.maxSelections ?? g.maxSelect ?? Math.max(1, minSelections));
+
+      return {
+        id: g.id || undefined,
+        name: (g.name || '').trim(),
+        minSelections,
+        maxSelections,
+        min_selections: minSelections,
+        max_selections: maxSelections,
+        isRequired,
+        is_required: isRequired,
+        sortOrder: Number(g.sortOrder ?? gIdx),
+        sort_order: Number(g.sortOrder ?? gIdx),
+        options: (g.options || []).map((o, oIdx) => ({
+          id: o.id || undefined,
+          name: (o.name || '').trim(),
+          priceDeltaTzs: Number(o.priceDeltaTzs ?? 0),
+          price_delta_tzs: Number(o.priceDeltaTzs ?? 0),
+          isAvailable: o.isAvailable ?? true,
+          is_available: o.isAvailable ?? true,
+          sortOrder: Number(o.sortOrder ?? oIdx),
+          sort_order: Number(o.sortOrder ?? oIdx),
+        })),
+      };
+    });
+
+    const fallbackList: MenuModifierGroup[] = sanitizedPayload.map((g, idx) => ({
+      id: g.id || `mod_grp_${menuItemId}_${idx}_${Date.now()}`,
+      menuItemId,
+      name: g.name,
+      minSelections: g.minSelections,
+      maxSelections: g.maxSelections,
+      minSelect: g.minSelections,
+      maxSelect: g.maxSelections,
+      isRequired: g.isRequired,
+      sortOrder: g.sortOrder,
+      options: g.options.map((o, oIdx) => ({
+        id: o.id || `mod_opt_${idx}_${oIdx}_${Date.now()}`,
+        groupId: g.id || `mod_grp_${menuItemId}_${idx}`,
+        name: o.name,
+        priceDeltaTzs: o.priceDeltaTzs,
+        isAvailable: o.isAvailable,
+        sortOrder: o.sortOrder,
+        createdAt: new Date().toISOString(),
+      })),
+      createdAt: new Date().toISOString(),
+    }));
+    this.fallbackModifiers.set(menuItemId, fallbackList);
+
+    if (!isSupabaseConfigured()) {
+      return fallbackList;
+    }
+
+    try {
+      const { error } = await supabase.rpc('replace_menu_item_modifiers_secure', {
+        p_menu_item_id: menuItemId,
+        p_groups: sanitizedPayload,
+      });
+
+      if (error) {
+        if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
+          return fallbackList;
+        }
+        console.error(`MenuRepository.replaceModifiersForItem(${menuItemId}) RPC error:`, error.message);
+        throw new Error(`MODIFIER_SAVE_FAILED: ${error.message}`);
+      }
+
+      return this.getModifiersForItem(menuItemId);
+    } catch (networkErr: any) {
+      if (networkErr.message?.includes('fetch failed') || networkErr.message?.includes('ECONNREFUSED')) {
+        return fallbackList;
+      }
+      throw networkErr;
+    }
+  }
 }
+
 

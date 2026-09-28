@@ -26,6 +26,13 @@ export interface KitchenBoardProps {
   language?: 'en' | 'sw';
 }
 
+import {
+  KitchenTimerCategory,
+  getKitchenTimerCategory,
+  isKitchenOrderLate,
+} from '../../utils/kitchenTimers';
+export { KitchenTimerCategory, getKitchenTimerCategory, isKitchenOrderLate };
+
 interface KitchenCardProps {
   order: Order;
   onAdvanceStatus: (orderId: string, nextStatus: OrderStatus) => Promise<void>;
@@ -82,7 +89,7 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
       {/* Special Kitchen Notes */}
       {order.specialInstructions ? (
         <View style={styles.notesBox}>
-          <Ionicons name="warning-outline" size={14} color="#D97706" />
+          <Ionicons name="warning-outline" size={14} color={colors.warning} />
           <Text style={styles.notesText}>{order.specialInstructions}</Text>
         </View>
       ) : null}
@@ -118,7 +125,7 @@ const KitchenOrderCard: React.FC<KitchenCardProps> = ({ order, onAdvanceStatus, 
         {order.status === 'READY' && (
           order.fulfillmentType === 'Delivery' ? (
             <TouchableOpacity
-              style={[styles.bigActionBtn, { backgroundColor: '#2563eb' }]}
+              style={[styles.bigActionBtn, { backgroundColor: colors.info }]}
               onPress={() => onAdvanceStatus(order.id, 'OUT_FOR_DELIVERY')}
               activeOpacity={0.8}
               accessibilityRole="button"

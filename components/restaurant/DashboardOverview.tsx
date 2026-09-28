@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../theme/colors';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { Shadows } from '../../theme/shadows';
@@ -9,13 +8,17 @@ import { Typography } from '../../theme/typography';
 import { formatTzs } from '../../utils/formatters';
 import { AttentionCenter, AttentionAlert } from './AttentionCenter';
 import { RestaurantTab } from './RestaurantSidebar';
-
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
 let colors: ThemeColors = lightColors;
 
 export interface DashboardMetrics {
+  ordersTodayCount?: number;
+  foodSalesTzs?: number;
+  restaurantNetTzs?: number;
+  averagePrepTimeMinutes?: number;
+  // Compatibility fields
   openOrdersCount: number;
   cookingOrdersCount: number;
   reservationsTodayCount: number;
@@ -31,7 +34,10 @@ export interface DashboardOverviewProps {
   metrics: DashboardMetrics;
   alerts: AttentionAlert[];
   onNavigateTab: (tab: RestaurantTab) => void;
-  onQuickVerifyMenu: () => void;
+  onQuickVerifyMenu?: () => void;
+  onPauseOrders?: () => void;
+  onAddDish?: () => void;
+  isOrdersPaused?: boolean;
   language?: 'en' | 'sw';
 }
 
@@ -41,15 +47,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   alerts,
   onNavigateTab,
   onQuickVerifyMenu,
+  onPauseOrders,
+  onAddDish,
+  isOrdersPaused = false,
   language = 'en',
 }) => {
-  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { colors: _tc } = useTheme();
+  colors = _tc;
+  styles = createStyles(colors);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return language === 'sw' ? 'Habari za Asubuhi' : 'Good Morning';
     if (hour < 17) return language === 'sw' ? 'Habari za Mchana' : 'Good Afternoon';
     return language === 'sw' ? 'Habari za Jioni' : 'Good Evening';
   };
+
+  const ordersToday = metrics.ordersTodayCount ?? metrics.openOrdersCount;
+  const foodSales = metrics.foodSalesTzs ?? metrics.todaySalesTzs;
+  const restaurantNet =
+    metrics.restaurantNetTzs ?? Math.round((metrics.foodSalesTzs ?? metrics.todaySalesTzs) * 0.9);
+  const prepTime = metrics.averagePrepTimeMinutes ?? 25;
 
   return (
     <ScrollView
@@ -65,29 +83,116 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <Text style={styles.greetingSubtitle}>
             {language === 'sw'
               ? 'Huu ndio muhtasari wa uendeshaji wa mgahawa wako leo.'
-              : 'Here is your live operational overview and daily kitchen dispatch summary.'}
+              : 'Live operational summary, incoming orders, and kitchen dispatch.'}
           </Text>
         </View>
 
-        {/* Quick Verify Menu Action Button */}
-        <TouchableOpacity
-          style={styles.verifyActionBtn}
-          onPress={onQuickVerifyMenu}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel="Verify Menu Prices Now"
-        >
-          <Ionicons name="shield-checkmark" size={18} color={colors.white} />
-          <Text style={styles.verifyActionBtnText}>
-            {language === 'sw' ? 'Thibitisha Menyu Sasa' : 'Verify Menu Freshness'}
-          </Text>
-        </TouchableOpacity>
+        {onQuickVerifyMenu && (
+          <TouchableOpacity
+            style={styles.verifyActionBtn}
+            onPress={onQuickVerifyMenu}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Verify Menu Prices"
+          >
+            <Ionicons name="shield-checkmark" size={16} color={colors.onPrimary} />
+            <Text style={styles.verifyActionBtnText}>
+              {language === 'sw' ? 'Thibitisha Menyu' : 'Verify Menu Freshness'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Actionable Attention Center */}
+      {/* 4 Canonical Quick Actions */}
+      <View style={styles.quickActionsSection}>
+        <Text style={styles.sectionHeading}>
+          {language === 'sw' ? 'Hatua za Haraka' : 'Quick Actions'}
+        </Text>
+        <View style={styles.quickActionsRow}>
+          {/* Action 1: Pause / Resume Orders */}
+          <TouchableOpacity
+            style={[
+              styles.quickActionBtn,
+              isOrdersPaused && { backgroundColor: colors.warningSoft, borderColor: colors.warning },
+            ]}
+            onPress={onPauseOrders || (() => onNavigateTab('settings'))}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={isOrdersPaused ? 'Resume Orders' : 'Pause Orders'}
+          >
+            <View
+              style={[
+                styles.quickActionIconWrap,
+                { backgroundColor: isOrdersPaused ? colors.warningSoft : colors.primarySoft },
+              ]}
+            >
+              <Ionicons
+                name={isOrdersPaused ? 'play-circle-outline' : 'pause-circle-outline'}
+                size={18}
+                color={isOrdersPaused ? colors.warning : colors.primary}
+              />
+            </View>
+            <Text style={styles.quickActionLabel}>
+              {isOrdersPaused
+                ? language === 'sw' ? 'Endeleza Oda' : 'Resume Orders'
+                : language === 'sw' ? 'Sitisha Oda' : 'Pause Orders'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Action 2: Sold-out Items */}
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => onNavigateTab('menu')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Sold-out Items"
+          >
+            <View style={[styles.quickActionIconWrap, { backgroundColor: colors.dangerSoft }]}>
+              <Ionicons name="cube-outline" size={18} color={colors.danger} />
+            </View>
+            <Text style={styles.quickActionLabel}>
+              {language === 'sw' ? 'Vyakula Vilivyoisha' : 'Sold-out Items'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Action 3: Add Dish */}
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={onAddDish || (() => onNavigateTab('menu'))}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Add Dish"
+          >
+            <View style={[styles.quickActionIconWrap, { backgroundColor: colors.successSoft }]}>
+              <Ionicons name="add-circle-outline" size={18} color={colors.success} />
+            </View>
+            <Text style={styles.quickActionLabel}>
+              {language === 'sw' ? 'Ongeza Chakula' : 'Add Dish'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Action 4: View Earnings */}
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => onNavigateTab('earnings')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="View Earnings"
+          >
+            <View style={[styles.quickActionIconWrap, { backgroundColor: colors.infoSoft }]}>
+              <Ionicons name="cash-outline" size={18} color={colors.info} />
+            </View>
+            <Text style={styles.quickActionLabel}>
+              {language === 'sw' ? 'Tazama Mapato' : 'View Earnings'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Actionable Attention Center (Priorities 1 - 4) */}
       <AttentionCenter alerts={alerts} onNavigateTab={onNavigateTab} language={language} />
 
-      {/* Operational Metrics Grid */}
+      {/* 4 Canonical Dashboard Metrics Grid */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionHeading}>
           {language === 'sw' ? 'Viashiria vya Leo' : "Today's Operational Metrics"}
@@ -95,93 +200,31 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       </View>
 
       <View style={styles.metricsGrid}>
-        {/* Metric 1: Incoming Orders */}
+        {/* Metric 1: Orders Today */}
         <TouchableOpacity
-          style={[styles.metricCard, metrics.openOrdersCount > 0 && styles.metricCardAlert]}
+          style={[styles.metricCard, ordersToday > 0 && styles.metricCardAlert]}
           onPress={() => onNavigateTab('orders')}
           activeOpacity={0.8}
         >
           <View style={styles.metricTop}>
             <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Oda Mpya (Pending)' : 'Open Orders'}
+              {language === 'sw' ? 'Oda za Leo' : 'Orders Today'}
             </Text>
             <View style={[styles.iconPill, { backgroundColor: colors.warningSoft }]}>
-              <Ionicons name="receipt-outline" size={18} color="#D97706" />
+              <Ionicons name="receipt-outline" size={18} color={colors.warning} />
             </View>
           </View>
-          <Text style={[styles.metricValue, metrics.openOrdersCount > 0 && { color: colors.warning }]}>
-            {metrics.openOrdersCount}
+          <Text style={[styles.metricValue, ordersToday > 0 && { color: colors.warning }]}>
+            {ordersToday}
           </Text>
           <Text style={styles.metricSub}>
-            {metrics.openOrdersCount > 0
-              ? language === 'sw' ? 'Zinahitaji uthibitisho wa jikoni' : 'Action required to accept'
-              : language === 'sw' ? 'Hakuna zinazosubiri' : 'Queue is clear'}
+            {ordersToday > 0
+              ? language === 'sw' ? 'Oda zilizopokelewa leo' : 'Orders received today'
+              : language === 'sw' ? 'Hakuna oda bado' : 'Queue is clear'}
           </Text>
         </TouchableOpacity>
 
-        {/* Metric 2: Cooking Queue */}
-        <TouchableOpacity
-          style={styles.metricCard}
-          onPress={() => onNavigateTab('kitchen')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.metricTop}>
-            <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Jikoni Zinapikwa' : 'Orders Cooking'}
-            </Text>
-            <View style={[styles.iconPill, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name="flame-outline" size={18} color="#EA580C" />
-            </View>
-          </View>
-          <Text style={styles.metricValue}>{metrics.cookingOrdersCount}</Text>
-          <Text style={styles.metricSub}>
-            {language === 'sw' ? 'Katika foleni ya jikoni' : 'In active kitchen queue'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Metric 3: Reservations */}
-        <TouchableOpacity
-          style={styles.metricCard}
-          onPress={() => onNavigateTab('reservations')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.metricTop}>
-            <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Meza za Leo' : "Today's Bookings"}
-            </Text>
-            <View style={[styles.iconPill, { backgroundColor: colors.infoSoft }]}>
-              <Ionicons name="calendar-outline" size={18} color="#2563EB" />
-            </View>
-          </View>
-          <Text style={styles.metricValue}>{metrics.reservationsTodayCount}</Text>
-          <Text style={styles.metricSub}>
-            {language === 'sw' ? 'Wateja wamehifadhi meza' : 'Confirmed table guests'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Metric 4: Menu Verification */}
-        <TouchableOpacity
-          style={[styles.metricCard, metrics.itemsNeedingVerificationCount > 0 && styles.metricCardWarning]}
-          onPress={() => onNavigateTab('menu')}
-          activeOpacity={0.8}
-        >
-          <View style={styles.metricTop}>
-            <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Zinazotaka Uthibitisho' : 'Needs Verification'}
-            </Text>
-            <View style={[styles.iconPill, { backgroundColor: colors.successSoft }]}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#16A34A" />
-            </View>
-          </View>
-          <Text style={styles.metricValue}>{metrics.itemsNeedingVerificationCount}</Text>
-          <Text style={styles.metricSub}>
-            {metrics.itemsNeedingVerificationCount > 0
-              ? language === 'sw' ? 'Vyakula vimezeeka, sasisha bei' : 'Dishes with aging prices'
-              : language === 'sw' ? 'Bei zote ziko fresh leo' : 'All prices verified fresh'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Metric 5: Revenue Today */}
+        {/* Metric 2: Food Sales */}
         <TouchableOpacity
           style={styles.metricCard}
           onPress={() => onNavigateTab('earnings')}
@@ -189,153 +232,273 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         >
           <View style={styles.metricTop}>
             <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Mauzo ya Leo' : "Today's Sales"}
+              {language === 'sw' ? 'Mauzo ya Vyakula' : 'Food Sales'}
             </Text>
             <View style={[styles.iconPill, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons name="cash-outline" size={18} color={colors.primary} />
+              <Ionicons name="restaurant-outline" size={18} color={colors.primary} />
             </View>
           </View>
-          <Text style={styles.metricValue}>{formatTzs(metrics.todaySalesTzs)}</Text>
+          <Text style={styles.metricValue}>{formatTzs(foodSales)}</Text>
           <Text style={styles.metricSub}>
-            {language === 'sw' ? 'Kutoka kwa oda zilizokamilika' : 'From completed orders'}
+            {language === 'sw' ? 'Jumla ya mauzo ya chakula leo' : 'Gross food billings today'}
           </Text>
         </TouchableOpacity>
 
-        {/* Metric 6: Customer Reputation */}
+        {/* Metric 3: Restaurant Net */}
         <TouchableOpacity
           style={styles.metricCard}
-          onPress={() => onNavigateTab('reviews')}
+          onPress={() => onNavigateTab('earnings')}
           activeOpacity={0.8}
         >
           <View style={styles.metricTop}>
             <Text style={styles.metricLabel}>
-              {language === 'sw' ? 'Kiwango cha Ubora' : 'Customer Rating'}
+              {language === 'sw' ? 'Kiasi Halisi cha Mgahawa' : 'Restaurant Net'}
             </Text>
-            <View style={[styles.iconPill, { backgroundColor: colors.warningSoft }]}>
-              <Ionicons name="star" size={18} color="#CA8A04" />
+            <View style={[styles.iconPill, { backgroundColor: colors.successSoft }]}>
+              <Ionicons name="cash-outline" size={18} color={colors.success} />
             </View>
           </View>
-          <Text style={styles.metricValue}>{metrics.averageRating.toFixed(1)} ★</Text>
-          <Text style={styles.metricSub}>
-            {metrics.totalReviewsCount} {language === 'sw' ? 'maoni yaliyothibitishwa' : 'verified reviews'}
+          <Text style={[styles.metricValue, { color: colors.success }]}>
+            {formatTzs(restaurantNet)}
           </Text>
+          <Text style={styles.metricSub}>
+            {language === 'sw' ? 'Malipo baada ya makato ya jukwaa' : 'Net payout after commission'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Metric 4: Average Prep Time */}
+        <TouchableOpacity
+          style={styles.metricCard}
+          onPress={() => onNavigateTab('kitchen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.metricTop}>
+            <Text style={styles.metricLabel}>
+              {language === 'sw' ? 'Wastani wa Maandalizi' : 'Average Prep Time'}
+            </Text>
+            <View style={[styles.iconPill, { backgroundColor: colors.infoSoft }]}>
+              <Ionicons name="time-outline" size={18} color={colors.info} />
+            </View>
+          </View>
+          <Text style={styles.metricValue}>{prepTime}m</Text>
+          <Text style={styles.metricSub}>
+            {language === 'sw' ? 'Muda wa jikoni kuandaa mlo' : 'Target cooking elapsed time'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Secondary Status Badges: Kitchen cooking & reservations */}
+      <View style={[styles.metricsGrid, { marginTop: Spacing.sm }]}>
+        <TouchableOpacity
+          style={styles.secondaryCard}
+          onPress={() => onNavigateTab('kitchen')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.secondaryCardInner}>
+            <Ionicons name="flame" size={16} color={colors.accent} />
+            <Text style={styles.secondaryText}>
+              {metrics.cookingOrdersCount} {language === 'sw' ? 'zinapikwa jikoni' : 'active cooking in kitchen'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryCard}
+          onPress={() => onNavigateTab('reservations')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.secondaryCardInner}>
+            <Ionicons name="calendar-outline" size={16} color={colors.info} />
+            <Text style={styles.secondaryText}>
+              {metrics.reservationsTodayCount} {language === 'sw' ? 'meza zilizohifadhiwa leo' : 'table bookings today'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryCard}
+          onPress={() => onNavigateTab('reviews')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.secondaryCardInner}>
+            <Ionicons name="star" size={16} color={colors.warning} />
+            <Text style={styles.secondaryText}>
+              {metrics.averageRating.toFixed(1)} ★ ({metrics.totalReviewsCount} {language === 'sw' ? 'maoni' : 'reviews'})
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
 };
 
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  scrollContainer: {
-    padding: Spacing.md,
-    maxWidth: 1000,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  greetingCard: {
-    backgroundColor: colors.card,
-    padding: Spacing.lg,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginBottom: Spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    ...Shadows.sm,
-  },
-  greetingLeft: {
-    flex: 1,
-    minWidth: 260,
-  },
-  greetingTitle: {
-    ...Typography.H2,
-    color: colors.textPrimary,
-  },
-  greetingName: {
-    color: colors.primary,
-    fontWeight: '800',
-  },
-  greetingSubtitle: {
-    ...Typography.Body,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  verifyActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    borderRadius: Radii.md,
-    ...Shadows.sm,
-  },
-  verifyActionBtnText: {
-    ...Typography.BodyMedium,
-    color: colors.onPrimary,
-    fontWeight: '700',
-  },
-  sectionHeader: {
-    marginBottom: Spacing.sm,
-  },
-  sectionHeading: {
-    ...Typography.H3,
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-  },
-  metricCard: {
-    backgroundColor: colors.card,
-    padding: Spacing.md,
-    borderRadius: Radii.lg,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    flex: 1,
-    minWidth: 240,
-    ...Shadows.sm,
-  },
-  metricCardAlert: {
-    borderColor: colors.warning,
-    backgroundColor: colors.warningSoft,
-  },
-  metricCardWarning: {
-    borderColor: colors.success,
-  },
-  metricTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  metricLabel: {
-    ...Typography.Caption,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  iconPill: {
-    width: 32,
-    height: 32,
-    borderRadius: Radii.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricValue: {
-    ...Typography.H1,
-    color: colors.textPrimary,
-    fontWeight: '800',
-  },
-  metricSub: {
-    ...Typography.Caption,
-    color: colors.textMuted,
-    marginTop: 4,
-  },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    scrollContainer: {
+      padding: Spacing.md,
+      maxWidth: 1000,
+      width: '100%',
+      alignSelf: 'center',
+    },
+    greetingCard: {
+      backgroundColor: colors.card,
+      padding: Spacing.lg,
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: colors.divider,
+      marginBottom: Spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: Spacing.md,
+      ...Shadows.sm,
+    },
+    greetingLeft: {
+      flex: 1,
+      minWidth: 260,
+    },
+    greetingTitle: {
+      ...Typography.H2,
+      color: colors.textPrimary,
+    },
+    greetingName: {
+      color: colors.primary,
+      fontWeight: '800',
+    },
+    greetingSubtitle: {
+      ...Typography.Body,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    verifyActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.primary,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 10,
+      borderRadius: Radii.md,
+      ...Shadows.sm,
+    },
+    verifyActionBtnText: {
+      ...Typography.Caption,
+      color: colors.onPrimary,
+      fontWeight: '700',
+    },
+    quickActionsSection: {
+      marginBottom: Spacing.md,
+    },
+    quickActionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+      marginTop: Spacing.xs,
+    },
+    quickActionBtn: {
+      flex: 1,
+      minWidth: 140,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.card,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Shadows.sm,
+    },
+    quickActionIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: Radii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickActionLabel: {
+      ...Typography.Caption,
+      color: colors.textPrimary,
+      fontWeight: '700',
+      fontSize: 12,
+    },
+    sectionHeader: {
+      marginBottom: Spacing.sm,
+    },
+    sectionHeading: {
+      ...Typography.H3,
+      color: colors.textPrimary,
+      fontWeight: '700',
+    },
+    metricsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.md,
+    },
+    metricCard: {
+      backgroundColor: colors.card,
+      padding: Spacing.md,
+      borderRadius: Radii.lg,
+      borderWidth: 1,
+      borderColor: colors.divider,
+      flex: 1,
+      minWidth: 200,
+      ...Shadows.sm,
+    },
+    metricCardAlert: {
+      borderColor: colors.warning,
+      backgroundColor: colors.warningSoft,
+    },
+    metricTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    metricLabel: {
+      ...Typography.Caption,
+      color: colors.textSecondary,
+      fontWeight: '600',
+      fontSize: 12,
+    },
+    iconPill: {
+      width: 32,
+      height: 32,
+      borderRadius: Radii.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    metricValue: {
+      ...Typography.H1,
+      color: colors.textPrimary,
+      fontWeight: '800',
+      fontSize: 22,
+    },
+    metricSub: {
+      ...Typography.Caption,
+      color: colors.textMuted,
+      marginTop: 4,
+    },
+    secondaryCard: {
+      backgroundColor: colors.surfaceInteractive,
+      borderRadius: Radii.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      flex: 1,
+      minWidth: 180,
+    },
+    secondaryCardInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    secondaryText: {
+      ...Typography.Caption,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+  });
+
 let styles = createStyles(lightColors);

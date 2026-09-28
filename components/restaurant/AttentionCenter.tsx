@@ -12,15 +12,8 @@ import { ThemeColors, lightColors } from '../../theme/palettes';
 
 let colors: ThemeColors = lightColors;
 
-export interface AttentionAlert {
-  id: string;
-  type: 'ORDER' | 'VERIFICATION' | 'REPORT' | 'RESERVATION' | 'STOCK';
-  severity: 'HIGH' | 'MEDIUM' | 'INFO';
-  title: string;
-  description: string;
-  actionLabel: string;
-  targetTab: RestaurantTab;
-}
+import { AttentionAlert, sortAttentionAlerts } from '../../utils/attentionAlerts';
+export { AttentionAlert, sortAttentionAlerts };
 
 export interface AttentionCenterProps {
   alerts: AttentionAlert[];
@@ -34,7 +27,8 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
   language = 'en',
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
-  if (alerts.length === 0) {
+  const sortedAlerts = sortAttentionAlerts(alerts);
+  if (sortedAlerts.length === 0) {
     return (
       <View style={styles.allGoodCard}>
         <View style={styles.allGoodIconCircle}>
@@ -58,6 +52,8 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
     switch (type) {
       case 'ORDER':
         return 'receipt-outline';
+      case 'KITCHEN_LATE':
+        return 'flame-outline';
       case 'VERIFICATION':
         return 'shield-checkmark-outline';
       case 'REPORT':
@@ -107,12 +103,12 @@ export const AttentionCenter: React.FC<AttentionCenterProps> = ({
           </Text>
         </View>
         <View style={styles.countBadge}>
-          <Text style={styles.countText}>{alerts.length}</Text>
+          <Text style={styles.countText}>{sortedAlerts.length}</Text>
         </View>
       </View>
 
       <View style={styles.alertsList}>
-        {alerts.map((alert) => {
+        {sortedAlerts.map((alert) => {
           const styleConfig = getSeverityStyle(alert.severity);
 
           return (
