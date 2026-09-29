@@ -155,10 +155,8 @@ export async function runAdminPortalCutoverTestSuite(): Promise<{ passed: number
 
   record(
     (typeof RestaurantRepository.verifyRestaurant === 'function' || typeof RestaurantRepository.update === 'function') &&
-    (adminIndexContent.includes('RestaurantRepository.verifyRestaurant(') || adminIndexContent.includes('RestaurantRepository.update(restaurantId,')) &&
-    (adminIndexContent.includes('tinNumber') || adminIndexContent.includes('tinNumber:')) &&
-    (adminIndexContent.includes('businessLicenseNumber') || adminIndexContent.includes('businessLicenseNumber:')),
-    'Criterion P: Restaurant verification calls RestaurantRepository with real docs'
+    (adminIndexContent.includes('RestaurantRepository.approveLaunch(') || adminIndexContent.includes('RestaurantRepository.verifyRestaurant(')),
+    'Criterion P: Restaurant verification and Gate B launch approval calls RestaurantRepository'
   );
 
   // --------------------------------------------------------------------------

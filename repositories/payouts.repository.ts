@@ -6,6 +6,7 @@ import {
   PayoutDestinationType,
   RestaurantFinancialSummary,
 } from '../types/domain';
+import { AdminPage, AdminPageQuery } from '../types/admin';
 
 export class PayoutsRepository {
   private static fallbackDestinations: Map<string, MerchantPayoutDestination[]> = new Map();
@@ -76,27 +77,32 @@ export class PayoutsRepository {
     isDefault?: boolean;
   }): Promise<{ success: boolean; destinationId?: string; error?: string }> {
     if (!isSupabaseConfigured()) {
-      const fallbackId = `dest-fallback-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-      const masked = this.maskIdentifier(params.rawAccountIdentifier, params.destinationType);
-      const fallbackItem: MerchantPayoutDestination = {
-        id: fallbackId,
-        restaurantId: params.restaurantId,
-        destinationType: params.destinationType,
-        provider: params.provider,
-        maskedAccountIdentifier: masked,
-        accountName: params.accountName,
-        verificationStatus: 'VERIFIED',
-        isDefault: params.isDefault ?? false,
-        createdAt: new Date().toISOString(),
-        createdBy: 'offline_user',
-      };
-      const list = this.fallbackDestinations.get(params.restaurantId) || [];
-      if (fallbackItem.isDefault) {
-        list.forEach((d) => (d.isDefault = false));
+      if (runtimeConfig.allowLocalDataFallbacks) {
+        const fallbackId = `dest-fallback-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        const masked = this.maskIdentifier(params.rawAccountIdentifier, params.destinationType);
+        const fallbackItem: MerchantPayoutDestination = {
+          id: fallbackId,
+          restaurantId: params.restaurantId,
+          destinationType: params.destinationType,
+          provider: params.provider,
+          maskedAccountIdentifier: masked,
+          accountName: params.accountName,
+          verificationStatus: 'PENDING_VERIFICATION',
+          isDefault: params.isDefault ?? false,
+          createdAt: new Date().toISOString(),
+          createdBy: 'offline_user',
+        };
+        const list = this.fallbackDestinations.get(params.restaurantId) || [];
+        if (fallbackItem.isDefault) {
+          list.forEach((d) => (d.isDefault = false));
+        }
+        list.unshift(fallbackItem);
+        this.fallbackDestinations.set(params.restaurantId, list);
       }
-      list.unshift(fallbackItem);
-      this.fallbackDestinations.set(params.restaurantId, list);
-      return { success: true, destinationId: fallbackId };
+      return {
+        success: false,
+        error: 'Payout service unavailable',
+      };
     }
 
     try {
@@ -129,7 +135,10 @@ export class PayoutsRepository {
 
   public static async listDestinations(restaurantId: string): Promise<MerchantPayoutDestination[]> {
     if (!isSupabaseConfigured()) {
-      return this.fallbackDestinations.get(restaurantId) || [];
+      if (runtimeConfig.allowLocalDataFallbacks) {
+        return this.fallbackDestinations.get(restaurantId) || [];
+      }
+      throw new Error('Payout destination service unavailable');
     }
 
     try {
@@ -140,16 +149,19 @@ export class PayoutsRepository {
         .order('created_at', { ascending: false });
 
       if (error) {
-        if (this.fallbackDestinations.has(restaurantId)) {
+        console.error('[PayoutsRepository.listDestinations] Error:', error.message);
+        if (runtimeConfig.allowLocalDataFallbacks) {
           return this.fallbackDestinations.get(restaurantId) || [];
         }
-        console.error(`[PayoutsRepository.listDestinations] Error:`, error.message);
-        return [];
+        throw new Error(`Unable to load payout destinations: ${error.message}`);
       }
 
       return (data || []).map(this.mapRowToDestination);
-    } catch {
-      return this.fallbackDestinations.get(restaurantId) || [];
+    } catch (err: any) {
+      if (runtimeConfig.allowLocalDataFallbacks) {
+        return this.fallbackDestinations.get(restaurantId) || [];
+      }
+      throw err instanceof Error ? err : new Error(`Unable to load payout destinations: ${String(err)}`);
     }
   }
 
@@ -366,4 +378,78 @@ export class PayoutsRepository {
       throw new Error(`Payout destination review failed: ${error.message}`);
     }
   }
+
+  public static async retryPayout(
+    payoutId: string,
+    reason: string
+  ): Promise<{ success: boolean; status?: string; error?: string }> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Payout service unavailable');
+    }
+
+    const { data, error } = await supabase.rpc('retry_merchant_payout_secure', {
+      p_payout_id: payoutId,
+      p_reason: reason,
+    });
+
+    if (error) {
+      console.error('[PayoutsRepository.retryPayout] Error:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: data?.success ?? true,
+      status: data?.status,
+    };
+  }
+
+  public static async listAdminPage(query: AdminPageQuery = {}): Promise<AdminPage<MerchantPayout>> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const pageSize = Math.min(100, Math.max(10, query.pageSize || 50));
+    const page = Math.max(1, query.page || 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let qb = supabase
+      .from('merchant_payouts')
+      .select('*', { count: 'exact' });
+
+    if (query.status && query.status !== 'ALL') {
+      qb = qb.eq('status', query.status);
+    }
+    if (query.restaurantId && query.restaurantId !== 'ALL') {
+      qb = qb.eq('restaurant_id', query.restaurantId);
+    }
+    if (query.from) {
+      qb = qb.gte('requested_at', query.from);
+    }
+    if (query.to) {
+      qb = qb.lte('requested_at', query.to);
+    }
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      qb = qb.or(`id.ilike.%${term}%,provider_reference.ilike.%${term}%,account_name_snapshot.ilike.%${term}%`);
+    }
+
+    const { data, error, count } = await qb
+      .order('requested_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[PayoutsRepository.listAdminPage] Error:', error.message);
+      throw new Error(`Unable to load merchant payouts: ${error.message}`);
+    }
+
+    return {
+      items: (data || []).map(this.mapRowToPayout),
+      page,
+      pageSize,
+      total: count || 0,
+      hasNext: from + (data?.length || 0) < (count || 0),
+    };
+  }
 }
+

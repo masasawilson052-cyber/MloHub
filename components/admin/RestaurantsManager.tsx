@@ -24,10 +24,6 @@ interface RestaurantsManagerProps {
   restaurants: RestaurantEntity[];
   onSuspend: (restaurantId: string, reason: string) => Promise<void>;
   onReactivate: (restaurantId: string) => Promise<void>;
-  onUpgradeToVerified?: (
-    restaurantId: string,
-    docs: { tinNumber: string; businessLicenseNumber: string }
-  ) => Promise<void>;
   onDelete?: (restaurantId: string) => Promise<void>;
   onArchive?: (restaurantId: string, reason: string) => Promise<void>;
   onUnarchive?: (restaurantId: string) => Promise<void>;
@@ -40,7 +36,6 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
   restaurants,
   onSuspend,
   onReactivate,
-  onUpgradeToVerified,
   onDelete,
   onArchive,
   onUnarchive,
@@ -341,7 +336,6 @@ export const RestaurantsManager: React.FC<RestaurantsManagerProps> = ({
         onClose={() => setActiveRestaurant(null)}
         onSuspend={onSuspend}
         onReactivate={onReactivate}
-        onUpgradeToVerified={onUpgradeToVerified}
         onDelete={onDelete}
         onArchive={onArchive}
         onUnarchive={onUnarchive}

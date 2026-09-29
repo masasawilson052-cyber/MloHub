@@ -16,7 +16,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { RefundsRepository } from '../../repositories/refunds.repository';
 import { DisputesRepository } from '../../repositories/disputes.repository';
-import { RefundRequest, FinancialDispute, RefundResponsibility } from '../../types/domain';
+import { RefundRequest, FinancialDispute, FinancialDisputeStatus, RefundResponsibility } from '../../types/domain';
 import { formatTzs } from '../../config/platformFees';
 
 
@@ -47,6 +47,12 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
   const [isApproving, setIsApproving] = useState(false);
   const [approvalResponsibility, setApprovalResponsibility] = useState<RefundResponsibility>('RESTAURANT');
   const [approvalAmount, setApprovalAmount] = useState('');
+
+  // Dispute resolution modal state
+  const [isResolvingDispute, setIsResolvingDispute] = useState(false);
+  const [resolutionOutcome, setResolutionOutcome] = useState<FinancialDisputeStatus>('RESOLVED_CUSTOMER');
+  const [resolutionExplanation, setResolutionExplanation] = useState('');
+  const [isResolvingSubmitting, setIsResolvingSubmitting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -100,6 +106,49 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
       await loadData();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Unexpected failure.');
+    }
+  };
+
+  const handleOpenResolveDisputeModal = (dispute: FinancialDispute) => {
+    if (!isSuperAdmin) {
+      Alert.alert('Permission Denied', 'SUPER_ADMIN authorization required to resolve financial disputes.');
+      return;
+    }
+    setSelectedDispute(dispute);
+    setResolutionOutcome('RESOLVED_CUSTOMER');
+    setResolutionExplanation('');
+    setIsResolvingDispute(true);
+  };
+
+  const handleConfirmDisputeResolution = async () => {
+    if (!selectedDispute) return;
+    if (resolutionExplanation.trim().length < 10) {
+      Alert.alert('Explanation Required', 'Please provide a clear resolution explanation of at least 10 characters.');
+      return;
+    }
+
+    setIsResolvingSubmitting(true);
+    try {
+      const res = await DisputesRepository.resolveDispute({
+        disputeId: selectedDispute.id,
+        status: resolutionOutcome,
+        resolution: resolutionExplanation.trim(),
+      });
+
+      if (!res.success) {
+        Alert.alert('Resolution Error', res.error || 'Failed to resolve dispute.');
+        return;
+      }
+
+      Alert.alert('Dispute Resolved', `Dispute ${selectedDispute.id} was successfully resolved as ${resolutionOutcome}.`);
+      setIsResolvingDispute(false);
+      setSelectedDispute(null);
+      setResolutionExplanation('');
+      await loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Unexpected failure resolving dispute.');
+    } finally {
+      setIsResolvingSubmitting(false);
     }
   };
 
@@ -169,7 +218,7 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
       <View style={styles.kpiRow}>
         <View style={[styles.kpiCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Action Required</Text>
-          <Text style={[styles.kpiValue, { color: requestedCount > 0 ? '#EA580C' : colors.textPrimary }]}>
+          <Text style={[styles.kpiValue, { color: requestedCount > 0 ? colors.warning : colors.textPrimary }]}>
             {requestedCount}
           </Text>
           <Text style={[styles.kpiSub, { color: colors.textMuted }]}>Pending authorization</Text>
@@ -385,6 +434,30 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                       Opened: {new Date(disp.openedAt).toLocaleString()}
                     </Text>
                   </View>
+
+                  <View style={[styles.cardFooter, { borderTopColor: colors.divider, marginTop: 8 }]}>
+                    <Text style={[styles.idText, { color: colors.textMuted }]}>
+                      Dispute ID: {disp.id}
+                    </Text>
+                    {['OPEN', 'UNDER_REVIEW', 'EVIDENCE_REQUIRED'].includes(disp.status) && (
+                      isSuperAdmin ? (
+                        <TouchableOpacity
+                          style={[styles.actionBtn, { backgroundColor: colors.primary }]}
+                          onPress={() => handleOpenResolveDisputeModal(disp)}
+                        >
+                          <Ionicons name="checkbox-outline" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
+                          <Text style={styles.actionBtnText}>Resolve Dispute</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="lock-closed" size={12} color={colors.textMuted} />
+                          <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>
+                            Super Admin authorization required to resolve disputes.
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
                 </View>
               </View>
             ))}
@@ -460,6 +533,92 @@ export const RefundsDisputesCenter: React.FC<RefundsDisputesCenterProps> = ({
                 onPress={handleConfirmApproval}
               >
                 <Text style={styles.confirmBtnText}>Confirm Authorization</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Dispute Resolution Modal */}
+      <Modal visible={isResolvingDispute} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Resolve Financial Dispute</Text>
+            <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
+              {selectedDispute ? `Dispute ID: ${selectedDispute.id} (${formatTzs(selectedDispute.disputedAmountTzs)})` : ''}
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Resolution Outcome</Text>
+              <View style={[styles.respRow, { flexWrap: 'wrap' }]}>
+                {(
+                  [
+                    'RESOLVED_CUSTOMER',
+                    'RESOLVED_RESTAURANT',
+                    'RESOLVED_PLATFORM',
+                    'PARTIAL_RESOLUTION',
+                    'REJECTED',
+                  ] as FinancialDisputeStatus[]
+                ).map((outcome) => (
+                  <TouchableOpacity
+                    key={outcome}
+                    style={[
+                      styles.respPill,
+                      { backgroundColor: colors.badgeBg, borderColor: colors.border, marginBottom: 6 },
+                      resolutionOutcome === outcome && { backgroundColor: colors.primary, borderColor: colors.primary },
+                    ]}
+                    onPress={() => setResolutionOutcome(outcome)}
+                  >
+                    <Text
+                      style={[
+                        styles.respPillText,
+                        { color: colors.textSecondary },
+                        resolutionOutcome === outcome && { color: colors.onPrimary, fontWeight: '700' },
+                      ]}
+                    >
+                      {outcome}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
+                Resolution Explanation (min. 10 characters)
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  { backgroundColor: colors.inputBg, color: colors.textPrimary, borderColor: colors.border, minHeight: 70 },
+                ]}
+                placeholder="Enter mandatory justification for audit records..."
+                placeholderTextColor={colors.inputPlaceholder}
+                value={resolutionExplanation}
+                onChangeText={setResolutionExplanation}
+                multiline
+              />
+            </View>
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { borderColor: colors.border }]}
+                onPress={() => setIsResolvingDispute(false)}
+                disabled={isResolvingSubmitting}
+              >
+                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
+                onPress={handleConfirmDisputeResolution}
+                disabled={isResolvingSubmitting}
+              >
+                {isResolvingSubmitting ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Confirm Resolution</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>

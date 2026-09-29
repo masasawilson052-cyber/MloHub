@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { AuditLog } from '../types/domain';
+import { AdminPage, AdminPageQuery } from '../types/admin';
 
 export class AuditLogRepository {
   private static mapRowToAuditLog(row: any): AuditLog {
@@ -69,4 +70,52 @@ export class AuditLogRepository {
   public static async listAll(limit: number = 100): Promise<AuditLog[]> {
     return this.listRecent(limit);
   }
+
+  public static async listAdminPage(query: AdminPageQuery = {}): Promise<AdminPage<AuditLog>> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const pageSize = Math.min(100, Math.max(10, query.pageSize || 50));
+    const page = Math.max(1, query.page || 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let qb = supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact' });
+
+    if (query.status && query.status !== 'ALL') {
+      qb = qb.eq('action', query.status);
+    }
+    if (query.from) {
+      qb = qb.gte('created_at', query.from);
+    }
+    if (query.to) {
+      qb = qb.lte('created_at', query.to);
+    }
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      qb = qb.or(`id.ilike.%${term}%,action.ilike.%${term}%,target_type.ilike.%${term}%,target_id.ilike.%${term}%,admin_name.ilike.%${term}%`);
+    }
+
+    const { data, error, count } = await qb
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[AuditLogRepository.listAdminPage] Error:', error.message);
+      throw new Error(`Unable to load audit logs: ${error.message}`);
+    }
+
+    return {
+      items: (data || []).map(this.mapRowToAuditLog),
+      page,
+      pageSize,
+      total: count || 0,
+      hasNext: from + (data?.length || 0) < (count || 0),
+    };
+  }
 }
+
+export const AuditLogsRepository = AuditLogRepository;

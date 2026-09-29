@@ -25,30 +25,82 @@ interface ReconcileResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-/** Payments older than this (seconds) are eligible for reconciliation. */
+/** Payments older than this (seconds) are eligible for automated batch reconciliation. */
 const STALE_THRESHOLD_SECONDS = 30;
 
 /** Payments older than this (minutes) with no gateway reference are auto-failed. */
 const ORPHAN_TIMEOUT_MINUTES = 15;
 
-/** Maximum payments processed in a single reconciliation run. */
+/** Maximum payments processed in a single batch reconciliation run. */
 const BATCH_LIMIT = 50;
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
-function isAuthorized(req: Request, serviceRoleKey: string): boolean {
-  // Allow service-role callers (internal cron / Supabase pg_cron)
+async function authorizeRequest(
+  req: Request,
+  supabaseUrl: string,
+  anonKey: string,
+  serviceRoleKey: string
+): Promise<{
+  mode: 'WORKER' | 'ADMIN';
+  actorId?: string;
+} | null> {
   const auth = req.headers.get('Authorization') || '';
-  if (auth === `Bearer ${serviceRoleKey}`) return true;
 
-  // Allow explicit reconciliation worker header
+  // 1. Service-role Bearer (cron / worker)
+  if (auth === `Bearer ${serviceRoleKey}`) {
+    return { mode: 'WORKER' };
+  }
+
+  // 2. Explicit worker secret header
   const workerSecret = Deno.env.get('RECONCILE_WORKER_SECRET');
   if (workerSecret) {
     const xWorker = req.headers.get('x-worker-secret') || req.headers.get('x-reconciliation-secret');
-    if (xWorker === workerSecret) return true;
+    if (xWorker === workerSecret) {
+      return { mode: 'WORKER' };
+    }
   }
 
-  return false;
+  // 3. User JWT: check for Admin + AAL2
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7);
+    if (!token) return null;
+
+    try {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: auth } },
+      });
+
+      const {
+        data: { user },
+        error: userErr,
+      } = await userClient.auth.getUser(token);
+      if (userErr || !user) return null;
+
+      // Check AAL2
+      const { error: aal2Err } = await userClient.rpc('require_admin_aal2');
+      if (aal2Err) {
+        console.warn('[reconcile-payments] require_admin_aal2 check failed:', aal2Err.message);
+        return null;
+      }
+
+      // Check admin
+      const { data: isAdmin, error: adminErr } = await userClient.rpc('is_admin', {
+        p_user_id: user.id,
+      });
+      if (adminErr || !isAdmin) {
+        console.warn('[reconcile-payments] is_admin check failed:', adminErr?.message);
+        return null;
+      }
+
+      return { mode: 'ADMIN', actorId: user.id };
+    } catch (e: any) {
+      console.warn('[reconcile-payments] Admin auth verification exception:', e.message);
+      return null;
+    }
+  }
+
+  return null;
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
@@ -66,6 +118,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('EXPO_PUBLIC_SUPABASE_ANON_KEY') || '';
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {
@@ -75,21 +128,93 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  // Authorization: service-role Bearer OR x-worker-secret header
-  if (!isAuthorized(req, serviceRoleKey)) {
+  // Dual Authorization: Service-role / Worker secret OR Authenticated Admin + AAL2
+  const authResult = await authorizeRequest(req, supabaseUrl, anonKey, serviceRoleKey);
+  if (!authResult) {
     return new Response(
-      JSON.stringify({ success: false, error: 'UNAUTHORIZED' }),
+      JSON.stringify({ success: false, error: 'UNAUTHORIZED', message: 'Valid worker secret or Admin AAL2 session required.' }),
       { status: 401, headers: jsonHeaders }
     );
   }
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
   const now = new Date();
-  const staleThreshold = new Date(now.getTime() - STALE_THRESHOLD_SECONDS * 1000).toISOString();
   const orphanThreshold = new Date(now.getTime() - ORPHAN_TIMEOUT_MINUTES * 60 * 1000).toISOString();
 
+  let body: { paymentId?: string } = {};
   try {
-    // Fetch stale PENDING / PROCESSING payments (canonical DB enum status is PENDING)
+    body = await req.json();
+  } catch {
+    // optional body
+  }
+
+  try {
+    // --------------------------------------------------------------------------
+    // SINGLE PAYMENT RECONCILIATION (Explicit Admin Request)
+    // --------------------------------------------------------------------------
+    if (body.paymentId) {
+      const { data: payment, error: fetchErr } = await adminClient
+        .from('payments')
+        .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')
+        .eq('id', body.paymentId)
+        .maybeSingle();
+
+      if (fetchErr || !payment) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'PAYMENT_NOT_FOUND', message: 'Payment record not found.' }),
+          { status: 404, headers: jsonHeaders }
+        );
+      }
+
+      if (payment.status !== 'PENDING') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'PAYMENT_NOT_PENDING',
+            message: `Only PENDING payments can be reconciled (current status: ${payment.status}).`,
+          }),
+          { status: 400, headers: jsonHeaders }
+        );
+      }
+
+      const result = await reconcilePayment(adminClient, payment as StalePayment, orphanThreshold);
+
+      // Audit log for manual Admin reconciliation
+      if (authResult.mode === 'ADMIN' && authResult.actorId) {
+        try {
+          await adminClient.from('audit_logs').insert({
+            admin_user_id: authResult.actorId,
+            action: 'ADMIN_RECONCILE_PAYMENT',
+            target_type: 'PAYMENT',
+            target_id: payment.id,
+            details: {
+              outcome: result.outcome,
+              reason: result.reason || null,
+            },
+            created_at: new Date().toISOString(),
+          });
+        } catch (auditErr: any) {
+          console.warn('[reconcile-payments] Audit log insert error:', auditErr.message);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          processed: 1,
+          results: [result],
+          outcome: result.outcome,
+          reason: result.reason,
+        }),
+        { status: 200, headers: jsonHeaders }
+      );
+    }
+
+    // --------------------------------------------------------------------------
+    // BATCH RECONCILIATION (Cron / Worker Flow)
+    // --------------------------------------------------------------------------
+    const staleThreshold = new Date(now.getTime() - STALE_THRESHOLD_SECONDS * 1000).toISOString();
+
     const { data: stalePayments, error: fetchErr } = await adminClient
       .from('payments')
       .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')
@@ -244,7 +369,6 @@ async function reconcilePayment(
       }
 
       return { paymentId: payment.id, outcome: 'CONFIRMED' };
-
     } else if (
       gatewayStatus === 'FAILED' ||
       gatewayStatus === 'CANCELLED' ||
@@ -264,7 +388,6 @@ async function reconcilePayment(
         outcome: gatewayStatus === 'CANCELLED' ? 'CANCELLED' : 'FAILED',
         reason: `GATEWAY_${gatewayStatus}`,
       };
-
     } else {
       // Still PENDING at gateway — leave it alone
       return { paymentId: payment.id, outcome: 'SKIPPED', reason: `GATEWAY_STILL_${gatewayStatus}` };

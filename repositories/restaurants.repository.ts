@@ -419,26 +419,17 @@ export class RestaurantRepository {
   }
 
   /**
-   * Verify restaurant via server-side security definer RPC
+   * @deprecated Legacy manual restaurant verification is disabled. Review required verification documents and use the Gate A / Gate B workflow.
    */
   public static async verifyRestaurant(
-    restaurantId: string,
-    tinNumber: string,
-    businessLicenseNumber: string,
-    reason?: string
+    _restaurantId?: string,
+    _tinNumber?: string,
+    _businessLicenseNumber?: string,
+    _reason?: string
   ): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      throw new Error('Supabase client is not configured.');
-    }
-
-    const { error } = await supabase.rpc('verify_restaurant_secure', {
-      p_restaurant_id: restaurantId,
-      p_tin_number: tinNumber,
-      p_business_license_number: businessLicenseNumber,
-      p_reason: reason || 'Documents verified',
-    });
-
-    if (error) throw new Error(`Secure restaurant action failed: ${error.message}`);
+    throw new Error(
+      'Legacy manual restaurant verification is disabled. Review required verification documents and use the Gate A / Gate B workflow.'
+    );
   }
 
   /**

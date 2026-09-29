@@ -277,6 +277,7 @@ export type PaymentGatewayProvider =
   | 'PESAPAL'
   | 'CASH'
   | 'SANDBOX'
+  | 'UNKNOWN'
   | 'clickpesa'
   | 'selcom'
   | 'sandbox';

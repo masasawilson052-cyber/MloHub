@@ -751,6 +751,8 @@ export interface Payment {
   webhookVerified: boolean;
   paidAt?: string;
   refundedAt?: string;
+  merchantReference?: string;
+  failureReason?: string;
   metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;

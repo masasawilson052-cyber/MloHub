@@ -5,6 +5,7 @@ import {
   FinancialDisputeStatus,
   FinancialDisputeEvidence,
 } from '../types/domain';
+import { AdminPage, AdminPageQuery } from '../types/admin';
 
 export class DisputesRepository {
   private static mapRowToDispute(row: any): FinancialDispute {
@@ -185,6 +186,55 @@ export class DisputesRepository {
     }
 
     return (data || []).map(this.mapRowToDispute);
+  }
+
+  public static async listAdminPage(query: AdminPageQuery = {}): Promise<AdminPage<FinancialDispute>> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const pageSize = Math.min(100, Math.max(10, query.pageSize || 50));
+    const page = Math.max(1, query.page || 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let qb = supabase
+      .from('financial_disputes')
+      .select('*', { count: 'exact' });
+
+    if (query.status && query.status !== 'ALL') {
+      qb = qb.eq('status', query.status);
+    }
+    if (query.restaurantId && query.restaurantId !== 'ALL') {
+      qb = qb.eq('restaurant_id', query.restaurantId);
+    }
+    if (query.from) {
+      qb = qb.gte('opened_at', query.from);
+    }
+    if (query.to) {
+      qb = qb.lte('opened_at', query.to);
+    }
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      qb = qb.or(`id.ilike.%${term}%,description.ilike.%${term}%,reason_code.ilike.%${term}%`);
+    }
+
+    const { data, error, count } = await qb
+      .order('opened_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[DisputesRepository.listAdminPage] Error:', error.message);
+      throw new Error(`Unable to load disputes: ${error.message}`);
+    }
+
+    return {
+      items: (data || []).map(this.mapRowToDispute),
+      page,
+      pageSize,
+      total: count || 0,
+      hasNext: from + (data?.length || 0) < (count || 0),
+    };
   }
 }
 

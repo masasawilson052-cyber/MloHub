@@ -42,7 +42,9 @@ import {
   SettlementsRepository,
   AdminGovernanceRepository,
   AdminAttentionSummary,
+  AdminFinanceRepository,
 } from '../../repositories';
+import { AdminFinanceSummary } from '../../types/admin';
 import {
   RestaurantApplication,
   Restaurant,
@@ -109,12 +111,9 @@ export default function AdminPortalScreen() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntity[]>([]);
   const [allUsers, setAllUsers] = useState<UserEntity[]>([]);
   const [notifications, setNotifications] = useState<NotificationEntity[]>([]);
-  const [rawPayments, setRawPayments] = useState<Payment[]>([]);
-  const [paymentsList, setPaymentsList] = useState<PaymentTransactionEntity[]>([]);
+  const [financeSummary, setFinanceSummary] = useState<AdminFinanceSummary | null>(null);
   const [standardOrders, setStandardOrders] = useState<Order[]>([]);
   const [restaurants, setRestaurants] = useState<RestaurantEntity[]>([]);
-  const [refunds, setRefunds] = useState<RefundRequest[]>([]);
-  const [settlements, setSettlements] = useState<MerchantSettlement[]>([]);
   const [systemHealth, setSystemHealth] = useState<PlatformHealthStatus | null>(null);
   const [attentionSummary, setAttentionSummary] = useState<AdminAttentionSummary | null>(null);
 
@@ -133,27 +132,24 @@ export default function AdminPortalScreen() {
     setIsRefreshing(true);
     setLoadError(null);
     try {
-      const [apps, dataReps, logs, profileUsers, notifs, payments, orders, rests, refundList, settleList, healthReport, attSummary] = await Promise.all([
+      const [apps, dataReps, logs, profileUsers, notifs, orders, rests, healthReport, attSummary, finSummary] = await Promise.all([
         ApplicationRepository.listAll().then((apps) => { setApplications(apps); return apps; }),
         DataReportsRepository.listAll(),
         AuditLogRepository.listAll(),
         ProfileAdminRepository.listAll(),
         NotificationRepository.listAll(),
-        PaymentRepository.listAll(),
         OrderRepository.listAll(),
         RestaurantRepository.list({ includeArchived: true }),
-        RefundsRepository.listAll().catch(() => [] as RefundRequest[]),
-        SettlementsRepository.listAll().catch(() => [] as MerchantSettlement[]),
         AdminSystemHealthService.getHealth().catch(() => null),
         AdminGovernanceRepository.getAttentionSummary().catch(() => null),
+        AdminFinanceRepository.getSummary().catch(() => null),
       ]);
 
       setApplications(apps);
       setReports(dataReps);
-      setRefunds(refundList || []);
-      setSettlements(settleList || []);
       setSystemHealth(healthReport);
       if (attSummary) setAttentionSummary(attSummary);
+      if (finSummary) setFinanceSummary(finSummary);
 
       // Map audit logs to presentation entity
       setAuditLogs(
@@ -188,69 +184,6 @@ export default function AdminPortalScreen() {
           isRead: n.isRead,
           createdAt: n.createdAt,
         }))
-      );
-
-      setRawPayments(payments);
-
-      // Build a restaurant name lookup from the already-loaded restaurant list
-      const restaurantNameMap: Record<string, string> = {};
-      (rests || []).forEach((r: any) => {
-        if (r.id) restaurantNameMap[r.id] = r.name || r.businessName || '';
-      });
-
-      // Map payments to presentation entity cleanly without unsafe casts
-      setPaymentsList(
-        payments.map((p) => {
-          let mappedStatus: PaymentTransactionEntity['status'] = 'PENDING';
-          if (p.status === 'SUCCESS' || (p.status as string) === 'CAPTURED' || (p.status as string) === 'PAID') {
-            mappedStatus = 'PAID';
-          } else if (p.status === 'FAILED') {
-            mappedStatus = 'FAILED';
-          } else if (p.status === 'CANCELLED') {
-            mappedStatus = 'CANCELLED';
-          } else if (p.status === 'REFUNDED') {
-            mappedStatus = 'REFUNDED';
-          } else if (p.status === 'PROCESSING') {
-            mappedStatus = 'PROCESSING';
-          }
-
-          let methodCode: PaymentMethodCode = 'MPESA';
-          const lowerMethod = (p.paymentMethod || '').toLowerCase();
-          if (lowerMethod.includes('airtel')) methodCode = 'AIRTEL_MONEY';
-          else if (lowerMethod.includes('yas') || lowerMethod.includes('tigo')) methodCode = 'MIXX_BY_YAS';
-          else if (lowerMethod.includes('halo')) methodCode = 'HALOPESA';
-          else if (lowerMethod.includes('card')) methodCode = 'CARD';
-          else if (lowerMethod.includes('cash')) methodCode = 'CASH_ON_DELIVERY';
-
-          let provider: PaymentGatewayProvider = 'CLICKPESA';
-          const lowerProv = (p.provider || '').toLowerCase();
-          if (lowerProv.includes('selcom')) provider = 'SELCOM';
-          else if (lowerProv.includes('pesapal')) provider = 'PESAPAL';
-
-          const paymentType: PaymentType = p.reservationId ? 'RESERVATION_FULL_100' : 'ORDER_FULL';
-
-          return {
-            id: p.id,
-            userId: p.customerId,
-            orderId: p.orderId,
-            reservationId: p.reservationId,
-            restaurantId: p.restaurantId,
-            // Resolve restaurant name from the loaded restaurant index
-            restaurantName: (p.restaurantId && restaurantNameMap[p.restaurantId]) || p.restaurantId || '',
-            provider,
-            providerReference: p.externalReference || p.id,
-            amountTzs: p.amountTzs,
-            currency: 'TZS',
-            paymentMethod: p.paymentMethod || 'Mobile Money',
-            methodCode,
-            status: mappedStatus,
-            paymentType,
-            payerPhone: p.phoneNumber,
-            paidAt: p.paidAt,
-            refundedAt: p.refundedAt,
-            createdAt: p.createdAt,
-          };
-        })
       );
 
       setStandardOrders(orders);
@@ -481,24 +414,6 @@ export default function AdminPortalScreen() {
     await loadPlatformData();
   };
 
-  // 6. Upgrade to Verified via verify_restaurant_secure RPC
-  const handleUpgradeToVerified = async (
-    restaurantId: string,
-    docs: { tinNumber: string; businessLicenseNumber: string }
-  ) => {
-    if (!activeUser?.id) {
-      throw new Error('Authenticated administrator is required.');
-    }
-    await RestaurantRepository.verifyRestaurant(
-      restaurantId,
-      docs.tinNumber,
-      docs.businessLicenseNumber,
-      'Administrative document verification'
-    );
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'VERIFIED' });
-    await loadPlatformData();
-  };
-
   // 7. Resolve Customer Report via resolve_data_report_secure RPC
   const handleResolveReport = async (
     reportId: string,
@@ -612,9 +527,9 @@ export default function AdminPortalScreen() {
   const suspendedCount = restaurants.filter(
     (r) => r.isSuspended || r.verificationStatus === 'SUSPENDED'
   ).length;
-  const pendingRefundsCount = attentionSummary ? attentionSummary.pendingRefundsCount : refunds.filter((r) => r.status === 'REQUESTED').length;
-  const pendingSettlementsCount = settlements.filter((s) => s.status === 'CALCULATED').length;
-  const stalePaymentsCount = attentionSummary ? attentionSummary.stalePayments : 0;
+  const pendingRefundsCount = attentionSummary ? attentionSummary.pendingRefundsCount : (financeSummary ? financeSummary.pendingRefunds : 0);
+  const pendingSettlementsCount = financeSummary ? financeSummary.calculatedSettlements : 0;
+  const stalePaymentsCount = attentionSummary ? attentionSummary.stalePayments : (financeSummary ? financeSummary.pendingPayments : 0);
   const failedOutboxCount = attentionSummary ? attentionSummary.failedOutbox : 0;
   const unsettledLedgerCount = attentionSummary ? attentionSummary.unsettledLedgerCount : 0;
 
@@ -666,7 +581,7 @@ export default function AdminPortalScreen() {
       id: 'att-apps',
       severity: 'HIGH',
       title: `${pendingAppsCount} Vendor Application(s) Pending`,
-      description: 'Review submitted TIN credentials, phone numbers, and approve for launch.',
+      description: 'Review required business verification documents and merchant eligibility.',
       targetTab: 'APPLICATIONS',
       count: pendingAppsCount,
     });
@@ -717,13 +632,9 @@ export default function AdminPortalScreen() {
     });
   }
 
-  // Financial KPIs calculated STRICTLY from real public.payments (SUCCESS only)
-  const successfulPayments = rawPayments.filter((p) => p.status === 'SUCCESS');
-  const grossVolumeTzs = successfulPayments.reduce((acc, p) => acc + (p.amountTzs || 0), 0);
-  const platformRevenueTzs = successfulPayments.reduce(
-    (acc, p) => acc + (p.platformCommissionTzs || 0),
-    0
-  );
+  // Financial KPIs calculated STRICTLY from platform-wide financial summary
+  const grossVolumeTzs = financeSummary ? financeSummary.capturedVolumeTzs : 0;
+  const platformRevenueTzs = financeSummary ? financeSummary.platformCommissionTzs : 0;
 
   // Order Metrics calculated STRICTLY from real public.orders
   const totalOrders = standardOrders.length;
@@ -865,7 +776,6 @@ export default function AdminPortalScreen() {
               restaurants={restaurants}
               onSuspend={handleSuspendRestaurant}
               onReactivate={handleReactivateRestaurant}
-              onUpgradeToVerified={handleUpgradeToVerified}
               onDelete={handleDeleteRestaurant}
               onArchive={handleArchiveRestaurant}
               onUnarchive={handleUnarchiveRestaurant}
@@ -900,7 +810,6 @@ export default function AdminPortalScreen() {
 
           {activeTab === 'PAYMENTS' && (
             <PaymentsMonitor
-              payments={paymentsList}
               language={language}
             />
           )}

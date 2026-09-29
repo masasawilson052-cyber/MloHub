@@ -28,10 +28,6 @@ interface RestaurantDetailAdminProps {
   onClose: () => void;
   onSuspend: (restaurantId: string, reason: string) => Promise<void>;
   onReactivate: (restaurantId: string) => Promise<void>;
-  onUpgradeToVerified?: (
-    restaurantId: string,
-    docs: { tinNumber: string; businessLicenseNumber: string }
-  ) => Promise<void>;
   onDelete?: (restaurantId: string) => Promise<void>;
   onArchive?: (restaurantId: string, reason: string) => Promise<void>;
   onUnarchive?: (restaurantId: string) => Promise<void>;
@@ -46,7 +42,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   onClose,
   onSuspend,
   onReactivate,
-  onUpgradeToVerified,
   onDelete,
   onArchive,
   onUnarchive,
@@ -58,9 +53,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [suspendMode, setSuspendMode] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');
-  const [upgradeMode, setUpgradeMode] = useState(false);
-  const [tinNumber, setTinNumber] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
   const [archiveMode, setArchiveMode] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [correctionsMode, setCorrectionsMode] = useState(false);
@@ -95,7 +87,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const handleModalClose = () => {
     if (isProcessing) return;
     setSuspendMode(false);
-    setUpgradeMode(false);
     setArchiveMode(false);
     setCorrectionsMode(false);
     setCorrectionsReason('');
@@ -162,30 +153,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
       onClose();
     } catch (err: any) {
       Alert.alert('Reactivation Error', err.message || 'Failed to reactivate restaurant.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleConfirmUpgrade = async () => {
-    if (!tinNumber.trim() || !licenseNumber.trim()) {
-      Alert.alert('Documents Required', 'Please provide both TIN number and Business License number.');
-      return;
-    }
-    if (!onUpgradeToVerified) return;
-
-    setIsProcessing(true);
-    try {
-      await onUpgradeToVerified(restaurant.id, {
-        tinNumber: tinNumber.trim(),
-        businessLicenseNumber: licenseNumber.trim(),
-      });
-      setUpgradeMode(false);
-      setTinNumber('');
-      setLicenseNumber('');
-      onClose();
-    } catch (err: any) {
-      Alert.alert('Upgrade Error', err.message || 'Failed to upgrade to verified tier.');
     } finally {
       setIsProcessing(false);
     }
@@ -548,44 +515,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
               </View>
             )}
 
-            {/* Upgrade Input Form */}
-            {upgradeMode && (
-              <View style={styles.inputPromptBox}>
-                <Text style={styles.promptTitle}>Enter Official Tax & Business Credentials:</Text>
-                <TextInput
-                  style={styles.singleTextInput}
-                  placeholder="TIN Number (e.g. 134-889-201)"
-                  value={tinNumber}
-                  onChangeText={setTinNumber}
-                />
-                <TextInput
-                  style={styles.singleTextInput}
-                  placeholder="Business License (e.g. BL-TZ-2026-8819)"
-                  value={licenseNumber}
-                  onChangeText={setLicenseNumber}
-                />
-                <View style={styles.promptBtnRow}>
-                  <TouchableOpacity
-                    style={styles.promptCancelBtn}
-                    onPress={() => setUpgradeMode(false)}
-                    disabled={isProcessing}
-                  >
-                    <Text style={styles.promptCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.promptUpgradeConfirmBtn}
-                    onPress={handleConfirmUpgrade}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <ActivityIndicator size="small" color={colors.onPrimary} />
-                    ) : (
-                      <Text style={styles.promptConfirmText}>Verify & Upgrade</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
 
             {/* Archive Confirmation Form */}
             {archiveMode && (
@@ -641,7 +570,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
           </ScrollView>
 
           {/* Action Footer */}
-          {!suspendMode && !upgradeMode && !archiveMode && (
+          {!suspendMode && !archiveMode && (
             <View style={styles.modalFooter}>
               {isArchived && onUnarchive && (
                 <TouchableOpacity
@@ -657,17 +586,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                       <Text style={styles.reactivateBtnText}>Restore / Unarchive</Text>
                     </>
                   )}
-                </TouchableOpacity>
-              )}
-
-              {!isArchived && !isVerified && onUpgradeToVerified && !isSuspended && (
-                <TouchableOpacity
-                  style={styles.upgradeBtn}
-                  onPress={() => setUpgradeMode(true)}
-                  disabled={isProcessing}
-                >
-                  <Ionicons name="shield-checkmark" size={16} color="#0284c7" />
-                  <Text style={styles.upgradeBtnText}>Upgrade to Verified</Text>
                 </TouchableOpacity>
               )}
 
@@ -703,7 +621,6 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   onPress={() => {
                     setArchiveMode(true);
                     setSuspendMode(false);
-                    setUpgradeMode(false);
                     setActionError(null);
                   }}
                   disabled={isProcessing}
@@ -895,12 +812,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: Radii.md,
   },
-  promptUpgradeConfirmBtn: {
-    backgroundColor: '#0284c7',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
-    borderRadius: Radii.md,
-  },
   promptConfirmText: {
     fontSize: 13,
     fontWeight: '700',
@@ -915,22 +826,6 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     gap: Spacing.sm,
-  },
-  upgradeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    borderRadius: Radii.md,
-    backgroundColor: colors.infoSoft,
-    borderWidth: 1,
-    borderColor: colors.info,
-  },
-  upgradeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.info,
   },
   suspendBtn: {
     flexDirection: 'row',

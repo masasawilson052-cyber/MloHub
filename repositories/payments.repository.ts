@@ -1,5 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Payment, PaymentStatus } from '../types/domain';
+import { PaymentGatewayProvider } from '../db/types';
+import { AdminPage, AdminPageQuery } from '../types/admin';
 
 export class PaymentRepository {
   public static async createForOrder(params: {
@@ -37,7 +39,7 @@ export class PaymentRepository {
       reservationId: row.reservation_id,
       customerId: row.user_id,
       restaurantId: row.restaurant_id,
-      provider: row.provider || 'CLICKPESA',
+      provider: (row.provider || 'UNKNOWN') as PaymentGatewayProvider,
       externalReference: row.provider_reference,
       providerTransactionId: row.provider_transaction_id,
       amountTzs: row.amount_tzs || 0,
@@ -51,6 +53,8 @@ export class PaymentRepository {
       webhookVerified: row.webhook_verified ?? false,
       paidAt: row.paid_at,
       refundedAt: row.refunded_at,
+      merchantReference: row.merchant_reference || row.metadata?.merchantReference,
+      failureReason: row.failure_reason || row.metadata?.failureReason,
       metadata: row.metadata || {},
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
@@ -74,7 +78,7 @@ export class PaymentRepository {
       payment_method: payment.paymentMethod || 'M_PESA',
       phone_number: payment.phoneNumber || '',
       status: payment.status || 'PENDING',
-      provider: payment.provider || 'CLICKPESA',
+      provider: payment.provider || 'UNKNOWN',
       provider_reference: payment.externalReference,
       idempotency_key: payment.idempotencyKey || `idem_${Date.now()}_${Math.random().toString(36).substring(7)}`,
       metadata: payment.metadata || {},
@@ -224,4 +228,63 @@ export class PaymentRepository {
 
     return this.mapRowToPayment(data);
   }
+
+  public static async listAdminPage(query: AdminPageQuery = {}): Promise<AdminPage<Payment>> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase client is not configured.');
+    }
+
+    const pageSize = Math.min(100, Math.max(10, query.pageSize || 50));
+    const page = Math.max(1, query.page || 1);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let qb = supabase
+      .from('payments')
+      .select('*', { count: 'exact' });
+
+    if (query.status && query.status !== 'ALL') {
+      if (query.status === 'CAPTURED') {
+        qb = qb.in('status', ['SUCCESS', 'CAPTURED', 'PAID']);
+      } else if (query.status === 'FAILED') {
+        qb = qb.in('status', ['FAILED', 'CANCELLED']);
+      } else {
+        qb = qb.eq('status', query.status);
+      }
+    }
+    if (query.restaurantId && query.restaurantId !== 'ALL') {
+      qb = qb.eq('restaurant_id', query.restaurantId);
+    }
+    if (query.provider && query.provider !== 'ALL') {
+      qb = qb.eq('provider', query.provider);
+    }
+    if (query.from) {
+      qb = qb.gte('created_at', query.from);
+    }
+    if (query.to) {
+      qb = qb.lte('created_at', query.to);
+    }
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      qb = qb.or(`id.ilike.%${term}%,provider_reference.ilike.%${term}%,phone_number.ilike.%${term}%`);
+    }
+
+    const { data, error, count } = await qb
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('[PaymentRepository.listAdminPage] Error:', error.message);
+      throw new Error(`Unable to load payments: ${error.message}`);
+    }
+
+    return {
+      items: (data || []).map(this.mapRowToPayment),
+      page,
+      pageSize,
+      total: count || 0,
+      hasNext: from + (data?.length || 0) < (count || 0),
+    };
+  }
 }
+

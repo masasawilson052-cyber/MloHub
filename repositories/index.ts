@@ -37,3 +37,4 @@ export * from './branchOperations.repository';
 export * from './platformSettings.repository';
 export * from './platformAnnouncements.repository';
 export * from './adminGovernance.repository';
+export * from './adminFinance.repository';
