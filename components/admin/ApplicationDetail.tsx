@@ -18,6 +18,7 @@ import { RestaurantVerificationDocument } from '../../types/domain';
 import {
   listDocumentsForApplication,
   createTemporaryDocumentAccessUrl,
+  reviewVerificationDocument,
 } from '../../services/MerchantVerificationService';
 
 import { useTheme } from '../../context/ThemeContext';
@@ -52,6 +53,61 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
   const [changeNote, setChangeNote] = useState('');
   const [documents, setDocuments] = useState<RestaurantVerificationDocument[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [reviewingDocumentId, setReviewingDocumentId] = useState<string | null>(null);
+  const [rejectingDocId, setRejectingDocId] = useState<string | null>(null);
+  const [docRejectionReason, setDocRejectionReason] = useState('');
+
+  const REQUIRED_DOCS = [
+    'BUSINESS_LICENSE',
+    'TIN_DOCUMENT',
+    'FOOD_OPERATION_DOCUMENT',
+  ];
+
+  const requiredDocumentsVerified = REQUIRED_DOCS.every((type) =>
+    documents.some(
+      (doc) => doc.documentType === type && doc.verificationStatus === 'VERIFIED'
+    )
+  );
+
+  const handleVerifyDocument = async (documentId: string) => {
+    if (!application?.id) return;
+    try {
+      setReviewingDocumentId(documentId);
+      await reviewVerificationDocument(documentId, 'VERIFIED');
+      const refreshed = await listDocumentsForApplication(application.id);
+      setDocuments(refreshed);
+    } catch (err: any) {
+      Alert.alert(
+        'Document Verification Failed',
+        err?.message || 'Unable to verify document.'
+      );
+    } finally {
+      setReviewingDocumentId(null);
+    }
+  };
+
+  const handleRejectDocument = async (documentId: string) => {
+    if (!application?.id) return;
+    if (!docRejectionReason.trim()) {
+      Alert.alert('Reason Required', 'Please provide a reason for rejecting this document.');
+      return;
+    }
+    try {
+      setReviewingDocumentId(documentId);
+      await reviewVerificationDocument(documentId, 'REJECTED', docRejectionReason.trim());
+      const refreshed = await listDocumentsForApplication(application.id);
+      setDocuments(refreshed);
+      setRejectingDocId(null);
+      setDocRejectionReason('');
+    } catch (err: any) {
+      Alert.alert(
+        'Document Rejection Failed',
+        err?.message || 'Unable to reject document.'
+      );
+    } finally {
+      setReviewingDocumentId(null);
+    }
+  };
 
   useEffect(() => {
     if (visible && application?.id) {
@@ -234,46 +290,223 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
                   No uploaded verification files attached to this application.
                 </Text>
               ) : (
-                <View style={{ gap: 8, marginTop: 6 }}>
-                  {documents.map((doc) => (
-                    <View
-                      key={doc.id}
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: 8,
-                        backgroundColor: colors.appBackground,
-                        borderRadius: Radii.md,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
-                          {doc.documentType}
-                        </Text>
-                        <Text style={{ fontSize: 10.5, color: colors.textSecondary }}>
-                          Status: {doc.verificationStatus} • {new Date(doc.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
+                <View style={{ gap: 10, marginTop: 6 }}>
+                  {documents.map((doc) => {
+                    const isDocVerified = doc.verificationStatus === 'VERIFIED';
+                    const isDocRejected = doc.verificationStatus === 'REJECTED';
+                    const isDocPending = !isDocVerified && !isDocRejected;
+                    const isThisReviewing = reviewingDocumentId === doc.id;
+                    const isThisRejecting = rejectingDocId === doc.id;
+
+                    return (
+                      <View
+                        key={doc.id}
                         style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 4,
-                          paddingVertical: 5,
-                          paddingHorizontal: 10,
-                          backgroundColor: colors.primarySoft,
-                          borderRadius: Radii.sm,
+                          padding: 10,
+                          backgroundColor: colors.appBackground,
+                          borderRadius: Radii.md,
+                          borderWidth: 1,
+                          borderColor: isDocVerified
+                            ? colors.success
+                            : isDocRejected
+                            ? colors.danger
+                            : colors.border,
+                          gap: 8,
                         }}
-                        onPress={() => handleOpenDoc(doc.storagePath)}
                       >
-                        <Ionicons name="eye-outline" size={14} color={colors.primary} />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>View</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 12.5, fontWeight: '700', color: colors.textPrimary }}>
+                              {doc.documentType}
+                            </Text>
+                            <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                              Uploaded: {new Date(doc.createdAt).toLocaleDateString()}
+                            </Text>
+                          </View>
+
+                          {/* Status Badge */}
+                          <View
+                            style={{
+                              paddingHorizontal: 8,
+                              paddingVertical: 3,
+                              borderRadius: Radii.full,
+                              backgroundColor: isDocVerified
+                                ? colors.successSoft
+                                : isDocRejected
+                                ? colors.dangerSoft
+                                : colors.warningSoft,
+                            }}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: '800',
+                                color: isDocVerified
+                                  ? colors.success
+                                  : isDocRejected
+                                  ? colors.danger
+                                  : colors.warning,
+                              }}
+                            >
+                              {doc.verificationStatus}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Rejection reason display if rejected */}
+                        {isDocRejected && doc.rejectionReason && (
+                          <View style={{ backgroundColor: colors.dangerSoft, padding: 8, borderRadius: Radii.sm }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>
+                              Rejection Reason:
+                            </Text>
+                            <Text style={{ fontSize: 11, color: colors.danger, marginTop: 2 }}>
+                              {doc.rejectionReason}
+                            </Text>
+                          </View>
+                        )}
+
+                        {/* Actions: View, Verify, Reject */}
+                        <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <TouchableOpacity
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                              paddingVertical: 5,
+                              paddingHorizontal: 10,
+                              backgroundColor: colors.primarySoft,
+                              borderRadius: Radii.sm,
+                            }}
+                            onPress={() => handleOpenDoc(doc.storagePath)}
+                            disabled={isThisReviewing}
+                          >
+                            <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.primary }}>View</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                              paddingVertical: 5,
+                              paddingHorizontal: 10,
+                              backgroundColor: isDocVerified ? colors.surfaceInteractive : colors.successSoft,
+                              borderRadius: Radii.sm,
+                              borderWidth: 1,
+                              borderColor: colors.success,
+                            }}
+                            onPress={() => handleVerifyDocument(doc.id)}
+                            disabled={isThisReviewing || isDocVerified}
+                          >
+                            {isThisReviewing ? (
+                              <ActivityIndicator size="small" color={colors.success} />
+                            ) : (
+                              <>
+                                <Ionicons name="checkmark-circle-outline" size={14} color={colors.success} />
+                                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.success }}>
+                                  {isDocVerified ? 'Verified' : 'Verify'}
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                              paddingVertical: 5,
+                              paddingHorizontal: 10,
+                              backgroundColor: colors.dangerSoft,
+                              borderRadius: Radii.sm,
+                              borderWidth: 1,
+                              borderColor: colors.danger,
+                            }}
+                            onPress={() => {
+                              if (isThisRejecting) {
+                                setRejectingDocId(null);
+                                setDocRejectionReason('');
+                              } else {
+                                setRejectingDocId(doc.id);
+                                setDocRejectionReason('');
+                              }
+                            }}
+                            disabled={isThisReviewing}
+                          >
+                            <Ionicons name="close-circle-outline" size={14} color={colors.danger} />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>
+                              {isThisRejecting ? 'Cancel' : 'Reject'}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Inline Rejection Input when Reject is clicked */}
+                        {isThisRejecting && (
+                          <View
+                            style={{
+                              marginTop: 6,
+                              padding: 8,
+                              backgroundColor: colors.card,
+                              borderRadius: Radii.sm,
+                              borderWidth: 1,
+                              borderColor: colors.danger,
+                              gap: 6,
+                            }}
+                          >
+                            <Text style={{ fontSize: 11.5, fontWeight: '700', color: colors.danger }}>
+                              Reason for Document Rejection (Required):
+                            </Text>
+                            <TextInput
+                              style={{
+                                backgroundColor: colors.appBackground,
+                                borderWidth: 1,
+                                borderColor: colors.border,
+                                borderRadius: Radii.sm,
+                                padding: 8,
+                                fontSize: 12,
+                                color: colors.textPrimary,
+                              }}
+                              placeholder="e.g. Expired license, unreadable scan, name mismatch..."
+                              value={docRejectionReason}
+                              onChangeText={setDocRejectionReason}
+                              multiline
+                              numberOfLines={2}
+                            />
+                            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>
+                              <TouchableOpacity
+                                style={{ paddingVertical: 4, paddingHorizontal: 8 }}
+                                onPress={() => {
+                                  setRejectingDocId(null);
+                                  setDocRejectionReason('');
+                                }}
+                              >
+                                <Text style={{ fontSize: 11, color: colors.textSecondary }}>Cancel</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={{
+                                  backgroundColor: colors.danger,
+                                  paddingVertical: 4,
+                                  paddingHorizontal: 10,
+                                  borderRadius: Radii.sm,
+                                }}
+                                onPress={() => handleRejectDocument(doc.id)}
+                                disabled={isThisReviewing}
+                              >
+                                {isThisReviewing ? (
+                                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                                ) : (
+                                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.onPrimary }}>
+                                    Confirm Document Rejection
+                                  </Text>
+                                )}
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -356,39 +589,120 @@ export const ApplicationDetail: React.FC<ApplicationDetailProps> = ({
             application.status === 'CHANGES_REQUESTED') &&
             !rejectMode &&
             !requestMode && (
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  style={styles.rejectBtn}
-                  onPress={() => setRejectMode(true)}
-                  disabled={isProcessing}
+              <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: Spacing.md, gap: Spacing.sm }}>
+                {/* Gate A Required Documents Verification Checklist */}
+                <View
+                  style={{
+                    backgroundColor: requiredDocumentsVerified ? colors.successSoft : colors.warningSoft,
+                    borderRadius: Radii.md,
+                    borderWidth: 1,
+                    borderColor: requiredDocumentsVerified ? colors.success : colors.warning,
+                    padding: Spacing.sm,
+                    gap: 4,
+                  }}
                 >
-                  <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
-                  <Text style={styles.rejectBtnText}>Reject</Text>
-                </TouchableOpacity>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                    Merchant approval requires:
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons
+                      name={
+                        documents.some(
+                          (d) => d.documentType === 'BUSINESS_LICENSE' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? 'checkmark-circle'
+                          : 'close-circle'
+                      }
+                      size={15}
+                      color={
+                        documents.some(
+                          (d) => d.documentType === 'BUSINESS_LICENSE' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? '#16a34a'
+                          : '#ef4444'
+                      }
+                    />
+                    <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>Business licence</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons
+                      name={
+                        documents.some(
+                          (d) => d.documentType === 'TIN_DOCUMENT' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? 'checkmark-circle'
+                          : 'close-circle'
+                      }
+                      size={15}
+                      color={
+                        documents.some(
+                          (d) => d.documentType === 'TIN_DOCUMENT' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? '#16a34a'
+                          : '#ef4444'
+                      }
+                    />
+                    <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>TIN document</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons
+                      name={
+                        documents.some(
+                          (d) => d.documentType === 'FOOD_OPERATION_DOCUMENT' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? 'checkmark-circle'
+                          : 'close-circle'
+                      }
+                      size={15}
+                      color={
+                        documents.some(
+                          (d) => d.documentType === 'FOOD_OPERATION_DOCUMENT' && d.verificationStatus === 'VERIFIED'
+                        )
+                          ? '#16a34a'
+                          : '#ef4444'
+                      }
+                    />
+                    <Text style={{ fontSize: 11.5, color: colors.textPrimary }}>Food-operation document</Text>
+                  </View>
+                </View>
 
-                <TouchableOpacity
-                  style={styles.requestChangesBtn}
-                  onPress={() => setRequestMode(true)}
-                  disabled={isProcessing}
-                >
-                  <Ionicons name="create-outline" size={18} color="#0284c7" />
-                  <Text style={styles.requestChangesText}>Request Info</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.sm }}>
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    onPress={() => setRejectMode(true)}
+                    disabled={isProcessing}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color="#ef4444" />
+                    <Text style={styles.rejectBtnText}>Reject</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.approveBtn}
-                  onPress={handleApprove}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <ActivityIndicator size="small" color={colors.onPrimary} />
-                  ) : (
-                    <>
-                      <Ionicons name="shield-checkmark" size={18} color={colors.onPrimary} />
-                      <Text style={styles.approveBtnText}>Approve Merchant (Gate A)</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.requestChangesBtn}
+                    onPress={() => setRequestMode(true)}
+                    disabled={isProcessing}
+                  >
+                    <Ionicons name="create-outline" size={18} color="#0284c7" />
+                    <Text style={styles.requestChangesText}>Request Info</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.approveBtn,
+                      (!requiredDocumentsVerified || isProcessing) && { opacity: 0.5, backgroundColor: colors.textMuted },
+                    ]}
+                    onPress={handleApprove}
+                    disabled={isProcessing || !requiredDocumentsVerified}
+                  >
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
+                    ) : (
+                      <>
+                        <Ionicons name="shield-checkmark" size={18} color={colors.onPrimary} />
+                        <Text style={styles.approveBtnText}>Approve Merchant (Gate A)</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
         </View>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { RestaurantEntity } from '../../db/types';
+import { RestaurantRepository } from '../../repositories';
+import { RestaurantLaunchReadiness } from '../../types/domain';
+import { RestaurantPayoutVerificationPanel } from './RestaurantPayoutVerificationPanel';
 
 import { useTheme } from '../../context/ThemeContext';
 
@@ -63,6 +66,29 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
   const [correctionsMode, setCorrectionsMode] = useState(false);
   const [correctionsReason, setCorrectionsReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<RestaurantLaunchReadiness | null>(null);
+  const [isLoadingReadiness, setIsLoadingReadiness] = useState(false);
+
+  const fetchReadiness = useCallback(async () => {
+    if (!restaurant?.id) return;
+    setIsLoadingReadiness(true);
+    try {
+      const res = await RestaurantRepository.getLaunchReadiness(restaurant.id);
+      setReadiness(res);
+    } catch {
+      setReadiness(null);
+    } finally {
+      setIsLoadingReadiness(false);
+    }
+  }, [restaurant?.id]);
+
+  useEffect(() => {
+    if (visible && restaurant?.id) {
+      fetchReadiness();
+    } else {
+      setReadiness(null);
+    }
+  }, [visible, restaurant?.id, fetchReadiness]);
 
   if (!restaurant) return null;
 
@@ -281,6 +307,66 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   </View>
                 </View>
 
+                {/* Payout Destination Verification Panel inside Gate B area */}
+                <RestaurantPayoutVerificationPanel
+                  restaurantId={restaurant.id}
+                  onStatusChanged={fetchReadiness}
+                />
+
+                {/* Authoritative Server Launch Readiness Checklist */}
+                <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: Radii.md, borderWidth: 1, borderColor: colors.border, gap: 8, marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12.5, fontWeight: '800', color: colors.textPrimary }}>
+                      STORE LAUNCH READINESS CHECKLIST
+                    </Text>
+                    {isLoadingReadiness ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : readiness ? (
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: readiness.canSubmitForReview ? colors.success : colors.warning }}>
+                        Readiness: {readiness.readinessPercent}%
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {readiness ? (
+                    <View style={{ gap: 5 }}>
+                      {[
+                        { label: 'Business documents', met: readiness.businessVerified ?? readiness.criteria?.hasVerificationDoc },
+                        { label: 'Active branch', met: readiness.hasActiveBranch ?? readiness.criteria?.hasActiveBranch },
+                        { label: 'Exact location', met: readiness.branchHasCoordinates ?? readiness.criteria?.hasAddress },
+                        { label: 'Opening hours', met: readiness.hasOpeningHours ?? readiness.criteria?.hasOperatingHours },
+                        { label: 'Storefront image', met: readiness.hasStorefrontImage ?? readiness.criteria?.hasGalleryPhotos },
+                        { label: 'Verified owner phone', met: readiness.hasVerifiedContact ?? readiness.criteria?.hasPhone },
+                        { label: 'Menu', met: readiness.hasMenu ?? (readiness.criteria?.hasValidMenuItem && readiness.criteria?.hasPricedItem) },
+                        { label: 'Payout destination', met: readiness.hasPayoutDestination ?? readiness.criteria?.hasPayoutConfigured },
+                        { label: 'Delivery configuration', met: readiness.deliveryConfigured ?? readiness.criteria?.hasAddress },
+                      ].map((item, idx) => (
+                        <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 12, color: colors.textPrimary }}>{item.label}</Text>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: item.met ? '#16a34a' : '#ef4444' }}>
+                            {item.met ? '✓' : '✕'}
+                          </Text>
+                        </View>
+                      ))}
+
+                      {readiness.blockers && readiness.blockers.length > 0 && (
+                        <View style={{ backgroundColor: colors.dangerSoft, padding: 8, borderRadius: Radii.sm, marginTop: 4, gap: 2 }}>
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>
+                            Launch Blockers:
+                          </Text>
+                          {readiness.blockers.map((b, idx) => (
+                            <Text key={idx} style={{ fontSize: 10.5, color: colors.danger }}>• {b}</Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 11, color: colors.textSecondary, fontStyle: 'italic' }}>
+                      {isLoadingReadiness ? 'Evaluating 12 launch readiness criteria...' : 'Unable to retrieve server readiness report.'}
+                    </Text>
+                  )}
+                </View>
+
                 {(restaurant.launchStatus === 'GO_LIVE_REVIEW' || (restaurant as any).launch_status === 'GO_LIVE_REVIEW') && !correctionsMode && (
                   <View style={{ marginTop: 8, gap: 6 }}>
                     <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 16 }}>
@@ -308,18 +394,24 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                       )}
                       {onApproveLaunch && (
                         <TouchableOpacity
-                          style={{
-                            flex: 1.5,
-                            paddingVertical: 10,
-                            borderRadius: Radii.md,
-                            backgroundColor: '#1d6637',
-                            flexDirection: 'row',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
+                          style={[
+                            {
+                              flex: 1.5,
+                              paddingVertical: 10,
+                              borderRadius: Radii.md,
+                              backgroundColor: '#1d6637',
+                              flexDirection: 'row',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              gap: 6,
+                            },
+                            (!readiness?.canSubmitForReview || isProcessing) && {
+                              opacity: 0.5,
+                              backgroundColor: colors.textMuted,
+                            },
+                          ]}
                           onPress={handleApproveLaunch}
-                          disabled={isProcessing}
+                          disabled={isProcessing || readiness?.canSubmitForReview !== true}
                         >
                           {isProcessing ? (
                             <ActivityIndicator size="small" color={colors.onPrimary} />

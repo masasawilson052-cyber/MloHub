@@ -56,6 +56,7 @@ import { runRestaurantOperationsPhase2Tests } from './restaurantOperationsPhase2
 import { runRestaurantFinancePhase3Tests } from './restaurantFinancePhase3.test';
 import { runRestaurantPlatformFinalClosureTests } from './restaurantPlatformFinalClosure.test';
 import { runRestaurantAuthorityVerificationClosureTests } from './restaurantAuthorityVerificationClosure.test';
+import { runRestaurant100PercentClosureTests } from './restaurant100PercentClosure.test';
 
 
 let passed = 0;
@@ -788,6 +789,11 @@ async function runMasterTestSuite() {
   const restaurantAuthorityResults = await runRestaurantAuthorityVerificationClosureTests();
   passed += restaurantAuthorityResults.passed;
   failed += restaurantAuthorityResults.failed;
+
+  // Restaurant Final Closure Pass 2: 100% Production Closure Suite
+  const restaurant100ClosureResults = await runRestaurant100PercentClosureTests();
+  passed += restaurant100ClosureResults.passed;
+  failed += restaurant100ClosureResults.failed;
 
   // Final Results
   console.log('\n================================================================');

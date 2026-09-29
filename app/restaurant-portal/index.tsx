@@ -44,6 +44,7 @@ import {
   RefundRequest,
   FinancialDispute,
   RestaurantFinancialSummary,
+  RestaurantLaunchReadiness,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
@@ -484,6 +485,20 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [workspaceLoadError, setWorkspaceLoadError] = useState<string | null>(null);
   const [requestLoadError, setRequestLoadError] = useState<string | null>(null);
   const [hasConfiguredHoursState, setHasConfiguredHoursState] = useState(false);
+  const [launchReadiness, setLaunchReadiness] = useState<RestaurantLaunchReadiness | null>(null);
+  const [launchReadinessLoading, setLaunchReadinessLoading] = useState(false);
+
+  const refreshLaunchReadiness = useCallback(async () => {
+    setLaunchReadinessLoading(true);
+    try {
+      const readiness = await RestaurantRepository.getLaunchReadiness(activeRestaurant.id);
+      setLaunchReadiness(readiness);
+    } catch (error) {
+      setLaunchReadiness(null);
+    } finally {
+      setLaunchReadinessLoading(false);
+    }
+  }, [activeRestaurant.id]);
 
   // 2. Determine User Role for this Restaurant - STRICT: Derived ONLY from public.restaurant_members!
   const userMembership = useMemo(() => {
@@ -624,15 +639,17 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         }
       }
       setHasConfiguredHoursState(branchHoursConfigured);
+      refreshLaunchReadiness().catch(() => {});
     } catch (err: any) {
       console.warn('[RestaurantPortal] Error loading workspace:', err);
       setWorkspaceLoadError(err?.message || 'Unable to sync workspace data. Tap Retry to reload.');
     }
-  }, [activeRestaurant.id, selectedBranchId]);
+  }, [activeRestaurant.id, selectedBranchId, refreshLaunchReadiness]);
 
   useEffect(() => {
     loadRestaurantWorkspace();
-  }, [loadRestaurantWorkspace]);
+    refreshLaunchReadiness();
+  }, [loadRestaurantWorkspace, refreshLaunchReadiness]);
 
   // 7. Realtime Listener
   useEffect(() => {
@@ -1328,7 +1345,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const hasConfiguredHours =
     hasConfiguredHoursState ||
     branches.some((b: any) => b.openingHours && Object.keys(b.openingHours).length > 0);
-  const isPublishPrerequisitesMet = hasActiveBranch && hasValidMenuItem;
+  const isPublishPrerequisitesMet = launchReadiness?.canSubmitForReview === true;
   const canPublish = isPublishPrerequisitesMet;
 
   const handleUpdateOperatingStatus = useCallback(
@@ -1346,6 +1363,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         const mode = status as BranchOperationalMode;
         await BranchOperationsRepository.setBranchOperationalMode(selectedBranchId, mode);
         await loadRestaurantWorkspace();
+        await refreshLaunchReadiness();
         Alert.alert(
           language === 'sw' ? 'Hali Imesasishwa' : 'Operating Status Updated',
           language === 'sw'
@@ -1356,7 +1374,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         Alert.alert('Hitilafu', e?.message || 'Imeshindikana kusasisha hali ya kufungua.');
       }
     },
-    [selectedBranchId, loadRestaurantWorkspace, language]
+    [selectedBranchId, loadRestaurantWorkspace, refreshLaunchReadiness, language]
   );
 
   const handlePublishRestaurant = useCallback(async () => {
@@ -1378,38 +1396,32 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       );
       return;
     }
+    if (!hasConfiguredHours) {
+      Alert.alert(
+        language === 'sw'
+          ? 'Saa za Kufungua Zinahitajika'
+          : 'Opening Hours Required',
+        language === 'sw'
+          ? 'Weka saa halisi za kufungua na kufunga kabla ya kutuma ombi la uzinduzi.'
+          : 'Set and confirm your real operating hours before submitting your restaurant for launch review.'
+      );
+      return;
+    }
+
     try {
-      const targetBranchId = selectedBranchId || branches.find((b) => b.isActive)?.id || branches[0]?.id;
-      if (!hasConfiguredHours && targetBranchId) {
-        try {
-          const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-            dayOfWeek,
-            opensAt: '08:00:00',
-            closesAt: '22:00:00',
-            isClosed: false,
-          }));
-          await BranchOperationsRepository.upsertOperatingHours(targetBranchId, defaultHours);
-          await BranchRepository.update(targetBranchId, {
-            openingHours: {
-              monday: '08:00-22:00',
-              tuesday: '08:00-22:00',
-              wednesday: '08:00-22:00',
-              thursday: '08:00-22:00',
-              friday: '08:00-22:00',
-              saturday: '08:00-22:00',
-              sunday: '08:00-22:00',
-            } as any,
-          }).catch(() => {});
-          setHasConfiguredHoursState(true);
-        } catch {}
+      const readiness = await RestaurantRepository.getLaunchReadiness(activeRestaurant.id);
+
+      if (!readiness.canSubmitForReview) {
+        setLaunchReadiness(readiness);
+        const blockerMsg = (readiness.blockers || readiness.missingRequirements || ['Readiness criteria not met']).join('\n');
+        throw new Error(blockerMsg);
       }
 
-      const res = await RestaurantRepository.publishRestaurant(activeRestaurant.id);
-      // Gate B: Merchants submit for launch review (GO_LIVE_REVIEW); only approve_restaurant_launch sets PUBLISHED ('Restaurant Published!' / 'live and discoverable')
-      const nextLaunchStatus = (res.launchStatus as any) || 'GO_LIVE_REVIEW';
+      // Legacy compatibility: RestaurantRepository.publishRestaurant is deprecated in favor of submitForLaunchReview
+      const res = await RestaurantRepository.submitForLaunchReview(activeRestaurant.id);
       setActiveRestaurant((prev) => ({
         ...prev,
-        launchStatus: nextLaunchStatus === 'PUBLISHED' ? 'GO_LIVE_REVIEW' : nextLaunchStatus,
+        launchStatus: 'GO_LIVE_REVIEW',
         isPublished: false,
       }));
       Alert.alert(
@@ -1419,10 +1431,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
           : 'Your setup has been verified and your store launch review has been submitted to MloHub Administrators (Gate B). Once approved, your restaurant will be live and discoverable to customers.'
       );
       await loadRestaurantWorkspace();
+      await refreshLaunchReadiness();
     } catch (err: any) {
       Alert.alert(
         language === 'sw' ? 'Hauwezi Kuzindua' : 'Cannot Publish',
-        err.message || 'Prerequisites not met. Please ensure you have added a branch and a menu item with price.'
+        err.message || 'Prerequisites not met. Please review blockers and retry.'
       );
     }
   }, [
@@ -1430,9 +1443,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     hasActiveBranch,
     hasValidMenuItem,
     hasConfiguredHours,
-    selectedBranchId,
-    branches,
     loadRestaurantWorkspace,
+    refreshLaunchReadiness,
     language,
   ]);
 
@@ -1490,21 +1502,58 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   ? (language === 'sw' ? 'Marekebisho Yanahitajika Kabla ya Kuzindua' : 'Corrections Required Before Launch')
                   : (language === 'sw' ? 'Usajili Haujakamilika / Mgahawa Haujazinduliwa' : 'Setup Incomplete / Unpublished')}
               </Text>
-              <Text style={styles.publishBannerSub}>
-                {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
-                  ? (language === 'sw'
-                      ? 'Ombi lako la kuzindua mgahawa linakaguliwa na wasimamizi. Wateja hawataona mgahawa mpaka utakapoidhinishwa rasmi.'
-                      : 'Your store launch request is currently under Gate B administrative review. Customers will not see your store until launch approval is granted.')
-                  : activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
-                  ? (language === 'sw'
-                      ? '⚠️ Wasimamizi wameomba marekebisho kwenye usanidi wako. Tafadhali fanya marekebisho kisha uwasilishe tena.'
-                      : '⚠️ Admin requested changes to your setup before launch. Please review the requirements and resubmit.')
-                  : !hasActiveBranch
-                  ? (language === 'sw' ? '⚠️ Hatua ya lazima: Ongeza angalau tawi 1 hai kwenye Mipangilio kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 active branch in Settings before publishing.')
-                  : !hasValidMenuItem
-                  ? (language === 'sw' ? '⚠️ Hatua ya lazima: Weka angalau chakula 1 chenye bei > 0 kwenye Menyu kabla ya kuzindua.' : '⚠️ Action required: Add at least 1 menu item with price > 0 before publishing.')
-                  : (language === 'sw' ? 'Vigezo vyote vimekamilika! Bonyeza hapa kulia kuwasilisha ombi la kuzindua mgahawa.' : 'All prerequisites met! Click on the right to submit your store for launch review.')}
-              </Text>
+              {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? (
+                <Text style={styles.publishBannerSub}>
+                  {language === 'sw'
+                    ? 'Ombi lako la kuzindua mgahawa linakaguliwa na wasimamizi. Wateja hawataona mgahawa mpaka utakapoidhinishwa rasmi.'
+                    : 'Your store launch request is currently under Gate B administrative review. Customers will not see your store until launch approval is granted.'}
+                </Text>
+              ) : launchReadiness ? (
+                <View style={{ marginTop: 8, gap: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary }}>
+                    STORE LAUNCH READINESS ({launchReadiness.readinessPercent}%)
+                  </Text>
+                  <View style={{ gap: 3, marginTop: 2 }}>
+                    {[
+                      { label: 'Business documents', met: launchReadiness.criteria?.hasVerificationDoc },
+                      { label: 'Active branch', met: launchReadiness.criteria?.hasActiveBranch },
+                      { label: 'Exact location', met: launchReadiness.criteria?.hasAddress },
+                      { label: 'Opening hours', met: launchReadiness.criteria?.hasOperatingHours },
+                      { label: 'Storefront image', met: launchReadiness.criteria?.hasGalleryPhotos },
+                      { label: 'Verified owner phone', met: launchReadiness.criteria?.hasPhone },
+                      { label: 'Menu', met: launchReadiness.criteria?.hasValidMenuItem && launchReadiness.criteria?.hasPricedItem },
+                      { label: 'Payout destination', met: launchReadiness.criteria?.hasPayoutConfigured },
+                      { label: 'Delivery configuration', met: launchReadiness.criteria?.hasAddress },
+                    ].map((item, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ fontSize: 11, color: colors.textSecondary }}>{item.label}</Text>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: item.met ? '#16a34a' : '#ef4444' }}>
+                          {item.met ? '✓' : '✕'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {launchReadiness.blockers && launchReadiness.blockers.length > 0 && (
+                    <View style={{ marginTop: 4, gap: 2 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: colors.danger }}>
+                        {language === 'sw' ? 'Mambo yanayozuia uzinduzi:' : 'Items blocking launch:'}
+                      </Text>
+                      {launchReadiness.blockers.map((b, idx) => (
+                        <Text key={idx} style={{ fontSize: 10.5, color: colors.danger }}>• {b}</Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.publishBannerSub}>
+                  {launchReadinessLoading
+                    ? 'Evaluating store launch readiness...'
+                    : language === 'sw'
+                    ? 'Inakagua vigezo vya uzinduzi wa duka...'
+                    : 'Checking store launch readiness criteria...'}
+                </Text>
+              )}
             </View>
             {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? (
               <View style={[styles.publishActionBtn, { backgroundColor: colors.infoSoft, borderColor: colors.info, borderWidth: 1 }]}>

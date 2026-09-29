@@ -267,19 +267,74 @@ export class ClickPesaPayoutProvider implements PayoutProvider {
 }
 
 /**
- * Factory for Payout Provider based on strict environment configuration
+ * 3. Selcom Tanzania Production Disbursement Adapter (Contract Required)
+ * PRODUCTION RULE: DO NOT invent a Selcom payout endpoint, signature, header, or request body.
+ * If official Selcom payout contract has NOT been configured:
+ * throw PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED.
  */
-export function getPayoutProvider(): PayoutProvider {
-  const env = (process.env.EXPO_PUBLIC_APP_ENV || process.env.NODE_ENV || 'development').toLowerCase();
-  const providerConfig = (process.env.PAYOUT_PROVIDER || '').toLowerCase();
+export class SelcomPayoutProvider implements PayoutProvider {
+  name = 'SELCOM_PAYOUT_PROVIDER';
 
-  if (env === 'production') {
-    return new ClickPesaPayoutProvider();
+  constructor() {
+    const isContractConfigured =
+      process.env.SELCOM_PAYOUT_CONTRACT_CONFIGURED === 'true' &&
+      !!process.env.SELCOM_API_KEY &&
+      !!process.env.SELCOM_API_SECRET;
+
+    if (!isContractConfigured) {
+      throw new Error('PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED');
+    }
+  }
+
+  getCapabilities(): ProviderCapabilities {
+    return {
+      supportsCollections: true,
+      supportsPaymentStatusQuery: true,
+      supportsAutomatedRefunds: true,
+      supportsMobileMoneyPayouts: true,
+      supportsBankPayouts: true,
+      supportsPayoutStatusQuery: true,
+      supportsBalanceQuery: true,
+      supportsWebhooks: true,
+    };
+  }
+
+  async validateDestination(_req: PayoutDestinationVerificationRequest): Promise<PayoutDestinationVerificationResponse> {
+    throw new Error('PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED');
+  }
+
+  async disbursePayout(_req: PayoutDisbursementRequest): Promise<PayoutDisbursementResponse> {
+    throw new Error('PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED');
+  }
+
+  async queryPayoutStatus(_providerReference: string): Promise<PayoutStatusQueryResponse> {
+    throw new Error('PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED');
+  }
+}
+
+/**
+ * Factory for Payout Provider based on strict environment configuration.
+ * Never silently defaults to ClickPesa in production.
+ */
+export function getPayoutProvider(overrideProvider?: string): PayoutProvider {
+  const env = (process.env.EXPO_PUBLIC_APP_ENV || process.env.NODE_ENV || 'development').toLowerCase();
+  const providerConfig = (overrideProvider || process.env.PAYOUT_PROVIDER || '').toLowerCase();
+
+  if (providerConfig === 'sandbox' || (!providerConfig && env !== 'production')) {
+    if (env === 'production') {
+      throw new Error('SANDBOX_PAYOUT_NOT_ALLOWED_IN_PRODUCTION');
+    }
+    return new SandboxPayoutProvider();
   }
 
   if (providerConfig === 'clickpesa') {
+    if (process.env.ALLOW_LEGACY_CLICKPESA_PAYOUT !== 'true') {
+      throw new Error('CLICKPESA_LEGACY_PAYOUT_DISABLED: Legacy ClickPesa payouts require ALLOW_LEGACY_CLICKPESA_PAYOUT=true.');
+    }
     return new ClickPesaPayoutProvider();
   }
 
-  return new SandboxPayoutProvider();
+  // In production (or explicit selcom), default target is Selcom. Throws PAYOUT_PROVIDER_CONTRACT_NOT_VERIFIED if unconfigured.
+  return new SelcomPayoutProvider();
 }
+

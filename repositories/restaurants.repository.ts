@@ -442,8 +442,8 @@ export class RestaurantRepository {
   }
 
   /**
+   * @deprecated Use `submitForLaunchReview` instead. Direct merchant self-publication is forbidden; Gate B launch review requires platform admin approval.
    * Submit restaurant for Gate B launch review via server-side security definer RPC.
-   * Merchants cannot self-publish; only approve_restaurant_launch (admin AAL2) sets is_published = true.
    */
   public static async publishRestaurant(restaurantId: string): Promise<{ success: boolean; restaurantId: string; isPublished: boolean; launchStatus?: string }> {
     if (!isSupabaseConfigured()) {

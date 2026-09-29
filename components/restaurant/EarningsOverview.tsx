@@ -208,8 +208,8 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
         Alert.alert(
           language === 'sw' ? 'Akaunti Imehifadhiwa' : 'Destination Saved',
           language === 'sw'
-            ? 'Akaunti ya malipo imehifadhiwa kwa usalama na seva.'
-            : 'Payout destination securely verified and registered server-side.'
+            ? 'Akaunti ya malipo imehifadhiwa kwa usalama.\nUthibitisho wa MloHub bado unahitajika kabla ya kuwezesha malipo.'
+            : 'Payout destination saved securely.\nMloHub verification is still required before payouts can be enabled.'
         );
         setIsAddDestModalVisible(false);
         setAccountName('');
@@ -633,7 +633,11 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
                       <Text style={styles.destProviderName}>{d.provider}</Text>
                       {d.isDefault && <Badge label={language === 'sw' ? 'Kuu' : 'Default'} variant="info" size="sm" />}
                       <Badge
-                        label={d.verificationStatus === 'VERIFIED' ? 'Verified ✓' : d.verificationStatus}
+                        label={
+                          d.verificationStatus === 'VERIFIED'
+                            ? (language === 'sw' ? 'Imethibitishwa' : 'Verified')
+                            : (language === 'sw' ? 'Inasubiri uthibitisho' : 'Pending verification')
+                        }
                         variant={d.verificationStatus === 'VERIFIED' ? 'success' : 'warning'}
                         size="sm"
                       />

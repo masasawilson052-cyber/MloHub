@@ -19,3 +19,4 @@ export * from './SystemHealth';
 export * from './AdminSettings';
 export * from './RefundsDisputesCenter';
 export * from './SettlementsPayoutsCenter';
+export * from './RestaurantPayoutVerificationPanel';
