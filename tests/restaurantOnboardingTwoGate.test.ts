@@ -44,6 +44,27 @@ function assert(condition: boolean, message: string) {
   }
 }
 
+async function expectReject(
+  action: () => Promise<unknown>,
+  messageFragment: string,
+  label: string
+) {
+  let rejected = false;
+
+  try {
+    await action();
+  } catch (error: any) {
+    rejected = true;
+
+    assert(
+      String(error?.message || error).includes(messageFragment),
+      `${label}: expected error containing "${messageFragment}"`
+    );
+  }
+
+  assert(rejected, `${label}: operation must fail closed`);
+}
+
 // Password Policy Evaluator matching app/auth/register-restaurant.tsx and app/auth/activate-restaurant.tsx
 function validatePassword(password: string): {
   isValid: boolean;
@@ -261,62 +282,76 @@ export async function runRestaurantOnboardingTwoGateTests(): Promise<{ passed: n
   assert(!visibleRestaurants.some((r) => r.id === 'store-inactive-published'), '4.6: Inactive store excluded from customer discovery');
 
   // --------------------------------------------------------------------------
-  // Group 5: 12-Criteria Launch Readiness Engine
+  // Group 5: 12-Criteria Launch Readiness Engine (Fail Closed When Offline)
   // --------------------------------------------------------------------------
-  console.log('\n--- Group 5: 12-Criteria Launch Readiness Engine ---');
+  console.log('\n--- Group 5: 12-Criteria Launch Readiness Engine (Fail Closed) ---');
 
-  // 5.1: Incomplete setup evaluation
-  const incompleteReadiness = await RestaurantRepository.getLaunchReadiness('incomplete-rest-id');
-  assert(typeof incompleteReadiness.readinessPercent === 'number', '5.1: getLaunchReadiness returns readinessPercent');
-  assert(typeof incompleteReadiness.canSubmitForReview === 'boolean', '5.1: getLaunchReadiness returns canSubmitForReview');
-  assert(typeof incompleteReadiness.criteria === 'object', '5.1: getLaunchReadiness returns criteria object');
-
-  // Check 12 criteria fields present in structure
-  const criteriaKeys = [
-    'hasActiveBranch',
-    'hasOperatingHours',
-    'hasValidMenuItem',
-    'hasPricedItem',
-    'hasLogo',
-    'hasCoverImage',
-    'hasGalleryPhotos',
-    'hasPhone',
-    'hasAddress',
-    'hasCuisine',
-    'hasPayoutConfigured',
-    'hasVerificationDoc',
-  ];
-  for (const k of criteriaKeys) {
-    assert(k in incompleteReadiness.criteria, `5.2: Launch readiness contains criteria '${k}'`);
-  }
-
-  // --------------------------------------------------------------------------
-  // Group 6: Launch Review Submission & Gate B Lifecycle
-  // --------------------------------------------------------------------------
-  console.log('\n--- Group 6: Launch Review Submission & Gate B State Transitions ---');
-
-  // 6.1: Mock submitForLaunchReview
-  const reviewSubmission = await RestaurantRepository.submitForLaunchReview('test-rest-id');
-  assert(reviewSubmission.success === true, '6.1: submitForLaunchReview returns success');
-  assert(reviewSubmission.launchStatus === 'GO_LIVE_REVIEW', '6.1: submitForLaunchReview transitions to GO_LIVE_REVIEW');
-
-  // 6.2: publishRestaurant routes to launch review rather than immediate public exposure
-  const publishResult = await RestaurantRepository.publishRestaurant('test-rest-id');
-  assert(publishResult.success === true, '6.2: publishRestaurant succeeds');
-  assert(
-    publishResult.launchStatus === 'GO_LIVE_REVIEW' || publishResult.launchStatus === 'PUBLISHED',
-    '6.2: publishRestaurant returns valid launch status'
+  // 5.1: Fail-closed when Supabase is unavailable (zero synthetic readiness)
+  await expectReject(
+    () => RestaurantRepository.getLaunchReadiness('incomplete-rest-id'),
+    'Launch readiness service unavailable',
+    '5.1'
   );
 
-  // 6.3: Gate B Approval
-  const approveResult = await RestaurantRepository.approveLaunch('test-rest-id');
-  assert(approveResult.success === true, '6.3: approveLaunch succeeds');
-  assert(approveResult.launchStatus === 'PUBLISHED', '6.3: approveLaunch transitions to PUBLISHED');
+  // 5.2: Invariant check - 12 criteria evaluation points defined in authoritative Supabase RPC migration
+  const readinessMigrationPath = path.join(
+    rootDir,
+    'supabase',
+    'migrations',
+    '20260928000100_restaurant_two_gate_lifecycle.sql'
+  );
+  const readinessMigrationSql = fs.readFileSync(readinessMigrationPath, 'utf8');
+  assert(
+    readinessMigrationSql.includes('v_has_active_branch') &&
+      readinessMigrationSql.includes('v_branch_has_coords') &&
+      readinessMigrationSql.includes('v_has_opening_hours') &&
+      readinessMigrationSql.includes('v_has_logo') &&
+      readinessMigrationSql.includes('v_has_cover_image') &&
+      readinessMigrationSql.includes('v_has_storefront_image') &&
+      readinessMigrationSql.includes('v_has_verified_contact') &&
+      readinessMigrationSql.includes('v_has_menu') &&
+      readinessMigrationSql.includes('v_has_payout_destination') &&
+      readinessMigrationSql.includes('v_delivery_configured') &&
+      readinessMigrationSql.includes('v_business_verified'),
+    '5.2: Launch readiness SQL RPC defines all required criteria evaluation points'
+  );
 
-  // 6.4: Gate B Request Corrections
-  const correctionsResult = await RestaurantRepository.requestLaunchCorrections('test-rest-id', 'Please upload clear copy of TIN certificate');
-  assert(correctionsResult.success === true, '6.4: requestLaunchCorrections succeeds');
-  assert(correctionsResult.launchStatus === 'CORRECTIONS_REQUIRED', '6.4: requestLaunchCorrections transitions to CORRECTIONS_REQUIRED');
+  // --------------------------------------------------------------------------
+  // Group 6: Launch Review Submission & Gate B Lifecycle (Fail Closed When Offline)
+  // --------------------------------------------------------------------------
+  console.log('\n--- Group 6: Launch Review Submission & Gate B State Transitions (Fail Closed) ---');
+
+  // 6.1: submitForLaunchReview fails closed when Supabase is unavailable
+  await expectReject(
+    () => RestaurantRepository.submitForLaunchReview('test-rest-id'),
+    'Launch review service unavailable',
+    '6.1'
+  );
+
+  // 6.2: publishRestaurant fails closed when Supabase is unavailable
+  await expectReject(
+    () => RestaurantRepository.publishRestaurant('test-rest-id'),
+    'unavailable',
+    '6.2'
+  );
+
+  // 6.3: approveLaunch fails closed when Supabase is unavailable
+  await expectReject(
+    () => RestaurantRepository.approveLaunch('test-rest-id'),
+    'unavailable',
+    '6.3'
+  );
+
+  // 6.4: requestLaunchCorrections fails closed when Supabase is unavailable
+  await expectReject(
+    () =>
+      RestaurantRepository.requestLaunchCorrections(
+        'test-rest-id',
+        'Please upload clear copy of TIN certificate'
+      ),
+    'unavailable',
+    '6.4'
+  );
 
   // --------------------------------------------------------------------------
   // Group 7: Private Verification Storage Isolation

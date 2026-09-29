@@ -262,51 +262,21 @@ export class ApplicationRepository {
         p_reason: reasonToUse,
       });
       if (rpcError) {
-        // Fallback to direct row update if RPC migration not yet deployed
-        const { data, error } = await supabase
-          .from('restaurant_applications')
-          .update({
-            status: 'CHANGES_REQUESTED',
-            rejection_reason: reasonToUse,
-            reviewed_by: reviewedBy,
-            reviewed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) {
-          throw new Error(`Failed to request changes: ${error.message}`);
-        }
-        return this.mapRowToApplication(data);
+        console.error(
+          'request_restaurant_application_changes RPC error:',
+          rpcError.message
+        );
+        throw new Error(
+          `Failed to request application changes: ${rpcError.message}`
+        );
       }
       const app = await this.getById(id);
       if (!app) throw new Error('Application updated but could not be re-fetched.');
       return app;
     }
 
-    const updates: any = {
-      status,
-      reviewed_by: reviewedBy,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    if (rejectionReason) {
-      updates.rejection_reason = rejectionReason;
-    }
-
-    const { data, error } = await supabase
-      .from('restaurant_applications')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error(`ApplicationRepository.updateStatus(${id}) error:`, error.message);
-      throw new Error(`Failed to update application status: ${error.message}`);
-    }
-
-    return this.mapRowToApplication(data);
+    throw new Error(
+      `Unsupported direct application status transition: ${status}`
+    );
   }
 }

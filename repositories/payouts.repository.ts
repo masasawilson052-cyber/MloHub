@@ -1,3 +1,4 @@
+import { runtimeConfig } from '../lib/runtimeConfig';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   MerchantPayoutDestination,
@@ -75,8 +76,7 @@ export class PayoutsRepository {
     isDefault?: boolean;
   }): Promise<{ success: boolean; destinationId?: string; error?: string }> {
     if (!isSupabaseConfigured()) {
-      // Local fallback for offline unit tests and demo
-      const fallbackId = `dest_${Date.now()}`;
+      const fallbackId = `dest-fallback-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const masked = this.maskIdentifier(params.rawAccountIdentifier, params.destinationType);
       const fallbackItem: MerchantPayoutDestination = {
         id: fallbackId,
@@ -111,31 +111,7 @@ export class PayoutsRepository {
         },
       });
 
-      if (error || !data?.success) {
-        if (error?.message?.includes('fetch failed') || error?.message?.includes('ECONNREFUSED')) {
-          const fallbackId = `dest_${Date.now()}`;
-          const masked = this.maskIdentifier(params.rawAccountIdentifier, params.destinationType);
-          const fallbackItem: MerchantPayoutDestination = {
-            id: fallbackId,
-            restaurantId: params.restaurantId,
-            destinationType: params.destinationType,
-            provider: params.provider,
-            maskedAccountIdentifier: masked,
-            accountName: params.accountName,
-            verificationStatus: 'VERIFIED',
-            isDefault: params.isDefault ?? false,
-            createdAt: new Date().toISOString(),
-            createdBy: 'offline_user',
-          };
-          const list = this.fallbackDestinations.get(params.restaurantId) || [];
-          if (fallbackItem.isDefault) {
-            list.forEach((d) => (d.isDefault = false));
-          }
-          list.unshift(fallbackItem);
-          this.fallbackDestinations.set(params.restaurantId, list);
-          return { success: true, destinationId: fallbackId };
-        }
-
+      if (error || data?.success !== true || !data?.destinationId) {
         return {
           success: false,
           error: data?.error || data?.message || error?.message || 'Failed to save payout destination',
@@ -147,29 +123,6 @@ export class PayoutsRepository {
         destinationId: data.destinationId,
       };
     } catch (e: any) {
-      if (e.message?.includes('fetch failed') || e.message?.includes('ECONNREFUSED')) {
-        const fallbackId = `dest_${Date.now()}`;
-        const masked = this.maskIdentifier(params.rawAccountIdentifier, params.destinationType);
-        const fallbackItem: MerchantPayoutDestination = {
-          id: fallbackId,
-          restaurantId: params.restaurantId,
-          destinationType: params.destinationType,
-          provider: params.provider,
-          maskedAccountIdentifier: masked,
-          accountName: params.accountName,
-          verificationStatus: 'VERIFIED',
-          isDefault: params.isDefault ?? false,
-          createdAt: new Date().toISOString(),
-          createdBy: 'offline_user',
-        };
-        const list = this.fallbackDestinations.get(params.restaurantId) || [];
-        if (fallbackItem.isDefault) {
-          list.forEach((d) => (d.isDefault = false));
-        }
-        list.unshift(fallbackItem);
-        this.fallbackDestinations.set(params.restaurantId, list);
-        return { success: true, destinationId: fallbackId };
-      }
       return { success: false, error: e.message || 'Failed to save payout destination' };
     }
   }
@@ -204,13 +157,7 @@ export class PayoutsRepository {
     restaurantId: string,
     destinationId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      const list = this.fallbackDestinations.get(restaurantId) || [];
-      list.forEach((d) => {
-        d.isDefault = d.id === destinationId;
-      });
-      return { success: true };
-    }
+    if (!isSupabaseConfigured()) return { success: false, error: 'Payout service unavailable' };
 
     try {
       const { error } = await supabase.rpc('set_default_payout_destination_secure', {
@@ -219,13 +166,7 @@ export class PayoutsRepository {
       });
 
       if (error) {
-        if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
-          const list = this.fallbackDestinations.get(restaurantId) || [];
-          list.forEach((d) => {
-            d.isDefault = d.id === destinationId;
-          });
-          return { success: true };
-        }
+
         return { success: false, error: error.message };
       }
 
@@ -239,15 +180,7 @@ export class PayoutsRepository {
     restaurantId: string,
     destinationId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!isSupabaseConfigured()) {
-      const list = this.fallbackDestinations.get(restaurantId) || [];
-      const item = list.find((d) => d.id === destinationId);
-      if (item) {
-        item.verificationStatus = 'REJECTED';
-        item.isDefault = false;
-      }
-      return { success: true };
-    }
+    if (!isSupabaseConfigured()) return { success: false, error: 'Payout service unavailable' };
 
     try {
       const { error } = await supabase.rpc('disable_payout_destination_secure', {
@@ -256,15 +189,7 @@ export class PayoutsRepository {
       });
 
       if (error) {
-        if (error.message?.includes('fetch failed') || error.message?.includes('ECONNREFUSED')) {
-          const list = this.fallbackDestinations.get(restaurantId) || [];
-          const item = list.find((d) => d.id === destinationId);
-          if (item) {
-            item.verificationStatus = 'REJECTED';
-            item.isDefault = false;
-          }
-          return { success: true };
-        }
+
         return { success: false, error: error.message };
       }
 
@@ -279,6 +204,7 @@ export class PayoutsRepository {
     from?: string,
     to?: string
   ): Promise<RestaurantFinancialSummary> {
+    if (!isSupabaseConfigured() && !runtimeConfig.allowLocalDataFallbacks) throw new Error('Finance service unavailable');
     const defaultFallback: RestaurantFinancialSummary = {
       restaurantId,
       from,
@@ -307,6 +233,7 @@ export class PayoutsRepository {
       });
 
       if (error) {
+        if (!runtimeConfig.allowLocalDataFallbacks) throw new Error('Could not load financial summary');
         if (this.fallbackSummary.has(restaurantId)) {
           return this.fallbackSummary.get(restaurantId)!;
         }
@@ -330,6 +257,7 @@ export class PayoutsRepository {
         paidOutAmount: Number(data?.paid_out_amount || 0),
       };
     } catch (e: any) {
+      if (!runtimeConfig.allowLocalDataFallbacks) throw new Error('Could not load financial summary');
       return this.fallbackSummary.get(restaurantId) || defaultFallback;
     }
   }
@@ -359,7 +287,7 @@ export class PayoutsRepository {
     }
 
     return {
-      success: data?.success ?? true,
+      success: data?.success === true,
       payoutId: data?.payout_id,
       status: data?.status,
     };
@@ -411,5 +339,31 @@ export class PayoutsRepository {
     }
 
     return (data || []).map(this.mapRowToPayout);
+  }
+
+  public static async reviewDestination(
+    destinationId: string,
+    decision: 'VERIFIED' | 'REJECTED',
+    options?: {
+      verificationReference?: string;
+      verifiedAccountName?: string;
+      reason?: string;
+    }
+  ): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Payout verification service unavailable');
+    }
+
+    const { error } = await supabase.rpc('review_payout_destination_secure', {
+      p_destination_id: destinationId,
+      p_decision: decision,
+      p_verification_reference: options?.verificationReference ?? null,
+      p_verified_account_name: options?.verifiedAccountName ?? null,
+      p_reason: options?.reason ?? null,
+    });
+
+    if (error) {
+      throw new Error(`Payout destination review failed: ${error.message}`);
+    }
   }
 }

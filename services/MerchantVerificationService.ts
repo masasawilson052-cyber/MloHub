@@ -65,8 +65,7 @@ export async function uploadVerificationDocument(params: {
   const path = `${params.userId}/${params.applicationId}/${params.documentType}/${generateUuid()}.${ext}`;
 
   if (!isSupabaseConfigured()) {
-    // Return simulated path for mock/offline testing
-    return { path };
+    throw new Error('Verification document storage unavailable');
   }
 
   const file = await fetch(params.uri).then((res) => res.arrayBuffer());
@@ -107,18 +106,7 @@ export async function recordVerificationDocument(params: {
     verification_status: 'PENDING',
   };
 
-  if (!isSupabaseConfigured()) {
-    return {
-      id: `doc_${Date.now()}`,
-      applicationId: params.applicationId,
-      restaurantId: params.restaurantId,
-      ownerUserId: params.ownerUserId,
-      documentType: params.documentType,
-      storagePath: params.storagePath,
-      verificationStatus: 'PENDING',
-      createdAt: new Date().toISOString(),
-    };
-  }
+  if (!isSupabaseConfigured()) throw new Error('Verification document service unavailable');
 
   const { data, error } = await supabase
     .from('restaurant_verification_documents')
@@ -269,3 +257,30 @@ export async function pickVerificationDocument(): Promise<{
     fileName: asset.fileName || 'verification_doc',
   };
 }
+
+/**
+ * Authoritatively reviews a merchant verification document (AAL2 administrator required).
+ */
+export async function reviewVerificationDocument(
+  documentId: string,
+  decision: 'VERIFIED' | 'REJECTED',
+  reason?: string
+): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Verification review service unavailable');
+  }
+
+  const { error } = await supabase.rpc(
+    'review_restaurant_verification_document',
+    {
+      p_document_id: documentId,
+      p_decision: decision,
+      p_reason: reason || null,
+    }
+  );
+
+  if (error) {
+    throw new Error(`Document review failed: ${error.message}`);
+  }
+}
+

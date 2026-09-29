@@ -1,415 +1,50 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Spacing, Radii, Shadows } from '../../constants/theme';
+import React, { useEffect, useState } from 'react';
+import { View, Text, Modal, ScrollView, TextInput, TouchableOpacity, Linking, Platform } from 'react-native';
+import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
-import { ThemeColors, lightColors } from '../../theme/palettes';
-
-let colors: ThemeColors = lightColors;
-
-import {
-  LocationPreset,
-  DAR_ES_SALAAM_LOCATION_PRESETS,
-} from '../../constants/branchPresets';
-
-export { LocationPreset, DAR_ES_SALAAM_LOCATION_PRESETS };
-
+export { LocationPreset, DAR_ES_SALAAM_LOCATION_PRESETS } from '../../constants/branchPresets';
 export interface BranchLocationPickerModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelectLocation: (loc: {
-    region: string;
-    district: string;
-    ward: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-  }) => void;
+  onSelectLocation: (loc: { region: string; district: string; ward: string; address: string; latitude: number; longitude: number }) => void;
   initialCoordinates?: { latitude?: number; longitude?: number };
   language?: 'en' | 'sw';
 }
-
-export const BranchLocationPickerModal: React.FC<BranchLocationPickerModalProps> = ({
-  visible,
-  onClose,
-  onSelectLocation,
-  initialCoordinates,
-  language = 'en',
-}) => {
-  const { colors: _tc } = useTheme();
-  colors = _tc;
-  const styles = createStyles(colors);
-
-  const [search, setSearch] = useState('');
-  const [selectedPreset, setSelectedPreset] = useState<LocationPreset>(
-    () =>
-      DAR_ES_SALAAM_LOCATION_PRESETS.find(
-        (p) =>
-          initialCoordinates?.latitude != null &&
-          Math.abs(p.latitude - initialCoordinates.latitude) < 0.01 &&
-          initialCoordinates?.longitude != null &&
-          Math.abs(p.longitude - initialCoordinates.longitude) < 0.01
-      ) || DAR_ES_SALAAM_LOCATION_PRESETS[0]
-  );
-
-  const filteredPresets = DAR_ES_SALAAM_LOCATION_PRESETS.filter((p) => {
-    const q = search.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      p.name.toLowerCase().includes(q) ||
-      p.ward.toLowerCase().includes(q) ||
-      p.district.toLowerCase().includes(q) ||
-      p.address.toLowerCase().includes(q)
-    );
-  });
-
-  const handleConfirm = () => {
-    onSelectLocation({
-      region: selectedPreset.region,
-      district: selectedPreset.district,
-      ward: selectedPreset.ward,
-      address: selectedPreset.address,
-      latitude: selectedPreset.latitude,
-      longitude: selectedPreset.longitude,
-    });
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.modalHeader}>
-            <View>
-              <Text style={styles.modalTitle}>
-                {language === 'sw' ? 'Chagua Eneo la Tawi (Ramani na Vituo)' : 'Select Branch Location'}
-              </Text>
-              <Text style={styles.modalSubtitle}>
-                {language === 'sw'
-                  ? 'Chagua eneo maarufu la Dar es Salaam kusanidi GPS na anwani sahihi.'
-                  : 'Select a verified location zone to configure GPS pin and address coordinates.'}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Box */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={16} color={colors.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={language === 'sw' ? 'Tafuta mtaa, kata au wilaya...' : 'Search neighborhood, ward, or street...'}
-              placeholderTextColor={colors.inputPlaceholder}
-              value={search}
-              onChangeText={setSearch}
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Active Pin Preview Card */}
-          <View style={styles.pinPreviewCard}>
-            <View style={styles.pinHeader}>
-              <View style={styles.pinIconWrap}>
-                <Ionicons name="location" size={24} color="#1d6637" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.pinTitle}>{selectedPreset.name}</Text>
-                <Text style={styles.pinAddress}>{selectedPreset.address}</Text>
-              </View>
-              <View style={styles.pinTag}>
-                <Text style={styles.pinTagText}>{selectedPreset.tag}</Text>
-              </View>
-            </View>
-
-            <View style={styles.pinDetailsRow}>
-              <View style={styles.pinDetailItem}>
-                <Text style={styles.pinDetailLabel}>District / Ward:</Text>
-                <Text style={styles.pinDetailValue}>
-                  {selectedPreset.district} • {selectedPreset.ward}
-                </Text>
-              </View>
-              <View style={styles.pinDetailItem}>
-                <Text style={styles.pinDetailLabel}>GPS Coordinates:</Text>
-                <Text style={styles.pinDetailValue}>
-                  {selectedPreset.latitude.toFixed(4)}, {selectedPreset.longitude.toFixed(4)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Presets List */}
-          <ScrollView contentContainerStyle={styles.presetsList} showsVerticalScrollIndicator={false}>
-            <Text style={styles.listSectionTitle}>
-              {language === 'sw' ? 'Maeneo Yaliyohakikiwa ya Dar es Salaam:' : 'Verified Dar es Salaam Zones:'}
-            </Text>
-
-            {filteredPresets.map((preset) => {
-              const isSelected = selectedPreset.id === preset.id;
-              return (
-                <TouchableOpacity
-                  key={preset.id}
-                  style={[styles.presetItem, isSelected && styles.presetItemSelected]}
-                  onPress={() => setSelectedPreset(preset)}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons
-                    name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={isSelected ? '#1d6637' : colors.textMuted}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.presetName, isSelected && styles.presetNameSelected]}>
-                      {preset.name}
-                    </Text>
-                    <Text style={styles.presetSub}>
-                      {preset.district} • {preset.ward} — {preset.address}
-                    </Text>
-                  </View>
-                  <Text style={styles.presetCoords}>
-                    {preset.latitude.toFixed(2)}, {preset.longitude.toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          {/* Footer CTA */}
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
-              <Text style={styles.cancelBtnText}>
-                {language === 'sw' ? 'Ghairi' : 'Cancel'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-              <Ionicons name="checkmark-circle" size={18} color={colors.onPrimary} />
-              <Text style={styles.confirmBtnText}>
-                {language === 'sw' ? 'Thibitisha Eneo Hili' : 'Confirm Location'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+export const BranchLocationPickerModal: React.FC<BranchLocationPickerModalProps> = ({ visible, onClose, onSelectLocation, initialCoordinates, language='en' }) => {
+  const { colors }=useTheme();
+  const [latitude,setLatitude]=useState(''),[longitude,setLongitude]=useState('');
+  const [address,setAddress]=useState(''),[region,setRegion]=useState(''),[district,setDistrict]=useState(''),[ward,setWard]=useState('');
+  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false);
+  useEffect(()=>{if(visible){setLatitude(initialCoordinates?.latitude?.toString()??'');setLongitude(initialCoordinates?.longitude?.toString()??'');setAddress('');setRegion('');setDistrict('');setWard('');setConfirmed(false);setError('');}},[visible]);
+  const lat=Number(latitude),lng=Number(longitude);
+  const valid=latitude.trim()!=='' && longitude.trim()!=='' && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat)<=90 && Math.abs(lng)<=180;
+  async function locate(){
+    setBusy(true);setError('');setConfirmed(false);
+    try{
+      const permission=await Location.requestForegroundPermissionsAsync();
+      if(permission.status!=='granted')throw new Error('Location permission denied. Enter exact coordinates manually.');
+      const point=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.High});
+      setLatitude(String(point.coords.latitude));setLongitude(String(point.coords.longitude));
+      if(Platform.OS!=='web'){
+        const results=await Location.reverseGeocodeAsync(point.coords);
+        const result=results[0];
+        if(result){setAddress([result.streetNumber,result.street,result.city].filter(Boolean).join(', '));setRegion(result.region??'');setDistrict(result.city??result.subregion??'');setWard(result.district??'');}
+      }
+      if(point.coords.accuracy==null || point.coords.accuracy>100)setError('GPS accuracy is limited. Check and adjust the coordinates before confirming.');
+    }catch(e){setError(e instanceof Error?e.message:'Could not determine location. Enter exact coordinates manually.');}finally{setBusy(false);}
+  }
+  const input=(label:string,value:string,update:(value:string)=>void)=><View key={label} style={{gap:4}}><Text style={{color:colors.textPrimary}}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={v=>{update(v);setConfirmed(false);}} style={{padding:12,borderWidth:1,borderColor:colors.border,borderRadius:8,color:colors.textPrimary}} /></View>;
+  const button=(label:string,action:()=>void,disabled=false)=><TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={action} style={{padding:14,backgroundColor:colors.primary,borderRadius:8,opacity:disabled?0.5:1}}><Text style={{color:colors.onPrimary}}>{label}</Text></TouchableOpacity>;
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><ScrollView contentContainerStyle={{padding:24,gap:16,backgroundColor:colors.card,flexGrow:1}}>
+    <Text style={{fontSize:22,fontWeight:'700',color:colors.textPrimary}}>{language==='sw'?'Eneo halisi la tawi':'Exact branch location'}</Text>
+    <Text style={{color:colors.textSecondary}}>Use GPS while at the storefront, or enter its exact coordinates and address. Open the map to check the pin, then confirm it identifies the customer entrance.</Text>
+    {button(busy?'Locating…':'Use current GPS location',()=>{void locate();},busy)}
+    {input('Latitude (-90 to 90)',latitude,setLatitude)}{input('Longitude (-180 to 180)',longitude,setLongitude)}
+    {button('Check pin on map',()=>{void Linking.openURL(`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=19/${lat}/${lng}`).catch(()=>setError('Could not open map'));},!valid)}
+    {input('Street address / customer entrance',address,setAddress)}{input('Region',region,setRegion)}{input('District',district,setDistrict)}{input('Ward',ward,setWard)}
+    {!!error && <Text accessibilityRole="alert" style={{color:colors.textPrimary}}>{error}</Text>}
+    {button(confirmed?'Entrance location confirmed':'I checked this is the actual branch entrance',()=>setConfirmed(true),!valid||busy)}
+    {button('Save branch location',()=>{if(valid&&confirmed&&address.trim()&&region.trim()&&district.trim()&&ward.trim()){onSelectLocation({latitude:lat,longitude:lng,address:address.trim(),region:region.trim(),district:district.trim(),ward:ward.trim()});onClose();}},!valid||!confirmed||busy||![address,region,district,ward].every(x=>x.trim()))}
+    {button('Cancel',onClose)}
+  </ScrollView></Modal>;
 };
-
-const createStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(15, 23, 42, 0.65)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: Spacing.md,
-    },
-    modalContainer: {
-      backgroundColor: colors.card,
-      width: '100%',
-      maxWidth: 620,
-      maxHeight: '90%',
-      borderRadius: Radii.xl,
-      overflow: 'hidden',
-      ...Shadows.lg,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      padding: Spacing.lg,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    modalTitle: {
-      fontSize: 16,
-      fontWeight: '800',
-      color: colors.textPrimary,
-    },
-    modalSubtitle: {
-      fontSize: 11.5,
-      color: colors.textSecondary,
-      marginTop: 2,
-    },
-    closeBtn: {
-      padding: 4,
-    },
-    searchBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      backgroundColor: colors.appBackground,
-      marginHorizontal: Spacing.lg,
-      marginTop: Spacing.md,
-      paddingHorizontal: 12,
-      height: 44,
-      borderRadius: Radii.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 13,
-      color: colors.textPrimary,
-    },
-    pinPreviewCard: {
-      marginHorizontal: Spacing.lg,
-      marginTop: Spacing.md,
-      padding: Spacing.md,
-      backgroundColor: colors.successSoft,
-      borderRadius: Radii.lg,
-      borderWidth: 1,
-      borderColor: colors.success,
-      gap: 10,
-    },
-    pinHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-    pinIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: Radii.full,
-      backgroundColor: colors.card,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    pinTitle: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.success,
-    },
-    pinAddress: {
-      fontSize: 11.5,
-      color: colors.textSecondary,
-      marginTop: 1,
-    },
-    pinTag: {
-      backgroundColor: colors.card,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: Radii.full,
-      borderWidth: 1,
-      borderColor: colors.success,
-    },
-    pinTagText: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: colors.success,
-    },
-    pinDetailsRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 8,
-    },
-    pinDetailItem: {
-      gap: 2,
-    },
-    pinDetailLabel: {
-      fontSize: 10.5,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-    pinDetailValue: {
-      fontSize: 11.5,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    presetsList: {
-      paddingHorizontal: Spacing.lg,
-      paddingVertical: Spacing.md,
-      gap: 8,
-    },
-    listSectionTitle: {
-      fontSize: 12,
-      fontWeight: '800',
-      color: colors.textPrimary,
-      marginBottom: 4,
-    },
-    presetItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      padding: 10,
-      borderRadius: Radii.md,
-      backgroundColor: colors.appBackground,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    presetItemSelected: {
-      borderColor: colors.success,
-      backgroundColor: colors.successSoft,
-    },
-    presetName: {
-      fontSize: 12.5,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    presetNameSelected: {
-      color: colors.success,
-    },
-    presetSub: {
-      fontSize: 11,
-      color: colors.textSecondary,
-      marginTop: 1,
-    },
-    presetCoords: {
-      fontSize: 10,
-      fontFamily: 'monospace',
-      color: colors.textMuted,
-    },
-    modalFooter: {
-      flexDirection: 'row',
-      gap: 10,
-      padding: Spacing.lg,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      backgroundColor: colors.card,
-    },
-    cancelBtn: {
-      paddingVertical: 12,
-      paddingHorizontal: 18,
-      borderRadius: Radii.lg,
-      backgroundColor: colors.surfaceInteractive,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    cancelBtnText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.textPrimary,
-    },
-    confirmBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 12,
-      borderRadius: Radii.lg,
-      backgroundColor: colors.success,
-    },
-    confirmBtnText: {
-      fontSize: 13.5,
-      fontWeight: '800',
-      color: colors.onPrimary,
-    },
-  });

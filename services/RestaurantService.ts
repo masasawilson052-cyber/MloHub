@@ -1,3 +1,4 @@
+import { isCustomerVisibleRestaurant } from '../repositories/restaurants.repository';
 import { RestaurantRepository, BranchRepository, MenuRepository } from '../repositories';
 import { Restaurant, RestaurantBranch, MenuItem } from '../types/domain';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -23,6 +24,7 @@ export class RestaurantService {
           neighborhood: options?.neighborhood,
           search: options?.search,
           verifiedOnly: options?.verifiedOnly,
+          customerVisibleOnly: true,
         });
 
         if (options?.sortBy === 'distance') {
@@ -95,7 +97,7 @@ export class RestaurantService {
   }> {
     if (isSupabaseConfigured()) {
       const restaurant = await RestaurantRepository.getById(id);
-      if (restaurant) {
+      if (restaurant && isCustomerVisibleRestaurant(restaurant)) {
         const [menu, branches] = await Promise.all([
           MenuRepository.listItems(id),
           BranchRepository.listByRestaurant(id),

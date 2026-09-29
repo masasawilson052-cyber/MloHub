@@ -75,7 +75,7 @@ async function main() {
   };
 
   console.log(JSON.stringify(status, null, 2));
-  if (!coreReady) process.exitCode = 2;
+  if (!fullReady) process.exitCode = 2;
 }
 
 main().catch(e => {

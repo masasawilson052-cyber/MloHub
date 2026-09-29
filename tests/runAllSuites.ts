@@ -55,6 +55,7 @@ import { runRestaurantOnboardingTwoGateTests } from './restaurantOnboardingTwoGa
 import { runRestaurantOperationsPhase2Tests } from './restaurantOperationsPhase2.test';
 import { runRestaurantFinancePhase3Tests } from './restaurantFinancePhase3.test';
 import { runRestaurantPlatformFinalClosureTests } from './restaurantPlatformFinalClosure.test';
+import { runRestaurantAuthorityVerificationClosureTests } from './restaurantAuthorityVerificationClosure.test';
 
 
 let passed = 0;
@@ -782,6 +783,11 @@ async function runMasterTestSuite() {
   const restaurantPhase4Results = await runRestaurantPlatformFinalClosureTests();
   passed += restaurantPhase4Results.passed;
   failed += restaurantPhase4Results.failed;
+
+  // Restaurant Final Closure Pass 1: Authority & Verification Suite
+  const restaurantAuthorityResults = await runRestaurantAuthorityVerificationClosureTests();
+  passed += restaurantAuthorityResults.passed;
+  failed += restaurantAuthorityResults.failed;
 
   // Final Results
   console.log('\n================================================================');

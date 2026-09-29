@@ -8,10 +8,10 @@ function maskIdentifier(
   const clean = identifier.trim();
 
   if (type === 'MOBILE_MONEY') {
-    return clean.slice(0, 6) + '***' + clean.slice(-3);
+    return '***' + clean.slice(-3);
   }
 
-  return clean.slice(0, 3) + '****' + clean.slice(-4);
+  return '****' + clean.slice(-4);
 }
 
 Deno.serve(async (req: Request) => {
@@ -150,7 +150,7 @@ Deno.serve(async (req: Request) => {
     if (rpcErr || !rpcResult?.success) {
       return reply(400, {
         success: false,
-        error: rpcErr?.message || rpcResult?.error || 'FAILED_TO_STORE_DESTINATION',
+        error: 'FAILED_TO_STORE_DESTINATION',
         message: 'Failed to atomically store payout destination and credentials.',
       });
     }
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
     return reply(500, {
       success: false,
       error: 'INTERNAL_ERROR',
-      message: err.message || 'An unexpected error occurred.',
+      message: 'Payout destination was not saved.',
     });
   }
 });
