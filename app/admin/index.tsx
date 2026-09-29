@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
@@ -43,8 +43,10 @@ import {
   AdminGovernanceRepository,
   AdminAttentionSummary,
   AdminFinanceRepository,
+  AdminActionInboxRepository,
+  AdminOverviewRepository,
 } from '../../repositories';
-import { AdminFinanceSummary } from '../../types/admin';
+import { AdminFinanceSummary, AdminActionInboxItem, AdminOverviewMetrics } from '../../types/admin';
 import {
   RestaurantApplication,
   Restaurant,
@@ -82,6 +84,7 @@ import {
   AdminSettings,
   RefundsDisputesCenter,
   SettlementsPayoutsCenter,
+  AdminActionInbox,
 } from '../../components/admin';
 import { AdminMfaGate } from '../../components/admin/security/AdminMfaGate';
 
@@ -91,6 +94,7 @@ let colors: ThemeColors = lightColors;
 
 export default function AdminPortalScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const { language } = useLanguage();
   const { user, switchWorkspace, logout, loading: isAuthLoading } = useAuth();
   const { width } = useWindowDimensions();
@@ -100,10 +104,75 @@ export default function AdminPortalScreen() {
   const activeUser = user;
   const isAuthorized = hasAdminAccess(activeUser);
 
-  // Active navigation tab
-  const [activeTab, setActiveTab] = useState<AdminTabId>('OVERVIEW');
+  const validTabs: AdminTabId[] = [
+    'OVERVIEW',
+    'ORDERS',
+    'APPLICATIONS',
+    'RESTAURANTS',
+    'VERIFICATION',
+    'REPORTS',
+    'PAYMENTS',
+    'REFUNDS',
+    'SETTLEMENTS',
+    'ANALYTICS',
+    'NOTIFICATIONS',
+    'USERS',
+    'ADMIN_USERS',
+    'AUDIT_LOGS',
+    'HEALTH',
+    'SETTINGS',
+  ];
+
+  const getInitialTab = (): AdminTabId => {
+    if (params.tab) {
+      const normalized = params.tab.toUpperCase() as AdminTabId;
+      if (validTabs.includes(normalized)) return normalized;
+    }
+    return 'OVERVIEW';
+  };
+
+  // Active navigation tab with URL param persistence
+  const [activeTab, setActiveTab] = useState<AdminTabId>(getInitialTab);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Synchronize URL tab parameter if it changes from external navigation
+  useEffect(() => {
+    if (params.tab) {
+      const normalized = params.tab.toUpperCase() as AdminTabId;
+      if (validTabs.includes(normalized) && normalized !== activeTab) {
+        setActiveTab(normalized);
+      }
+    }
+  }, [params.tab, activeTab]);
+
+  const selectAdminTab = useCallback((tab: AdminTabId) => {
+    setActiveTab(tab);
+    router.setParams({ tab: tab.toLowerCase() });
+  }, [router]);
+
+  // Action Inbox state
+  const [actionInbox, setActionInbox] = useState<AdminActionInboxItem[]>([]);
+  const [isActionInboxOpen, setIsActionInboxOpen] = useState(false);
+  const [actionInboxError, setActionInboxError] = useState<string | null>(null);
+  const [isLoadingInbox, setIsLoadingInbox] = useState(false);
+
+  const refreshActionInbox = useCallback(async () => {
+    setIsLoadingInbox(true);
+    setActionInboxError(null);
+    try {
+      const items = await AdminActionInboxRepository.list(50);
+      setActionInbox(items);
+    } catch (err: any) {
+      console.warn('[AdminPortal] Error loading action inbox:', err);
+      setActionInboxError(err?.message || 'Failed to load action inbox');
+    } finally {
+      setIsLoadingInbox(false);
+    }
+  }, []);
+
+  // Overview metrics state directly from server RPC
+  const [overviewMetrics, setOverviewMetrics] = useState<AdminOverviewMetrics | null>(null);
 
   // Authoritative Entity states from Supabase repositories
   const [applications, setApplications] = useState<RestaurantApplication[]>([]);
@@ -132,7 +201,20 @@ export default function AdminPortalScreen() {
     setIsRefreshing(true);
     setLoadError(null);
     try {
-      const [apps, dataReps, logs, profileUsers, notifs, orders, rests, healthReport, attSummary, finSummary] = await Promise.all([
+      const [
+        apps,
+        dataReps,
+        logs,
+        profileUsers,
+        notifs,
+        orders,
+        rests,
+        healthReport,
+        attSummary,
+        finSummary,
+        metrics,
+        inboxItems,
+      ] = await Promise.all([
         ApplicationRepository.listAll().then((apps) => { setApplications(apps); return apps; }),
         DataReportsRepository.listAll(),
         AuditLogRepository.listAll(),
@@ -143,6 +225,8 @@ export default function AdminPortalScreen() {
         AdminSystemHealthService.getHealth().catch(() => null),
         AdminGovernanceRepository.getAttentionSummary().catch(() => null),
         AdminFinanceRepository.getSummary().catch(() => null),
+        AdminOverviewRepository.getMetrics().catch(() => null),
+        AdminActionInboxRepository.list(50).catch(() => []),
       ]);
 
       setApplications(apps);
@@ -150,6 +234,8 @@ export default function AdminPortalScreen() {
       setSystemHealth(healthReport);
       if (attSummary) setAttentionSummary(attSummary);
       if (finSummary) setFinanceSummary(finSummary);
+      if (metrics) setOverviewMetrics(metrics);
+      if (inboxItems) setActionInbox(inboxItems);
 
       // Map audit logs to presentation entity
       setAuditLogs(
@@ -218,36 +304,49 @@ export default function AdminPortalScreen() {
     }
   }, []);
 
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleAdminRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+    refreshTimeoutRef.current = setTimeout(() => {
+      loadPlatformData();
+    }, 350);
+  }, [loadPlatformData]);
+
   useEffect(() => {
     if (isAuthorized) {
       loadPlatformData();
 
-      // Realtime subscriptions re-fetch Supabase repositories (no local cache hydration)
-      const unsubOrders = RealtimeEventEngine.subscribe('orders:*', () => {
-        loadPlatformData();
+      const unsubs: (() => void)[] = [];
+      const tables = [
+        'restaurant_applications',
+        'orders',
+        'data_reports',
+        'payments',
+        'refund_requests',
+        'financial_disputes',
+        'merchant_settlements',
+        'merchant_payouts',
+        'merchant_payout_destinations',
+        'restaurant_verification_documents',
+        'notification_event_outbox',
+        'security_events',
+        'system_worker_heartbeats',
+      ];
+      tables.forEach((table) => {
+        const unsub = RealtimeService.subscribe(`admin:${table}`, scheduleAdminRefresh, { table });
+        unsubs.push(unsub);
       });
-      const unsubRestaurants = RealtimeService.subscribe('admin:applications', () => {
-        ApplicationRepository.listAll().then(setApplications).catch((error) => setLoadError(error.message));
-      }, { table: 'restaurant_applications' });
-      const unsubAdminOrders = RealtimeService.subscribe('orders:admin', () => {
-        loadPlatformData();
-      });
-      const unsubReports = RealtimeService.subscribe('reports:updates', () => {
-        loadPlatformData();
-      });
-      const unsubResync = RealtimeService.registerResyncCallback('admin_portal', () => {
-        loadPlatformData();
-      });
+      const unsubEngine = RealtimeEventEngine.subscribe('orders:*', scheduleAdminRefresh);
+      unsubs.push(unsubEngine);
+      const unsubResync = RealtimeService.registerResyncCallback('admin_portal', scheduleAdminRefresh);
+      unsubs.push(unsubResync);
 
       return () => {
-        unsubOrders();
-        unsubRestaurants();
-        unsubAdminOrders();
-        unsubReports();
-        unsubResync();
+        if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+        unsubs.forEach((u) => u());
       };
     }
-  }, [isAuthorized, loadPlatformData]);
+  }, [isAuthorized, loadPlatformData, scheduleAdminRefresh]);
 
   // Auth loading state
   if (isAuthLoading) {
@@ -670,6 +769,8 @@ export default function AdminPortalScreen() {
         userName={activeUser?.fullName || 'Operator'}
         userRole={activeUser?.role || UserRole.CUSTOMER}
         isRefreshing={isRefreshing}
+        actionCount={actionInbox.length}
+        onOpenActions={() => setIsActionInboxOpen(true)}
         onRefresh={loadPlatformData}
         onLogout={async () => {
           await logout();
@@ -681,16 +782,16 @@ export default function AdminPortalScreen() {
       {!isLargeScreen && (
         <AdminMobileNav
           activeTab={activeTab}
-          onSelectTab={setActiveTab}
+          onSelectTab={selectAdminTab}
           userRole={activeUser?.role}
           language={language}
           badges={{
-            pendingApplications: pendingAppsCount,
-            openReports: openReportsCount,
+            pendingApplications: overviewMetrics ? overviewMetrics.pendingApplications : pendingAppsCount,
+            openReports: overviewMetrics ? overviewMetrics.openReports : openReportsCount,
             staleMenus: staleSpots.length,
             criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
-            pendingRefunds: pendingRefundsCount,
-            pendingSettlements: pendingSettlementsCount,
+            pendingRefunds: overviewMetrics ? overviewMetrics.pendingRefunds : pendingRefundsCount,
+            pendingSettlements: overviewMetrics ? overviewMetrics.pendingSettlements : pendingSettlementsCount,
           }}
         />
       )}
@@ -701,17 +802,17 @@ export default function AdminPortalScreen() {
         {isLargeScreen && (
           <AdminSidebar
             activeTab={activeTab}
-            onSelectTab={setActiveTab}
+            onSelectTab={selectAdminTab}
             userRole={activeUser?.role}
             language={language}
             compact={width < 1100}
             badges={{
-              pendingApplications: pendingAppsCount,
-              openReports: openReportsCount,
+              pendingApplications: overviewMetrics ? overviewMetrics.pendingApplications : pendingAppsCount,
+              openReports: overviewMetrics ? overviewMetrics.openReports : openReportsCount,
               staleMenus: staleSpots.length,
               criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
-              pendingRefunds: pendingRefundsCount,
-              pendingSettlements: pendingSettlementsCount,
+              pendingRefunds: overviewMetrics ? overviewMetrics.pendingRefunds : pendingRefundsCount,
+              pendingSettlements: overviewMetrics ? overviewMetrics.pendingSettlements : pendingSettlementsCount,
             }}
           />
         )}
@@ -742,21 +843,21 @@ export default function AdminPortalScreen() {
           {activeTab === 'OVERVIEW' && (
             <AdminOverview
               stats={{
-                totalRestaurants: restaurants.length,
-                basicSellers: basicCount,
-                verifiedSellers: verifiedCount,
-                suspendedRestaurants: suspendedCount,
-                pendingApplications: pendingAppsCount,
-                openReports: openReportsCount,
-                totalOrders,
-                completedOrders: completedOrdersCount,
-                grossVolumeTzs,
-                platformRevenueTzs,
+                totalRestaurants: overviewMetrics ? overviewMetrics.totalRestaurants : restaurants.length,
+                basicSellers: overviewMetrics ? overviewMetrics.basicSellers : basicCount,
+                verifiedSellers: overviewMetrics ? overviewMetrics.verifiedSellers : verifiedCount,
+                suspendedRestaurants: overviewMetrics ? overviewMetrics.suspendedRestaurants : suspendedCount,
+                pendingApplications: overviewMetrics ? overviewMetrics.pendingApplications : pendingAppsCount,
+                openReports: overviewMetrics ? overviewMetrics.openReports : openReportsCount,
+                totalOrders: overviewMetrics ? overviewMetrics.totalOrders : totalOrders,
+                completedOrders: overviewMetrics ? overviewMetrics.completedOrders : completedOrdersCount,
+                grossVolumeTzs: overviewMetrics ? overviewMetrics.capturedVolumeTzs : grossVolumeTzs,
+                platformRevenueTzs: overviewMetrics ? overviewMetrics.platformRevenueTzs : platformRevenueTzs,
                 freshnessScorePct: freshnessPct,
               }}
               attentionItems={attentionItems}
               systemHealth={systemHealth}
-              onNavigateTab={setActiveTab}
+              onNavigateTab={selectAdminTab}
               language={language}
             />
           )}
@@ -868,6 +969,7 @@ export default function AdminPortalScreen() {
           {activeTab === 'HEALTH' && (
             <SystemHealth
               language={language}
+              onNavigateTab={selectAdminTab}
             />
           )}
 
@@ -977,6 +1079,20 @@ export default function AdminPortalScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Administrator Action Inbox Drawer / Modal */}
+      <AdminActionInbox
+        visible={isActionInboxOpen}
+        items={actionInbox}
+        loading={isLoadingInbox}
+        error={actionInboxError}
+        onClose={() => setIsActionInboxOpen(false)}
+        onRefresh={refreshActionInbox}
+        onSelectItem={(item) => {
+          setIsActionInboxOpen(false);
+          selectAdminTab(item.targetTab);
+        }}
+      />
     </SafeAreaView>
     </AdminMfaGate>
   );

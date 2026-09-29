@@ -24,6 +24,8 @@ interface AdminHeaderProps {
   userRole?: UserRole | string;
   activeSectionTitle?: string;
   isRefreshing?: boolean;
+  actionCount?: number;
+  onOpenActions?: () => void;
   onRefresh: () => void;
   onLogout: () => void;
   onToggleSidebar?: () => void;
@@ -34,6 +36,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   userRole = UserRole.ADMIN,
   activeSectionTitle,
   isRefreshing = false,
+  actionCount = 0,
+  onOpenActions,
   onRefresh,
   onLogout,
   onToggleSidebar,
@@ -212,6 +216,32 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         {/* Top-Right Theme Quick Switcher */}
         <ThemeQuickSwitcher />
 
+        {/* Action Inbox Bell */}
+        {onOpenActions && (
+          <TouchableOpacity
+            style={[
+              styles.iconButton,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+                position: 'relative',
+              },
+            ]}
+            onPress={onOpenActions}
+            accessibilityRole="button"
+            accessibilityLabel="Open administrator action inbox"
+          >
+            <Ionicons name="notifications-outline" size={18} color={colors.textPrimary} />
+            {actionCount > 0 && (
+              <View style={[styles.actionBadge, { backgroundColor: colors.danger }]}>
+                <Text style={[styles.actionBadgeText, { color: colors.onPrimary }]}>
+                  {actionCount > 99 ? '99+' : actionCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* Refresh */}
         <TouchableOpacity
           style={[
@@ -383,6 +413,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   switchButtonText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  actionBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  actionBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
   },
 });
 let styles = createStyles(lightColors);

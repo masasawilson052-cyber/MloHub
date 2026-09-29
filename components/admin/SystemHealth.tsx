@@ -5,6 +5,7 @@ import { Spacing, Radii, Shadows } from '../../constants/theme';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
+import { AdminTabId } from '../../types/admin';
 import {
   AdminSystemHealthService,
   PlatformHealthReport,
@@ -18,9 +19,10 @@ let colors: ThemeColors = lightColors;
 
 interface SystemHealthProps {
   language?: 'en' | 'sw';
+  onNavigateTab?: (tab: AdminTabId) => void;
 }
 
-export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) => {
+export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en', onNavigateTab }) => {
   const isCloud = isSupabaseConfigured();
   /*
   // Fail-closed invariant check preserved:
@@ -92,6 +94,20 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
     }
   };
 
+  const getActionForSubsystem = (name: string, category: string): { label: string; tab: AdminTabId; icon: keyof typeof Ionicons.glyphMap } | null => {
+    const lower = (name + ' ' + category).toLowerCase();
+    if (lower.includes('payment') || lower.includes('reconciliation')) {
+      return { label: language === 'sw' ? 'Tazama Malipo' : 'View Payments', tab: 'PAYMENTS', icon: 'card-outline' };
+    }
+    if (lower.includes('notification') || lower.includes('outbox') || lower.includes('telecom') || lower.includes('sms')) {
+      return { label: language === 'sw' ? 'Tazama Arifa' : 'View Notifications', tab: 'NOTIFICATIONS', icon: 'notifications-outline' };
+    }
+    if (lower.includes('settlement') || lower.includes('ledger') || lower.includes('financial')) {
+      return { label: language === 'sw' ? 'Tazama Malipo ya Migahawa' : 'View Settlements', tab: 'SETTLEMENTS', icon: 'wallet-outline' };
+    }
+    return null;
+  };
+
   const overallStatus: SubsystemStatus = report?.overallStatus || 'UNVERIFIED';
 
   return (
@@ -121,7 +137,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
           disabled={isRefreshing}
         >
           {isRefreshing ? (
-            <ActivityIndicator size="small" color="#f97316" />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Ionicons name="refresh" size={16} color={colors.text} />
           )}
@@ -218,10 +234,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                 styles.statusPill,
                 {
                   backgroundColor: runtimeConfig.isProduction
-                    ? '#ef444415'
+                    ? colors.dangerSoft
                     : runtimeConfig.isStaging
-                    ? '#f59e0b15'
-                    : '#3b82f615',
+                    ? colors.warningSoft
+                    : colors.infoSoft,
                 },
               ]}
             >
@@ -230,10 +246,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                   styles.dot,
                   {
                     backgroundColor: runtimeConfig.isProduction
-                      ? '#ef4444'
+                      ? colors.danger
                       : runtimeConfig.isStaging
-                      ? '#f59e0b'
-                      : '#3b82f6',
+                      ? colors.warning
+                      : colors.info,
                   },
                 ]}
               />
@@ -242,10 +258,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                   styles.statusText,
                   {
                     color: runtimeConfig.isProduction
-                      ? '#ef4444'
+                      ? colors.danger
                       : runtimeConfig.isStaging
-                      ? '#f59e0b'
-                      : '#3b82f6',
+                      ? colors.warning
+                      : colors.info,
                   },
                 ]}
               >
@@ -269,7 +285,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
         {/* Dynamic Subsystem Checks */}
         {loading && !report ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#f97316" />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { color: colors.textMuted }]}>
               {language === 'sw' ? 'Inathibitisha huduma za mfumo...' : 'Probing platform subsystems and worker heartbeats...'}
             </Text>
@@ -321,6 +337,25 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({ language = 'en' }) =
                     ))}
                   </View>
                 )}
+
+                {onNavigateTab && (() => {
+                  const action = getActionForSubsystem(c.name, c.category);
+                  if (!action) return null;
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.cardActionButton,
+                        { borderColor: colors.border, backgroundColor: isDark ? colors.surface : colors.card },
+                      ]}
+                      onPress={() => onNavigateTab(action.tab)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={action.icon} size={14} color={colors.primary} />
+                      <Text style={[styles.cardActionText, { color: colors.primary }]}>{action.label}</Text>
+                      <Ionicons name="arrow-forward" size={12} color={colors.primary} />
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
             );
           })
@@ -478,6 +513,21 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   detailItem: {
     fontSize: 11,
+  },
+  cardActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radii.sm,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginTop: Spacing.xs,
+  },
+  cardActionText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loadingContainer: {
     width: '100%',

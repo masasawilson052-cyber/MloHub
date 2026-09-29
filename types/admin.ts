@@ -1,3 +1,21 @@
+export type AdminTabId =
+  | 'OVERVIEW'
+  | 'ORDERS'
+  | 'APPLICATIONS'
+  | 'RESTAURANTS'
+  | 'VERIFICATION'
+  | 'REPORTS'
+  | 'PAYMENTS'
+  | 'REFUNDS'
+  | 'SETTLEMENTS'
+  | 'ANALYTICS'
+  | 'NOTIFICATIONS'
+  | 'USERS'
+  | 'ADMIN_USERS'
+  | 'AUDIT_LOGS'
+  | 'HEALTH'
+  | 'SETTINGS';
+
 export interface AdminPageQuery {
   page?: number;
   pageSize?: number;
@@ -38,4 +56,37 @@ export interface AdminFinanceSummary {
   platformCommissionTzs: number;
   merchantNetPayableTzs: number;
   paidOutTzs: number;
+}
+
+export interface AdminActionInboxItem {
+  id: string;
+  kind: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'INFO';
+  title: string;
+  detail: string;
+  targetTab: AdminTabId;
+  entityId: string;
+  createdAt: string;
+}
+
+export interface AdminOverviewMetrics {
+  totalRestaurants: number;
+  basicSellers: number;
+  verifiedSellers: number;
+  suspendedRestaurants: number;
+
+  pendingApplications: number;
+  openReports: number;
+
+  totalOrders: number;
+  completedOrders: number;
+
+  capturedVolumeTzs: number;
+  platformRevenueTzs: number;
+
+  pendingRefunds: number;
+  pendingSettlements: number;
+
+  stalePayments: number;
+  failedOutbox: number;
 }

@@ -38,3 +38,5 @@ export * from './platformSettings.repository';
 export * from './platformAnnouncements.repository';
 export * from './adminGovernance.repository';
 export * from './adminFinance.repository';
+export * from './adminActionInbox.repository';
+export * from './adminOverview.repository';

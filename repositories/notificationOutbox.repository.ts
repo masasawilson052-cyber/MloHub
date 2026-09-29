@@ -145,4 +145,22 @@ export class NotificationOutboxRepository {
       console.error(`NotificationOutboxRepository.updateEventStatus(${id}) error:`, dbError.message);
     }
   }
+
+  public static async listDeliveryHealthEvents(limit: number = 50): Promise<NotificationEventOutbox[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    const { data, error } = await supabase
+      .from('notification_event_outbox')
+      .select('*')
+      .in('processing_status', ['FAILED', 'DEAD_LETTER', 'PENDING'])
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('NotificationOutboxRepository.listDeliveryHealthEvents error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(this.mapRowToOutbox);
+  }
 }

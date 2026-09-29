@@ -219,7 +219,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
             <View style={styles.badgeRow}>
               {isArchived ? (
                 <View style={[styles.pill, { backgroundColor: colors.dangerSoft }]}>
-                  <Ionicons name="archive" size={12} color="#b91c1c" />
+                  <Ionicons name="archive" size={12} color={colors.danger} />
                   <Text style={[styles.pillText, { color: colors.danger }]}>ARCHIVED</Text>
                 </View>
               ) : (
@@ -231,7 +231,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 <Ionicons
                   name={isVerified ? 'shield-checkmark' : 'storefront-outline'}
                   size={12}
-                  color={isVerified ? '#047857' : '#0369a1'}
+                  color={isVerified ? colors.success : colors.info}
                 />
                 <Text style={styles.pillText}>
                   {isVerified ? 'VERIFIED SELLER' : 'BASIC INFORMAL SELLER'}
@@ -259,16 +259,16 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
 
             {/* Gate B Store Launch Review Card */}
             {(restaurant.launchStatus || (restaurant as any).launch_status) && (
-              <View style={[styles.cardSection, { borderColor: '#1d6637', backgroundColor: colors.successSoft }]}>
+              <View style={[styles.cardSection, { borderColor: colors.success, backgroundColor: colors.successSoft }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="rocket-outline" size={18} color="#1d6637" />
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#1d6637' }}>
+                    <Ionicons name="rocket-outline" size={18} color={colors.success} />
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: colors.success }}>
                       Gate B Store Launch Status
                     </Text>
                   </View>
-                  <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: '#1d6637', borderWidth: 1 }]}>
-                    <Text style={[styles.pillText, { color: '#1d6637', fontWeight: '800' }]}>
+                  <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: colors.success, borderWidth: 1 }]}>
+                    <Text style={[styles.pillText, { color: colors.success, fontWeight: '800' }]}>
                       {restaurant.launchStatus || (restaurant as any).launch_status || 'SETUP_REQUIRED'}
                     </Text>
                   </View>
@@ -310,7 +310,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                       ].map((item, idx) => (
                         <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 2 }}>
                           <Text style={{ fontSize: 12, color: colors.textPrimary }}>{item.label}</Text>
-                          <Text style={{ fontSize: 12, fontWeight: '800', color: item.met ? '#16a34a' : '#ef4444' }}>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: item.met ? colors.success : colors.danger }}>
                             {item.met ? '✓' : '✕'}
                           </Text>
                         </View>
@@ -366,7 +366,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                               flex: 1.5,
                               paddingVertical: 10,
                               borderRadius: Radii.md,
-                              backgroundColor: '#1d6637',
+                              backgroundColor: colors.success,
                               flexDirection: 'row',
                               justifyContent: 'center',
                               alignItems: 'center',
@@ -418,7 +418,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                         <Text style={styles.promptCancelText}>Cancel</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.promptDeleteConfirmBtn, { backgroundColor: '#ea580c', paddingVertical: 8, paddingHorizontal: 14 }]}
+                        style={[styles.promptDeleteConfirmBtn, { backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14 }]}
                         onPress={handleConfirmCorrections}
                         disabled={isProcessing}
                       >
@@ -520,7 +520,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
             {archiveMode && (
               <View style={[styles.inputPromptBox, styles.deletePromptBox]}>
                 <View style={styles.deletePromptHeader}>
-                  <Ionicons name="archive" size={20} color="#ea580c" />
+                  <Ionicons name="archive" size={20} color={colors.primary} />
                   <Text style={[styles.deletePromptTitle, { color: colors.primary }]}>Archive Restaurant?</Text>
                 </View>
                 <Text style={styles.deletePromptSubtitle}>
@@ -535,7 +535,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                 />
                 {actionError && (
                   <View style={styles.inlineErrorBox}>
-                    <Ionicons name="alert-circle" size={16} color="#dc2626" />
+                    <Ionicons name="alert-circle" size={16} color={colors.danger} />
                     <Text style={styles.inlineErrorText}>{actionError}</Text>
                   </View>
                 )}
@@ -551,7 +551,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                     <Text style={styles.promptCancelText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.promptDeleteConfirmBtn, { backgroundColor: '#ea580c' }]}
+                    style={[styles.promptDeleteConfirmBtn, { backgroundColor: colors.primary }]}
                     onPress={handleConfirmArchive}
                     disabled={isProcessing}
                   >
@@ -610,7 +610,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   onPress={() => setSuspendMode(true)}
                   disabled={isProcessing}
                 >
-                  <Ionicons name="ban-outline" size={16} color="#ef4444" />
+                  <Ionicons name="ban-outline" size={16} color={colors.danger} />
                   <Text style={styles.suspendBtnText}>Suspend Restaurant</Text>
                 </TouchableOpacity>
               ))}
@@ -625,7 +625,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   }}
                   disabled={isProcessing}
                 >
-                  <Ionicons name="archive-outline" size={16} color="#ea580c" />
+                  <Ionicons name="archive-outline" size={16} color={colors.primary} />
                   <Text style={[styles.deleteBtnText, { color: colors.primary }]}>Archive</Text>
                 </TouchableOpacity>
               )}
@@ -807,7 +807,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
   },
   promptSuspendConfirmBtn: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.danger,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radii.md,
@@ -850,7 +850,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderRadius: Radii.md,
-    backgroundColor: '#16a34a',
+    backgroundColor: colors.success,
   },
   reactivateBtnText: {
     fontSize: 13,
@@ -909,7 +909,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   promptDeleteConfirmBtn: {
-    backgroundColor: '#dc2626',
+    backgroundColor: colors.danger,
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radii.md,
