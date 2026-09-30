@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole, hasAdminAccess } from '../../db/types';
 import { Button } from '../../components/ui/Button';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { ApplicationRepository } from '../../repositories/applications.repository';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -118,6 +119,18 @@ export default function LoginScreen() {
         }
         router.replace('/restaurant-portal');
       } else {
+        try {
+          const myApps = await ApplicationRepository.listMine(res.user.email);
+          const activeApp = myApps.find(
+            (a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW' || a.status === 'CHANGES_REQUESTED'
+          );
+          if (activeApp) {
+            router.replace('/restaurant-portal');
+            return;
+          }
+        } catch (appCheckErr) {
+          console.warn('[Login] Application status lookup notice:', appCheckErr);
+        }
         router.replace('/(tabs)');
       }
     } catch (err: any) {

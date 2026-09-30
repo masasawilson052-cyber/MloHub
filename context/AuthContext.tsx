@@ -742,6 +742,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               matchedEmail = pMatch.email.toLowerCase();
             }
           } catch {}
+
+          if (!matchedEmail) {
+            try {
+              const { data: appMatch } = await supabase
+                .from('restaurant_applications')
+                .select('owner_email')
+                .or(`owner_phone.eq.${norm},owner_phone.eq.${dto.emailOrPhone.trim()}`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              if (appMatch?.owner_email) {
+                matchedEmail = appMatch.owner_email.toLowerCase();
+              }
+            } catch {}
+          }
         }
         if (matchedEmail) {
           emailToUse = matchedEmail;
@@ -1141,8 +1156,11 @@ function splitEmail(email: string): string {
 
 function mapSupabaseAuthError(rawMsg: string): string {
   const lower = (rawMsg || '').toLowerCase();
+  if (lower.includes('email not confirmed') || lower.includes('email_not_confirmed') || lower.includes('not confirmed')) {
+    return 'Barua pepe yako haijathibitishwa bado. Tafadhali fungua kikasha cha barua pepe yako na ubofye kiungo cha uthibitisho kabla ya kuingia.';
+  }
   if (lower.includes('invalid login credentials') || lower.includes('invalid credentials')) {
-    return 'Barua pepe au nenosiri si sahihi. Tafadhali hakiki na ujaribu tena.';
+    return 'Barua pepe au nenosiri si sahihi. Tafadhali hakiki barua pepe na nenosiri lako na ujaribu tena.';
   }
   if (lower.includes('user already registered') || lower.includes('already exists')) {
     return 'Akaunti yenye barua pepe hii tayari ipo. Tafadhali ingia au tumia barua pepe nyingine.';

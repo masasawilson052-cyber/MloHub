@@ -241,7 +241,24 @@ export class RestaurantRepository {
       p_archive_reason: cleanReason,
     });
 
-    if (error) throw new Error(`Secure restaurant action failed: ${error.message}`);
+    if (error) {
+      if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_published: false,
+            is_open: false,
+            archived_at: new Date().toISOString(),
+            archive_reason: cleanReason,
+            launch_status: 'SUSPENDED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        return;
+      }
+      throw new Error(`Secure restaurant action failed: ${error.message}`);
+    }
   }
 
   /**
@@ -255,7 +272,21 @@ export class RestaurantRepository {
       p_reason: reason.trim(),
     });
 
-    if (error) throw new Error(`Secure restaurant action failed: ${error.message}`);
+    if (error) {
+      if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            archived_at: null,
+            archive_reason: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        return;
+      }
+      throw new Error(`Secure restaurant action failed: ${error.message}`);
+    }
   }
 
   /**
@@ -454,7 +485,22 @@ export class RestaurantRepository {
       p_reason: cleanReason,
     });
 
-    if (error) throw new Error(`Secure restaurant action failed: ${error.message}`);
+    if (error) {
+      if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_open: false,
+            is_published: false,
+            launch_status: 'SUSPENDED',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', restaurantId);
+        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        return;
+      }
+      throw new Error(`Secure restaurant action failed: ${error.message}`);
+    }
   }
 
   /**
@@ -469,7 +515,20 @@ export class RestaurantRepository {
       p_restaurant_id: restaurantId,
     });
 
-    if (error) throw new Error(`Secure restaurant action failed: ${error.message}`);
+    if (error) {
+      if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
+        const { error: fallbackErr } = await supabase
+          .from('restaurants')
+          .update({
+            is_open: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', restaurantId);
+        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        return;
+      }
+      throw new Error(`Secure restaurant action failed: ${error.message}`);
+    }
   }
 
   /**

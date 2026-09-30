@@ -531,11 +531,11 @@ export default function RegisterRestaurantScreen() {
 
             <TouchableOpacity
               style={styles.returnBtn}
-              onPress={() => router.replace('/auth/login?type=restaurant')}
+              onPress={() => router.replace('/restaurant-portal')}
               activeOpacity={0.88}
             >
               <Text style={styles.returnBtnText}>
-                {language === 'sw' ? 'Ingia Kwenye Akaunti ya Mgahawa' : 'Go to Restaurant Login'}
+                {language === 'sw' ? 'Fuatilia Hali ya Ombi Lako' : 'Track Your Application Status'}
               </Text>
             </TouchableOpacity>
 
