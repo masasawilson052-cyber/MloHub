@@ -5,14 +5,15 @@ import { Button } from '../../components/ui/Button';
 import { Colors, Spacing } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { RestaurantMemberRepository } from '../../repositories/restaurantMembers.repository';
-
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
 let colors: ThemeColors = lightColors;
 
 export default function StaffInviteScreen() {
-  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { colors: _tc } = useTheme();
+  colors = _tc;
+  styles = createStyles(colors);
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const { isAuthenticated } = useAuth();
