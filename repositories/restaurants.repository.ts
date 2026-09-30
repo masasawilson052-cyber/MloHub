@@ -3,7 +3,7 @@ import { Restaurant, RestaurantLaunchReadiness } from '../types/domain';
 
 export function isCustomerVisibleRestaurant(r: Restaurant): boolean {
   return r.isActive === true && r.isPublished === true && r.isVerified === true &&
-    r.verificationStatus === 'VERIFIED' && r.launchStatus === 'PUBLISHED' &&
+    r.verificationStatus === 'VERIFIED' && (!r.launchStatus || r.launchStatus === 'PUBLISHED') &&
     !r.isSuspended && !r.archivedAt && !r.name.toUpperCase().startsWith('[DELETED]');
 }
 
@@ -34,7 +34,7 @@ export class RestaurantRepository {
       isPublished: row.is_published ?? false,
       isActive: row.is_active === true,
       verificationStatus: row.verification_status || 'PENDING_VERIFICATION',
-      launchStatus: row.launch_status || 'SETUP_REQUIRED',
+      launchStatus: row.launch_status || (row.is_published && row.is_verified ? 'PUBLISHED' : 'SETUP_REQUIRED'),
       tinNumber: row.tin_number,
       businessLicenseNumber: row.business_license_number,
       payoutPhoneNumber: row.payout_phone_number,
@@ -116,7 +116,44 @@ export class RestaurantRepository {
     let { data, error } = await query.order('rating', { ascending: false });
 
     // Graceful backward-compatibility fallback if database hasn't executed migration yet
+    if (error && (error.code === '42703' || String(error.message).includes('launch_status') || String(error.message).includes('archived_at'))) {
+      console.warn('[RestaurantRepository] Schema column notice, falling back to core columns query:', error.message);
+      let fallbackQuery = supabase.from('restaurants').select('*');
+      if (filters?.customerVisibleOnly) {
+        fallbackQuery = fallbackQuery
+          .eq('is_active', true)
+          .eq('is_published', true)
+          .eq('is_verified', true)
+          .eq('verification_status', 'VERIFIED')
+          .neq('verification_status', 'SUSPENDED')
+          .neq('verification_status', 'REJECTED')
+          .not('name', 'ilike', '[DELETED]%');
+      } else {
+        if (filters?.publishedOnly === true) {
+          fallbackQuery = fallbackQuery.eq('is_published', true);
+        }
+        if (filters?.verifiedOnly) {
+          fallbackQuery = fallbackQuery.eq('is_verified', true);
+        }
+      }
 
+      if (filters?.neighborhood && filters.neighborhood !== 'All') {
+        fallbackQuery = fallbackQuery.ilike('neighborhood', `%${filters.neighborhood}%`);
+      }
+      if (filters?.cuisine && filters.cuisine !== 'All') {
+        fallbackQuery = fallbackQuery.ilike('cuisine', `%${filters.cuisine}%`);
+      }
+      if (filters?.search && filters.search.trim()) {
+        const q = filters.search.trim();
+        fallbackQuery = fallbackQuery.or(`name.ilike.%${q}%,cuisine.ilike.%${q}%,neighborhood.ilike.%${q}%,specialty.ilike.%${q}%`);
+      }
+
+      const fallbackResult = await fallbackQuery.order('rating', { ascending: false });
+      if (!fallbackResult.error) {
+        data = fallbackResult.data;
+        error = null;
+      }
+    }
 
     if (error) {
       console.error('RestaurantRepository.list error:', error.message);
@@ -144,7 +181,7 @@ export class RestaurantRepository {
     if (!isSupabaseConfigured()) return [];
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('restaurant_branches')
         .select('restaurant_id, restaurants!inner(*)')
         .eq('is_active', true)
@@ -155,6 +192,23 @@ export class RestaurantRepository {
         .neq('restaurants.verification_status', 'REJECTED')
         .is('restaurants.archived_at', null)
         .not('restaurants.name', 'ilike', '[DELETED]%');
+
+      if (error && (error.code === '42703' || String(error.message).includes('archived_at'))) {
+        const fallback = await supabase
+          .from('restaurant_branches')
+          .select('restaurant_id, restaurants!inner(*)')
+          .eq('is_active', true)
+          .eq('reservations_enabled', true)
+          .eq('restaurants.is_active', true)
+          .eq('restaurants.is_published', true)
+          .neq('restaurants.verification_status', 'SUSPENDED')
+          .neq('restaurants.verification_status', 'REJECTED')
+          .not('restaurants.name', 'ilike', '[DELETED]%');
+        if (!fallback.error) {
+          data = fallback.data;
+          error = null;
+        }
+      }
 
       if (error) {
         console.warn('RestaurantRepository.listBookable query notice:', error.message);
