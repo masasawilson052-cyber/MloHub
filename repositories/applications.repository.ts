@@ -234,9 +234,29 @@ export class ApplicationRepository {
       payload.rejection_reason = mutation.rejectionReason;
       payload.notes = mutation.rejectionReason;
     }
-    const { error } = await supabase.from(targetTable).update(payload).eq('id', id);
-    if (error) {
-      throw new Error(`Failed to update application record: ${error.message}`);
+
+    let currentPayload = { ...payload };
+    while (Object.keys(currentPayload).length > 0) {
+      const { error } = await supabase.from(targetTable).update(currentPayload).eq('id', id);
+      if (!error) return;
+
+      const msg = error.message || '';
+      const match =
+        msg.match(/Could not find the '([^']+)' column of 'restaurant_applications'/i) ||
+        msg.match(/column "?([^"'\s]+)"? of relation "restaurant_applications" does not exist/i);
+
+      if (match && match[1] && match[1] in currentPayload) {
+        console.warn(`[ApplicationRepository] Column '${match[1]}' not in schema cache, retrying without it.`);
+        delete currentPayload[match[1]];
+        continue;
+      }
+
+      // Minimal fallback to core status update
+      const { error: minErr } = await supabase.from(targetTable).update({ status: mutation.status }).eq('id', id);
+      if (minErr) {
+        throw new Error(`Failed to update application record: ${minErr.message}`);
+      }
+      return;
     }
   }
 

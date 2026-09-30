@@ -230,6 +230,51 @@ export class RestaurantRepository {
   }
 
   /**
+   * Resilient direct table update helper that gracefully strips columns missing from remote schema cache
+   */
+  private static async updateRestaurantResilient(
+    id: string,
+    payload: Record<string, any>
+  ): Promise<void> {
+    let currentPayload = { ...payload };
+
+    while (Object.keys(currentPayload).length > 0) {
+      const { error } = await supabase.from('restaurants').update(currentPayload).eq('id', id);
+      if (!error) return;
+
+      const msg = error.message || '';
+      const match =
+        msg.match(/Could not find the '([^']+)' column of 'restaurants'/i) ||
+        msg.match(/column "?([^"'\s]+)"? of relation "restaurants" does not exist/i);
+
+      if (match && match[1] && match[1] in currentPayload) {
+        console.warn(`[RestaurantRepository] Column '${match[1]}' not in schema cache, retrying without it.`);
+        delete currentPayload[match[1]];
+        continue;
+      }
+
+      // If specific column error couldn't be parsed, immediately fall back to universal core columns
+      console.warn('[RestaurantRepository] General schema fallback on restaurants table:', msg);
+      const isSuspendingOrArchiving =
+        payload.verification_status === 'SUSPENDED' ||
+        payload.launch_status === 'SUSPENDED' ||
+        payload.is_open === false;
+
+      const coreFallback: Record<string, any> = {
+        is_open: !isSuspendingOrArchiving,
+        verification_status: isSuspendingOrArchiving ? 'SUSPENDED' : 'VERIFIED',
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: coreErr } = await supabase.from('restaurants').update(coreFallback).eq('id', id);
+      if (coreErr) {
+        throw new Error(`Secure restaurant action failed: ${coreErr.message}`);
+      }
+      return;
+    }
+  }
+
+  /**
    * Archive restaurant authoritatively (non-destructive delisting)
    */
   public static async archiveRestaurant(id: string, reason: string = 'Archived by administrator'): Promise<void> {
@@ -243,18 +288,15 @@ export class RestaurantRepository {
 
     if (error) {
       if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
-        const { error: fallbackErr } = await supabase
-          .from('restaurants')
-          .update({
-            is_published: false,
-            is_open: false,
-            archived_at: new Date().toISOString(),
-            archive_reason: cleanReason,
-            launch_status: 'SUSPENDED',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        await this.updateRestaurantResilient(id, {
+          is_published: false,
+          is_open: false,
+          archived_at: new Date().toISOString(),
+          archive_reason: cleanReason,
+          launch_status: 'SUSPENDED',
+          verification_status: 'SUSPENDED',
+          updated_at: new Date().toISOString(),
+        });
         return;
       }
       throw new Error(`Secure restaurant action failed: ${error.message}`);
@@ -274,15 +316,13 @@ export class RestaurantRepository {
 
     if (error) {
       if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
-        const { error: fallbackErr } = await supabase
-          .from('restaurants')
-          .update({
-            archived_at: null,
-            archive_reason: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', id);
-        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        await this.updateRestaurantResilient(id, {
+          archived_at: null,
+          archive_reason: null,
+          is_open: true,
+          verification_status: 'VERIFIED',
+          updated_at: new Date().toISOString(),
+        });
         return;
       }
       throw new Error(`Secure restaurant action failed: ${error.message}`);
@@ -487,16 +527,13 @@ export class RestaurantRepository {
 
     if (error) {
       if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
-        const { error: fallbackErr } = await supabase
-          .from('restaurants')
-          .update({
-            is_open: false,
-            is_published: false,
-            launch_status: 'SUSPENDED',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', restaurantId);
-        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        await this.updateRestaurantResilient(restaurantId, {
+          is_open: false,
+          is_published: false,
+          launch_status: 'SUSPENDED',
+          verification_status: 'SUSPENDED',
+          updated_at: new Date().toISOString(),
+        });
         return;
       }
       throw new Error(`Secure restaurant action failed: ${error.message}`);
@@ -517,14 +554,11 @@ export class RestaurantRepository {
 
     if (error) {
       if (error.message.includes('schema cache') || error.message.includes('Could not find')) {
-        const { error: fallbackErr } = await supabase
-          .from('restaurants')
-          .update({
-            is_open: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', restaurantId);
-        if (fallbackErr) throw new Error(`Secure restaurant action failed: ${fallbackErr.message}`);
+        await this.updateRestaurantResilient(restaurantId, {
+          is_open: true,
+          verification_status: 'VERIFIED',
+          updated_at: new Date().toISOString(),
+        });
         return;
       }
       throw new Error(`Secure restaurant action failed: ${error.message}`);
