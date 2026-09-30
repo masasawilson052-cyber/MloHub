@@ -2,12 +2,18 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { Colors } from '../../constants/theme';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function AuthLayout() {
+  const { colors: _tc } = useTheme(); colors = _tc;
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: Colors.background },
+        contentStyle: { backgroundColor: colors.appBackground },
         animation: 'slide_from_right',
       }}
     >

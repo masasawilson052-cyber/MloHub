@@ -25,7 +25,13 @@ import { useLanguage } from '../../context/LanguageContext';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function NotificationsScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
   const { width } = useWindowDimensions();
@@ -95,33 +101,33 @@ export default function NotificationsScreen() {
   const getNotifMeta = (type: NotificationType) => {
     switch (type) {
       case 'reservation_confirmed':
-        return { icon: 'calendar', color: Colors.primary, bg: Colors.primaryMuted, label: 'RESERVATION' };
+        return { icon: 'calendar', color: colors.primary, bg: colors.primaryMuted, label: 'RESERVATION' };
       case 'reservation_pending':
-        return { icon: 'time-outline', color: '#c05621', bg: '#fef3e2', label: 'PENDING' };
+        return { icon: 'time-outline', color: colors.warning, bg: colors.warningSoft, label: 'PENDING' };
       case 'reservation_cancelled':
-        return { icon: 'close-circle-outline', color: '#e53e3e', bg: '#fff5f5', label: 'CANCELLED' };
+        return { icon: 'close-circle-outline', color: colors.danger, bg: colors.dangerSoft, label: 'CANCELLED' };
       case 'reservation_reminder':
-        return { icon: 'alarm-outline', color: Colors.accent, bg: Colors.accentLight, label: 'REMINDER' };
+        return { icon: 'alarm-outline', color: colors.primary, bg: colors.accentLight, label: 'REMINDER' };
       case 'custom_meal_received':
-        return { icon: 'mail-outline', color: '#2b6cb0', bg: '#ebf8ff', label: 'CUSTOM MEAL' };
+        return { icon: 'mail-outline', color: colors.info, bg: colors.infoSoft, label: 'CUSTOM MEAL' };
       case 'custom_meal_accepted':
-        return { icon: 'checkmark-circle-outline', color: Colors.primary, bg: Colors.primaryMuted, label: 'ACCEPTED' };
+        return { icon: 'checkmark-circle-outline', color: colors.primary, bg: colors.primaryMuted, label: 'ACCEPTED' };
       case 'custom_meal_rejected':
-        return { icon: 'alert-circle-outline', color: '#d69e2e', bg: '#fefcbf', label: 'MEAL UPDATE' };
+        return { icon: 'alert-circle-outline', color: colors.warning, bg: colors.warningSoft, label: 'MEAL UPDATE' };
       case 'custom_meal_preparing':
-        return { icon: 'restaurant-outline', color: '#dd6b20', bg: '#feebc8', label: 'KITCHEN' };
+        return { icon: 'restaurant-outline', color: colors.warning, bg: colors.warningSoft, label: 'KITCHEN' };
       case 'custom_meal_ready':
-        return { icon: 'gift-outline', color: Colors.primary, bg: Colors.primaryMuted, label: 'ORDER READY' };
+        return { icon: 'gift-outline', color: colors.primary, bg: colors.primaryMuted, label: 'ORDER READY' };
       case 'payment_success':
-        return { icon: 'card-outline', color: '#2f855a', bg: '#f0fff4', label: 'PAYMENT' };
+        return { icon: 'card-outline', color: colors.success, bg: colors.successSoft, label: 'PAYMENT' };
       case 'payment_failed':
-        return { icon: 'warning-outline', color: '#e53e3e', bg: '#fff5f5', label: 'PAYMENT FAILED' };
+        return { icon: 'warning-outline', color: colors.danger, bg: colors.dangerSoft, label: 'PAYMENT FAILED' };
       case 'review_reminder':
-        return { icon: 'star-outline', color: Colors.accent, bg: Colors.accentLight, label: 'REVIEW' };
+        return { icon: 'star-outline', color: colors.primary, bg: colors.accentLight, label: 'REVIEW' };
       case 'promotion':
-        return { icon: 'pricetag-outline', color: '#6b46c1', bg: '#faf5ff', label: 'OFFER' };
+        return { icon: 'pricetag-outline', color: colors.mutedViolet, bg: colors.violetLight, label: 'OFFER' };
       default:
-        return { icon: 'notifications-outline', color: Colors.text, bg: Colors.background, label: 'ALERT' };
+        return { icon: 'notifications-outline', color: colors.textPrimary, bg: colors.surfaceInteractive, label: 'ALERT' };
     }
   };
 
@@ -181,7 +187,7 @@ export default function NotificationsScreen() {
       <View style={styles.topHeader}>
         <View style={styles.topHeaderLeft}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={20} color={Colors.text} />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </TouchableOpacity>
           <View>
             <View style={styles.titleWithBadge}>
@@ -213,7 +219,7 @@ export default function NotificationsScreen() {
             activeOpacity={0.7}
             accessibilityLabel="Notification Settings"
           >
-            <Ionicons name="options-outline" size={20} color={Colors.text} />
+            <Ionicons name="options-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -387,7 +393,7 @@ export default function NotificationsScreen() {
                       onPress={() => deleteNotification(notif.id)}
                       accessibilityLabel="Delete notification"
                     >
-                      <Ionicons name="trash-outline" size={15} color={Colors.subtle} />
+                      <Ionicons name="trash-outline" size={15} color={colors.subtle} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -397,7 +403,7 @@ export default function NotificationsScreen() {
         ) : (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <Ionicons name="notifications-off-outline" size={36} color={Colors.subtle} />
+              <Ionicons name="notifications-off-outline" size={36} color={colors.subtle} />
             </View>
             <Text style={styles.emptyTitle}>{t('notifEmptyTitle')}</Text>
             <Text style={styles.emptySub}>{t('notifEmptySub')}</Text>
@@ -418,7 +424,7 @@ export default function NotificationsScreen() {
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="flash-outline" size={15} color={Colors.primaryDark} />
+            <Ionicons name="flash-outline" size={15} color={colors.primaryDark} />
             <Text style={styles.simBtnText}>{t('notifSimulateIncoming')}</Text>
           </TouchableOpacity>
         )}
@@ -434,7 +440,7 @@ export default function NotificationsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.receiptTopCircle}>
-              <Ionicons name="checkmark-done" size={28} color={Colors.white} />
+              <Ionicons name="checkmark-done" size={28} color={colors.white} />
             </View>
             <Text style={styles.receiptTitle}>Official Payment Receipt</Text>
 
@@ -480,7 +486,7 @@ export default function NotificationsScreen() {
               </>
             ) : (
               <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Text style={{ fontSize: 13, color: Colors.subtle, textAlign: 'center', lineHeight: 20 }}>
+                <Text style={{ fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 20 }}>
                   Receipt details are unavailable for this notification.
                 </Text>
               </View>
@@ -506,12 +512,12 @@ export default function NotificationsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.ratingIconCircle}>
-              <Ionicons name="star" size={26} color={Colors.accent} />
+              <Ionicons name="star" size={26} color={colors.accent} />
             </View>
             <Text style={styles.ratingModalTitle}>How Was Your Meal?</Text>
             <Text style={styles.ratingModalSub}>
               Rate your dining experience at{' '}
-              <Text style={{ fontWeight: '800', color: Colors.text }}>
+              <Text style={{ fontWeight: '800', color: colors.textPrimary }}>
                 {selectedRatingNotif?.restaurantName}
               </Text>
             </Text>
@@ -527,7 +533,7 @@ export default function NotificationsScreen() {
                   <Ionicons
                     name={star <= ratingStars ? 'star' : 'star-outline'}
                     size={32}
-                    color={Colors.accent}
+                    color={colors.accent}
                   />
                 </TouchableOpacity>
               ))}
@@ -536,7 +542,7 @@ export default function NotificationsScreen() {
             <TextInput
               style={styles.reviewInput}
               placeholder="Leave a short comment for the chef (optional)..."
-              placeholderTextColor={Colors.subtle}
+              placeholderTextColor={colors.inputPlaceholder}
               multiline
               numberOfLines={3}
               value={reviewComment}
@@ -572,7 +578,7 @@ export default function NotificationsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.resIconCircle}>
-              <Ionicons name="calendar-outline" size={26} color={Colors.primaryDark} />
+              <Ionicons name="calendar-outline" size={26} color={colors.primaryDark} />
             </View>
             <Text style={styles.receiptTitle}>Confirmed Table Booking</Text>
             <Text style={styles.resRestaurantName}>
@@ -615,10 +621,10 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   topHeader: {
     flexDirection: 'row',
@@ -626,9 +632,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   topHeaderLeft: {
     flexDirection: 'row',
@@ -639,11 +645,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   titleWithBadge: {
     flexDirection: 'row',
@@ -653,23 +659,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   unreadCounterBadge: {
-    backgroundColor: Colors.accent,
+    backgroundColor: colors.accent,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: Radii.full,
   },
   unreadCounterText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '900',
   },
   headerSub: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   topHeaderActions: {
@@ -678,7 +684,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   markAllBtn: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: Radii.full,
@@ -686,33 +692,33 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 11,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   settingsBtn: {
     width: 36,
     height: 36,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   toastBanner: {
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     paddingVertical: 8,
     paddingHorizontal: Spacing.md,
   },
   toastText: {
-    color: Colors.lime,
+    color: colors.lime,
     fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
   },
   tabsWrapper: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   tabsScrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -726,21 +732,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   tabChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabChipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   tabChipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
   },
   tabCountPill: {
@@ -755,10 +761,10 @@ const styles = StyleSheet.create({
   tabCountText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   tabCountTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -770,19 +776,19 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     position: 'relative',
     overflow: 'hidden',
     ...Shadows.sm,
   },
   cardUnread: {
-    backgroundColor: '#ffffff',
-    borderColor: Colors.primaryLight,
+    backgroundColor: colors.card,
+    borderColor: colors.primaryLight,
     ...Shadows.md,
   },
   unreadBar: {
@@ -791,7 +797,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -833,27 +839,27 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 10,
-    color: Colors.subtle,
+    color: colors.textMuted,
   },
   cardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   cardTitleUnread: {
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: Radii.full,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     marginTop: 6,
   },
   cardMessage: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 17,
     marginTop: 2,
     marginBottom: 6,
@@ -865,35 +871,35 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   metaPill: {
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: Radii.sm,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
   },
   metaPillText: {
     fontSize: 10,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   reasonBox: {
-    backgroundColor: '#fff5f5',
+    backgroundColor: colors.dangerSoft,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: 4,
     borderLeftWidth: 3,
-    borderLeftColor: '#e53e3e',
+    borderLeftColor: colors.danger,
   },
   reasonLabel: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#e53e3e',
+    color: colors.danger,
     textTransform: 'uppercase',
   },
   reasonText: {
     fontSize: 11,
-    color: Colors.text,
+    color: colors.textPrimary,
     marginTop: 1,
   },
   cardFooter: {
@@ -903,18 +909,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   actionBtn: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.primaryLight,
+    borderColor: colors.primaryLight,
   },
   actionBtnText: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontSize: 11,
     fontWeight: '900',
   },
@@ -928,20 +934,20 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   emptyContainer: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     padding: Spacing.xxl,
     alignItems: 'center',
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginVertical: Spacing.xl,
   },
   emptyIconCircle: {
     width: 68,
     height: 68,
     borderRadius: Radii.full,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -949,12 +955,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   emptySub: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 320,
@@ -964,18 +970,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: Radii.xl,
     borderWidth: 1,
-    borderColor: Colors.primaryLight,
+    borderColor: colors.primaryLight,
     marginTop: Spacing.lg,
   },
   simBtnText: {
     fontSize: 12,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   modalOverlay: {
     flex: 1,
@@ -985,7 +991,7 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.xxl,
     width: '100%',
     maxWidth: 400,
@@ -997,7 +1003,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: Radii.full,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
@@ -1005,20 +1011,20 @@ const styles = StyleSheet.create({
   receiptTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
   },
   receiptAmount: {
     fontSize: 26,
     fontWeight: '900',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginVertical: 4,
   },
   receiptStatus: {
     fontSize: 9,
     fontWeight: '900',
-    color: '#2f855a',
-    backgroundColor: '#f0fff4',
+    color: colors.success,
+    backgroundColor: colors.successSoft,
     paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: Radii.full,
@@ -1027,11 +1033,11 @@ const styles = StyleSheet.create({
   },
   receiptDetailsBox: {
     width: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.xl,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     marginVertical: Spacing.sm,
     gap: 8,
   },
@@ -1042,22 +1048,22 @@ const styles = StyleSheet.create({
   },
   receiptLabel: {
     fontSize: 11,
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   receiptVal: {
     fontSize: 11,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   receiptValMono: {
     fontSize: 11,
     fontWeight: '900',
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontFamily: Platform.select({ ios: 'Courier', default: 'monospace' }),
   },
   modalPrimaryBtn: {
     width: '100%',
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -1065,7 +1071,7 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   modalPrimaryBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: '900',
   },
@@ -1073,7 +1079,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: Radii.full,
-    backgroundColor: Colors.accentLight,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
@@ -1081,11 +1087,11 @@ const styles = StyleSheet.create({
   ratingModalTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   ratingModalSub: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 2,
     marginBottom: Spacing.md,
@@ -1100,13 +1106,13 @@ const styles = StyleSheet.create({
   },
   reviewInput: {
     width: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     fontSize: 12,
-    color: Colors.text,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     minHeight: 70,
     textAlignVertical: 'top',
     marginTop: Spacing.sm,
@@ -1119,21 +1125,21 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
     paddingVertical: 12,
     borderRadius: Radii.xl,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
   },
   modalCancelBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   modalPrimaryBtnRow: {
     flex: 2,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: Radii.xl,
     alignItems: 'center',
@@ -1143,7 +1149,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: Radii.full,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
@@ -1151,7 +1157,8 @@ const styles = StyleSheet.create({
   resRestaurantName: {
     fontSize: 16,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginTop: 2,
   },
 });
+let styles = createStyles(lightColors);

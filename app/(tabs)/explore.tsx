@@ -21,14 +21,23 @@ import { GoogleMapView } from '../../components/GoogleMapView';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { DiscoveryService } from '../../services/DiscoveryService';
+import { DiscoveryRepository } from '../../repositories/discovery.repository';
 import { DishDiscoveryResult, DiscoveryQuery, DiscoverySort } from '../../types/discovery';
 import { AnalyticsService } from '../../services/AnalyticsService';
 import { useMloHubDB } from '../../context/DbContext';
 
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function ExploreScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { user, profile } = useAuth();
+  const { location: customerLocation } = useCustomerLocation();
   const params = useLocalSearchParams<{
     q?: string;
     budget?: string;
@@ -48,7 +57,8 @@ export default function ExploreScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeSort, setActiveSort] = useState<DiscoverySort>('RECOMMENDED');
 
-  const initialNeighborhood = params.neighborhood || profile?.location || user?.location || undefined;
+  const initialNeighborhood =
+    params.neighborhood || customerLocation.serviceAreaName || profile?.location || user?.location || undefined;
 
   // Filter State
   const [filters, setFilters] = useState<DiscoveryQuery>({
@@ -62,6 +72,8 @@ export default function ExploreScreen() {
 
   // Results State
   const [results, setResults] = useState<DishDiscoveryResult[]>([]);
+  const [matchedRestaurants, setMatchedRestaurants] = useState<any[]>([]);
+  const [matchedCuisines, setMatchedCuisines] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [similarDishes, setSimilarDishes] = useState<DishDiscoveryResult[]>([]);
@@ -77,14 +89,30 @@ export default function ExploreScreen() {
   const executeSearch = useCallback(async (currentFilters: DiscoveryQuery, sortMode: DiscoverySort) => {
     setIsLoading(true);
     try {
-      const response = await DiscoveryService.searchDishes({
-        ...currentFilters,
-        sortBy: sortMode,
-        limit: 30,
-      });
+      const marketplacePromise = currentFilters.query && currentFilters.query.trim().length >= 2
+        ? DiscoveryRepository.searchMarketplace(
+            currentFilters.query.trim(),
+            customerLocation.latitude,
+            customerLocation.longitude,
+            10
+          )
+        : Promise.resolve({ restaurants: [], dishes: [], cuisines: [] });
+
+      const [response, marketData] = await Promise.all([
+        DiscoveryService.searchDishes({
+          ...currentFilters,
+          latitude: customerLocation.latitude,
+          longitude: customerLocation.longitude,
+          sortBy: sortMode,
+          limit: 30,
+        }),
+        marketplacePromise,
+      ]);
 
       setResults(response.results);
       setTotalCount(response.totalCount);
+      setMatchedRestaurants(marketData.restaurants || []);
+      setMatchedCuisines(marketData.cuisines || []);
 
       AnalyticsService.trackEvent('SEARCH_COMPLETED', {
         query: currentFilters.query,
@@ -108,7 +136,7 @@ export default function ExploreScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [customerLocation.latitude, customerLocation.longitude]);
 
   // Run search when query, filters, or sort change
   useEffect(() => {
@@ -167,6 +195,8 @@ export default function ExploreScreen() {
             <HeroSearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
+              latitude={customerLocation.latitude}
+              longitude={customerLocation.longitude}
               placeholder={language === 'sw' ? 'Tafuta chakula, bei, mgahawa...' : 'Search dish, price, restaurant...'}
               onToggleFilters={() => setFiltersOpen(!filtersOpen)}
               activeFilterCount={activeFilterCount}
@@ -185,7 +215,7 @@ export default function ExploreScreen() {
             <Ionicons
               name={viewMode === 'list' ? 'map-outline' : 'list-outline'}
               size={20}
-              color={Colors.primaryDark}
+              color={colors.primaryDark}
             />
           </TouchableOpacity>
         </View>
@@ -238,27 +268,97 @@ export default function ExploreScreen() {
                 <DishCardSkeleton />
                 <DishCardSkeleton />
               </View>
-            ) : results.length > 0 ? (
-              results.map((dish) => (
-                <DishCard
-                  key={`${dish.menuItemId}-${dish.branchId}`}
-                  dish={dish}
-                  onToggleCompare={toggleCompare}
-                  isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
-                />
-              ))
             ) : (
-              <NoResultsView
-                queryText={searchQuery}
-                maxBudget={filters.maxPriceTzs}
-                maxDistanceKm={filters.maxDistanceKm}
-                onIncreaseBudget={() =>
-                  setFilters({ ...filters, maxPriceTzs: (filters.maxPriceTzs || 10000) + 5000 })
-                }
-                onExpandDistance={() => setFilters({ ...filters, maxDistanceKm: 10 })}
-                onClearFilters={handleClearFilters}
-                similarDishes={similarDishes}
-              />
+              <>
+                {/* MATCHING CUISINES SECTION */}
+                {matchedCuisines.length > 0 && (
+                  <View style={styles.cuisinesSection}>
+                    <Text style={styles.multiEntityHeader}>
+                      {language === 'sw' ? 'Aina za Vyakula' : 'Cuisines'}
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cuisineChipsScroll}>
+                      {matchedCuisines.map((c) => (
+                        <TouchableOpacity
+                          key={c}
+                          style={styles.cuisineChip}
+                          onPress={() => setSearchQuery(c)}
+                        >
+                          <Text style={styles.cuisineChipText}>🍲 {c}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* MATCHING RESTAURANTS SECTION */}
+                {matchedRestaurants.length > 0 && (
+                  <View style={styles.restaurantsSection}>
+                    <Text style={styles.multiEntityHeader}>
+                      {language === 'sw' ? 'Migahawa' : 'Restaurants'} ({matchedRestaurants.length})
+                    </Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.restaurantsScroll}>
+                      {matchedRestaurants.map((rest) => (
+                        <TouchableOpacity
+                          key={rest.id}
+                          style={styles.restaurantMiniCard}
+                          onPress={() => router.push(`/restaurant/${rest.id}` as any)}
+                          activeOpacity={0.85}
+                        >
+                          <View style={styles.restaurantMiniHeader}>
+                            <Text style={{ fontSize: 26 }}>🍽️</Text>
+                          </View>
+                          <View style={styles.restaurantMiniBody}>
+                            <Text style={styles.restaurantMiniName} numberOfLines={1}>{rest.name}</Text>
+                            <Text style={styles.restaurantMiniCuisine} numberOfLines={1}>
+                              {rest.cuisine} • {rest.neighborhood || 'Dar es Salaam'}
+                            </Text>
+                            <View style={styles.restaurantMiniFooter}>
+                              <Text style={styles.restaurantMiniRating}>
+                                ★ {rest.rating ? Number(rest.rating).toFixed(1) : 'New'}
+                              </Text>
+                              {rest.distance_km != null && (
+                                <Text style={styles.restaurantMiniDistance}>
+                                  📍 {Number(rest.distance_km).toFixed(1)} km
+                                </Text>
+                              )}
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* MATCHING DISHES SECTION */}
+                {(matchedRestaurants.length > 0 || matchedCuisines.length > 0) && results.length > 0 && (
+                  <Text style={styles.multiEntityHeader}>
+                    {language === 'sw' ? 'Vyakula Vinavyolingana' : 'Matching Dishes'} ({results.length})
+                  </Text>
+                )}
+
+                {results.length > 0 ? (
+                  results.map((dish) => (
+                    <DishCard
+                      key={`${dish.menuItemId}-${dish.branchId}`}
+                      dish={dish}
+                      onToggleCompare={toggleCompare}
+                      isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
+                    />
+                  ))
+                ) : (
+                  <NoResultsView
+                    queryText={searchQuery}
+                    maxBudget={filters.maxPriceTzs}
+                    maxDistanceKm={filters.maxDistanceKm}
+                    onIncreaseBudget={() =>
+                      setFilters({ ...filters, maxPriceTzs: (filters.maxPriceTzs || 10000) + 5000 })
+                    }
+                    onExpandDistance={() => setFilters({ ...filters, maxDistanceKm: 10 })}
+                    onClearFilters={handleClearFilters}
+                    similarDishes={similarDishes}
+                  />
+                )}
+              </>
             )}
           </ScrollView>
         )}
@@ -282,10 +382,10 @@ export default function ExploreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   container: {
     flex: 1,
@@ -302,6 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: Spacing.sm,
+    paddingRight: 44,
   },
   searchBarCol: {
     flex: 1,
@@ -310,9 +411,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     ...Shadows.sm,
@@ -327,7 +428,7 @@ const styles = StyleSheet.create({
   resultsCount: {
     fontSize: 13,
     fontWeight: '800',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   sortChipsScroll: {
     flexDirection: 'row',
@@ -338,21 +439,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: Radii.full,
-    backgroundColor: '#edf2ee',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#dce4dd',
+    borderColor: colors.border,
   },
   sortChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   sortChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   sortChipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   scrollList: {
@@ -369,7 +470,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.full,
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
@@ -388,19 +489,101 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   floatingCompareText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
   floatingCompareBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: Radii.full,
   },
   floatingCompareBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
     fontSize: 12,
   },
+  multiEntityHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cuisinesSection: {
+    marginBottom: Spacing.sm,
+  },
+  cuisineChipsScroll: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  cuisineChip: {
+    backgroundColor: colors.card,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cuisineChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  restaurantsSection: {
+    marginBottom: Spacing.sm,
+  },
+  restaurantsScroll: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  restaurantMiniCard: {
+    width: 200,
+    backgroundColor: colors.card,
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...Shadows.sm,
+  },
+  restaurantMiniHeader: {
+    height: 70,
+    backgroundColor: colors.successSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restaurantMiniBody: {
+    padding: 8,
+  },
+  restaurantMiniName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  restaurantMiniCuisine: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  restaurantMiniFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  restaurantMiniRating: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  restaurantMiniDistance: {
+    fontSize: 10,
+    color: colors.textSecondary,
+  },
 });
+let styles = createStyles(lightColors);

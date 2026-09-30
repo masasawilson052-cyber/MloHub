@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,19 +15,33 @@ import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { DishDiscoveryResult } from '../types/discovery';
 import { formatTzs, formatDistance, formatFreshnessBadge } from '../utils/formatters';
 import { useCart } from '../context/CartContext';
-import { FloatingCartButton } from '../components/cart/FloatingCartButton';
-import { CartDrawer } from '../components/cart/CartDrawer';
-import { OrderReviewModal } from '../components/checkout/OrderReviewModal';
+import { useCartInteraction } from '../hooks/useCartInteraction';
+import { CustomerCartHost } from '../components/cart/CustomerCartHost';
 import { FreshnessBadge } from '../components/ui/FreshnessBadge';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 
+import { useTheme } from '../context/ThemeContext';
+import { ThemeColors, lightColors } from '../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
 export default function CompareScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const params = useLocalSearchParams<{ dishes?: string }>();
   const { width } = useWindowDimensions();
-  const { addToCart, items, isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
+  const { items } = useCart();
+  const { requestAddToCart, isDishAddPending } = useCartInteraction();
+  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
+  const dishImageRefs = useRef<Record<string, React.RefObject<View | null>>>({});
+
+  const getCompareImageRef = (dishId: string): React.RefObject<View | null> => {
+    if (!dishImageRefs.current[dishId]) {
+      dishImageRefs.current[dishId] = React.createRef<View | null>();
+    }
+    return dishImageRefs.current[dishId];
+  };
 
   let dishes: DishDiscoveryResult[] = [];
   try {
@@ -70,7 +84,7 @@ export default function CompareScreen() {
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Dish Quality & Price Comparison</Text>
         <View style={{ width: 40 }} />
@@ -99,17 +113,34 @@ export default function CompareScreen() {
           {/* Horizontal Comparison Columns */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columnsContainer}>
             {dishes.map((dish) => {
-              const inCart = items.find((i) => i.dishId === dish.menuItemId);
+              const dishCartQuantity = items
+                .filter((i) => i.dishId === dish.menuItemId)
+                .reduce((sum, i) => sum + i.quantity, 0);
+              const inCart = dishCartQuantity > 0;
               const isBestPrice = dish.priceTzs === bestMetrics.minPrice;
               const isNearest = dish.distanceKm === bestMetrics.minDistance;
               const isTopRated = dish.restaurantRating === bestMetrics.maxRating;
+              const hasRealImg = Boolean(dish.imageUrl && !brokenImages[dish.menuItemId]);
+              const imageRef = getCompareImageRef(dish.menuItemId);
 
               return (
                 <View key={dish.menuItemId} style={styles.columnCard}>
                   {/* Dish Image */}
                   <View style={styles.imageBox}>
-                    {dish.imageUrl ? (
-                      <Image source={{ uri: dish.imageUrl }} style={styles.dishImg} resizeMode="cover" />
+                    {hasRealImg ? (
+                      <View ref={imageRef} collapsable={false} style={styles.dishImg}>
+                        <Image
+                          source={{ uri: dish.imageUrl }}
+                          style={styles.dishImg}
+                          resizeMode="cover"
+                          onError={() =>
+                            setBrokenImages((prev) => ({
+                              ...prev,
+                              [dish.menuItemId]: true,
+                            }))
+                          }
+                        />
+                      </View>
                     ) : (
                       <View style={styles.imgPlaceholder}>
                         <Text style={styles.imgPlaceholderText}>🍲</Text>
@@ -193,24 +224,40 @@ export default function CompareScreen() {
 
                   {/* Add to Cart CTA */}
                   <TouchableOpacity
-                    style={[styles.addBtn, inCart && styles.addBtnInCart]}
-                    onPress={() =>
-                      addToCart({
-                        dishId: dish.menuItemId,
-                        dishName: dish.dishName,
-                        dishNameSwahili: dish.dishNameSw,
-                        restaurantId: dish.restaurantId,
-                        restaurantName: dish.restaurantName,
-                        branchId: dish.branchId,
-                        branchName: dish.branchName,
-                        priceTzs: dish.priceTzs,
-                        imageUrl: dish.imageUrl,
-                      })
-                    }
+                    style={[
+                      styles.addBtn,
+                      inCart && styles.addBtnInCart,
+                      isDishAddPending(dish.menuItemId) && { opacity: 0.65 },
+                    ]}
+                    disabled={isDishAddPending(dish.menuItemId)}
+                    onPress={() => {
+                      if (isDishAddPending(dish.menuItemId)) return;
+                      void requestAddToCart(
+                        {
+                          dishId: dish.menuItemId,
+                          dishName: dish.dishName,
+                          dishNameSwahili: dish.dishNameSw,
+                          description: dish.description,
+                          restaurantId: dish.restaurantId,
+                          restaurantName: dish.restaurantName,
+                          branchId: dish.branchId,
+                          branchName: dish.branchName,
+                          priceTzs: dish.priceTzs,
+                          imageUrl: hasRealImg ? dish.imageUrl : undefined,
+                        },
+                        {
+                          sourceRef: imageRef,
+                        }
+                      );
+                    }}
                     activeOpacity={0.85}
                   >
                     <Text style={[styles.addBtnText, inCart && styles.addBtnTextInCart]}>
-                      {inCart ? `✓ In Order (${inCart.quantity})` : '+ Add to Order'}
+                      {isDishAddPending(dish.menuItemId)
+                        ? 'Adding...'
+                        : inCart
+                        ? `✓ In Order (${dishCartQuantity})`
+                        : '+ Add to Order'}
                     </Text>
                   </TouchableOpacity>
 
@@ -228,30 +275,16 @@ export default function CompareScreen() {
         </ScrollView>
       )}
 
-      {/* Floating Cart Button */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={() => router.push('/(tabs)/bookings')}
-      />
+      {/* Unified Customer Cart Host */}
+      <CustomerCartHost showWhenEmpty={true} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   header: {
     flexDirection: 'row',
@@ -260,21 +293,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    backgroundColor: Colors.card,
+    borderBottomColor: colors.divider,
+    backgroundColor: colors.card,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   emptyContainer: {
     marginTop: 60,
@@ -291,12 +324,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: Colors.text,
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   noteText: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 2,
   },
   columnsContainer: {
@@ -305,10 +338,10 @@ const styles = StyleSheet.create({
   },
   columnCard: {
     width: 260,
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     padding: Spacing.md,
     marginRight: Spacing.md,
     ...Shadows.sm,
@@ -317,7 +350,7 @@ const styles = StyleSheet.create({
     height: 130,
     borderRadius: Radii.md,
     overflow: 'hidden',
-    backgroundColor: '#edf2ee',
+    backgroundColor: colors.surfaceInteractive,
     marginBottom: Spacing.sm,
     position: 'relative',
   },
@@ -361,34 +394,34 @@ const styles = StyleSheet.create({
     borderRadius: Radii.full,
   },
   bestBadgeText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontSize: 10,
     fontWeight: '800',
   },
   dishName: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     minHeight: 40,
   },
   dishNameSw: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     marginTop: 1,
     marginBottom: 4,
   },
   restaurantName: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   neighborhood: {
     fontSize: 11,
-    color: Colors.subtle,
+    color: colors.textMuted,
     marginBottom: Spacing.sm,
   },
   metricsTable: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginBottom: Spacing.md,
@@ -399,49 +432,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    borderBottomColor: colors.divider,
   },
   metricLabel: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   metricValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   metricValueHighlight: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   priceValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
   },
   priceValueHighlight: {
     color: '#047857',
   },
   addBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     borderRadius: Radii.md,
     paddingVertical: 10,
     alignItems: 'center',
     marginBottom: 6,
   },
   addBtnInCart: {
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: Colors.primary,
+    borderColor: colors.primary,
   },
   addBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   addBtnTextInCart: {
-    color: Colors.primaryDark,
+    color: colors.primary,
   },
   viewRestBtn: {
     paddingVertical: 6,
@@ -450,6 +483,7 @@ const styles = StyleSheet.create({
   viewRestBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
 });
+let styles = createStyles(lightColors);

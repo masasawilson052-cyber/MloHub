@@ -11,19 +11,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { PriceText } from '../../components/ui/PriceText';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
-import { CartDrawer } from '../../components/cart/CartDrawer';
-import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
 import { RealtimeService } from '../../services/RealtimeService';
 import { CustomMealRepository } from '../../repositories/customMeals.repository';
 import { PaymentCheckoutModal } from '../../components/PaymentCheckoutModal';
@@ -35,6 +32,11 @@ import {
   CustomMealRequest,
   RestaurantQuote,
 } from '../../types/domain';
+
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 const OCCASIONS: { id: CustomMealOccasion; label: string; labelSw: string }[] = [
   { id: 'PERSONAL', label: 'Personal / Daily', labelSw: 'Mlo Binafsi' },
@@ -74,23 +76,23 @@ const ALLERGEN_OPTIONS = [
 ];
 
 export default function CustomMealScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const router = useRouter();
   const { language } = useLanguage();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
 
-  // Cart & Review Modal State
-  const { addToCart, isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
-
   // Flow Step: 'REQUEST' | 'QUOTES'
   const [activeTab, setActiveTab] = useState<'REQUEST' | 'QUOTES'>('REQUEST');
+  const [formStep, setFormStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Form Fields - Truthful empty defaults
   const [dishTitle, setDishTitle] = useState('');
   const [description, setDescription] = useState('');
   const [occasion, setOccasion] = useState<CustomMealOccasion>('PERSONAL');
   const [budgetTzs, setBudgetTzs] = useState('');
+  const [budgetMaxTzs, setBudgetMaxTzs] = useState('');
   const [budgetType, setBudgetType] = useState<BudgetType>('FIXED');
   const [servings, setServings] = useState('2');
   const [spiceLevel, setSpiceLevel] = useState<SpiceLevel>('MEDIUM');
@@ -174,8 +176,66 @@ export default function CustomMealScreen() {
     );
   };
 
+  const handleNextStep = () => {
+    if (formStep === 1) {
+      if (!dishTitle.trim()) {
+        Alert.alert(
+          language === 'sw' ? 'Jina la Chakula Linahitajika' : 'Missing Dish Title',
+          language === 'sw'
+            ? 'Tafadhali taja chakula unachotaka kuandaliwa.'
+            : 'Please specify what dish you would like prepared.'
+        );
+        return;
+      }
+      setFormStep(2);
+    } else if (formStep === 2) {
+      const servingsNum = parseInt(servings.replace(/[^0-9]/g, ''), 10) || 0;
+      if (servingsNum < 1) {
+        Alert.alert(
+          language === 'sw' ? 'Idadi ya Watu Inahitajika' : 'Servings Required',
+          language === 'sw' ? 'Tafadhali ingiza idadi ya watu (angalau 1).' : 'Please enter number of servings (at least 1).'
+        );
+        return;
+      }
+      setFormStep(3);
+    } else if (formStep === 3) {
+      setFormStep(4);
+    } else if (formStep === 4) {
+      if (budgetType === 'FIXED') {
+        const clean = budgetTzs.replace(/[^0-9]/g, '');
+        const val = parseInt(clean, 10) || 0;
+        if (val < 5000) {
+          Alert.alert(
+            language === 'sw' ? 'Bajeti Inahitajika' : 'Budget Required',
+            language === 'sw' ? 'Bajeti ya kudumu lazima iwe angalau TZS 5,000.' : 'Fixed budget must be at least TZS 5,000.'
+          );
+          return;
+        }
+      } else if (budgetType === 'RANGE') {
+        const minVal = parseInt(budgetTzs.replace(/[^0-9]/g, ''), 10) || 0;
+        const maxVal = parseInt(budgetMaxTzs.replace(/[^0-9]/g, ''), 10) || 0;
+        if (minVal < 5000) {
+          Alert.alert(
+            language === 'sw' ? 'Kiwango cha Chini' : 'Minimum Budget',
+            language === 'sw' ? 'Kiwango cha chini lazima kiwe angalau TZS 5,000.' : 'Minimum budget must be at least TZS 5,000.'
+          );
+          return;
+        }
+        if (maxVal < minVal) {
+          Alert.alert(
+            language === 'sw' ? 'Kiwango cha Juu' : 'Maximum Budget',
+            language === 'sw' ? 'Kiwango cha juu hakiwezi kuwa chini ya kiwango cha chini.' : 'Maximum budget cannot be less than minimum budget.'
+          );
+          return;
+        }
+      }
+      setFormStep(5);
+    }
+  };
+
   const handleSubmitRequest = async () => {
     if (!dishTitle.trim()) {
+      setFormStep(1);
       Alert.alert(
         language === 'sw' ? 'Jina la Chakula Linahitajika' : 'Missing Dish Title',
         language === 'sw'
@@ -184,22 +244,15 @@ export default function CustomMealScreen() {
       );
       return;
     }
+
     const location = customerArea;
     if (!location.trim() || !customerArea.trim()) {
+      setFormStep(5);
       Alert.alert(
         language === 'sw' ? 'Eneo Linahitajika' : 'Area Required',
         language === 'sw'
-          ? 'Tafadhali ingiza eneo lako (mf. Mikocheni, Sinza).'
-          : 'Please enter your neighborhood area (e.g. Mikocheni, Sinza).'
-      );
-      return;
-    }
-    if (!exactAddress.trim() || !exactPhone.trim()) {
-      Alert.alert(
-        language === 'sw' ? 'Anwani na Simu Vinahitajika' : 'Exact Address & Phone Required',
-        language === 'sw'
-          ? 'Ingiza anwani kamili na namba ya simu. Hizi zitafichwa kwa wapishi hadi utakapolipa.'
-          : 'Please enter exact address and phone. These remain strictly hidden from chefs until quote is accepted.'
+          ? 'Tafadhali ingiza eneo lako (mf. Mikocheni B, Mtaa wa Chuo).'
+          : 'Please enter your neighborhood area (e.g. Mikocheni B, Mtaa wa Chuo).'
       );
       return;
     }
@@ -215,15 +268,30 @@ export default function CustomMealScreen() {
     }
 
     const cleanBudget = budgetTzs.replace(/[^0-9]/g, '');
-    const budgetNum = parseInt(cleanBudget, 10);
-    if (!cleanBudget || isNaN(budgetNum) || budgetNum < 5000) {
+    const budgetNum = parseInt(cleanBudget, 10) || 0;
+    const cleanMax = budgetMaxTzs.replace(/[^0-9]/g, '');
+    const budgetMaxNum = parseInt(cleanMax, 10) || budgetNum;
+
+    if (budgetType === 'FIXED' && budgetNum < 5000) {
+      setFormStep(4);
       Alert.alert(
         language === 'sw' ? 'Bajeti Inahitajika' : 'Budget Required',
         language === 'sw'
-          ? 'Tafadhali ingiza makadirio halisi ya bajeti ya chakula chako.'
-          : 'Please enter a budget of at least TZS 5,000.'
+          ? 'Tafadhali ingiza makadirio halisi ya bajeti ya angalau TZS 5,000 au chagua "Open to Quotes".'
+          : 'Please enter a target budget of at least TZS 5,000 or select "Open to Quotes".'
       );
       return;
+    }
+
+    if (budgetType === 'RANGE') {
+      if (budgetNum < 5000 || budgetMaxNum < budgetNum) {
+        setFormStep(4);
+        Alert.alert(
+          language === 'sw' ? 'Kiwango cha Bajeti' : 'Budget Range Required',
+          language === 'sw' ? 'Ingiza kiwango sahihi cha bajeti ya angalau TZS 5,000.' : 'Please enter a valid budget range of at least TZS 5,000.'
+        );
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -239,15 +307,17 @@ export default function CustomMealScreen() {
         dishName: dishTitle.trim(),
         occasion,
         servingsCount: String(servingsNum),
-        budgetTzs: budgetNum,
+        budgetTzs: budgetType === 'OPEN_TO_QUOTES' ? 0 : budgetNum,
+        budgetMinTzs: budgetType === 'OPEN_TO_QUOTES' ? undefined : budgetNum,
+        budgetMaxTzs: budgetType === 'RANGE' ? budgetMaxNum : (budgetType === 'OPEN_TO_QUOTES' ? undefined : budgetNum),
         budgetType,
         spiceLevel,
         dietaryTags: selectedDietary,
         allergens: selectedAllergens,
         customerArea: customerArea.trim(),
         landmark: landmark.trim() || undefined,
-        exactDeliveryAddress: exactAddress.trim(),
-        exactDeliveryPhone: exactPhone.trim(),
+        exactDeliveryAddress: exactAddress.trim() || undefined,
+        exactDeliveryPhone: exactPhone.trim() || undefined,
         desiredAt,
         specialInstructions: description.trim() || undefined,
       });
@@ -255,6 +325,7 @@ export default function CustomMealScreen() {
       setActiveRequestId(created.id);
       setActiveRequest(created);
       setActiveTab('QUOTES');
+      setFormStep(1);
 
       // Refresh quotes list
       const qList = await CustomMealRepository.listQuotesForRequest(created.id);
@@ -374,236 +445,407 @@ export default function CustomMealScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* TAB 1: MEAL REQUEST FORM */}
+        {/* TAB 1: MEAL REQUEST FORM (5-STEP WIZARD) */}
         {activeTab === 'REQUEST' && (
           <View style={styles.formCard}>
-            {/* Privacy Guarantee Banner */}
-            <View style={styles.privacyBanner}>
-              <Ionicons name="shield-checkmark" size={18} color={Colors.primary} />
-              <Text style={styles.privacyText}>
-                {language === 'sw'
-                  ? '🔒 Anwani na simu yako vimefichwa kwa wapishi hadi utakapochagua ofa na kulipa.'
-                  : '🔒 Address Privacy: Your exact house address & phone remain strictly hidden from chefs until you select a winning quote.'}
+            {/* Wizard Step Header & Progress */}
+            <View style={styles.wizardProgressTrack}>
+              <View style={[styles.wizardProgressFill, { width: `${(formStep / 5) * 100}%` }]} />
+            </View>
+            <View style={styles.wizardHeaderRow}>
+              <Text style={styles.wizardStepBadge}>
+                {language === 'sw' ? `Hatua ya ${formStep} kati ya 5` : `Step ${formStep} of 5`}
+              </Text>
+              <Text style={styles.wizardStepTitle}>
+                {formStep === 1
+                  ? (language === 'sw' ? 'Chakula na Maelezo' : 'Dish & Description')
+                  : formStep === 2
+                  ? (language === 'sw' ? 'Watu na Muda wa Kuandaa' : 'Servings & Prep Time')
+                  : formStep === 3
+                  ? (language === 'sw' ? 'Pilipili na Vionjo' : 'Dietary & Preferences')
+                  : formStep === 4
+                  ? (language === 'sw' ? 'Makadirio ya Bajeti' : 'Budget & Pricing')
+                  : (language === 'sw' ? 'Eneo la Kupelekewa' : 'Delivery Area & Privacy')}
               </Text>
             </View>
 
-            {/* Dish Title */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Dish Name / Concept *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={dishTitle}
-                onChangeText={setDishTitle}
-                placeholder="e.g. Zanzibar Goat Biryani Pot with Salad & Raita"
-              />
-            </View>
+            {/* STEP 1: Dish & Description */}
+            {formStep === 1 && (
+              <View style={styles.stepContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Jina la Chakula / Dhana ya Mlo *' : 'Dish Name / Concept *'}
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={dishTitle}
+                    onChangeText={setDishTitle}
+                    placeholder="e.g. Zanzibar Goat Biryani Pot with Salad & Raita"
+                  />
+                </View>
 
-            {/* Occasion */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Occasion</Text>
-              <View style={styles.chipsRow}>
-                {OCCASIONS.map((occ) => (
-                  <TouchableOpacity
-                    key={occ.id}
-                    style={[styles.chip, occasion === occ.id && styles.chipActive]}
-                    onPress={() => setOccasion(occ.id)}
-                  >
-                    <Text style={[styles.chipText, occasion === occ.id && styles.chipTextActive]}>
-                      {language === 'sw' ? occ.labelSw : occ.label}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Aina ya Tukio' : 'Occasion'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {OCCASIONS.map((occ) => (
+                      <TouchableOpacity
+                        key={occ.id}
+                        style={[styles.chip, occasion === occ.id && styles.chipActive]}
+                        onPress={() => setOccasion(occ.id)}
+                      >
+                        <Text style={[styles.chipText, occasion === occ.id && styles.chipTextActive]}>
+                          {language === 'sw' ? occ.labelSw : occ.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Maelekezo Maalum ya Upishi (Hiari)' : 'Special Instructions & Preparation Notes (Optional)'}
+                  </Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline={true}
+                    numberOfLines={3}
+                    placeholder="Include custom marinade, portioning preferences, or packaging requirements..."
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* STEP 2: Servings & Delivery Time */}
+            {formStep === 2 && (
+              <View style={styles.stepContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Idadi ya Watu (Walaji) *' : 'Servings (People) *'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {['1', '2', '4', '6', '10', '20+'].map((s) => (
+                      <TouchableOpacity
+                        key={s}
+                        style={[styles.chip, servings === s && styles.chipActive]}
+                        onPress={() => setServings(s)}
+                      >
+                        <Text style={[styles.chipText, servings === s && styles.chipTextActive]}>
+                          {s} {language === 'sw' ? (s === '1' ? 'Mtu' : 'Watu') : (s === '1' ? 'Person' : 'People')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, { marginTop: Spacing.xs }]}
+                    value={servings}
+                    onChangeText={setServings}
+                    keyboardType="numeric"
+                    placeholder="2"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Muda Unaohitajika wa Maandalizi (Saa kutoka sasa)' : 'Desired Preparation Lead Time (Hours from now)'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {['2', '4', '8', '24'].map((h) => (
+                      <TouchableOpacity
+                        key={h}
+                        style={[styles.chip, desiredTimeHours === h && styles.chipActive]}
+                        onPress={() => setDesiredTimeHours(h)}
+                      >
+                        <Text style={[styles.chipText, desiredTimeHours === h && styles.chipTextActive]}>
+                          {h} {language === 'sw' ? 'Saa' : 'Hrs'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TextInput
+                    style={[styles.textInput, { marginTop: Spacing.xs }]}
+                    value={desiredTimeHours}
+                    onChangeText={setDesiredTimeHours}
+                    keyboardType="numeric"
+                    placeholder="4"
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* STEP 3: Dietary & Preferences */}
+            {formStep === 3 && (
+              <View style={styles.stepContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Kiwango cha Pilipili' : 'Spice Preference'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {SPICE_LEVELS.map((sp) => (
+                      <TouchableOpacity
+                        key={sp.id}
+                        style={[styles.chip, spiceLevel === sp.id && styles.chipActive]}
+                        onPress={() => setSpiceLevel(sp.id)}
+                      >
+                        <Text style={[styles.chipText, spiceLevel === sp.id && styles.chipTextActive]}>
+                          {sp.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Mapendeleo ya Lishe' : 'Dietary Preferences'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {DIETARY_OPTIONS.map((tag) => (
+                      <TouchableOpacity
+                        key={tag}
+                        style={[styles.chip, selectedDietary.includes(tag) && styles.chipActive]}
+                        onPress={() => toggleDietary(tag)}
+                      >
+                        <Text style={[styles.chipText, selectedDietary.includes(tag) && styles.chipTextActive]}>
+                          {selectedDietary.includes(tag) ? '✓ ' : ''}{tag}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Vizio vya Chakula (Mzio/Allergies)' : 'Allergies (Chef MUST explicitly acknowledge)'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {ALLERGEN_OPTIONS.map((alg) => (
+                      <TouchableOpacity
+                        key={alg}
+                        style={[
+                          styles.chip,
+                          selectedAllergens.includes(alg) && styles.chipWarning,
+                        ]}
+                        onPress={() => toggleAllergen(alg)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            selectedAllergens.includes(alg) && styles.chipWarningText,
+                          ]}
+                        >
+                          {selectedAllergens.includes(alg) ? '⚠️ ' : ''}{alg}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* STEP 4: Budget & Pricing */}
+            {formStep === 4 && (
+              <View style={styles.stepContainer}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Aina ya Bajeti' : 'Budget Type'}
+                  </Text>
+                  <View style={styles.chipsRow}>
+                    {(['FIXED', 'RANGE', 'OPEN_TO_QUOTES'] as BudgetType[]).map((bt) => (
+                      <TouchableOpacity
+                        key={bt}
+                        style={[styles.chip, budgetType === bt && styles.chipActive]}
+                        onPress={() => setBudgetType(bt)}
+                      >
+                        <Text style={[styles.chipText, budgetType === bt && styles.chipTextActive]}>
+                          {bt === 'FIXED' ? (language === 'sw' ? 'Bajeti Kamili' : 'Fixed Target') : bt === 'RANGE' ? (language === 'sw' ? 'Kiwango cha Bajeti' : 'Budget Range') : (language === 'sw' ? 'Subiri Ofa za Wapishi' : 'Open to Quotes')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {budgetType === 'FIXED' && (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>
+                      {language === 'sw' ? 'Lengo la Bajeti (TZS) * (Kuanzia TZS 5,000)' : 'Target Budget (TZS) * (Min TZS 5,000)'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+                    <TextInput
+                      style={styles.textInput}
+                      value={budgetTzs}
+                      onChangeText={setBudgetTzs}
+                      keyboardType="numeric"
+                      placeholder="20000"
+                    />
+                  </View>
+                )}
 
-            {/* Budget & Servings */}
-            <View style={styles.rowTwoCols}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: Spacing.sm }]}>
-                <Text style={styles.inputLabel}>Target Budget (TZS)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={budgetTzs}
-                  onChangeText={setBudgetTzs}
-                  keyboardType="numeric"
-                  placeholder="20000"
-                />
-              </View>
+                {budgetType === 'RANGE' && (
+                  <View style={styles.rowTwoCols}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: Spacing.sm }]}>
+                      <Text style={styles.inputLabel}>
+                        {language === 'sw' ? 'Kiwango cha Chini (TZS) *' : 'Min Budget (TZS) *'}
+                      </Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={budgetTzs}
+                        onChangeText={setBudgetTzs}
+                        keyboardType="numeric"
+                        placeholder="15000"
+                      />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>
+                        {language === 'sw' ? 'Kiwango cha Juu (TZS) *' : 'Max Budget (TZS) *'}
+                      </Text>
+                      <TextInput
+                        style={styles.textInput}
+                        value={budgetMaxTzs}
+                        onChangeText={setBudgetMaxTzs}
+                        keyboardType="numeric"
+                        placeholder="35000"
+                      />
+                    </View>
+                  </View>
+                )}
 
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Servings (People)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={servings}
-                  onChangeText={setServings}
-                  keyboardType="numeric"
-                  placeholder="2"
-                />
-              </View>
-            </View>
-
-            {/* Budget Flexibility */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Budget Type</Text>
-              <View style={styles.chipsRow}>
-                {(['FIXED', 'RANGE', 'OPEN_TO_QUOTES'] as BudgetType[]).map((bt) => (
-                  <TouchableOpacity
-                    key={bt}
-                    style={[styles.chip, budgetType === bt && styles.chipActive]}
-                    onPress={() => setBudgetType(bt)}
-                  >
-                    <Text style={[styles.chipText, budgetType === bt && styles.chipTextActive]}>
-                      {bt === 'FIXED' ? 'Fixed Target' : bt === 'RANGE' ? 'Budget Range' : 'Open to Quotes'}
+                {budgetType === 'OPEN_TO_QUOTES' && (
+                  <View style={styles.openBudgetNotice}>
+                    <Ionicons name="information-circle-outline" size={20} color={colors.primaryDark} />
+                    <Text style={styles.openBudgetText}>
+                      {language === 'sw'
+                        ? 'Wapishi na migahawa iliyothibitishwa watatuma makadirio na ofa zao kulingana na viungo na idadi ya watu. Utachagua ofa inayokufaa zaidi bila vikwazo vya bajeti.'
+                        : 'No budget constraint specified. Verified partner kitchens will submit custom itemized proposals based on portions and ingredients. You review and select the best offer.'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
+                  </View>
+                )}
               </View>
-            </View>
+            )}
 
-            {/* Spice Level */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Spice Preference</Text>
-              <View style={styles.chipsRow}>
-                {SPICE_LEVELS.map((sp) => (
-                  <TouchableOpacity
-                    key={sp.id}
-                    style={[styles.chip, spiceLevel === sp.id && styles.chipActive]}
-                    onPress={() => setSpiceLevel(sp.id)}
-                  >
-                    <Text style={[styles.chipText, spiceLevel === sp.id && styles.chipTextActive]}>
-                      {sp.label}
+            {/* STEP 5: Delivery Location & Privacy */}
+            {formStep === 5 && (
+              <View style={styles.stepContainer}>
+                {/* Privacy Guarantee Banner */}
+                <View style={styles.privacyBanner}>
+                  <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+                  <View style={{ flex: 1, marginLeft: Spacing.xs }}>
+                    <Text style={styles.privacyHeading}>
+                      {language === 'sw' ? '🔒 Faragha ya Anwani Imehakikishwa' : '🔒 Delayed Exact Address Privacy'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Dietary Tags */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Dietary Preferences</Text>
-              <View style={styles.chipsRow}>
-                {DIETARY_OPTIONS.map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[styles.chip, selectedDietary.includes(tag) && styles.chipActive]}
-                    onPress={() => toggleDietary(tag)}
-                  >
-                    <Text style={[styles.chipText, selectedDietary.includes(tag) && styles.chipTextActive]}>
-                      {selectedDietary.includes(tag) ? '✓ ' : ''}{tag}
+                    <Text style={styles.privacyText}>
+                      {language === 'sw'
+                        ? 'Wapishi wanaona eneo lako kuu pekee (mf. Mikocheni B). Namba ya nyumba na simu yako vimefichwa kabisa hadi utakapochagua ofa ya mpishi.'
+                        : 'Chefs only see your broad neighborhood (e.g. Mikocheni). Your house address and phone number remain completely hidden until you accept a quote.'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
+                  </View>
+                </View>
 
-            {/* Allergen Declarations */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Allergies (Chef MUST explicitly acknowledge)</Text>
-              <View style={styles.chipsRow}>
-                {ALLERGEN_OPTIONS.map((alg) => (
-                  <TouchableOpacity
-                    key={alg}
-                    style={[
-                      styles.chip,
-                      selectedAllergens.includes(alg) && styles.chipWarning,
-                    ]}
-                    onPress={() => toggleAllergen(alg)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        selectedAllergens.includes(alg) && styles.chipWarningText,
-                      ]}
-                    >
-                      {selectedAllergens.includes(alg) ? '⚠️ ' : ''}{alg}
+                {/* Public Area & Landmark */}
+                <View style={styles.rowTwoCols}>
+                  <View style={[styles.inputGroup, { flex: 1, marginRight: Spacing.sm }]}>
+                    <Text style={styles.inputLabel}>
+                      {language === 'sw' ? 'Eneo la Mtaa *' : 'Neighborhood Area *'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
+                    <TextInput
+                      style={styles.textInput}
+                      value={customerArea}
+                      onChangeText={setCustomerArea}
+                      placeholder="e.g. Mikocheni B, Mtaa wa Chuo"
+                    />
+                  </View>
+
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>
+                      {language === 'sw' ? 'Kituo / Alama ya Eneo' : 'Landmark (Visible to Chefs)'}
+                    </Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={landmark}
+                      onChangeText={setLandmark}
+                      placeholder="Near Shoppers Plaza"
+                    />
+                  </View>
+                </View>
+
+                {/* Optional House / Street Address preview */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Anwani ya Nyumba (Hiari sasa; inathibitishwa wakati wa ofa)' : 'House / Street Address (Optional now; confirmed at quote acceptance)'}
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={exactAddress}
+                    onChangeText={setExactAddress}
+                    placeholder="House 42, Rose Garden Rd, Mikocheni B"
+                  />
+                </View>
+
+                {/* Optional Phone preview */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>
+                    {language === 'sw' ? 'Namba ya Simu ya Mawasiliano' : 'Contact Phone Number (Optional now)'}
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={exactPhone}
+                    onChangeText={setExactPhone}
+                    keyboardType="phone-pad"
+                    placeholder="+255 712 345 678"
+                  />
+                </View>
               </View>
+            )}
+
+            {/* Wizard Navigation Footer */}
+            <View style={styles.wizardFooterRow}>
+              {formStep > 1 && (
+                <TouchableOpacity
+                  style={styles.wizardBackBtn}
+                  onPress={() => setFormStep((prev) => (prev - 1) as any)}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to previous step"
+                >
+                  <Ionicons name="arrow-back" size={16} color={colors.textPrimary} style={{ marginRight: 6 }} />
+                  <Text style={styles.wizardBackBtnText}>
+                    {language === 'sw' ? 'Nyuma' : 'Back'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {formStep < 5 ? (
+                <TouchableOpacity
+                  style={styles.wizardNextBtn}
+                  onPress={handleNextStep}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Continue to next step"
+                >
+                  <Text style={styles.wizardNextBtnText}>
+                    {language === 'sw' ? 'Endelea' : 'Next Step'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={16} color={colors.white} style={{ marginLeft: 6 }} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.wizardSubmitBtn, isSubmitting && styles.btnDisabled]}
+                  onPress={handleSubmitRequest}
+                  disabled={isSubmitting}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel="Submit meal request"
+                >
+                  <Text style={styles.wizardSubmitBtnText}>
+                    {isSubmitting
+                      ? (language === 'sw' ? 'Inatuma kwa Wapishi...' : 'Dispatching to Chefs...')
+                      : (language === 'sw' ? 'Tuma Ombi la Chakula' : 'Submit Meal Request')}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
-
-            {/* Desired Lead Time */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Desired Preparation Lead Time (Hours from now)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={desiredTimeHours}
-                onChangeText={setDesiredTimeHours}
-                keyboardType="numeric"
-                placeholder="4"
-              />
-            </View>
-
-            {/* Delivery Neighborhood & Landmark (Public to Chefs) */}
-            <View style={styles.rowTwoCols}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: Spacing.sm }]}>
-                <Text style={styles.inputLabel}>Neighborhood Area *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={customerArea}
-                  onChangeText={setCustomerArea}
-                  placeholder="e.g. Mikocheni B, Mtaa wa Chuo"
-                />
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1 }]}>
-                <Text style={styles.inputLabel}>Landmark (Visible to Chefs)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={landmark}
-                  onChangeText={setLandmark}
-                  placeholder="Near Shoppers Plaza"
-                />
-              </View>
-            </View>
-
-            {/* Exact Address & Phone (Concealed until Quote Selection) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                Exact Delivery Address * (Concealed until order confirmed)
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={exactAddress}
-                onChangeText={setExactAddress}
-                placeholder="House 42, Rose Garden Rd, Mikocheni B"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                Phone Number * (Concealed until order confirmed)
-              </Text>
-              <TextInput
-                style={styles.textInput}
-                value={exactPhone}
-                onChangeText={setExactPhone}
-                keyboardType="phone-pad"
-                placeholder="+255 712 345 678"
-              />
-            </View>
-
-            {/* Special Instructions */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Special Instructions & Preparation Notes</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                multiline={true}
-                numberOfLines={3}
-                placeholder="Include custom marinade, portioning preferences, or packaging requirements..."
-              />
-            </View>
-
-            <Button
-              title={isSubmitting ? 'Dispatching to Chefs...' : 'Submit Meal Request'}
-              onPress={handleSubmitRequest}
-              variant="primary"
-              size="lg"
-              fullWidth={true}
-              disabled={isSubmitting}
-              style={styles.submitBtn}
-            />
           </View>
         )}
 
@@ -611,7 +853,7 @@ export default function CustomMealScreen() {
         {activeTab === 'QUOTES' && (
           <View style={styles.quotesSection}>
             {isLoadingQuotes && (
-              <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 12 }} />
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 12 }} />
             )}
 
             <View style={styles.quotesHeaderRow}>
@@ -628,7 +870,7 @@ export default function CustomMealScreen() {
                   }
                 }}
               >
-                <Ionicons name="refresh" size={18} color={Colors.primary} />
+                <Ionicons name="refresh" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -754,23 +996,6 @@ export default function CustomMealScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Cart Button */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={() => {}}
-      />
-
       {/* Custom Meal Quote Payment Modal */}
       {showPaymentModal && selectedQuoteForPayment && activeRequestId && (
         <PaymentCheckoutModal
@@ -790,10 +1015,10 @@ export default function CustomMealScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.md,
@@ -810,23 +1035,23 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 11,
     fontWeight: '800',
-    color: Colors.primary,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
     marginTop: 2,
   },
   subtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.lg,
     padding: 4,
     marginBottom: Spacing.md,
@@ -838,39 +1063,39 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
   },
   tabBtnActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   tabTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   formCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   privacyBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.infoSoft,
     padding: Spacing.sm,
     borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: colors.info,
     marginBottom: Spacing.md,
     gap: 8,
   },
   privacyText: {
     fontSize: 12,
-    color: '#1e40af',
+    color: colors.info,
     flex: 1,
     lineHeight: 16,
     fontWeight: '600',
@@ -881,18 +1106,18 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   textInput: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 10,
     fontSize: 14,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   textArea: {
     minHeight: 70,
@@ -908,31 +1133,31 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   chip: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border,
     borderRadius: Radii.full,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipWarning: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#f87171',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.danger,
   },
   chipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   chipTextActive: {
-    color: Colors.white,
+    color: colors.onPrimary,
   },
   chipWarningText: {
-    color: '#b91c1c',
+    color: colors.danger,
   },
   submitBtn: {
     marginTop: Spacing.md,
@@ -949,20 +1174,20 @@ const styles = StyleSheet.create({
   quotesEyebrow: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   quoteCard: {
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   quoteCardAccepted: {
     borderColor: '#10b981',
     borderWidth: 2,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: colors.successSoft,
   },
   quoteCardSuperseded: {
     opacity: 0.6,
@@ -976,7 +1201,7 @@ const styles = StyleSheet.create({
   quoteRestaurantName: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   quoteRatingRow: {
     flexDirection: 'row',
@@ -991,10 +1216,10 @@ const styles = StyleSheet.create({
   },
   quoteReviews: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   lineItemsCard: {
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: colors.surfaceInteractive,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     marginVertical: Spacing.xs,
@@ -1002,7 +1227,7 @@ const styles = StyleSheet.create({
   lineItemsHeader: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginBottom: 4,
     textTransform: 'uppercase',
   },
@@ -1013,30 +1238,30 @@ const styles = StyleSheet.create({
   },
   lineItemName: {
     fontSize: 13,
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   lineItemPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: colors.textPrimary,
   },
   pricingSummaryRow: {
     marginVertical: 4,
   },
   subtotalText: {
     fontSize: 12,
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   grandTotalText: {
     fontSize: 15,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     marginTop: 2,
   },
   quoteMessage: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     marginVertical: 6,
   },
   quoteFooter: {
@@ -1045,28 +1270,137 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: Spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
   },
   prepTimeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
   },
   acceptedPill: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: colors.successSoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: Radii.full,
   },
   acceptedPillText: {
-    color: '#065f46',
+    color: colors.success,
     fontWeight: '700',
     fontSize: 12,
   },
   supersededText: {
-    color: Colors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 12,
     fontStyle: 'italic',
   },
+  wizardProgressTrack: {
+    height: 4,
+    backgroundColor: colors.divider,
+    borderRadius: 2,
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
+  },
+  wizardProgressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+  },
+  wizardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  wizardStepBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radii.sm,
+  },
+  wizardStepTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  stepContainer: {
+    marginBottom: Spacing.sm,
+  },
+  openBudgetNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.infoSoft,
+    borderRadius: Radii.md,
+    padding: Spacing.md,
+    gap: 8,
+    marginTop: Spacing.xs,
+  },
+  openBudgetText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.info,
+    lineHeight: 18,
+  },
+  privacyHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  wizardFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: Spacing.md,
+  },
+  wizardBackBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    backgroundColor: colors.card,
+  },
+  wizardBackBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  wizardNextBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    backgroundColor: colors.primary,
+  },
+  wizardNextBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onPrimary,
+  },
+  wizardSubmitBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: Radii.md,
+    backgroundColor: colors.primaryDark,
+  },
+  wizardSubmitBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onPrimary,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
 });
+let styles = createStyles(lightColors);

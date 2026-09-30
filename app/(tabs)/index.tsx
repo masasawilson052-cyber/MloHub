@@ -28,12 +28,15 @@ import { useMloHubDB } from '../../context/DbContext';
 import { DiscoveryService } from '../../services/DiscoveryService';
 import { DishDiscoveryResult } from '../../types/discovery';
 import { AnalyticsService } from '../../services/AnalyticsService';
-import { useCart } from '../../context/CartContext';
-import { FloatingCartButton } from '../../components/cart/FloatingCartButton';
-import { CartDrawer } from '../../components/cart/CartDrawer';
-import { OrderReviewModal } from '../../components/checkout/OrderReviewModal';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
+
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
 
 export default function HomeScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
   const { user, profile } = useAuth();
@@ -53,23 +56,20 @@ export default function HomeScreen() {
   const [isLoadingDishes, setIsLoadingDishes] = useState(true);
   const [comparedDishes, setComparedDishes] = useState<DishDiscoveryResult[]>([]);
 
-  // Location
-  const profileLocation = profile?.location || user?.location || '';
-  const [currentLocation, setCurrentLocation] = useState(profileLocation);
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  // Authoritative Customer Location
+  const {
+    location: customerLocation,
+    isLocationModalOpen,
+    setIsLocationModalOpen,
+    openLocationSelector,
+  } = useCustomerLocation();
 
-  useEffect(() => {
-    if (profileLocation && !currentLocation) {
-      setCurrentLocation(profileLocation);
-    }
-  }, [profileLocation]);
+  const currentLocation = customerLocation.serviceAreaName
+    ? `${customerLocation.serviceAreaName}, ${customerLocation.cityName || 'Dar es Salaam'}`
+    : (customerLocation.cityName || profile?.location || user?.location || 'Dar es Salaam');
 
   // Reservation Modal
   const [selectedReserveRestaurant, setSelectedReserveRestaurant] = useState<Restaurant | null>(null);
-
-  // Cart & Order Review Modal State
-  const { isCartOpen, setIsCartOpen } = useCart();
-  const [isOrderReviewOpen, setIsOrderReviewOpen] = useState(false);
 
   // Load Popular and Recommended Dishes on Mount / Location Change
   useEffect(() => {
@@ -77,8 +77,16 @@ export default function HomeScreen() {
     setIsLoadingDishes(true);
 
     Promise.all([
-      DiscoveryService.getPopularDishes({ neighborhood: currentLocation }),
-      DiscoveryService.getRecommendedDishes({ neighborhood: currentLocation }),
+      DiscoveryService.getPopularDishes({
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        latitude: customerLocation.latitude,
+        longitude: customerLocation.longitude,
+      }),
+      DiscoveryService.getRecommendedDishes({
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        latitude: customerLocation.latitude,
+        longitude: customerLocation.longitude,
+      }),
     ])
       .then(([pop, rec]) => {
         if (isMounted) {
@@ -95,12 +103,12 @@ export default function HomeScreen() {
     return () => {
       isMounted = false;
     };
-  }, [currentLocation]);
+  }, [customerLocation.serviceAreaName, customerLocation.cityName, customerLocation.latitude, customerLocation.longitude]);
 
   const handleSearchSubmit = () => {
     AnalyticsService.trackEvent('SEARCH_STARTED', {
       query: searchQuery,
-      neighborhood: currentLocation,
+      neighborhood: customerLocation.serviceAreaName || currentLocation,
       filterValue: selectedQuickBudget,
     });
 
@@ -111,7 +119,9 @@ export default function HomeScreen() {
         budget: selectedQuickBudget ? String(selectedQuickBudget) : undefined,
         dist: selectedQuickDistance ? String(selectedQuickDistance) : undefined,
         openNow: isOpenNowOnly ? 'true' : undefined,
-        neighborhood: currentLocation,
+        neighborhood: customerLocation.serviceAreaName || currentLocation,
+        lat: customerLocation.latitude ? String(customerLocation.latitude) : undefined,
+        lng: customerLocation.longitude ? String(customerLocation.longitude) : undefined,
       },
     });
   };
@@ -187,7 +197,7 @@ export default function HomeScreen() {
       {/* Header */}
       <Header
         location={currentLocation}
-        onOpenLocation={() => setIsLocationModalOpen(true)}
+        onOpenLocation={openLocationSelector}
         onOpenProfile={() => router.push('/(tabs)/profile')}
       />
 
@@ -210,8 +220,12 @@ export default function HomeScreen() {
 
           <Text style={styles.heroSub}>
             {language === 'sw'
-              ? 'Tafuta vyakula halisi, bei zilizothibitishwa, na umbali kutoka ulipo Dar es Salaam.'
-              : 'Discover real dishes, verified prices, and exact distance across Dar es Salaam.'}
+              ? (customerLocation.latitude && customerLocation.longitude
+                  ? `Tafuta vyakula halisi na bei zilizothibitishwa karibu nawe (${customerLocation.serviceAreaName || customerLocation.cityName || 'ulipo'}).`
+                  : `Tafuta vyakula halisi na bei zilizothibitishwa ndani ya ${customerLocation.serviceAreaName || customerLocation.cityName || 'Dar es Salaam'}.`)
+              : (customerLocation.latitude && customerLocation.longitude
+                  ? `Discover real dishes and verified prices near you (${customerLocation.serviceAreaName || customerLocation.cityName || 'your location'}).`
+                  : `Discover real dishes and verified prices in ${customerLocation.serviceAreaName || customerLocation.cityName || 'Dar es Salaam'}.`)}
           </Text>
 
           {/* Hero Search Bar */}
@@ -220,12 +234,19 @@ export default function HomeScreen() {
               value={searchQuery}
               onChangeText={setSearchQuery}
               onSubmit={handleSearchSubmit}
+              latitude={customerLocation.latitude}
+              longitude={customerLocation.longitude}
               placeholder={language === 'sw' ? 'Tafuta chakula (mf. Chicken Biryani, Chipsi Kuku)...' : 'Search food (e.g. Chicken Biryani, Chipsi Kuku)...'}
               onSelectSuggestion={(sug) => {
                 setSearchQuery(sug.text);
                 router.push({
                   pathname: '/(tabs)/explore',
-                  params: { q: sug.text, neighborhood: currentLocation },
+                  params: {
+                    q: sug.text,
+                    neighborhood: customerLocation.serviceAreaName || currentLocation,
+                    lat: customerLocation.latitude ? String(customerLocation.latitude) : undefined,
+                    lng: customerLocation.longitude ? String(customerLocation.longitude) : undefined,
+                  },
                 });
               }}
             />
@@ -388,8 +409,6 @@ export default function HomeScreen() {
       {/* Location Modal */}
       <LocationModal
         visible={isLocationModalOpen}
-        selectedLocation={currentLocation}
-        onSelect={setCurrentLocation}
         onClose={() => setIsLocationModalOpen(false)}
       />
 
@@ -399,33 +418,14 @@ export default function HomeScreen() {
         restaurant={selectedReserveRestaurant as any}
         onClose={() => setSelectedReserveRestaurant(null)}
       />
-
-      {/* Floating Cart Button (Presents when user has items in cart) */}
-      <FloatingCartButton />
-
-      {/* Slide-in Cart Drawer */}
-      <CartDrawer
-        visible={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onProceedToCheckout={() => setIsOrderReviewOpen(true)}
-      />
-
-      {/* Order Review & Placement Modal */}
-      <OrderReviewModal
-        visible={isOrderReviewOpen}
-        onClose={() => setIsOrderReviewOpen(false)}
-        onOrderConfirmed={(orderId) => {
-          router.push('/(tabs)/bookings');
-        }}
-      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.appBackground,
   },
   scrollContent: {
     padding: Spacing.lg,
@@ -443,37 +443,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: Radii.full,
     alignSelf: 'flex-start',
     marginBottom: Spacing.sm,
     borderWidth: 1,
-    borderColor: '#cce3d3',
+    borderColor: colors.primaryLight,
   },
   pulsingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
   },
   eyebrowText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryDark,
+    color: colors.primary,
     letterSpacing: 0.5,
   },
   heroHeading: {
     fontSize: 24,
     fontWeight: '900',
-    color: Colors.text,
+    color: colors.textPrimary,
     lineHeight: 30,
     marginBottom: Spacing.xs,
   },
   heroSub: {
     fontSize: 13,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: Spacing.md,
   },
@@ -490,21 +490,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radii.full,
-    backgroundColor: '#f1f5f2',
+    backgroundColor: colors.surfaceInteractive,
     borderWidth: 1,
-    borderColor: '#e2e7e3',
+    borderColor: colors.border,
   },
   quickChipActive: {
-    backgroundColor: Colors.primaryMuted,
-    borderColor: Colors.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   quickChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.muted,
+    color: colors.textSecondary,
   },
   quickChipTextActive: {
-    color: Colors.primaryDark,
+    color: colors.primary,
     fontWeight: '700',
   },
   sectionHeader: {
@@ -517,78 +517,78 @@ const styles = StyleSheet.create({
   sectionEyebrow: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryLight,
+    color: colors.primaryLight,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
   },
   seeAllText: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.primary,
+    color: colors.primary,
     paddingBottom: 2,
   },
   emptyCard: {
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: Radii.md,
     padding: Spacing.lg,
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
   emptyCardText: {
-    color: Colors.muted,
+    color: colors.textSecondary,
     fontSize: 13,
   },
   whySection: {
     marginTop: Spacing.xl,
     paddingTop: Spacing.xl,
     borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
+    borderTopColor: colors.divider,
   },
   whyHeading: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   whyGrid: {
     gap: Spacing.sm,
   },
   whyCard: {
-    backgroundColor: Colors.white,
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.borderLight,
+    borderColor: colors.divider,
     ...Shadows.sm,
   },
   whyIconBadge: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primaryMuted,
+    backgroundColor: colors.primarySoft,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   whyIconText: {
     fontSize: 14,
-    color: Colors.primary,
+    color: colors.primary,
     fontWeight: '800',
   },
   whyCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   whyCardDesc: {
     fontSize: 12,
-    color: Colors.muted,
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   floatingCompareBar: {
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: Spacing.lg,
     right: Spacing.lg,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: colors.primaryDark,
     borderRadius: Radii.full,
     paddingVertical: 12,
     paddingHorizontal: Spacing.lg,
@@ -615,19 +615,20 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   floatingCompareText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 13,
   },
   floatingCompareBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: Radii.full,
   },
   floatingCompareBtnText: {
-    color: Colors.white,
+    color: colors.onPrimary,
     fontWeight: '800',
     fontSize: 12,
   },
 });
+let styles = createStyles(lightColors);

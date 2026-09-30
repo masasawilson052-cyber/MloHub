@@ -13,12 +13,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import { useCartInteraction } from '../../hooks/useCartInteraction';
+import { prepareReorderItemWithCurrentMenu } from '../../services/cart/cartCore';
 import { OrderRepository } from '../../repositories/orders.repository';
 import { PaymentRepository } from '../../repositories/payments.repository';
 import { RefundsRepository } from '../../repositories/refunds.repository';
@@ -33,8 +36,14 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { formatTzs } from '../../utils/formatters';
 import { OrderTrackingTimeline } from '../../components/checkout/OrderTrackingTimeline';
+import { PaymentRetryModal } from '../../components/checkout/PaymentRetryModal';
 
-const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'];
+import { useTheme } from '../../context/ThemeContext';
+import { ThemeColors, lightColors } from '../../theme/palettes';
+
+let colors: ThemeColors = lightColors;
+
+const ACTIVE_STATUSES: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'];
 const PAST_STATUSES: OrderStatus[] = ['COMPLETED', 'CANCELLED', 'REJECTED'];
 
 export const canRetryOrderPayment = (order: Order): boolean => {
@@ -47,9 +56,13 @@ export const canRetryOrderPayment = (order: Order): boolean => {
 };
 
 export default function OrdersScreen() {
+  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
+  const params = useLocalSearchParams<{ orderId?: string }>();
   const { t, language } = useLanguage();
   const { user, isAuthenticated } = useAuth();
+  const { setIsCartOpen } = useCart();
+  const { requestAddToCart } = useCartInteraction();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
@@ -65,6 +78,119 @@ export default function OrdersScreen() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [paymentAttemptIds, setPaymentAttemptIds] = useState<Record<string, string>>({});
+  const [retryPaymentOrder, setRetryPaymentOrder] = useState<Order | null>(null);
+
+  const handleCancelOrder = async (orderId: string) => {
+    Alert.alert(
+      language === 'sw' ? 'Ghairi Oda' : 'Cancel Order',
+      language === 'sw'
+        ? 'Je, una uhakika unataka kughairi oda hii? Ikiwa ulishalipa, ombi la kurudishiwa pesa litatumwa kiotomatiki.'
+        : 'Are you sure you want to cancel this order? If you already paid, an automatic refund request will be filed.',
+      [
+        { text: language === 'sw' ? 'Hapana' : 'Keep Order', style: 'cancel' },
+        {
+          text: language === 'sw' ? 'Ndio, Ghairi' : 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            setIsActionLoading(true);
+            try {
+              await OrderRepository.cancelCustomerOrder(orderId, 'Cancelled by customer');
+              Alert.alert(
+                language === 'sw' ? 'Oda Imeghairiwa' : 'Order Cancelled',
+                language === 'sw'
+                  ? 'Oda yako imeghairiwa kikamilifu.'
+                  : 'Your order has been cancelled successfully.'
+              );
+              setSelectedOrder(null);
+              await fetchOrders();
+            } catch (err: any) {
+              Alert.alert(
+                language === 'sw' ? 'Hitilafu' : 'Cancellation Error',
+                err.message || 'Unable to cancel order.'
+              );
+            } finally {
+              setIsActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReorder = async (order: Order) => {
+    if (!order.items || order.items.length === 0 || isActionLoading) return;
+    setIsActionLoading(true);
+    try {
+      let count = 0;
+      for (const it of order.items) {
+        const prep = await prepareReorderItemWithCurrentMenu({
+          menuItemId: it.menuItemId,
+          historicalModifiers: it.selectedModifiers,
+        });
+
+        if (prep.status === 'UNAVAILABLE') {
+          Alert.alert(
+            language === 'sw' ? 'Chakula Hakipatikani' : 'Item Unavailable',
+            prep.reason
+          );
+          return;
+        }
+
+        if (prep.status === 'LOOKUP_FAILED') {
+          Alert.alert(
+            language === 'sw' ? 'Imeshindikana Kupakia Machaguo' : 'Unable to load meal options',
+            prep.reason
+          );
+          return;
+        }
+
+        const currentItem = prep.currentItem;
+        const qty = Math.max(1, it.quantity || 1);
+        const outcome = await requestAddToCart({
+          dishId: currentItem.id,
+          dishName: currentItem.nameEn || currentItem.name || it.itemNameSnapshot,
+          dishNameSwahili: currentItem.nameSw,
+          description: currentItem.description,
+          priceTzs: currentItem.basePrice,
+          basePriceTzs: currentItem.basePrice,
+          imageUrl: currentItem.imageUrl,
+          restaurantId: order.restaurantId,
+          restaurantName: order.restaurantName || 'Restaurant',
+          branchId: order.branchId,
+          quantity: qty,
+          notes: it.specialNotes,
+          prefetchedModifierGroups: prep.modifierGroups,
+          initialSelectedOptionIds: prep.initialSelectedOptionIds,
+        });
+
+        if (outcome === 'CANCELLED' || outcome === 'FAILED') {
+          return;
+        }
+        count += qty;
+      }
+
+      if (count > 0) {
+        Alert.alert(
+          language === 'sw' ? 'Vyakula Vimeongezwa' : 'Items Added to Cart',
+          language === 'sw'
+            ? `Vyakula ${count} vimeongezwa kwenye kikapu chako.`
+            : `${count} items have been added to your cart.`,
+          [
+            {
+              text: language === 'sw' ? 'Angalia Kikapu' : 'View Cart',
+              onPress: () => setIsCartOpen(true),
+            },
+            {
+              text: language === 'sw' ? 'Gundua Zaidi' : 'Continue Shopping',
+              onPress: () => router.push('/(tabs)'),
+            },
+          ]
+        );
+      }
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
 
   const fetchOrders = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
@@ -77,6 +203,22 @@ export default function OrdersScreen() {
     try {
       const customerOrders = await OrderRepository.listOrdersForCustomer(user.id);
       setOrders(customerOrders);
+
+      // Auto-focus incoming orderId from checkout navigation
+      if (params.orderId && customerOrders.length > 0) {
+        const target = customerOrders.find(
+          (o) => o.id === params.orderId || o.orderNumber === params.orderId
+        );
+        if (target) {
+          setSelectedOrder(target);
+          if (PAST_STATUSES.includes(target.status)) {
+            setActiveTab('past');
+          } else {
+            setActiveTab('active');
+          }
+        }
+      }
+
       const completedOrders = customerOrders.filter((order) => order.status === 'COMPLETED');
       const eligibilityEntries = await Promise.all(completedOrders.map(async (order) => {
         try {
@@ -99,7 +241,7 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, params.orderId]);
 
   useEffect(() => {
     fetchOrders();
@@ -134,44 +276,11 @@ export default function OrdersScreen() {
     fetchOrders();
   };
 
-  const retryPayment = async (order: Order) => {
-    if (!user?.phone) {
-      Alert.alert('Phone number required', 'Add a mobile-money phone number to your profile before paying.');
-      return;
-    }
+  const retryPayment = (order: Order) => {
     const attemptId = paymentAttemptIds[order.id] || globalThis.crypto?.randomUUID?.() || `attempt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     setPaymentAttemptIds((current) => ({ ...current, [order.id]: attemptId }));
-    setIsActionLoading(true);
-    try {
-      const result = await PaymentRepository.createForOrder({
-        orderId: order.id,
-        methodCode: 'MPESA',
-        payerPhone: user.phone,
-        idempotencyKey: `order_payment_${order.id}_${attemptId}`,
-      });
-      Alert.alert(
-        result.success ? 'Payment started' : 'Payment failed',
-        result.success ? 'Check your phone and approve the mobile-money request.' : (result.error || 'Could not start payment.')
-      );
-      if (result.success) {
-        await fetchOrders();
-      } else {
-        setPaymentAttemptIds((current) => {
-          const next = { ...current };
-          delete next[order.id];
-          return next;
-        });
-      }
-    } catch (error: any) {
-      setPaymentAttemptIds((current) => {
-        const next = { ...current };
-        delete next[order.id];
-        return next;
-      });
-      Alert.alert('Payment failed', error?.message || 'Could not start payment.');
-    } finally {
-      setIsActionLoading(false);
-    }
+    const _idempotencyKey = `order_payment_${order.id}_${attemptId}`;
+    setRetryPaymentOrder(order);
   };
 
   const submitReview = async () => {
@@ -271,7 +380,7 @@ export default function OrdersScreen() {
         <View style={styles.unauthContainer}>
           <View style={styles.unauthCard}>
             <View style={styles.iconCircle}>
-              <Ionicons name="receipt-outline" size={32} color={Colors.primary} />
+              <Ionicons name="receipt-outline" size={32} color={colors.primary} />
             </View>
             <Text style={styles.unauthTitle}>
               {language === 'sw' ? 'Fuatilia Oda Zako' : 'Track Your Orders'}
@@ -320,7 +429,7 @@ export default function OrdersScreen() {
           accessible={true}
           accessibilityLabel="Refresh orders"
         >
-          <Ionicons name="refresh-outline" size={20} color={Colors.primary} />
+          <Ionicons name="refresh-outline" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -349,7 +458,7 @@ export default function OrdersScreen() {
       {/* Main Content Area */}
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>
             {language === 'sw' ? 'Inapakia maagizo...' : 'Loading orders...'}
           </Text>
@@ -417,7 +526,7 @@ export default function OrdersScreen() {
                 {/* Fulfillment and Date Metadata */}
                 <View style={styles.metaRow}>
                   <View style={styles.metaBadge}>
-                    <Ionicons name="bicycle-outline" size={12} color={Colors.primary} />
+                    <Ionicons name="bicycle-outline" size={12} color={colors.primary} />
                     <Text style={styles.metaBadgeText}>
                       {getFulfillmentLabel(order.fulfillmentType)}
                     </Text>
@@ -460,12 +569,25 @@ export default function OrdersScreen() {
                   </View>
 
                   <View style={styles.cardActionsRow}>
+                    {canRetryOrderPayment(order) && (
+                      <TouchableOpacity
+                        style={styles.payNowBtn}
+                        onPress={() => setRetryPaymentOrder(order)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="card-outline" size={14} color={colors.onPrimary} />
+                        <Text style={styles.payNowBtnText}>
+                          {language === 'sw' ? 'Lipa Sasa' : 'Pay Now'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity
                       style={styles.detailsBtn}
                       onPress={() => setSelectedOrder(order)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="document-text-outline" size={14} color={Colors.primary} />
+                      <Ionicons name="document-text-outline" size={14} color={colors.primary} />
                       <Text style={styles.detailsBtnText}>
                         {language === 'sw' ? 'Stakabadhi' : 'Receipt'}
                       </Text>
@@ -477,7 +599,7 @@ export default function OrdersScreen() {
                         onPress={() => setSelectedOrder(order)}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="time-outline" size={14} color="#FFFFFF" />
+                        <Ionicons name="time-outline" size={14} color={colors.onPrimary} />
                         <Text style={styles.trackBtnText}>
                           {language === 'sw' ? 'Fuatilia' : 'Track'}
                         </Text>
@@ -515,7 +637,7 @@ export default function OrdersScreen() {
                   onPress={() => setSelectedOrder(null)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close" size={22} color={Colors.text} />
+                  <Ionicons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
@@ -526,7 +648,7 @@ export default function OrdersScreen() {
                     {language === 'sw' ? 'Hali ya Jikoni' : 'Kitchen Status Progression'}
                   </Text>
                   {selectedOrder.estimatedPrepMinutes ? (
-                    <Text style={{ fontSize: 12, color: '#64748B', marginBottom: Spacing.sm }}>
+                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: Spacing.sm }}>
                       {language === 'sw'
                         ? `Muda wa maandalizi: takriban dakika ${selectedOrder.estimatedPrepMinutes}`
                         : `Estimated preparation: ~${selectedOrder.estimatedPrepMinutes} mins`}
@@ -604,7 +726,7 @@ export default function OrdersScreen() {
 
                 {/* Delivery / Fulfillment Note */}
                 <View style={styles.infoNoticeCard}>
-                  <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
+                  <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
                   <Text style={styles.infoNoticeText}>
                     {selectedOrder.fulfillmentType === 'Delivery'
                       ? language === 'sw'
@@ -620,13 +742,44 @@ export default function OrdersScreen() {
               <View style={styles.modalFooter}>
                 {canRetryOrderPayment(selectedOrder) && (
                   <Button
-                    title={selectedOrder.paymentStatus === 'FAILED' ? 'Retry Payment' : 'Complete Payment'}
-                    onPress={() => retryPayment(selectedOrder)}
-                    variant="outline"
+                    title={
+                      selectedOrder.paymentStatus === 'FAILED'
+                        ? (language === 'sw' ? 'Jaribu Tena Kulipa' : 'Retry Payment')
+                        : (language === 'sw' ? 'Kamilisha Malipo' : 'Complete Payment')
+                    }
+                    onPress={() => {
+                      const ord = selectedOrder;
+                      setSelectedOrder(null);
+                      setRetryPaymentOrder(ord);
+                    }}
+                    variant="primary"
+                    size="md"
+                    fullWidth={true}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
+                {selectedOrder.status === 'PENDING' && (
+                  <Button
+                    title={language === 'sw' ? 'Ghairi Oda Hii' : 'Cancel This Order'}
+                    onPress={() => handleCancelOrder(selectedOrder.id)}
+                    variant="ghost"
                     size="md"
                     fullWidth={true}
                     disabled={isActionLoading}
                     loading={isActionLoading}
+                    style={{ marginBottom: Spacing.sm }}
+                  />
+                )}
+                {selectedOrder.status === 'COMPLETED' && (
+                  <Button
+                    title={language === 'sw' ? 'Agiza Tena' : 'Reorder Items'}
+                    onPress={() => {
+                      handleReorder(selectedOrder);
+                      setSelectedOrder(null);
+                    }}
+                    variant="outline"
+                    size="md"
+                    fullWidth={true}
                     style={{ marginBottom: Spacing.sm }}
                   />
                 )}
@@ -660,7 +813,7 @@ export default function OrdersScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Rate & Review</Text>
                 <TouchableOpacity onPress={() => setReviewOrder(null)}>
-                  <Ionicons name="close" size={22} color={Colors.text} />
+                  <Ionicons name="close" size={22} color={colors.text} />
                 </TouchableOpacity>
               </View>
               <Text style={styles.reviewPrompt}>{reviewOrder.restaurantName || 'Restaurant'}</Text>
@@ -684,14 +837,25 @@ export default function OrdersScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Multi-Provider Payment Retry Modal */}
+      <PaymentRetryModal
+        visible={!!retryPaymentOrder}
+        order={retryPaymentOrder}
+        onClose={() => setRetryPaymentOrder(null)}
+        onPaymentSuccess={() => {
+          setRetryPaymentOrder(null);
+          fetchOrders();
+        }}
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FAF8F3', // Warm Ivory
+    backgroundColor: colors.appBackground, // Warm Ivory
   },
   header: {
     flexDirection: 'row',
@@ -704,23 +868,23 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#142033', // Brand Ink
+    color: colors.textPrimary, // Brand Ink
     letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   refreshIconBtn: {
     width: 38,
     height: 38,
     borderRadius: Radii.full,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
   },
   tabBarContainer: {
     paddingHorizontal: Spacing.lg,
@@ -735,7 +899,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   emptyScroll: {
     flexGrow: 1,
@@ -753,11 +917,11 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   orderCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
     ...Shadows.sm,
   },
   orderCardHeader: {
@@ -773,11 +937,11 @@ const styles = StyleSheet.create({
   restaurantName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   orderNumberText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   metaRow: {
@@ -791,7 +955,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radii.full,
@@ -799,14 +963,14 @@ const styles = StyleSheet.create({
   metaBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   dateText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textMuted,
   },
   itemsBox: {
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Radii.md,
     padding: Spacing.sm,
     gap: 6,
@@ -820,13 +984,13 @@ const styles = StyleSheet.create({
   itemQuantity: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     width: 24,
   },
   itemName: {
     flex: 1,
     fontSize: 13,
-    color: '#334155',
+    color: colors.textSecondary,
     marginRight: Spacing.sm,
   },
   orderCardFooter: {
@@ -834,18 +998,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F5F3ED',
+    borderTopColor: colors.divider,
     paddingTop: Spacing.sm,
   },
   totalLabel: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     fontWeight: '600',
   },
   refundStatusText: {
     fontSize: 11,
-    color: '#0F766E',
+    color: colors.info,
     marginTop: 4,
     textTransform: 'uppercase',
     fontWeight: '700',
@@ -858,7 +1022,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -866,13 +1030,27 @@ const styles = StyleSheet.create({
   detailsBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
+  },
+  payNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radii.full,
+  },
+  payNowBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onPrimary,
   },
   trackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: Radii.full,
@@ -880,12 +1058,12 @@ const styles = StyleSheet.create({
   trackBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   reviewPrompt: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   ratingRow: {
@@ -896,11 +1074,12 @@ const styles = StyleSheet.create({
   reviewInput: {
     minHeight: 110,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.inputBackground,
     borderRadius: Radii.md,
     padding: Spacing.md,
     textAlignVertical: 'top',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.md,
   },
   unauthContainer: {
@@ -910,21 +1089,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   unauthCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: Radii.xl,
     padding: Spacing.xl,
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
     ...Shadows.md,
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
@@ -932,23 +1111,23 @@ const styles = StyleSheet.create({
   unauthTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: Spacing.xs,
   },
   unauthSub: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(20, 32, 51, 0.45)',
+    backgroundColor: colors.modalBackdrop,
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surfaceRaised,
     borderTopLeftRadius: Radii.xl,
     borderTopRightRadius: Radii.xl,
     maxHeight: '88%',
@@ -967,23 +1146,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F3ED',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   modalSub: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   modalCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -991,7 +1170,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
   },
   timelineCard: {
-    backgroundColor: '#FAF8F3',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginTop: Spacing.md,
@@ -999,7 +1178,7 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: Spacing.sm,
@@ -1016,37 +1195,37 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#E2DED4',
+    backgroundColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timelineDotDone: {
-    backgroundColor: '#246B39',
+    backgroundColor: colors.success,
   },
   timelineDotCurrent: {
-    backgroundColor: '#142033',
+    backgroundColor: colors.primary,
   },
   timelineStepText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   timelineStepTextCurrent: {
-    color: '#142033',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   breakdownCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.cardElevated,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     marginTop: Spacing.md,
     borderWidth: 1,
-    borderColor: '#E2DED4',
+    borderColor: colors.border,
   },
   breakdownHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#142033',
+    color: colors.textPrimary,
     marginBottom: Spacing.sm,
   },
   breakdownRow: {
@@ -1057,22 +1236,22 @@ const styles = StyleSheet.create({
   },
   breakdownItemName: {
     fontSize: 13,
-    color: '#142033',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   breakdownItemNote: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontStyle: 'italic',
   },
   breakdownItemPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.divider,
     marginVertical: Spacing.sm,
   },
   financialRow: {
@@ -1082,34 +1261,34 @@ const styles = StyleSheet.create({
   },
   financialLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   financialVal: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   grandTotalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E2DED4',
+    borderTopColor: colors.border,
     paddingTop: 6,
     marginTop: 6,
   },
   grandTotalLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#142033',
+    color: colors.textPrimary,
   },
   grandTotalVal: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#C8482A',
+    color: colors.primary,
   },
   infoNoticeCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#F5F3ED',
+    backgroundColor: colors.surfaceInteractive,
     padding: Spacing.md,
     borderRadius: Radii.md,
     marginTop: Spacing.md,
@@ -1117,7 +1296,7 @@ const styles = StyleSheet.create({
   infoNoticeText: {
     flex: 1,
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   modalFooter: {
@@ -1125,3 +1304,4 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
   },
 });
+let styles = createStyles(lightColors);
