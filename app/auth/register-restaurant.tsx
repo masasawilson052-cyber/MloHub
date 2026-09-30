@@ -345,6 +345,8 @@ export default function RegisterRestaurantScreen() {
           });
           if (signupRes?.session?.user?.id) {
             currentUserId = signupRes.session.user.id;
+          } else if (signupRes?.user?.id) {
+            currentUserId = signupRes.user.id;
           }
         } catch (signupErr: any) {
           const errMsg = (signupErr?.message || '').toLowerCase();
@@ -363,6 +365,26 @@ export default function RegisterRestaurantScreen() {
             } catch (loginErr: any) {
               console.warn('[RegisterRestaurant] Existing account login warning:', loginErr?.message);
             }
+          }
+        }
+      }
+
+      // Ensure active authenticated session in Supabase client for RLS
+      if (isSupabaseConfigured()) {
+        const { data: { user: activeSbUser } } = await supabase.auth.getUser();
+        if (activeSbUser?.id) {
+          currentUserId = activeSbUser.id;
+        } else if (password) {
+          try {
+            const { data: signInData } = await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password,
+            });
+            if (signInData?.user?.id) {
+              currentUserId = signInData.user.id;
+            }
+          } catch (signInErr: any) {
+            console.warn('[RegisterRestaurant] Explicit sign-in fallback warning:', signInErr?.message);
           }
         }
       }

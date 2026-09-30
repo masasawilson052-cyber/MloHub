@@ -152,22 +152,27 @@ export class ApplicationRepository {
         address: app.address || 'Dar es Salaam',
         hasTinOrLicense: app.hasTinOrLicense ?? false,
         tinNumber: app.tinNumber?.trim() || undefined,
-        status: 'SUBMITTED',
+        status: 'PENDING',
         notes: app.notes?.trim() || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
     }
 
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      throw new Error('Confirm your email and sign in before submitting the application.');
+    }
+    if (app.applicantUserId && app.applicantUserId !== user.id) {
+      throw new Error('Application identity does not match your signed-in account.');
+    }
+
     const appId = app.id || `app_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const cleanEmail = app.ownerEmail?.trim().toLowerCase() || null;
 
-    let { data: { user } } = await supabase.auth.getUser();
-    const applicantUserId = app.applicantUserId || user?.id || null;
-
     const row = {
       id: appId,
-      applicant_user_id: applicantUserId,
+      applicant_user_id: user.id,
       business_name: app.businessName.trim(),
       owner_name: app.ownerName.trim(),
       owner_phone: app.ownerPhone.trim(),
@@ -177,16 +182,30 @@ export class ApplicationRepository {
       address: app.address?.trim() || null,
       has_tin_or_license: app.hasTinOrLicense ?? false,
       tin_number: app.tinNumber?.trim() || null,
-      status: 'SUBMITTED',
+      status: 'PENDING',
       notes: app.notes?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('restaurant_applications')
       .insert(row)
       .select()
       .single();
+
+    if (error && (error.message.includes('row-level security policy') || error.message.includes('check constraint'))) {
+      const altStatus = row.status === 'PENDING' ? 'SUBMITTED' : 'PENDING';
+      const fallbackRow = { ...row, status: altStatus };
+      const retryRes = await supabase
+        .from('restaurant_applications')
+        .insert(fallbackRow)
+        .select()
+        .single();
+      if (!retryRes.error && retryRes.data) {
+        data = retryRes.data;
+        error = null;
+      }
+    }
 
     if (error) {
       console.error('ApplicationRepository.submit error:', error.message);

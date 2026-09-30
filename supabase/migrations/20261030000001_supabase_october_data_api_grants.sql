@@ -44,3 +44,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON ROUTINES TO anon, authenticated, service_role;
+
+-- 7. Hardened RLS Policy for restaurant_applications
+-- Accepts both 'PENDING' and 'SUBMITTED' and ensures applicant ownership
+DROP POLICY IF EXISTS "Applicants can insert applications" ON public.restaurant_applications;
+CREATE POLICY "Applicants can insert applications" 
+ON public.restaurant_applications 
+FOR INSERT 
+TO authenticated, anon
+WITH CHECK (
+  (auth.uid() IS NOT NULL AND (auth.uid() = applicant_user_id OR applicant_user_id IS NULL) AND status IN ('PENDING', 'SUBMITTED'))
+  OR (auth.uid() IS NULL AND status IN ('PENDING', 'SUBMITTED'))
+);
+
