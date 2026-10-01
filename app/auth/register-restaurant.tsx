@@ -331,10 +331,24 @@ export default function RegisterRestaurantScreen() {
       }
 
       const cleanEmail = ownerEmail.trim().toLowerCase();
-      let currentUserId = authUser?.id;
 
-      // Ensure merchant user account in Supabase Auth
-      if (!currentUserId && isSupabaseConfigured()) {
+      // If a different user or admin is currently signed in, sign them out so this new restaurant account is registered and authenticated cleanly
+      if (isSupabaseConfigured()) {
+        try {
+          const { data: currentAuthData } = await supabase.auth.getUser();
+          if (currentAuthData?.user && currentAuthData.user.email?.toLowerCase() !== cleanEmail) {
+            console.log('[RegisterRestaurant] Signing out mismatched previous session for:', currentAuthData.user.email);
+            await supabase.auth.signOut();
+          }
+        } catch (authCheckErr) {
+          console.warn('[RegisterRestaurant] Auth check warning:', authCheckErr);
+        }
+      }
+
+      let currentUserId: string | undefined = undefined;
+
+      // Always ensure merchant user account in Supabase Auth for cleanEmail
+      if (isSupabaseConfigured()) {
         try {
           const signupRes = await signUpCustomer({
             email: cleanEmail,
@@ -365,6 +379,8 @@ export default function RegisterRestaurantScreen() {
             } catch (loginErr: any) {
               console.warn('[RegisterRestaurant] Existing account login warning:', loginErr?.message);
             }
+          } else {
+            console.warn('[RegisterRestaurant] Signup notice:', signupErr?.message);
           }
         }
       }
@@ -372,7 +388,7 @@ export default function RegisterRestaurantScreen() {
       // Ensure active authenticated session in Supabase client for RLS
       if (isSupabaseConfigured()) {
         const { data: { user: activeSbUser } } = await supabase.auth.getUser();
-        if (activeSbUser?.id) {
+        if (activeSbUser?.id && activeSbUser.email?.toLowerCase() === cleanEmail) {
           currentUserId = activeSbUser.id;
         } else if (password) {
           try {
@@ -407,11 +423,12 @@ export default function RegisterRestaurantScreen() {
       setApplicationId(app.id);
 
       // Upload and record staged verification documents
-      if (stagedDocs.length > 0 && currentUserId) {
+      const effectiveUserId = currentUserId || app.applicantUserId;
+      if (stagedDocs.length > 0 && effectiveUserId) {
         for (const doc of stagedDocs) {
           try {
             const uploadRes = await uploadVerificationDocument({
-              userId: currentUserId,
+              userId: effectiveUserId,
               applicationId: app.id,
               documentType: doc.documentType,
               uri: doc.uri,
@@ -420,10 +437,11 @@ export default function RegisterRestaurantScreen() {
 
             await recordVerificationDocument({
               applicationId: app.id,
-              ownerUserId: currentUserId,
+              ownerUserId: effectiveUserId,
               documentType: doc.documentType,
               storagePath: uploadRes.path,
             });
+            console.log(`[RegisterRestaurant] Successfully uploaded and recorded ${doc.documentType}`);
           } catch (docErr: any) {
             console.warn(`[RegisterRestaurant] Failed to upload ${doc.documentType}:`, docErr?.message);
           }

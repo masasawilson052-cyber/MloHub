@@ -159,7 +159,16 @@ export default function RestaurantPortalScreen() {
           }
           return;
         }
-        const pending = myApps.find((a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW');
+        const changesRequested = myApps.find(
+          (a) => a.status === 'CHANGES_REQUESTED' || (a.notes && a.notes.includes('[CHANGES_REQUESTED]'))
+        );
+        if (changesRequested) {
+          setUserApp(changesRequested);
+          return;
+        }
+        const pending = myApps.find(
+          (a) => a.status === 'PENDING' || a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW'
+        );
         if (pending) {
           setUserApp(pending);
           return;
@@ -276,6 +285,102 @@ export default function RestaurantPortalScreen() {
       );
     }
 
+    if (
+      userApp.status === 'CHANGES_REQUESTED' ||
+      (userApp.notes && userApp.notes.includes('[CHANGES_REQUESTED]'))
+    ) {
+      const feedbackNotes =
+        userApp.rejectionReason ||
+        userApp.notes?.replace('[CHANGES_REQUESTED]', '').trim() ||
+        'Tafadhali rekebisha nyaraka au taarifa za maombi yako kama ilivyoelekezwa na msimamizi.';
+
+      return (
+        <SafeAreaView style={styles.gateContainer}>
+          <View style={styles.gateCard}>
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: '#fef3c7',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Ionicons name="alert-circle-outline" size={38} color="#d97706" />
+            </View>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: '800',
+                color: '#b45309',
+                letterSpacing: 0.8,
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
+              MAREKEBISHO YANAHITAJIKA • REVISION REQUESTED
+            </Text>
+            <Text style={styles.gateTitle}>"{userApp.businessName}"</Text>
+            <Text style={styles.gateSubtitle}>
+              Msimamizi wa MloHub amekagua ombi lako na ameomba marekebisho yafuatayo kabla ya kupitisha usajili:
+            </Text>
+            <View
+              style={{
+                width: '100%',
+                backgroundColor: '#fffbeb',
+                borderWidth: 1.5,
+                borderColor: '#f59e0b',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 18,
+              }}
+            >
+              <Text style={{ fontSize: 11.5, fontWeight: '800', color: '#b45309', marginBottom: 4 }}>
+                Maagizo ya Msimamizi / Administrator Feedback:
+              </Text>
+              <Text style={{ fontSize: 13, color: '#92400e', lineHeight: 19, fontWeight: '700' }}>
+                {feedbackNotes}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
+              onPress={() => router.replace('/auth/register-restaurant')}
+            >
+              <Text style={styles.gatePrimaryBtnText}>Pakia Nyaraka / Rekebisha Maombi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.gateSecondaryBtn, { marginBottom: 6 }]}
+              onPress={async () => {
+                try {
+                  if (refreshProfile) await refreshProfile();
+                  const myApps = await ApplicationRepository.listMine(authUser?.email);
+                  const latest = myApps.find((a) => a.id === userApp.id) || myApps[0];
+                  if (latest?.status === 'APPROVED') {
+                    if (refreshProfile) await refreshProfile();
+                    if (latest.restaurantId && switchWorkspace) {
+                      await switchWorkspace('RESTAURANT_OWNER', latest.restaurantId);
+                    }
+                  } else if (latest) {
+                    setUserApp(latest);
+                  }
+                } catch {}
+              }}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Angalia Tena / Refresh Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.gateSecondaryBtn}
+              onPress={() => router.replace('/')}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Rudi Nyumbani</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={styles.gateContainer}>
         <View style={styles.gateCard}>
@@ -289,6 +394,21 @@ export default function RestaurantPortalScreen() {
           <Text style={styles.gateSubtitle}>
             Maombi ya mgahawa wako yamepokelewa na yanakaguliwa na msimamizi wa MloHub. Utaweza kufungua ukurasa huu moja kwa moja pindi yatakapoidhinishwa.
           </Text>
+
+          <View style={{ width: '100%', backgroundColor: colors.appBackground, borderRadius: 10, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: colors.border, gap: 4 }}>
+            <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+              <Text style={{ fontWeight: '700' }}>Kumbukumbu ya Ombi (Reference): </Text>{userApp.id}
+            </Text>
+            <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+              <Text style={{ fontWeight: '700' }}>Hadhi ya Sasa: </Text>{userApp.status}
+            </Text>
+            {userApp.createdAt && (
+              <Text style={{ fontSize: 11, color: colors.textSecondary }}>
+                <Text style={{ fontWeight: '700' }}>Tarehe ya Kutuma: </Text>{new Date(userApp.createdAt).toLocaleDateString()}
+              </Text>
+            )}
+          </View>
+
           <TouchableOpacity
             style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
             onPress={async () => {
@@ -301,7 +421,7 @@ export default function RestaurantPortalScreen() {
                   if (app.restaurantId && switchWorkspace) {
                     await switchWorkspace('RESTAURANT_OWNER', app.restaurantId);
                   }
-                } else if (app?.status === 'REJECTED') {
+                } else if (app?.status === 'REJECTED' || app?.status === 'CHANGES_REQUESTED') {
                   setUserApp(app);
                 } else {
                   Alert.alert('Hali ya Ombi', 'Ombi lako bado linakaguliwa na msimamizi.');

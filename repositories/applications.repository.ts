@@ -3,7 +3,14 @@ import { RestaurantApplication, ApplicationStatus } from '../types/domain';
 
 export class ApplicationRepository {
   private static mapRowToApplication(row: any): RestaurantApplication {
-    const status = (row.status || 'PENDING') as ApplicationStatus;
+    let status = (row.status || 'PENDING') as ApplicationStatus;
+    let rejectionReason = row.rejection_reason || undefined;
+    if (row.notes && typeof row.notes === 'string' && row.notes.startsWith('[CHANGES_REQUESTED]')) {
+      status = 'CHANGES_REQUESTED';
+      if (!rejectionReason) {
+        rejectionReason = row.notes.replace('[CHANGES_REQUESTED]', '').trim();
+      }
+    }
     return {
       id: row.id,
       applicantUserId: row.applicant_user_id,
@@ -19,7 +26,7 @@ export class ApplicationRepository {
       tinNumber: row.tin_number,
       licenseNumber: row.business_license_number,
       status,
-      rejectionReason: row.rejection_reason || undefined,
+      rejectionReason,
       notes: row.notes || undefined,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
@@ -51,7 +58,7 @@ export class ApplicationRepository {
     if (!isSupabaseConfigured()) return [];
 
     let { data: { user } } = await supabase.auth.getUser();
-    const cleanEmail = ownerEmailOverride?.trim().toLowerCase();
+    const cleanEmail = (ownerEmailOverride || user?.email)?.trim().toLowerCase();
 
     if (!user && !cleanEmail) return [];
 
@@ -241,6 +248,26 @@ export class ApplicationRepository {
       if (!error) return;
 
       const msg = error.message || '';
+
+      // Check constraint fallback: If the database constraint status_check only allows ('PENDING','APPROVED','REJECTED')
+      if (
+        msg.includes('restaurant_applications_status_check') ||
+        msg.includes('violates check constraint')
+      ) {
+        console.warn('[ApplicationRepository] Check constraint error on status, adapting payload to PENDING with note prefix:', msg);
+        const resilientNote = mutation.rejectionReason
+          ? `[CHANGES_REQUESTED] ${mutation.rejectionReason}`
+          : '[CHANGES_REQUESTED] Corrections required';
+
+        const safePayload: any = {
+          status: 'PENDING',
+          notes: resilientNote,
+          updated_at: new Date().toISOString(),
+        };
+        const { error: safeErr } = await supabase.from(targetTable).update(safePayload).eq('id', id);
+        if (!safeErr) return;
+      }
+
       const match =
         msg.match(/Could not find the '([^']+)' column of 'restaurant_applications'/i) ||
         msg.match(/column "?([^"'\s]+)"? of relation "restaurant_applications" does not exist/i);
@@ -254,6 +281,23 @@ export class ApplicationRepository {
       // Minimal fallback to core status update
       const { error: minErr } = await supabase.from(targetTable).update({ status: mutation.status }).eq('id', id);
       if (minErr) {
+        if (
+          minErr.message.includes('restaurant_applications_status_check') ||
+          minErr.message.includes('violates check constraint')
+        ) {
+          const resilientNote = mutation.rejectionReason
+            ? `[CHANGES_REQUESTED] ${mutation.rejectionReason}`
+            : '[CHANGES_REQUESTED] Corrections required';
+          const { error: fallbackStatusErr } = await supabase
+            .from(targetTable)
+            .update({
+              status: 'PENDING',
+              notes: resilientNote,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', id);
+          if (!fallbackStatusErr) return;
+        }
         throw new Error(`Failed to update application record: ${minErr.message}`);
       }
       return;

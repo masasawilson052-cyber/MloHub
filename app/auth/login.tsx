@@ -122,14 +122,23 @@ export default function LoginScreen() {
         try {
           const myApps = await ApplicationRepository.listMine(res.user.email);
           const activeApp = myApps.find(
-            (a) => a.status === 'PENDING' || a.status === 'UNDER_REVIEW' || a.status === 'CHANGES_REQUESTED'
+            (a) =>
+              a.status === 'PENDING' ||
+              a.status === 'SUBMITTED' ||
+              a.status === 'UNDER_REVIEW' ||
+              a.status === 'CHANGES_REQUESTED' ||
+              Boolean(a.notes?.includes('[CHANGES_REQUESTED]'))
           );
-          if (activeApp) {
+          if (activeApp || isRestaurantLogin) {
             router.replace('/restaurant-portal');
             return;
           }
         } catch (appCheckErr) {
           console.warn('[Login] Application status lookup notice:', appCheckErr);
+        }
+        if (isRestaurantLogin) {
+          router.replace('/restaurant-portal');
+          return;
         }
         router.replace('/(tabs)');
       }
