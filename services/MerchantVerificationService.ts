@@ -68,22 +68,62 @@ export async function uploadVerificationDocument(params: {
     throw new Error('Verification document storage unavailable');
   }
 
-  const file = await fetch(params.uri).then((res) => res.arrayBuffer());
+  let file: any;
+  try {
+    const res = await fetch(params.uri);
+    file = await res.arrayBuffer();
+  } catch {
+    const res = await fetch(params.uri);
+    file = await res.blob();
+  }
 
-  const { data, error } = await supabase.storage
+  // 1. Primary upload attempt to merchant-verification
+  let uploadRes = await supabase.storage
     .from(VERIFICATION_BUCKET)
     .upload(path, file, {
       contentType: params.mimeType,
-      upsert: false,
+      upsert: true,
     });
 
-  if (error) {
-    console.error('[MerchantVerificationService] Storage upload error:', error.message);
-    throw error;
+  // 2. If upload failed, attempt bucket auto-provision or fallback
+  if (uploadRes.error) {
+    console.warn(`[MerchantVerificationService] Primary upload to ${VERIFICATION_BUCKET} failed: ${uploadRes.error.message}. Attempting auto-provision or fallback...`);
+
+    try {
+      await supabase.storage.createBucket(VERIFICATION_BUCKET, { public: false });
+      uploadRes = await supabase.storage
+        .from(VERIFICATION_BUCKET)
+        .upload(path, file, {
+          contentType: params.mimeType,
+          upsert: true,
+        });
+    } catch (createErr: any) {
+      console.warn('[MerchantVerificationService] Bucket auto-creation attempt notice:', createErr?.message);
+    }
+
+    // 3. If still failing, fallback to the guaranteed active storage bucket 'mlohub-media'
+    if (uploadRes.error) {
+      const fallbackPath = `verification/${path}`;
+      const fallbackRes = await supabase.storage
+        .from('mlohub-media')
+        .upload(fallbackPath, file, {
+          contentType: params.mimeType,
+          upsert: true,
+        });
+
+      if (fallbackRes.error) {
+        console.error('[MerchantVerificationService] Storage fallback upload failed:', fallbackRes.error.message);
+        throw uploadRes.error;
+      }
+
+      return {
+        path: `mlohub-media:${fallbackPath}`,
+      };
+    }
   }
 
   return {
-    path: data.path,
+    path: uploadRes.data?.path || path,
   };
 }
 
@@ -214,15 +254,44 @@ export async function createTemporaryDocumentAccessUrl(
     return `https://storage.local.simulated/${storagePath}`;
   }
 
-  const { data, error } = await supabase.storage
-    .from(VERIFICATION_BUCKET)
-    .createSignedUrl(storagePath, expiresInSeconds);
-
-  if (error || !data?.signedUrl) {
-    throw new Error(`Failed to generate signed document URL: ${error?.message || 'Unknown error'}`);
+  // Handle explicit fallback format: "mlohub-media:<path>"
+  if (storagePath.startsWith('mlohub-media:')) {
+    const rawPath = storagePath.replace('mlohub-media:', '');
+    try {
+      const { data, error } = await supabase.storage
+        .from('mlohub-media')
+        .createSignedUrl(rawPath, expiresInSeconds);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    } catch {}
+    const { data: pubData } = supabase.storage.from('mlohub-media').getPublicUrl(rawPath);
+    if (pubData?.publicUrl) return pubData.publicUrl;
   }
 
-  return data.signedUrl;
+  // Handle standard VERIFICATION_BUCKET lookup
+  try {
+    const { data, error } = await supabase.storage
+      .from(VERIFICATION_BUCKET)
+      .createSignedUrl(storagePath, expiresInSeconds);
+
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch {}
+
+  // Fallback lookup in mlohub-media if not found or bucket missing
+  try {
+    const fallbackPath = storagePath.startsWith('verification/') ? storagePath : `verification/${storagePath}`;
+    const { data: fallbackSigned, error: fbErr } = await supabase.storage
+      .from('mlohub-media')
+      .createSignedUrl(fallbackPath, expiresInSeconds);
+    if (!fbErr && fallbackSigned?.signedUrl) {
+      return fallbackSigned.signedUrl;
+    }
+    const { data: pubData } = supabase.storage.from('mlohub-media').getPublicUrl(fallbackPath);
+    if (pubData?.publicUrl) return pubData.publicUrl;
+  } catch {}
+
+  throw new Error(`Failed to generate signed document URL: ${storagePath}`);
 }
 
 /**

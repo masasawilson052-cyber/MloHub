@@ -45,9 +45,17 @@ import {
   FinancialDispute,
   RestaurantFinancialSummary,
   RestaurantLaunchReadiness,
+  VerificationDocumentType,
+  RestaurantVerificationDocument,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../../lib/supabase';
+import {
+  listDocumentsForApplication,
+  uploadVerificationDocument,
+  recordVerificationDocument,
+  pickVerificationDocument,
+} from '../../services/MerchantVerificationService';
 import {
   RestaurantRepository,
   BranchRepository,
@@ -120,6 +128,57 @@ export default function RestaurantPortalScreen() {
 
   const [checkingApp, setCheckingApp] = useState(false);
   const [userApp, setUserApp] = useState<any | null>(null);
+  const [portalDocs, setPortalDocs] = useState<RestaurantVerificationDocument[]>([]);
+  const [isUploadingDocType, setIsUploadingDocType] = useState<string | null>(null);
+
+  const fetchPortalDocs = useCallback(async (appId: string) => {
+    try {
+      const docs = await listDocumentsForApplication(appId);
+      setPortalDocs(docs);
+    } catch {
+      setPortalDocs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userApp?.id) {
+      fetchPortalDocs(userApp.id);
+    }
+  }, [userApp?.id, fetchPortalDocs]);
+
+  const handleUploadPortalDoc = async (docType: VerificationDocumentType) => {
+    if (!userApp?.id || !authUser?.id) {
+      Alert.alert('Hitilafu', 'Tafadhali ingia upya kwenye akaunti yako.');
+      return;
+    }
+    try {
+      const picked = await pickVerificationDocument();
+      if (!picked) return;
+      setIsUploadingDocType(docType);
+
+      const uploadRes = await uploadVerificationDocument({
+        userId: authUser.id,
+        applicationId: userApp.id,
+        documentType: docType,
+        uri: picked.uri,
+        mimeType: picked.mimeType,
+      });
+
+      await recordVerificationDocument({
+        applicationId: userApp.id,
+        ownerUserId: authUser.id,
+        documentType: docType,
+        storagePath: uploadRes.path,
+      });
+
+      await fetchPortalDocs(userApp.id);
+      Alert.alert('Imefanikiwa', 'Nyaraka imepakiwa na kurekodiwa kikamilifu!');
+    } catch (err: any) {
+      Alert.alert('Hitilafu ya Kupakia', err?.message || 'Imeshindikana kupakia nyaraka.');
+    } finally {
+      setIsUploadingDocType(null);
+    }
+  };
 
   const access = resolvePortalAccess({
     isAuthLoading,
@@ -344,11 +403,114 @@ export default function RestaurantPortalScreen() {
                 {feedbackNotes}
               </Text>
             </View>
+
+            {/* Verification Documents Checklist & Direct Upload */}
+            <View style={{ width: '100%', backgroundColor: colors.appBackground, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.border, gap: 10 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.3 }}>
+                  NYARAKA ZA UTHIBITISHO (MAREKEBISHO)
+                </Text>
+                {isUploadingDocType && <ActivityIndicator size="small" color={colors.primary} />}
+              </View>
+
+              {[
+                { type: 'BUSINESS_LICENSE' as VerificationDocumentType, label: 'Leseni ya Biashara (Business License)' },
+                { type: 'TIN_DOCUMENT' as VerificationDocumentType, label: 'Cheti cha TIN (TRA Tax Clearance)' },
+                { type: 'FOOD_OPERATION_DOCUMENT' as VerificationDocumentType, label: 'Cheti cha Afya na Usafi (Food Hygiene)' },
+              ].map((item) => {
+                const doc = portalDocs.find((d) => d.documentType === item.type);
+                const isVerified = doc?.verificationStatus === 'VERIFIED';
+                const isRejected = doc?.verificationStatus === 'REJECTED';
+                const isPending = doc && !isVerified && !isRejected;
+                const isUploadingThis = isUploadingDocType === item.type;
+
+                return (
+                  <View
+                    key={item.type}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: 10,
+                      backgroundColor: colors.card,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: isVerified ? '#16a34a' : isRejected ? '#ef4444' : isPending ? '#d97706' : colors.border,
+                    }}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                        {item.label}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: '600',
+                          color: isVerified
+                            ? '#16a34a'
+                            : isRejected
+                            ? '#ef4444'
+                            : isPending
+                            ? '#d97706'
+                            : colors.textSecondary,
+                          marginTop: 2,
+                        }}
+                      >
+                        {isVerified
+                          ? '✓ Imethibitishwa na Msimamizi'
+                          : isRejected
+                          ? `❌ Imekataliwa: ${doc?.rejectionReason || 'Rekebisha nyaraka'}`
+                          : isPending
+                          ? '⏳ Imepakiwa (Inasubiri Uhakiki)'
+                          : '⚠️ Haijapakiwa bado'}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                        paddingVertical: 6,
+                        paddingHorizontal: 10,
+                        backgroundColor: isVerified ? colors.surfaceInteractive : colors.primary,
+                        borderRadius: 6,
+                        opacity: isUploadingThis ? 0.6 : 1,
+                      }}
+                      onPress={() => handleUploadPortalDoc(item.type)}
+                      disabled={isUploadingThis || isVerified}
+                    >
+                      {isUploadingThis ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name={isVerified ? 'checkmark-circle' : isPending ? 'cloud-upload-outline' : 'add-circle-outline'}
+                            size={14}
+                            color={isVerified ? '#16a34a' : '#ffffff'}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: '700',
+                              color: isVerified ? '#16a34a' : '#ffffff',
+                            }}
+                          >
+                            {isVerified ? 'Tayari' : isPending ? 'Badilisha' : 'Pakia'}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+
             <TouchableOpacity
               style={[styles.gatePrimaryBtn, { marginBottom: 8 }]}
               onPress={() => router.replace('/auth/register-restaurant')}
             >
-              <Text style={styles.gatePrimaryBtnText}>Pakia Nyaraka / Rekebisha Maombi</Text>
+              <Text style={styles.gatePrimaryBtnText}>Rekebisha Taarifa Nyingine za Maombi</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.gateSecondaryBtn, { marginBottom: 6 }]}
@@ -407,6 +569,108 @@ export default function RestaurantPortalScreen() {
                 <Text style={{ fontWeight: '700' }}>Tarehe ya Kutuma: </Text>{new Date(userApp.createdAt).toLocaleDateString()}
               </Text>
             )}
+          </View>
+
+          {/* Verification Documents Checklist & Direct Upload */}
+          <View style={{ width: '100%', backgroundColor: colors.appBackground, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.border, gap: 10 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textPrimary, letterSpacing: 0.3 }}>
+                NYARAKA ZA UTHIBITISHO (GATE A)
+              </Text>
+              {isUploadingDocType && <ActivityIndicator size="small" color={colors.primary} />}
+            </View>
+
+            {[
+              { type: 'BUSINESS_LICENSE' as VerificationDocumentType, label: 'Leseni ya Biashara (Business License)' },
+              { type: 'TIN_DOCUMENT' as VerificationDocumentType, label: 'Cheti cha TIN (TRA Tax Clearance)' },
+              { type: 'FOOD_OPERATION_DOCUMENT' as VerificationDocumentType, label: 'Cheti cha Afya na Usafi (Food Hygiene)' },
+            ].map((item) => {
+              const doc = portalDocs.find((d) => d.documentType === item.type);
+              const isVerified = doc?.verificationStatus === 'VERIFIED';
+              const isRejected = doc?.verificationStatus === 'REJECTED';
+              const isPending = doc && !isVerified && !isRejected;
+              const isUploadingThis = isUploadingDocType === item.type;
+
+              return (
+                <View
+                  key={item.type}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 10,
+                    backgroundColor: colors.card,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: isVerified ? '#16a34a' : isRejected ? '#ef4444' : isPending ? '#d97706' : colors.border,
+                  }}
+                >
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textPrimary }}>
+                      {item.label}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: '600',
+                        color: isVerified
+                          ? '#16a34a'
+                          : isRejected
+                          ? '#ef4444'
+                          : isPending
+                          ? '#d97706'
+                          : colors.textSecondary,
+                        marginTop: 2,
+                      }}
+                    >
+                      {isVerified
+                        ? '✓ Imethibitishwa na Msimamizi'
+                        : isRejected
+                        ? `❌ Imekataliwa: ${doc?.rejectionReason || 'Rekebisha nyaraka'}`
+                        : isPending
+                        ? '⏳ Imepakiwa (Inasubiri Uhakiki)'
+                        : '⚠️ Haijapakiwa bado'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      backgroundColor: isVerified ? colors.surfaceInteractive : colors.primary,
+                      borderRadius: 6,
+                      opacity: isUploadingThis ? 0.6 : 1,
+                    }}
+                    onPress={() => handleUploadPortalDoc(item.type)}
+                    disabled={isUploadingThis || isVerified}
+                  >
+                    {isUploadingThis ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name={isVerified ? 'checkmark-circle' : isPending ? 'cloud-upload-outline' : 'add-circle-outline'}
+                          size={14}
+                          color={isVerified ? '#16a34a' : '#ffffff'}
+                        />
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: '700',
+                            color: isVerified ? '#16a34a' : '#ffffff',
+                          }}
+                        >
+                          {isVerified ? 'Tayari' : isPending ? 'Badilisha' : 'Pakia'}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
 
           <TouchableOpacity
