@@ -58,59 +58,22 @@ export async function runDemoIsolationTestSuite(): Promise<{ passed: number; fai
 
   const rootDir = path.resolve(__dirname, '..');
 
+  const readSrc = (p: string) => fs.readFileSync(p, 'utf-8').replace(/\r\n/g, '\n');
+
   // Read critical source files for static verification
-  const favoritesModalSrc = fs.readFileSync(
-    path.join(rootDir, 'components', 'profile', 'FavoritesModal.tsx'),
-    'utf-8'
-  );
-  const loginSrc = fs.readFileSync(
-    path.join(rootDir, 'app', 'auth', 'login.tsx'),
-    'utf-8'
-  );
-  const systemHealthSrc = fs.readFileSync(
-    path.join(rootDir, 'components', 'admin', 'SystemHealth.tsx'),
-    'utf-8'
-  );
-  const discoveryRepoSrc = fs.readFileSync(
-    path.join(rootDir, 'repositories', 'discovery.repository.ts'),
-    'utf-8'
-  );
-  const restaurantServiceSrc = fs.readFileSync(
-    path.join(rootDir, 'services', 'RestaurantService.ts'),
-    'utf-8'
-  );
-  const dataConstantsSrc = fs.readFileSync(
-    path.join(rootDir, 'constants', 'data.ts'),
-    'utf-8'
-  );
-  const restaurantDetailSrc = fs.readFileSync(
-    path.join(rootDir, 'app', 'restaurant', '[id].tsx'),
-    'utf-8'
-  );
-  const authGuardsSrc = fs.readFileSync(
-    path.join(rootDir, 'db', 'auth', 'guards.ts'),
-    'utf-8'
-  );
-  const authServiceSrc = fs.readFileSync(
-    path.join(rootDir, 'db', 'auth', 'service.ts'),
-    'utf-8'
-  );
-  const authContextSrc = fs.readFileSync(
-    path.join(rootDir, 'context', 'AuthContext.tsx'),
-    'utf-8'
-  );
-  const restaurantPortalSrc = fs.readFileSync(
-    path.join(rootDir, 'app', 'restaurant-portal', 'index.tsx'),
-    'utf-8'
-  );
-  const restaurantCardSrc = fs.readFileSync(
-    path.join(rootDir, 'components', 'RestaurantCard.tsx'),
-    'utf-8'
-  );
-  const googleMapViewSrc = fs.readFileSync(
-    path.join(rootDir, 'components', 'GoogleMapView.tsx'),
-    'utf-8'
-  );
+  const favoritesModalSrc = readSrc(path.join(rootDir, 'components', 'profile', 'FavoritesModal.tsx'));
+  const loginSrc = readSrc(path.join(rootDir, 'app', 'auth', 'login.tsx'));
+  const systemHealthSrc = readSrc(path.join(rootDir, 'components', 'admin', 'SystemHealth.tsx'));
+  const discoveryRepoSrc = readSrc(path.join(rootDir, 'repositories', 'discovery.repository.ts'));
+  const restaurantServiceSrc = readSrc(path.join(rootDir, 'services', 'RestaurantService.ts'));
+  const dataConstantsSrc = readSrc(path.join(rootDir, 'constants', 'data.ts'));
+  const restaurantDetailSrc = readSrc(path.join(rootDir, 'app', 'restaurant', '[id].tsx'));
+  const authGuardsSrc = readSrc(path.join(rootDir, 'db', 'auth', 'guards.ts'));
+  const authServiceSrc = readSrc(path.join(rootDir, 'db', 'auth', 'service.ts'));
+  const authContextSrc = readSrc(path.join(rootDir, 'context', 'AuthContext.tsx'));
+  const restaurantPortalSrc = readSrc(path.join(rootDir, 'app', 'restaurant-portal', 'index.tsx'));
+  const restaurantCardSrc = readSrc(path.join(rootDir, 'components', 'RestaurantCard.tsx'));
+  const googleMapViewSrc = readSrc(path.join(rootDir, 'components', 'GoogleMapView.tsx'));
 
   // ==========================================================================
   // 1. Runtime Boundary Assertions (Criteria A - E)
