@@ -1,37 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { runtimeConfig } from '../lib/runtimeConfig';
-import { useMloHubDB } from '../context/DbContext';
+import React from 'react';
 
-import { useTheme } from '../context/ThemeContext';
-import { ThemeColors, lightColors } from '../theme/palettes';
-
-let colors: ThemeColors = lightColors;
-
-// Reports API reachability only; it deliberately makes no payment/RLS claims.
+/**
+ * ConnectionNotice component disabled per user requirements.
+ * Suppresses intrusive "Connection unavailable / Hakuna muunganisho"
+ * and "Please try again later / contact MloHub support" banners
+ * across all platforms (Customer, Restaurant, Administrator),
+ * regardless of connectivity status.
+ */
 export function ConnectionNotice() {
-  const { colors: _tc } = useTheme(); colors = _tc;
-  const { error: dataError, refreshState } = useMloHubDB();
-  const [offline, setOffline] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const check = async () => {
-    if (runtimeConfig.allowLocalDataFallbacks) return;
-    setChecking(true);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    try {
-      const result = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/auth/v1/health`, {
-        headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '' }, signal: controller.signal,
-      });
-      setOffline(!result.ok);
-    } catch { setOffline(true); }
-    finally { clearTimeout(timer); setChecking(false); }
-  };
-  useEffect(() => { void check(); const timer = setInterval(check, 30000); return () => clearInterval(timer); }, []);
-  if (runtimeConfig.isDemo) return <View style={{padding:10,backgroundColor:colors.warningSoft}}><Text style={{textAlign:'center',color:colors.warning}}>Demo data · SMS and payments are simulated</Text></View>;
-  if (!offline && !dataError) return null;
-  return <View accessibilityRole="alert" style={{padding:12,backgroundColor:colors.dangerSoft,flexDirection:'row',gap:12,alignItems:'center'}}>
-    <View style={{flex:1}}><Text style={{fontWeight:'700',color:colors.danger}}>{offline ? 'Connection unavailable / Hakuna muunganisho' : 'We could not load your data / Imeshindikana kupakia taarifa'}</Text><Text style={{color:colors.textSecondary,marginTop:3}}>Please try again. If this continues, contact MloHub support.</Text></View>
-    <TouchableOpacity disabled={checking} accessibilityRole="button" onPress={() => { void check(); refreshState(); }} style={{padding:10}}><Text style={{color:colors.danger,fontWeight:'700'}}>{checking ? 'Checking…' : 'Retry'}</Text></TouchableOpacity>
-  </View>;
+  return null;
 }
