@@ -84,6 +84,7 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingHours, setIsSavingHours] = useState(false);
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   // Load branch operational status and hours via BranchOperationsRepository
   useEffect(() => {
@@ -405,6 +406,41 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
     }
   };
 
+  const handleSaveInfoOnly = async () => {
+    try {
+      setIsSavingInfo(true);
+      await onSaveProfile({
+        name,
+        phone,
+        neighborhood,
+      });
+
+      if (activeBranchId && phone) {
+        await BranchRepository.update(activeBranchId, { phone } as any).catch((e) =>
+          console.warn('[RestaurantSettings] Branch phone sync notice:', e)
+        );
+      }
+
+      if (onBranchUpdated) {
+        await onBranchUpdated();
+      }
+
+      Alert.alert(
+        language === 'sw' ? 'Taarifa Zimehifadhiwa' : 'Information Saved',
+        language === 'sw'
+          ? 'Jina la mgahawa, namba ya simu/WhatsApp, na eneo vimehifadhiwa kikamilifu.'
+          : 'Restaurant name, contact phone/WhatsApp, and neighborhood saved successfully.'
+      );
+    } catch (err: any) {
+      Alert.alert(
+        language === 'sw' ? 'Hitilafu' : 'Error',
+        err?.message || (language === 'sw' ? 'Imeshindikana kuhifadhi taarifa.' : 'Failed to save information.')
+      );
+    } finally {
+      setIsSavingInfo(false);
+    }
+  };
+
   const toggleDayOpen = (index: number) => {
     setSchedule((prev) =>
       prev.map((d, i) => (i === index ? { ...d, isOpen: !d.isOpen } : d))
@@ -476,6 +512,24 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
             <Text style={styles.inputLabel}>Primary Neighborhood</Text>
             <TextInput style={styles.textInput} value={neighborhood} onChangeText={setNeighborhood} />
           </View>
+
+          <TouchableOpacity
+            style={[styles.saveInfoBtn, isSavingInfo && { opacity: 0.6 }]}
+            onPress={handleSaveInfoOnly}
+            disabled={isSavingInfo}
+            activeOpacity={0.8}
+          >
+            {isSavingInfo ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <>
+                <Ionicons name="checkmark-done" size={16} color={colors.onPrimary} />
+                <Text style={styles.saveInfoBtnText}>
+                  {language === 'sw' ? 'Hifadhi Taarifa za Mgahawa' : 'Save Restaurant Info'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -880,6 +934,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     ...Typography.Caption,
     color: colors.danger,
     fontWeight: '700',
+  },
+  saveInfoBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radii.md,
+    marginTop: Spacing.xs,
+    alignSelf: 'flex-end',
+  },
+  saveInfoBtnText: {
+    color: colors.onPrimary,
+    fontWeight: '700',
+    fontSize: 13,
   },
   saveHoursBtn: {
     backgroundColor: '#16a34a',

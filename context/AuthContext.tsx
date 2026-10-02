@@ -119,6 +119,14 @@ function mapRestaurantRowToEntity(restRow: any): RestaurantEntity {
     isPublished: restRow.is_published ?? false,
     isActive: restRow.is_active ?? true,
     verificationStatus: restRow.verification_status || 'PENDING_VERIFICATION',
+    launchStatus: restRow.launch_status || (restRow.is_published && restRow.is_verified ? 'PUBLISHED' : 'SETUP_REQUIRED'),
+    phone: restRow.phone || restRow.payout_phone_number || '',
+    payoutPhoneNumber: restRow.payout_phone_number || restRow.phone || '',
+    tinNumber: restRow.tin_number || undefined,
+    businessLicenseNumber: restRow.business_license_number || undefined,
+    foodSpotPhotos: Array.isArray(restRow.food_spot_photos)
+      ? restRow.food_spot_photos
+      : (restRow.food_spot_photos ? [restRow.food_spot_photos] : []),
     logoUrl: restRow.logo_url || undefined,
     coverImageUrl: restRow.cover_image_url || undefined,
     emoji: restRow.emoji || '🍲',

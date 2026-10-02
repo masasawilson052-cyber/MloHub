@@ -1747,6 +1747,9 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     launchReadiness?.canSubmitForReview === true ||
     (hasActiveBranch && hasValidMenuItem && hasConfiguredHours);
   const canPublish = isPublishPrerequisitesMet;
+  const isAllSetupCompleted =
+    activeRestaurant.isPublished === true ||
+    [true, hasActiveBranch, hasConfiguredHours, hasValidMenuItem, activeRestaurant.isPublished].every(Boolean);
 
   const handleUpdateOperatingStatus = useCallback(
     async (status: OperatingOverride) => {
@@ -2066,7 +2069,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
           <View style={styles.tabContentArea}>
             {activeTab === 'overview' && (
               <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-                {/* 5-Point Setup Checklist Card (Task 26) */}
+                {/* 5-Point Setup Checklist Card (Task 26) - Hidden once all 5 stages completed or store is live */}
+                {!isAllSetupCompleted && (
                 <View style={styles.setupCard}>
                   <View style={styles.setupCardHeader}>
                     <Text style={styles.setupCardTitle}>
@@ -2232,6 +2236,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                     </View>
                   )}
                 </View>
+                )}
 
                 <DashboardOverview
                   restaurantName={activeRestaurant.name}

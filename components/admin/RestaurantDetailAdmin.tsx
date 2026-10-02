@@ -100,9 +100,17 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     setActionError(null);
     try {
       await onApproveLaunch(restaurant.id);
+      Alert.alert(
+        language === 'sw' ? 'Mgahawa Umezinduliwa!' : 'Restaurant Published!',
+        language === 'sw'
+          ? 'Mgahawa sasa umezinduliwa rasmi na unaonekana kwa wateja wote mtandaoni.'
+          : 'Restaurant has been officially published and is now live on the customer platform!'
+      );
       onClose();
     } catch (err: any) {
-      setActionError(err?.message || 'Failed to approve launch.');
+      const msg = err?.message || 'Failed to approve launch.';
+      setActionError(msg);
+      Alert.alert(language === 'sw' ? 'Hitilafu ya Kuzindua' : 'Launch Approval Error', msg);
     } finally {
       setIsProcessing(false);
     }
@@ -120,6 +128,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
       await onRequestLaunchCorrections(restaurant.id, correctionsReason.trim());
       setCorrectionsMode(false);
       setCorrectionsReason('');
+      Alert.alert(
+        language === 'sw' ? 'Marekebisho Yameombwa' : 'Corrections Requested',
+        language === 'sw'
+          ? 'Marekebisho yatumwa kwa muuzaji kikamilifu.'
+          : 'Correction instructions sent to merchant successfully.'
+      );
       onClose();
     } catch (err: any) {
       setActionError(err?.message || 'Failed to request corrections.');
@@ -138,6 +152,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
       await onSuspend(restaurant.id, suspendReason.trim());
       setSuspendMode(false);
       setSuspendReason('');
+      Alert.alert(
+        language === 'sw' ? 'Mgahawa Umesitishwa' : 'Restaurant Suspended',
+        language === 'sw'
+          ? 'Mgahawa umesitishwa kwa muda.'
+          : 'Restaurant operations have been suspended.'
+      );
       onClose();
     } catch (err: any) {
       Alert.alert('Suspension Error', err.message || 'Failed to suspend restaurant.');
@@ -150,6 +170,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     setIsProcessing(true);
     try {
       await onReactivate(restaurant.id);
+      Alert.alert(
+        language === 'sw' ? 'Mgahawa Umewashwa!' : 'Restaurant Reactivated!',
+        language === 'sw'
+          ? 'Mgahawa umerejeshwa na unaweza kufanya kazi na kupokea maagizo sasa.'
+          : 'Restaurant has been reactivated and is ready to operate.'
+      );
       onClose();
     } catch (err: any) {
       Alert.alert('Reactivation Error', err.message || 'Failed to reactivate restaurant.');
@@ -184,6 +210,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     setActionError(null);
     try {
       await onUnarchive(restaurant.id);
+      Alert.alert(
+        language === 'sw' ? 'Mgahawa Umerudishwa!' : 'Restaurant Restored!',
+        language === 'sw'
+          ? 'Mgahawa umerudishwa kutoka kumbukumbu (unarchived) kikamilifu.'
+          : 'Restaurant has been restored and unarchived successfully.'
+      );
       onClose();
     } catch (err: any) {
       Alert.alert('Restore Error', err.message || 'Failed to restore restaurant.');
@@ -411,6 +443,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                         </TouchableOpacity>
                       )}
                     </View>
+                    {actionError && (
+                      <View style={[styles.inlineErrorBox, { marginTop: 8 }]}>
+                        <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                        <Text style={styles.inlineErrorText}>{actionError}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
