@@ -778,25 +778,7 @@ export default function AdminPortalScreen() {
         }}
       />
 
-      {/* 2. Mobile Nav when on small screens */}
-      {!isLargeScreen && (
-        <AdminMobileNav
-          activeTab={activeTab}
-          onSelectTab={selectAdminTab}
-          userRole={activeUser?.role}
-          language={language}
-          badges={{
-            pendingApplications: overviewMetrics ? overviewMetrics.pendingApplications : pendingAppsCount,
-            openReports: overviewMetrics ? overviewMetrics.openReports : openReportsCount,
-            staleMenus: staleSpots.length,
-            criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
-            pendingRefunds: overviewMetrics ? overviewMetrics.pendingRefunds : pendingRefundsCount,
-            pendingSettlements: overviewMetrics ? overviewMetrics.pendingSettlements : pendingSettlementsCount,
-          }}
-        />
-      )}
-
-      {/* 3. Main Body */}
+      {/* 2. Main Body */}
       <View style={styles.mainLayout}>
         {/* Left Sidebar on Large Screens */}
         {isLargeScreen && (
@@ -980,6 +962,24 @@ export default function AdminPortalScreen() {
           )}
         </View>
       </View>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {!isLargeScreen && (
+        <AdminMobileNav
+          activeTab={activeTab}
+          onSelectTab={selectAdminTab}
+          userRole={activeUser?.role}
+          language={language}
+          badges={{
+            pendingApplications: overviewMetrics ? overviewMetrics.pendingApplications : pendingAppsCount,
+            openReports: overviewMetrics ? overviewMetrics.openReports : openReportsCount,
+            staleMenus: staleSpots.length,
+            criticalAttention: attentionItems.filter((a) => a.severity === 'CRITICAL').length,
+            pendingRefunds: overviewMetrics ? overviewMetrics.pendingRefunds : pendingRefundsCount,
+            pendingSettlements: overviewMetrics ? overviewMetrics.pendingSettlements : pendingSettlementsCount,
+          }}
+        />
+      )}
 
       {/* Newly Created Vendor Credentials Modal */}
       {createdVendorModal && (

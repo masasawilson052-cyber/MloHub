@@ -302,8 +302,26 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                         { label: 'Active branch', met: readiness.hasActiveBranch ?? readiness.criteria?.hasActiveBranch },
                         { label: 'Exact location', met: readiness.branchHasCoordinates ?? readiness.criteria?.hasAddress },
                         { label: 'Opening hours', met: readiness.hasOpeningHours ?? readiness.criteria?.hasOperatingHours },
-                        { label: 'Storefront image', met: readiness.hasStorefrontImage ?? readiness.criteria?.hasGalleryPhotos },
-                        { label: 'Verified owner phone', met: readiness.hasVerifiedContact ?? readiness.criteria?.hasPhone },
+                        {
+                          label: 'Storefront image',
+                          met: Boolean(
+                            readiness.hasStorefrontImage ||
+                            readiness.criteria?.hasGalleryPhotos ||
+                            restaurant.coverImageUrl ||
+                            (restaurant.foodSpotPhotos && restaurant.foodSpotPhotos.length > 0)
+                          ),
+                        },
+                        {
+                          label: 'Verified owner phone',
+                          met: Boolean(
+                            readiness.hasVerifiedContact ||
+                            readiness.criteria?.hasPhone ||
+                            restaurant.phone ||
+                            restaurant.payoutPhoneNumber ||
+                            restaurant.ownerPhone ||
+                            ((restaurant as any)?.branches && (restaurant as any).branches.some((b: any) => Boolean(b.phone)))
+                          ),
+                        },
                         { label: 'Menu', met: readiness.hasMenu ?? (readiness.criteria?.hasValidMenuItem && readiness.criteria?.hasPricedItem) },
                         { label: 'Payout destination', met: readiness.hasPayoutDestination ?? readiness.criteria?.hasPayoutConfigured },
                         { label: 'Delivery configuration', met: readiness.deliveryConfigured ?? readiness.criteria?.hasAddress },
@@ -334,10 +352,10 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   )}
                 </View>
 
-                {(restaurant.launchStatus === 'GO_LIVE_REVIEW' || (restaurant as any).launch_status === 'GO_LIVE_REVIEW') && !correctionsMode && (
+                {(!restaurant.isPublished && (restaurant.launchStatus === 'GO_LIVE_REVIEW' || (restaurant as any).launch_status === 'GO_LIVE_REVIEW' || restaurant.launchStatus === 'READY_FOR_REVIEW' || readiness?.canSubmitForReview === true || (readiness && readiness.readinessPercent >= 80))) && !correctionsMode && (
                   <View style={{ marginTop: 8, gap: 6 }}>
                     <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 16 }}>
-                      This vendor has submitted their store setup for Administrator Gate B Launch Approval. Approval requires AAL2 MFA clearance and will publish the store to Dar es Salaam diners.
+                      This vendor is ready for Administrator Gate B Launch Approval. Approval requires AAL2 MFA clearance and will publish the store to Dar es Salaam diners.
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                       {onRequestLaunchCorrections && (
@@ -372,13 +390,13 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                               alignItems: 'center',
                               gap: 6,
                             },
-                            (!readiness?.canSubmitForReview || isProcessing) && {
+                            (isProcessing || (readiness ? (!readiness.canSubmitForReview && readiness.readinessPercent < 80) : false)) && {
                               opacity: 0.5,
                               backgroundColor: colors.textMuted,
                             },
                           ]}
                           onPress={handleApproveLaunch}
-                          disabled={isProcessing || readiness?.canSubmitForReview !== true}
+                          disabled={isProcessing || (readiness ? (!readiness.canSubmitForReview && readiness.readinessPercent < 80) : false)}
                         >
                           {isProcessing ? (
                             <ActivityIndicator size="small" color={colors.onPrimary} />

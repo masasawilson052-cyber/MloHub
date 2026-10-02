@@ -142,7 +142,7 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
         styles.container,
         {
           backgroundColor: colors.topbarBackground,
-          borderBottomColor: colors.border,
+          borderTopColor: colors.border,
         },
       ]}
     >
@@ -157,7 +157,7 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
               key={group.key}
               style={[
                 styles.groupBtn,
-                isGroupActive && { borderBottomColor: colors.primary },
+                isGroupActive && { borderTopColor: colors.primary },
               ]}
               onPress={() => handleGroupPress(group)}
               accessibilityRole="button"
@@ -299,7 +299,8 @@ export const AdminMobileNav: React.FC<AdminMobileNavProps> = ({
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
-      borderBottomWidth: 1,
+      borderTopWidth: 1,
+      paddingBottom: Platform.OS === 'ios' ? 16 : 6,
     },
     tabBar: {
       flexDirection: 'row',
@@ -312,8 +313,8 @@ const createStyles = (colors: ThemeColors) =>
       minHeight: 48,
       alignItems: 'center',
       justifyContent: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
+      borderTopWidth: 2,
+      borderTopColor: 'transparent',
       paddingVertical: 6,
       ...Platform.select({ web: { cursor: 'pointer' } }),
     },

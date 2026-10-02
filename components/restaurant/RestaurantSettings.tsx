@@ -141,6 +141,20 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
   const [foodSpotPhotos, setFoodSpotPhotos] = useState<string[]>(restaurant.foodSpotPhotos || []);
   const [uploadingTarget, setUploadingTarget] = useState<'logo' | 'cover' | 'gallery' | null>(null);
 
+  // Synchronize state when restaurant or activeBranch updates from server
+  useEffect(() => {
+    setName(restaurant.name || '');
+    setPhone(restaurant.phone || activeBranch?.phone || restaurant.payoutPhoneNumber || '');
+    setNeighborhood(restaurant.neighborhood || '');
+    setLogoUrl(restaurant.logoUrl || '');
+    setCoverImageUrl(restaurant.coverImageUrl || '');
+    setFoodSpotPhotos(
+      Array.isArray(restaurant.foodSpotPhotos)
+        ? restaurant.foodSpotPhotos
+        : (restaurant.foodSpotPhotos ? [restaurant.foodSpotPhotos] : [])
+    );
+  }, [restaurant, activeBranch]);
+
   const handleUploadLogo = async () => {
     try {
       setUploadingTarget('logo');
@@ -292,6 +306,11 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
       });
 
       if (activeBranchId) {
+        if (phone) {
+          await BranchRepository.update(activeBranchId, { phone } as any).catch((e) =>
+            console.warn('[RestaurantSettings] Branch phone sync notice:', e)
+          );
+        }
         const hoursToSave = schedule.map((d, index) => {
           const dayIndex = DAYS_OF_WEEK.indexOf(d.day);
           return {

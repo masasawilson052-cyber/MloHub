@@ -827,6 +827,14 @@ function mapDomainRestaurantToEntity(rest: any): RestaurantEntity {
     isActive: rest.isActive ?? true,
     verificationStatus: rest.verificationStatus || 'PENDING_VERIFICATION',
     launchStatus: rest.launchStatus || 'SETUP_REQUIRED',
+    phone: rest.phone || rest.payoutPhoneNumber || rest.ownerPhone || '',
+    payoutPhoneNumber: rest.payoutPhoneNumber || rest.phone || '',
+    payoutProvider: rest.payoutProvider || 'M-Pesa',
+    tinNumber: rest.tinNumber || '',
+    businessLicenseNumber: rest.businessLicenseNumber || '',
+    foodSpotPhotos: Array.isArray(rest.foodSpotPhotos)
+      ? rest.foodSpotPhotos
+      : (rest.foodSpotPhotos ? [rest.foodSpotPhotos] : []),
     logoUrl: rest.logoUrl,
     coverImageUrl: rest.coverImageUrl,
     emoji: rest.emoji || '🍲',
@@ -981,7 +989,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       ]);
 
       if (fetchedRest) {
-        setActiveRestaurant(mapDomainRestaurantToEntity(fetchedRest));
+        const fallbackPhone = fetchedRest.phone || fetchedRest.payoutPhoneNumber || fetchedBranches[0]?.phone || '';
+        setActiveRestaurant(mapDomainRestaurantToEntity({ ...fetchedRest, phone: fallbackPhone }));
       }
       setBranches(fetchedBranches);
       if (fetchedBranches.length > 0 && !selectedBranchId) {
@@ -1712,6 +1721,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     async (updates: Partial<RestaurantEntity>) => {
       try {
         await RestaurantRepository.update(activeRestaurant.id, updates as any);
+        if (updates.phone && selectedBranchId) {
+          await BranchRepository.update(selectedBranchId, { phone: updates.phone } as any).catch((err) => {
+            console.warn('[RestaurantPortal] Branch phone update notice:', err);
+          });
+        }
         await loadRestaurantWorkspace();
         Alert.alert('Profile Saved', 'Restaurant profile details updated.');
       } catch (e: any) {
@@ -1719,7 +1733,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         throw e;
       }
     },
-    [activeRestaurant.id, loadRestaurantWorkspace]
+    [activeRestaurant.id, selectedBranchId, loadRestaurantWorkspace]
   );
 
   const hasActiveBranch = branches.some((b) => b.isActive);
@@ -2013,18 +2027,6 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
         {/* Content Viewport */}
         <View style={styles.viewport}>
-          {/* Mobile Tab Bar */}
-          {!isLargeScreen && (
-            <RestaurantMobileNav
-              activeTab={activeTab}
-              onSelectTab={setActiveTab}
-              userRole={userRole}
-              orderBadgeCount={pendingOrders.length}
-              kitchenBadgeCount={kitchenOrders.length}
-              language={language as any}
-            />
-          )}
-
           {workspaceLoadError ? (
             <View
               style={{
@@ -2415,6 +2417,18 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               />
             )}
           </View>
+
+          {/* Mobile Bottom Navigation Bar */}
+          {!isLargeScreen && (
+            <RestaurantMobileNav
+              activeTab={activeTab}
+              onSelectTab={setActiveTab}
+              userRole={userRole}
+              orderBadgeCount={pendingOrders.length}
+              kitchenBadgeCount={kitchenOrders.length}
+              language={language as any}
+            />
+          )}
         </View>
       </View>
 

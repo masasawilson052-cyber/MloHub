@@ -41,6 +41,7 @@ export interface Restaurant {
   launchStatus?: RestaurantLaunchStatus;
   tinNumber?: string;
   businessLicenseNumber?: string;
+  phone?: string;
   payoutPhoneNumber?: string;
   payoutProvider?: string;
   openingHours?: string;

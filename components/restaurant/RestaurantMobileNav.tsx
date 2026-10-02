@@ -87,7 +87,7 @@ export const RestaurantMobileNav: React.FC<RestaurantMobileNavProps> = ({
           styles.navContainer,
           {
             backgroundColor: colors.topbarBackground,
-            borderBottomColor: colors.border,
+            borderTopColor: colors.border,
           },
         ]}
       >
@@ -300,8 +300,9 @@ export const RestaurantMobileNav: React.FC<RestaurantMobileNavProps> = ({
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     navContainer: {
-      borderBottomWidth: 1,
+      borderTopWidth: 1,
       paddingVertical: 6,
+      paddingBottom: 10,
       paddingHorizontal: 8,
     },
     primaryRow: {

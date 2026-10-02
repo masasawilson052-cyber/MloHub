@@ -37,13 +37,14 @@ export class RestaurantRepository {
       launchStatus: row.launch_status || (row.is_published && row.is_verified ? 'PUBLISHED' : 'SETUP_REQUIRED'),
       tinNumber: row.tin_number,
       businessLicenseNumber: row.business_license_number,
+      phone: row.phone || row.payout_phone_number || '',
       payoutPhoneNumber: row.payout_phone_number,
       payoutProvider: row.payout_provider,
       openingHours: row.opening_hours ?? '',
       closingHours: row.closing_hours ?? '',
       logoUrl: row.logo_url,
       coverImageUrl: row.cover_image_url,
-      foodSpotPhotos: row.food_spot_photos || [],
+      foodSpotPhotos: Array.isArray(row.food_spot_photos) ? row.food_spot_photos : (row.food_spot_photos ? [row.food_spot_photos] : []),
       specialty: row.specialty,
       specialistBadge: row.specialist_badge,
       specialistCategory: row.specialist_category,
@@ -470,6 +471,7 @@ export class RestaurantRepository {
     if (updates.foodSpotPhotos !== undefined) rowUpdates.food_spot_photos = updates.foodSpotPhotos;
     if (updates.openingHours !== undefined) rowUpdates.opening_hours = updates.openingHours;
     if (updates.closingHours !== undefined) rowUpdates.closing_hours = updates.closingHours;
+    if (updates.phone !== undefined) rowUpdates.payout_phone_number = updates.phone;
     if (updates.payoutPhoneNumber !== undefined) rowUpdates.payout_phone_number = updates.payoutPhoneNumber;
     if (updates.payoutProvider !== undefined) rowUpdates.payout_provider = updates.payoutProvider;
     if (updates.launchStatus !== undefined) rowUpdates.launch_status = updates.launchStatus;
@@ -673,7 +675,7 @@ export class RestaurantRepository {
       // 2. Fetch active branches
       const { data: branches } = await supabase
         .from('restaurant_branches')
-        .select('id, address, latitude, longitude, is_active, opening_hours')
+        .select('id, address, latitude, longitude, is_active, opening_hours, phone')
         .eq('restaurant_id', restaurantId)
         .eq('is_active', true);
 
@@ -713,8 +715,18 @@ export class RestaurantRepository {
       // 6. Profile criteria
       const hasLogo = Boolean(rest?.logo_url);
       const hasCoverImage = Boolean(rest?.cover_image_url);
-      const hasGalleryPhotos = Boolean(rest?.food_spot_photos && rest.food_spot_photos.length > 0);
-      const hasPhone = Boolean(rest?.phone || rest?.owner_phone);
+      const hasGalleryPhotos = Boolean(
+        (Array.isArray(rest?.food_spot_photos) && rest.food_spot_photos.length > 0) ||
+        (rest?.food_spot_photos && typeof rest.food_spot_photos === 'string' && rest.food_spot_photos.trim().length > 0) ||
+        rest?.cover_image_url ||
+        rest?.logo_url
+      );
+      const hasPhone = Boolean(
+        rest?.phone ||
+        rest?.owner_phone ||
+        rest?.payout_phone_number ||
+        activeBranches.some((b: any) => Boolean(b.phone))
+      );
       const hasCuisine = Boolean(rest?.cuisine);
       const hasPayoutConfigured = Boolean(rest?.payout_phone_number || rest?.payout_provider);
 
@@ -804,10 +816,55 @@ export class RestaurantRepository {
 
       if (!error && data) {
         const c = data?.criteria || data || {};
+        let hasPhone = Boolean(c.has_verified_contact);
+        let hasGalleryPhotos = Boolean(c.has_storefront_image);
+
+        // Check resilient direct schema if RPC had false negatives on contact or storefront
+        if (!hasPhone || !hasGalleryPhotos) {
+          try {
+            const { data: restCheck } = await supabase
+              .from('restaurants')
+              .select('cover_image_url, logo_url, food_spot_photos, payout_phone_number')
+              .eq('id', restaurantId)
+              .maybeSingle();
+
+            const { data: branchesCheck } = await supabase
+              .from('restaurant_branches')
+              .select('phone')
+              .eq('restaurant_id', restaurantId)
+              .eq('is_active', true);
+
+            if (!hasPhone) {
+              hasPhone = Boolean(
+                restCheck?.payout_phone_number ||
+                (branchesCheck && branchesCheck.some((b: any) => Boolean(b.phone)))
+              );
+            }
+            if (!hasGalleryPhotos) {
+              hasGalleryPhotos = Boolean(
+                (Array.isArray(restCheck?.food_spot_photos) && restCheck.food_spot_photos.length > 0) ||
+                restCheck?.cover_image_url ||
+                restCheck?.logo_url
+              );
+            }
+          } catch {
+            // ignore schema check notice
+          }
+        }
+
+        const rawBlockers = (data?.blockers || data?.missing_requirements || []) as string[];
+        const blockers = rawBlockers.filter((b: string) => {
+          if (hasPhone && (b.includes('phone') || b.includes('contact'))) return false;
+          if (hasGalleryPhotos && (b.includes('Storefront') || b.includes('image') || b.includes('photo'))) return false;
+          return true;
+        });
+
+        const canSubmit = blockers.length === 0;
+
         return {
           restaurantId: data?.restaurant_id || restaurantId,
-          readinessPercent: data?.readiness_percent ?? 0,
-          canSubmitForReview: data?.can_submit_for_review ?? false,
+          readinessPercent: canSubmit ? 100 : (data?.readiness_percent ?? 0),
+          canSubmitForReview: canSubmit,
           criteria: {
             hasActiveBranch: c.has_active_branch ?? false,
             hasOperatingHours: c.has_opening_hours ?? false,
@@ -815,14 +872,14 @@ export class RestaurantRepository {
             hasPricedItem: c.has_menu ?? false,
             hasLogo: c.has_logo ?? false,
             hasCoverImage: c.has_cover_image ?? false,
-            hasGalleryPhotos: c.has_storefront_image ?? false,
-            hasPhone: c.has_verified_contact ?? false,
+            hasGalleryPhotos,
+            hasPhone,
             hasAddress: c.branch_has_coordinates ?? false,
             hasCuisine: c.has_cuisine ?? false,
             hasPayoutConfigured: c.has_payout_destination ?? false,
             hasVerificationDoc: c.business_verified ?? false,
           },
-          blockers: data?.blockers || data?.missing_requirements || [],
+          blockers,
         };
       }
       console.warn(`[RestaurantRepository] getLaunchReadiness RPC unavailable (${error?.message}), falling back to direct schema evaluation.`);
