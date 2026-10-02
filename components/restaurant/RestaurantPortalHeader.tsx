@@ -101,6 +101,13 @@ export const RestaurantPortalHeader: React.FC<RestaurantPortalHeaderProps> = ({
                 {userRoleLabel}
               </Text>
             </View>
+            {restaurant.isPublished && (
+              <View style={[styles.roleBadge, { backgroundColor: colors.successSoft }]}>
+                <Text style={[styles.roleBadgeText, { color: colors.success, fontWeight: '800' }]}>
+                  ● LIVE
+                </Text>
+              </View>
+            )}
           </View>
 
           <Text

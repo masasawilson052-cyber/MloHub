@@ -94,7 +94,7 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     onClose();
   };
 
-  const handleApproveLaunch = async () => {
+  const executeApproveLaunch = async () => {
     if (!onApproveLaunch) return;
     setIsProcessing(true);
     setActionError(null);
@@ -114,6 +114,58 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleApproveLaunch = async () => {
+    if (!onApproveLaunch) return;
+
+    // Check if readiness has blockers or is below 80%
+    const hasBlockers = Boolean(
+      readiness && (
+        !readiness?.canSubmitForReview ||
+        readiness.readinessPercent < 80 ||
+        (readiness.blockers && readiness.blockers.length > 0)
+      )
+    );
+
+    if (hasBlockers && readiness) {
+      const blockerList = readiness.blockers && readiness.blockers.length > 0
+        ? readiness.blockers.map((b) => `• ${b}`).join('\n')
+        : (language === 'sw'
+            ? `Alama ya utayari ni ${readiness.readinessPercent}%. Vigezo vyote havijatimia.`
+            : `Readiness score is ${readiness.readinessPercent}%. Not all criteria are met.`);
+
+      Alert.alert(
+        language === 'sw' ? 'Tahadhari ya Utayari (Gate B)' : 'Launch Readiness Incomplete',
+        language === 'sw'
+          ? `Mgahawa huu haujakamilisha vigezo vyote vya uzinduzi:\n\n${blockerList}\n\nKama Msimamizi Mkuu wa jukwaa, je, unataka kupuuza vizuizi hivi na kuidhinisha mgahawa huu uzinduliwe mtandaoni moja kwa moja?`
+          : `This vendor has not fulfilled all readiness criteria:\n\n${blockerList}\n\nAs Platform Administrator, do you want to override and approve launch now?`,
+        [
+          { text: language === 'sw' ? 'Ghairi' : 'Cancel', style: 'cancel' },
+          {
+            text: language === 'sw' ? 'Idhinisha Barabara (Override)' : 'Override & Approve',
+            style: 'default',
+            onPress: () => executeApproveLaunch(),
+          },
+        ]
+      );
+      return;
+    }
+
+    Alert.alert(
+      language === 'sw' ? 'Thibitisha Kuzindua Mgahawa' : 'Confirm Launch Approval',
+      language === 'sw'
+        ? `Je, una uhakika unataka kuidhinisha uzinduzi wa "${restaurant.name}"? Mgahawa huu utakuwa hewani mara moja na wateja wataweza kuagiza sasa.`
+        : `Are you sure you want to approve Gate B launch for "${restaurant.name}"? The store will go live immediately on the customer platform.`,
+      [
+        { text: language === 'sw' ? 'Ghairi' : 'Cancel', style: 'cancel' },
+        {
+          text: language === 'sw' ? 'Idhinisha Sasa' : 'Approve Launch',
+          style: 'default',
+          onPress: () => executeApproveLaunch(),
+        },
+      ]
+    );
   };
 
   const handleConfirmCorrections = async () => {
@@ -384,10 +436,12 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                   )}
                 </View>
 
-                {(!restaurant.isPublished && (restaurant.launchStatus === 'GO_LIVE_REVIEW' || (restaurant as any).launch_status === 'GO_LIVE_REVIEW' || restaurant.launchStatus === 'READY_FOR_REVIEW' || readiness?.canSubmitForReview === true || (readiness && readiness.readinessPercent >= 80))) && !correctionsMode && (
+                {!restaurant.isPublished && !correctionsMode && (
                   <View style={{ marginTop: 8, gap: 6 }}>
                     <Text style={{ fontSize: 12, color: colors.textPrimary, lineHeight: 16 }}>
-                      This vendor is ready for Administrator Gate B Launch Approval. Approval requires AAL2 MFA clearance and will publish the store to Dar es Salaam diners.
+                      {readiness?.canSubmitForReview
+                        ? 'This vendor has fulfilled all launch prerequisites and is ready for Administrator Gate B Launch Approval.'
+                        : 'Review this vendor for Administrator Gate B Launch Approval. Approval requires AAL2 MFA clearance and publishes the store to Dar es Salaam diners.'}
                     </Text>
                     <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
                       {onRequestLaunchCorrections && (
@@ -422,13 +476,13 @@ export const RestaurantDetailAdmin: React.FC<RestaurantDetailAdminProps> = ({
                               alignItems: 'center',
                               gap: 6,
                             },
-                            (isProcessing || (readiness ? (!readiness.canSubmitForReview && readiness.readinessPercent < 80) : false)) && {
+                            isProcessing && {
                               opacity: 0.5,
                               backgroundColor: colors.textMuted,
                             },
                           ]}
                           onPress={handleApproveLaunch}
-                          disabled={isProcessing || (readiness ? (!readiness.canSubmitForReview && readiness.readinessPercent < 80) : false)}
+                          disabled={isProcessing}
                         >
                           {isProcessing ? (
                             <ActivityIndicator size="small" color={colors.onPrimary} />

@@ -454,6 +454,10 @@ export default function AdminPortalScreen() {
     if (!activeUser?.id) {
       throw new Error('Authenticated administrator is required.');
     }
+    const targetRest = restaurants.find((r) => r.id === restaurantId);
+    let ownerId = targetRest?.ownerId;
+    let restName = targetRest?.name || 'Restaurant';
+
     try {
       await RestaurantRepository.approveLaunch(restaurantId);
     } catch (rpcErr: any) {
@@ -465,6 +469,7 @@ export default function AdminPortalScreen() {
         is_active: true,
         verification_status: 'VERIFIED',
         seller_tier: 'VERIFIED_RESTAURANT',
+        launch_status: 'PUBLISHED',
         updated_at: new Date().toISOString(),
       }).eq('id', restaurantId);
 
@@ -472,7 +477,47 @@ export default function AdminPortalScreen() {
         throw new Error(`Failed to publish restaurant: ${updateErr.message}`);
       }
     }
-    RealtimeEventEngine.publish('restaurants:updated', { restaurantId, action: 'PUBLISHED' });
+
+    // Resolve ownerId if not cached in memory
+    if (!ownerId) {
+      try {
+        const { data: dbRest } = await supabase
+          .from('restaurants')
+          .select('owner_id, name')
+          .eq('id', restaurantId)
+          .maybeSingle();
+        if (dbRest) {
+          ownerId = dbRest.owner_id;
+          if (dbRest.name) restName = dbRest.name;
+        }
+      } catch (dbErr) {
+        console.warn('[Admin] Failed to lookup owner_id for restaurant:', dbErr);
+      }
+    }
+
+    // High priority celebration notification to the restaurant owner
+    if (ownerId) {
+      try {
+        await NotificationRepository.createNotification({
+          userId: ownerId,
+          type: 'general',
+          titleEn: 'Store Approved & Live! 🎉',
+          titleSw: 'Mgahawa Umeidhinishwa & Live! 🎉',
+          messageEn: `Congratulations! "${restName}" has been approved for launch (Gate B) and is now officially live on MloHub! Diners across Dar es Salaam can now view your menu and place orders.`,
+          messageSw: `Hongera sana! "${restName}" umeidhinishwa rasmi kuzinduliwa (Gate B) na Msimamizi Mkuu na sasa upo live MloHub! Wateja kote Dar es Salaam wanaweza kuona menyu yako na kuagiza chakula.`,
+          restaurantId,
+          actionType: 'STORE_PUBLISHED',
+        });
+      } catch (notifErr) {
+        console.warn('[Admin] Failed to send launch approval notification to owner:', notifErr);
+      }
+    }
+
+    RealtimeEventEngine.publish('restaurants:updated', {
+      restaurantId,
+      action: 'PUBLISHED',
+      data: { is_published: true, launch_status: 'PUBLISHED', is_open: true },
+    });
     await loadPlatformData();
   };
 
@@ -513,6 +558,8 @@ export default function AdminPortalScreen() {
       is_published: true,
       is_verified: true,
       verification_status: 'VERIFIED',
+      seller_tier: 'VERIFIED_RESTAURANT',
+      launch_status: 'PUBLISHED',
       updated_at: new Date().toISOString(),
     }).eq('id', restaurantId);
 

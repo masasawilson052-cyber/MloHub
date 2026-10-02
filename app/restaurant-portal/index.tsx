@@ -1059,6 +1059,19 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         ) {
           OrderNotificationSoundService.playNewPaidOrderAlert().catch(() => undefined);
         }
+        if (
+          payload?.action === 'PUBLISHED' ||
+          payload?.data?.is_published === true ||
+          payload?.data?.launch_status === 'PUBLISHED'
+        ) {
+          refreshLaunchReadiness().catch(() => {});
+          Alert.alert(
+            language === 'sw' ? '🎉 Mgahawa Umeidhinishwa & Kuzinduliwa!' : '🎉 Store Approved & Live!',
+            language === 'sw'
+              ? 'Hongera sana! Mgahawa wako umeidhinishwa na Msimamizi Mkuu (Gate B) na sasa upo rasmi hewani kwa wateja wote Dar es Salaam.'
+              : 'Congratulations! Your store has been approved for launch (Gate B) and is now officially live for customers across Dar es Salaam!'
+          );
+        }
       }
     };
 
@@ -1081,6 +1094,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     });
 
     const unsubscribeOrders = RealtimeEventEngine.subscribe('orders:*', handleRealtimeEvent);
+    const unsubscribeRestaurantUpdates = RealtimeEventEngine.subscribe('restaurants:*', (payload) => {
+      if (!payload?.restaurantId || payload.restaurantId === activeRestaurant.id) {
+        handleRealtimeEvent(payload);
+      }
+    });
     const unsubscribeRestaurant = RealtimeService.subscribeToRestaurantOrders(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeMenu = RealtimeService.subscribeToMenu(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeReservations = RealtimeService.subscribeToReservations(activeRestaurant.id, () => handleRealtimeEvent());
@@ -1091,6 +1109,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       unsubscribeStatus();
       unsubscribeResync();
       unsubscribeOrders();
+      unsubscribeRestaurantUpdates();
       unsubscribeRestaurant();
       unsubscribeMenu();
       unsubscribeReservations();
@@ -1923,9 +1942,21 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         <View style={styles.publishBanner}>
           <View style={styles.publishBannerContent}>
             <Ionicons
-              name={activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? 'time' : 'alert-circle'}
+              name={
+                activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                  ? 'time'
+                  : isPublishPrerequisitesMet
+                  ? 'checkmark-circle'
+                  : 'alert-circle'
+              }
               size={24}
-              color={activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? colors.info : colors.warning}
+              color={
+                activeRestaurant.launchStatus === 'GO_LIVE_REVIEW'
+                  ? colors.info
+                  : isPublishPrerequisitesMet
+                  ? colors.success
+                  : colors.warning
+              }
             />
             <View style={{ flex: 1 }}>
               <Text style={styles.publishBannerTitle}>
@@ -1933,6 +1964,8 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   ? (language === 'sw' ? 'Uhakiki wa Kuzindua Unaendelea (Gate B)' : 'Launch Review Pending Admin Approval')
                   : activeRestaurant.launchStatus === 'CORRECTIONS_REQUIRED'
                   ? (language === 'sw' ? 'Marekebisho Yanahitajika Kabla ya Kuzindua' : 'Corrections Required Before Launch')
+                  : isPublishPrerequisitesMet
+                  ? (language === 'sw' ? 'Mgahawa Uko Tayari Kuzindua! 🎉' : 'Store Ready to Launch! 🎉')
                   : (language === 'sw' ? 'Usajili Haujakamilika / Mgahawa Haujazinduliwa' : 'Setup Incomplete / Unpublished')}
               </Text>
               {activeRestaurant.launchStatus === 'GO_LIVE_REVIEW' ? (
@@ -1940,6 +1973,12 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                   {language === 'sw'
                     ? 'Ombi lako la kuzindua mgahawa linakaguliwa na wasimamizi. Wateja hawataona mgahawa mpaka utakapoidhinishwa rasmi.'
                     : 'Your store launch request is currently under Gate B administrative review. Customers will not see your store until launch approval is granted.'}
+                </Text>
+              ) : isPublishPrerequisitesMet ? (
+                <Text style={styles.publishBannerSub}>
+                  {language === 'sw'
+                    ? 'Hongera! Umekamilisha usanidi wote wa msingi. Bonyeza "Wasilisha Kuzindua" hapa chini ili kuomba idhini ya Msimamizi Mkuu (Gate B).'
+                    : 'Congratulations! All essential setup prerequisites are complete. Tap "Submit for Launch" below to send your store launch review to platform administrators (Gate B).'}
                 </Text>
               ) : launchReadiness ? (
                 <View style={{ marginTop: 8, gap: 4 }}>
@@ -1960,7 +1999,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
                     ].map((item, idx) => (
                       <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Text style={{ fontSize: 11, color: colors.textSecondary }}>{item.label}</Text>
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: item.met ? '#16a34a' : '#ef4444' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: item.met ? colors.success : colors.danger }}>
                           {item.met ? '✓' : '✕'}
                         </Text>
                       </View>
@@ -1996,7 +2035,11 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.publishActionBtn, !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: colors.textMuted }]}
+                style={[
+                  styles.publishActionBtn,
+                  isPublishPrerequisitesMet && { backgroundColor: colors.success },
+                  !isPublishPrerequisitesMet && { opacity: 0.5, backgroundColor: colors.textMuted },
+                ]}
                 onPress={handlePublishRestaurant}
                 disabled={!isPublishPrerequisitesMet}
                 activeOpacity={0.85}
