@@ -317,12 +317,22 @@ export const CartInteractionProvider: React.FC<{ children: React.ReactNode }> = 
                 MenuRepository.getModifiersForItem(id)
               );
             }
-          } catch {
-            Alert.alert(
-              'Unable to load meal options',
-              'We could not verify this meal’s available options. Please try again.'
-            );
-            return 'FAILED';
+          } catch (lookupErr: any) {
+            const errStr = String(lookupErr?.message || '');
+            if (
+              errStr.includes('schema cache') ||
+              errStr.includes('does not exist') ||
+              errStr.includes('PGRST205')
+            ) {
+              console.warn('[CartInteractionContext] Modifiers unavailable due to schema cache; proceeding with direct add');
+              modifierGroups = [];
+            } else {
+              Alert.alert(
+                'Unable to load meal options',
+                'We could not verify this meal’s available options. Please try again.'
+              );
+              return 'FAILED';
+            }
           }
 
           const route = resolveAddToCartDecision(item, modifierGroups);

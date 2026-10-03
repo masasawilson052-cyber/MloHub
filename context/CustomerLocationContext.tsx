@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { CustomerSavedAddress, ServiceCity, ServiceArea } from '../types/domain';
 import { CustomerAddressesRepository } from '../repositories/customerAddresses.repository';
@@ -119,10 +120,31 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
         accuracy: Location.Accuracy.Balanced,
       });
 
+      let detectedArea: string | undefined = undefined;
+      let detectedCity: string | undefined = undefined;
+      let detectedStreet: string | undefined = undefined;
+
+      if (Platform.OS !== 'web') {
+        try {
+          const results = await Location.reverseGeocodeAsync(position.coords);
+          const first = results && results[0];
+          if (first) {
+            detectedArea = first.district || first.subregion || first.name || undefined;
+            detectedCity = first.city || first.region || undefined;
+            detectedStreet = [first.streetNumber, first.street].filter(Boolean).join(' ') || undefined;
+          }
+        } catch (geoErr: any) {
+          console.warn('[CustomerLocationContext] Reverse geocode notice:', geoErr?.message);
+        }
+      }
+
       setLocation((prev) => ({
         ...prev,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        serviceAreaName: detectedArea || prev.serviceAreaName || 'Nearby',
+        cityName: detectedCity || prev.cityName || 'Dar es Salaam',
+        addressLine: detectedStreet || prev.addressLine,
         source: 'DEVICE',
       }));
 

@@ -619,12 +619,21 @@ export async function prepareReorderItemWithCurrentMenu(params: {
   let modifierGroups: MenuModifierGroup[] = [];
   try {
     modifierGroups = await getModifiers(menuItemId);
-  } catch {
-    return {
-      status: 'LOOKUP_FAILED',
-      reason:
-        'We could not verify this meal’s available options. Please try again.',
-    };
+  } catch (lookupErr: any) {
+    const errStr = String(lookupErr?.message || '');
+    if (
+      errStr.includes('schema cache') ||
+      errStr.includes('does not exist') ||
+      errStr.includes('PGRST205')
+    ) {
+      modifierGroups = [];
+    } else {
+      return {
+        status: 'LOOKUP_FAILED',
+        reason:
+          'We could not verify this meal’s available options. Please try again.',
+      };
+    }
   }
 
   const route = resolveAddToCartDecision(modifierGroups);

@@ -35,6 +35,13 @@
           "imageWidth": 200,
           "resizeMode": "contain"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow MloHub to access your location to discover nearby restaurants and deliver food to your door.",
+          "locationWhenInUsePermission": "Allow MloHub to access your location to discover nearby restaurants and deliver food to your door."
+        }
       ]
     ],
     "experiments": {

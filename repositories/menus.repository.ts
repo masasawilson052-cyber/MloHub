@@ -576,6 +576,15 @@ export class MenuRepository {
         if (this.fallbackModifiers.has(menuItemId)) {
           return this.fallbackModifiers.get(menuItemId) || [];
         }
+        const isMissingTable =
+          res.error.code === 'PGRST205' ||
+          res.error.code === '42P01' ||
+          String(res.error.message).includes('schema cache') ||
+          String(res.error.message).includes('does not exist');
+        if (isMissingTable) {
+          console.warn(`[MenuRepository] menu_modifier_groups table not found in database (${res.error.message}); treating item as having no modifiers.`);
+          return [];
+        }
         console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, res.error.message);
         throw new Error(`MODIFIER_LOOKUP_FAILED: ${res.error.message}`);
       }
@@ -597,6 +606,26 @@ export class MenuRepository {
       .order('sort_order', { ascending: true });
 
     if (optionsError) {
+      const isMissingTable =
+        optionsError.code === 'PGRST205' ||
+        optionsError.code === '42P01' ||
+        String(optionsError.message).includes('schema cache') ||
+        String(optionsError.message).includes('does not exist');
+      if (isMissingTable) {
+        console.warn(`[MenuRepository] menu_modifier_options table not found in database; returning modifier groups without sub-options.`);
+        return groups.map((g: any) => ({
+          id: g.id,
+          menuItemId: g.menu_item_id,
+          name: g.name,
+          minSelections: Number(g.min_selections || 0),
+          maxSelections: Number(g.max_selections || 1),
+          minSelect: Number(g.min_selections || 0),
+          maxSelect: Number(g.max_selections || 1),
+          isRequired: Boolean(g.is_required),
+          sortOrder: Number(g.sort_order || 0),
+          options: [],
+        }));
+      }
       console.error(`MenuRepository.getModifiersForItem(${menuItemId}) options error:`, optionsError.message);
       throw new Error(`MODIFIER_LOOKUP_FAILED: ${optionsError.message}`);
     }
