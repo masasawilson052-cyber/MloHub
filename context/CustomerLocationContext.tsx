@@ -1,22 +1,29 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { CustomerSavedAddress, ServiceCity, ServiceArea } from '../types/domain';
 import { CustomerAddressesRepository } from '../repositories/customerAddresses.repository';
 import { useAuth } from './AuthContext';
+import {
+  CustomerLocationState,
+  ACTIVE_LOCATION_STORAGE_KEY,
+  DEFAULT_DAR_LOCATION,
+  resolvePreciseNeighborhood,
+  computeDistanceKm,
+  KNOWN_TANZANIA_AREAS,
+  GeoAreaCandidate,
+} from '../utils/customerLocationResolver';
 
-export interface CustomerLocationState {
-  cityId?: string;
-  cityName?: string;
-  serviceAreaId?: string;
-  serviceAreaName?: string;
-  savedAddressId?: string;
-  addressLine?: string;
-  landmark?: string;
-  latitude?: number;
-  longitude?: number;
-  source: 'DEVICE' | 'SAVED_ADDRESS' | 'MANUAL_AREA' | 'NONE';
-}
+export {
+  CustomerLocationState,
+  ACTIVE_LOCATION_STORAGE_KEY,
+  DEFAULT_DAR_LOCATION,
+  resolvePreciseNeighborhood,
+  computeDistanceKm,
+  KNOWN_TANZANIA_AREAS,
+  GeoAreaCandidate,
+};
 
 interface CustomerLocationContextType {
   location: CustomerLocationState;
@@ -32,12 +39,6 @@ interface CustomerLocationContextType {
   locationError: string | null;
 }
 
-const DEFAULT_DAR_LOCATION: CustomerLocationState = {
-  cityName: 'Dar es Salaam',
-  serviceAreaName: 'Mikocheni',
-  source: 'MANUAL_AREA',
-};
-
 const CustomerLocationContext = createContext<CustomerLocationContextType | undefined>(undefined);
 
 export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -47,28 +48,66 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  const saveLocationToStorage = useCallback(async (loc: CustomerLocationState) => {
+    try {
+      await AsyncStorage.setItem(ACTIVE_LOCATION_STORAGE_KEY, JSON.stringify(loc));
+    } catch (err: any) {
+      console.warn('[CustomerLocationContext] Failed to persist location:', err?.message);
+    }
+  }, []);
+
+  // Hydrate cached active location on initial mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ACTIVE_LOCATION_STORAGE_KEY);
+        if (stored && isMounted) {
+          const parsed = JSON.parse(stored) as CustomerLocationState;
+          if (parsed && parsed.serviceAreaName) {
+            setLocation(parsed);
+          }
+        }
+      } catch (err: any) {
+        console.warn('[CustomerLocationContext] Error loading cached location:', err?.message);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Refresh default saved address for authenticated customer
+  // CRITICAL: NEVER overwrite device-detected location (source === 'DEVICE')
   const refreshDefaultAddress = useCallback(async () => {
     if (!isAuthenticated || !user?.id) return;
     try {
       const addresses = await CustomerAddressesRepository.list(user.id);
       const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
       if (defaultAddr) {
-        setLocation({
-          savedAddressId: defaultAddr.id,
-          cityName: defaultAddr.city,
-          serviceAreaName: defaultAddr.areaName || defaultAddr.city,
-          addressLine: defaultAddr.streetAddress,
-          landmark: defaultAddr.deliveryInstructions ?? undefined,
-          latitude: defaultAddr.latitude ?? undefined,
-          longitude: defaultAddr.longitude ?? undefined,
-          source: 'SAVED_ADDRESS',
+        setLocation((current) => {
+          // If the user has already activated device GPS, preserve it
+          if (current.source === 'DEVICE') {
+            return current;
+          }
+          const nextState: CustomerLocationState = {
+            savedAddressId: defaultAddr.id,
+            cityName: defaultAddr.city,
+            serviceAreaName: defaultAddr.areaName || defaultAddr.city,
+            addressLine: defaultAddr.streetAddress,
+            landmark: defaultAddr.deliveryInstructions ?? undefined,
+            latitude: defaultAddr.latitude ?? undefined,
+            longitude: defaultAddr.longitude ?? undefined,
+            source: 'SAVED_ADDRESS',
+          };
+          saveLocationToStorage(nextState);
+          return nextState;
         });
       }
     } catch (err: any) {
       console.warn('[CustomerLocationContext] Could not load saved address:', err.message);
     }
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, saveLocationToStorage]);
 
   useEffect(() => {
     refreshDefaultAddress();
@@ -79,7 +118,7 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
   }, []);
 
   const selectSavedAddress = useCallback((address: CustomerSavedAddress) => {
-    setLocation({
+    const next: CustomerLocationState = {
       savedAddressId: address.id,
       cityName: address.city,
       serviceAreaName: address.areaName || address.city,
@@ -88,12 +127,14 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
       latitude: address.latitude ?? undefined,
       longitude: address.longitude ?? undefined,
       source: 'SAVED_ADDRESS',
-    });
+    };
+    setLocation(next);
+    saveLocationToStorage(next);
     setIsLocationModalOpen(false);
-  }, []);
+  }, [saveLocationToStorage]);
 
   const selectServiceArea = useCallback((city: ServiceCity, area: ServiceArea) => {
-    setLocation({
+    const next: CustomerLocationState = {
       cityId: city.id,
       cityName: city.name,
       serviceAreaId: area.id,
@@ -101,9 +142,11 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
       latitude: area.centerLatitude ?? undefined,
       longitude: area.centerLongitude ?? undefined,
       source: 'MANUAL_AREA',
-    });
+    };
+    setLocation(next);
+    saveLocationToStorage(next);
     setIsLocationModalOpen(false);
-  }, []);
+  }, [saveLocationToStorage]);
 
   const useDeviceLocation = useCallback(async (): Promise<boolean> => {
     setIsLoadingLocation(true);
@@ -117,36 +160,53 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
       }
 
       const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
 
-      let detectedArea: string | undefined = undefined;
-      let detectedCity: string | undefined = undefined;
+      let geoResult: Location.LocationGeocodedAddress | null = null;
       let detectedStreet: string | undefined = undefined;
 
-      if (Platform.OS !== 'web') {
-        try {
-          const results = await Location.reverseGeocodeAsync(position.coords);
-          const first = results && results[0];
-          if (first) {
-            detectedArea = first.district || first.subregion || first.name || undefined;
-            detectedCity = first.city || first.region || undefined;
-            detectedStreet = [first.streetNumber, first.street].filter(Boolean).join(' ') || undefined;
-          }
-        } catch (geoErr: any) {
-          console.warn('[CustomerLocationContext] Reverse geocode notice:', geoErr?.message);
+      try {
+        const results = await Location.reverseGeocodeAsync(position.coords);
+        if (results && results.length > 0) {
+          geoResult = results[0];
+          detectedStreet = [geoResult.streetNumber, geoResult.street].filter(Boolean).join(' ') || geoResult.name || undefined;
         }
+      } catch (geoErr: any) {
+        console.warn('[CustomerLocationContext] Reverse geocode notice:', geoErr?.message);
       }
 
-      setLocation((prev) => ({
-        ...prev,
+      // Query dynamic service areas from Supabase if available
+      let dynamicAreas: ServiceArea[] = [];
+      try {
+        dynamicAreas = await CustomerAddressesRepository.listServiceAreas();
+      } catch (_) {}
+
+      // Resolve the true exact neighborhood using coordinates and centroids
+      const resolved = resolvePreciseNeighborhood(
+        position.coords.latitude,
+        position.coords.longitude,
+        geoResult ? {
+          district: geoResult.district,
+          subregion: geoResult.subregion,
+          name: geoResult.name,
+          city: geoResult.city,
+          region: geoResult.region,
+        } : null,
+        dynamicAreas
+      );
+
+      const nextLocation: CustomerLocationState = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        serviceAreaName: detectedArea || prev.serviceAreaName || 'Nearby',
-        cityName: detectedCity || prev.cityName || 'Dar es Salaam',
-        addressLine: detectedStreet || prev.addressLine,
+        serviceAreaName: resolved.serviceAreaName,
+        cityName: resolved.cityName,
+        addressLine: detectedStreet,
         source: 'DEVICE',
-      }));
+      };
+
+      setLocation(nextLocation);
+      await saveLocationToStorage(nextLocation);
 
       setIsLoadingLocation(false);
       setIsLocationModalOpen(false);
@@ -157,11 +217,12 @@ export const CustomerLocationProvider: React.FC<{ children: React.ReactNode }> =
       setIsLoadingLocation(false);
       return false;
     }
-  }, []);
+  }, [saveLocationToStorage]);
 
   const clearLocation = useCallback(() => {
     setLocation(DEFAULT_DAR_LOCATION);
-  }, []);
+    saveLocationToStorage(DEFAULT_DAR_LOCATION);
+  }, [saveLocationToStorage]);
 
   return (
     <CustomerLocationContext.Provider

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { MobileMoneyMethodCode, getMobileMoneyMethodConfig } from '../../constants/paymentMethods';
@@ -10,11 +10,18 @@ export interface PaymentProviderLogoProps {
   showLabel?: boolean;
 }
 
+const PAYMENT_LOGOS: Record<string, ImageSourcePropType> = {
+  MPESA: require('../../assets/payments/mpesa.png'),
+  AIRTEL_MONEY: require('../../assets/payments/airtel-money.png'),
+  MIXX_BY_YAS: require('../../assets/payments/mixx-by-yas.png'),
+  HALOPESA: require('../../assets/payments/halopesa.png'),
+};
+
 /**
  * PaymentProviderLogo
  *
- * Renders an official provider logo if supplied, or a clean neutral fallback
- * using Ionicons `wallet-outline` and the provider's canonical badge.
+ * Renders an official provider PNG logo from assets/payments/ if supplied,
+ * or a clean neutral fallback using Ionicons `wallet-outline` and the provider's canonical badge.
  * Never uses emojis or fabricated corporate logos.
  */
 export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
@@ -23,6 +30,7 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
   showLabel = false,
 }) => {
   const { colors } = useTheme();
+  const [imageError, setImageError] = useState(false);
   const config = getMobileMoneyMethodConfig(methodCode);
 
   const getMethodLetter = (code: string) => {
@@ -40,7 +48,9 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
     }
   };
 
-  const letter = getMethodLetter(String(methodCode));
+  const normalizedCode = String(methodCode).toUpperCase();
+  const logoSource = PAYMENT_LOGOS[normalizedCode];
+  const letter = getMethodLetter(normalizedCode);
   const accent = config?.accentColor || colors.primary;
 
   return (
@@ -54,34 +64,50 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
             borderRadius: Math.round(size * 0.28),
             backgroundColor: colors.surfaceInteractive,
             borderColor: colors.border,
+            overflow: 'hidden',
           },
         ]}
       >
-        <Ionicons name="wallet-outline" size={Math.round(size * 0.44)} color={accent} />
-        <View
-          style={[
-            styles.letterBadge,
-            {
-              backgroundColor: accent,
-              right: 2,
-              bottom: 2,
-              width: Math.max(14, Math.round(size * 0.36)),
-              height: Math.max(14, Math.round(size * 0.36)),
-              borderRadius: Math.round(size * 0.18),
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.letterText,
-              {
-                fontSize: Math.max(8, Math.round(size * 0.22)),
-              },
-            ]}
-          >
-            {letter}
-          </Text>
-        </View>
+        {logoSource && !imageError ? (
+          <Image
+            source={logoSource}
+            style={{
+              width: size,
+              height: size,
+              borderRadius: Math.round(size * 0.28),
+            }}
+            resizeMode="contain"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <>
+            <Ionicons name="wallet-outline" size={Math.round(size * 0.44)} color={accent} />
+            <View
+              style={[
+                styles.letterBadge,
+                {
+                  backgroundColor: accent,
+                  right: 2,
+                  bottom: 2,
+                  width: Math.max(14, Math.round(size * 0.36)),
+                  height: Math.max(14, Math.round(size * 0.36)),
+                  borderRadius: Math.round(size * 0.18),
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.letterText,
+                  {
+                    fontSize: Math.max(8, Math.round(size * 0.22)),
+                  },
+                ]}
+              >
+                {letter}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
       {showLabel && config && (
         <Text style={[styles.labelText, { color: colors.text }]}>

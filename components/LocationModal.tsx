@@ -129,7 +129,6 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   const handleDeviceDetect = async () => {
     const success = await useDeviceLocation();
     if (success) {
-      if (onSelect) onSelect(location.serviceAreaName || 'Nearby');
       handleClose();
     }
   };
