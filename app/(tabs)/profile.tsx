@@ -30,6 +30,7 @@ import { PrivacySecurityModal } from '../../components/profile/PrivacySecurityMo
 import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
+import { authStorage } from '../../lib/authStorage';
 
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
@@ -68,11 +69,27 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user) {
-      setFullName(user.fullName || '');
-      setEmail(user.email || '');
-      setPhone(user.phone || '');
-      setLocation(user.location || '');
-      setPreferences(user.dietaryPreferences || []);
+      if (user.fullName) setFullName(user.fullName);
+      if (user.email) setEmail(user.email);
+      if (user.phone) setPhone(user.phone);
+      if (user.location) setLocation(user.location);
+      if (user.dietaryPreferences) setPreferences(user.dietaryPreferences);
+    } else {
+      authStorage.getItem('@mlohub_customer_session').then((raw) => {
+        if (raw) {
+          try {
+            const saved = JSON.parse(raw);
+            const u = saved.user || saved.profile;
+            if (u) {
+              if (u.fullName) setFullName(u.fullName);
+              if (u.email) setEmail(u.email);
+              if (u.phone) setPhone(u.phone);
+              if (u.location) setLocation(u.location);
+              if (u.dietaryPreferences) setPreferences(u.dietaryPreferences);
+            }
+          } catch {}
+        }
+      });
     }
   }, [user]);
 
@@ -82,12 +99,47 @@ export default function ProfileScreen() {
       setPhone(data.phone);
       setLocation(data.location);
 
+      // Persist in local customer session
+      try {
+        const rawCust = await authStorage.getItem('@mlohub_customer_session');
+        if (rawCust) {
+          const parsed = JSON.parse(rawCust);
+          if (parsed.user) {
+            parsed.user.fullName = data.name;
+            parsed.user.phone = data.phone;
+            parsed.user.location = data.location;
+          }
+          if (parsed.profile) {
+            parsed.profile.fullName = data.name;
+            parsed.profile.phone = data.phone;
+            parsed.profile.location = data.location;
+          }
+          await authStorage.setItem('@mlohub_customer_session', JSON.stringify(parsed));
+        }
+      } catch {}
+
       if (updateUser) {
         await updateUser({
           fullName: data.name,
           phone: data.phone,
           location: data.location,
         });
+      }
+
+      if (user?.id && isSupabaseConfigured()) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              full_name: data.name,
+              phone: data.phone,
+              location: data.location,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
+        } catch (dbErr) {
+          console.warn('[Profile] Supabase profile update notice:', dbErr);
+        }
       }
 
       if (data.email && data.email !== email && isSupabaseConfigured()) {
@@ -192,6 +244,8 @@ export default function ProfileScreen() {
               : location || 'Dar es Salaam'
           }
           onEditProfile={() => setIsAccountModalOpen(true)}
+          isGuest={!user && !fullName.trim() && !email.trim()}
+          onSignIn={() => router.push('/auth' as any)}
         />
 
         {/* SECTION: GENERAL SETTINGS */}
@@ -492,30 +546,56 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* SIGN OUT BUTTON */}
-        <TouchableOpacity
-          style={[
-            styles.logoutBtn,
-            {
-              backgroundColor: colors.dangerSoft,
-              borderColor: colors.danger,
-            },
-          ]}
-          onPress={handleLogout}
-          activeOpacity={0.8}
-          accessible={true}
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name="log-out-outline"
-            size={20}
-            color={colors.danger}
-            style={{ marginRight: 8 }}
-          />
-          <Text style={[styles.logoutBtnText, { color: colors.danger }]}>
-            {language === 'sw' ? 'Ondoka Kwenye Akaunti' : 'Sign Out'}
-          </Text>
-        </TouchableOpacity>
+        {/* SIGN OUT / SIGN IN BUTTON */}
+        {!user && !fullName.trim() && !email.trim() ? (
+          <TouchableOpacity
+            style={[
+              styles.logoutBtn,
+              {
+                backgroundColor: colors.primarySoft,
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={() => router.push('/auth' as any)}
+            activeOpacity={0.8}
+            accessible={true}
+            accessibilityRole="button"
+          >
+            <Ionicons
+              name="log-in-outline"
+              size={20}
+              color={colors.primary}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={[styles.logoutBtnText, { color: colors.primary }]}>
+              {language === 'sw' ? 'Ingia au Fungua Akaunti' : 'Sign In or Register'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.logoutBtn,
+              {
+                backgroundColor: colors.dangerSoft,
+                borderColor: colors.danger,
+              },
+            ]}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+            accessible={true}
+            accessibilityRole="button"
+          >
+            <Ionicons
+              name="log-out-outline"
+              size={20}
+              color={colors.danger}
+              style={{ marginRight: 8 }}
+            />
+            <Text style={[styles.logoutBtnText, { color: colors.danger }]}>
+              {language === 'sw' ? 'Ondoka Kwenye Akaunti' : 'Sign Out'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Modals */}

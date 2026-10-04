@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CryptoEngine } from '../../db/auth/crypto';
 import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 import { isValidTanzaniaPhone, normalizeTanzaniaPhone } from '../../utils/phone';
+import { authStorage } from '../../lib/authStorage';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -129,7 +130,7 @@ export default function RegisterCustomerScreen() {
         return;
       }
 
-      await registerCustomer({
+      const regResult = await registerCustomer({
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: normalizeTanzaniaPhone(phone) || phone.trim(),
@@ -139,6 +140,24 @@ export default function RegisterCustomerScreen() {
         dietaryPreferences: [],
       });
 
+      // Immediate local session cache for smooth navigation & profile hydration
+      try {
+        await authStorage.setItem(
+          '@mlohub_customer_session',
+          JSON.stringify({
+            user: regResult.user,
+            profile: (regResult as any).customerProfile || regResult.user,
+            email: email.trim().toLowerCase(),
+            phone: normalizeTanzaniaPhone(phone) || phone.trim(),
+            location: location.trim(),
+            token: regResult.token,
+            savedAt: new Date().toISOString(),
+          })
+        );
+      } catch (storageErr) {
+        console.warn('[RegisterCustomer] Storage caching notice:', storageErr);
+      }
+
       setSuccessMessage(
         language === 'sw'
           ? '✓ Usajili umekamilika kikamilifu! Unaelekezwa kwenye programu...'
@@ -147,7 +166,7 @@ export default function RegisterCustomerScreen() {
 
       setTimeout(() => {
         router.replace('/(tabs)');
-      }, 600);
+      }, 500);
     } catch (err: any) {
       setGeneralError(err.message || 'Usajili umeshindikana. Tafadhali jaribu tena.');
     } finally {

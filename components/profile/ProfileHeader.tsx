@@ -18,6 +18,8 @@ export interface ProfileHeaderProps {
   phone?: string;
   location?: string;
   onEditProfile: () => void;
+  isGuest?: boolean;
+  onSignIn?: () => void;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -26,41 +28,70 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   phone,
   location,
   onEditProfile,
+  isGuest = false,
+  onSignIn,
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const initials = fullName
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+    ? fullName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : 'MH';
+
+  const isActuallyGuest = isGuest || (!fullName.trim() && !email.trim());
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials || 'ML'}</Text>
+        <View style={[styles.avatarCircle, isActuallyGuest && { backgroundColor: colors.surfaceInteractive }]}>
+          <Text style={[styles.avatarText, isActuallyGuest && { color: colors.primary }]}>{initials}</Text>
         </View>
         <View style={styles.detailsCol}>
-          <Text style={styles.nameText} numberOfLines={1}>{fullName}</Text>
-          <Text style={styles.emailText} numberOfLines={1}>{email}</Text>
+          <Text style={styles.nameText} numberOfLines={1}>
+            {fullName || (isActuallyGuest ? 'Karibu MloHub' : 'MloHub Diner')}
+          </Text>
+          <Text style={styles.emailText} numberOfLines={1}>
+            {email || (isActuallyGuest ? 'Ingia au fungua akaunti kuweka oda' : '')}
+          </Text>
           {phone ? <Text style={styles.phoneText}>{phone}</Text> : null}
           {location ? <Text style={styles.locationText}>📍 {location}</Text> : null}
         </View>
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={onEditProfile}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Edit profile"
-        >
-          <Ionicons name="pencil" size={16} color={colors.primary} />
-        </TouchableOpacity>
+        {isActuallyGuest ? (
+          onSignIn ? (
+            <TouchableOpacity
+              style={[styles.editBtn, { backgroundColor: colors.primarySoft, paddingHorizontal: 12, width: 'auto' }]}
+              onPress={onSignIn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Ingia</Text>
+            </TouchableOpacity>
+          ) : null
+        ) : (
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={onEditProfile}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Edit profile"
+          >
+            <Ionicons name="pencil" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.badgeRow}>
-        <Badge label="MloHub Diner" variant="neutral" size="sm" />
+        <Badge
+          label={isActuallyGuest ? 'Mgeni / Guest' : 'MloHub Diner'}
+          variant={isActuallyGuest ? 'neutral' : 'primary'}
+          size="sm"
+        />
         {phone ? <Badge label="Active Account" variant="neutral" size="sm" /> : null}
       </View>
     </View>

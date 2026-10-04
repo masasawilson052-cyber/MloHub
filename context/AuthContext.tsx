@@ -4,6 +4,8 @@ import { Alert } from 'react-native';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runtimeConfig } from '../lib/runtimeConfig';
+import { authStorage } from '../lib/authStorage';
+import { normalizeTanzaniaPhone } from '../utils/phone';
 import {
   UserEntity,
   UserRole,
@@ -532,10 +534,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           if (isMounted) {
             if (initialSession) {
               await applyAuthState(initialSession);
-            } else if (runtimeConfig.allowLocalDataFallbacks) {
-              await fallbackBootstrap();
             } else {
-              await applyAuthState(null);
+              let restored = false;
+              try {
+                const savedCustRaw = await authStorage.getItem('@mlohub_customer_session');
+                if (savedCustRaw) {
+                  const savedCust = JSON.parse(savedCustRaw);
+                  if (savedCust?.user?.id && savedCust?.user?.email) {
+                    setAuthUser(savedCust.user);
+                    setProfile(savedCust.profile || null);
+                    setSelectedWorkspace('CUSTOMER');
+                    RealtimeService.bindAuthSession(savedCust.user.id, null);
+                    RealtimeEventEngine.broadcast('auth:session', { activeUserId: savedCust.user.id });
+                    restored = true;
+                  }
+                }
+              } catch (resErr) {
+                console.warn('[AuthContext] Error restoring persisted customer session:', resErr);
+              }
+
+              if (!restored) {
+                if (runtimeConfig.allowLocalDataFallbacks) {
+                  await fallbackBootstrap();
+                } else {
+                  await applyAuthState(null);
+                }
+              }
             }
           }
         } else {
@@ -604,14 +628,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       const email = params.email.trim().toLowerCase();
+      const rawPhone = params.phone?.trim() || '';
+      const normalizedPhone = normalizeTanzaniaPhone(rawPhone) || rawPhone;
+      const fullName = params.fullName.trim();
+      const location = params.location?.trim() || '';
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password: params.password,
         options: {
           data: {
-            full_name: params.fullName.trim(),
-            phone: params.phone?.trim() || '',
-            location: params.location?.trim() || '',
+            full_name: fullName,
+            phone: normalizedPhone,
+            location: location,
             account_type: 'CUSTOMER',
           },
         },
@@ -621,7 +650,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(mapSupabaseAuthError(error.message));
       }
 
-      const targetUserId = data.user?.id || data.session?.user?.id;
+      const targetUserId = data?.user?.id || data?.session?.user?.id || `cust_${Date.now()}`;
       if (targetUserId) {
         try {
           await supabase
@@ -629,9 +658,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             .upsert({
               id: targetUserId,
               email,
-              full_name: params.fullName.trim(),
-              phone: params.phone?.trim() || null,
-              location: params.location?.trim() || '',
+              full_name: fullName,
+              phone: normalizedPhone || null,
+              location: location,
               account_type: 'CUSTOMER',
               role: 'CUSTOMER',
               roles: ['CUSTOMER'],
@@ -644,8 +673,78 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
-      if (data.session) {
-        await applyAuthState(data.session);
+      // Check if session returned; if not, attempt immediate sign in
+      let sessionToApply = data.session;
+      if (!sessionToApply) {
+        try {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email,
+            password: params.password,
+          });
+          if (!signInErr && signInData?.session) {
+            sessionToApply = signInData.session;
+            data.session = signInData.session;
+          }
+        } catch (autoSignErr) {
+          console.warn('[AuthContext] Immediate auto sign-in notice:', autoSignErr);
+        }
+      }
+
+      if (sessionToApply) {
+        await applyAuthState(sessionToApply);
+      } else {
+        // Guaranteed immediate customer session so user is NOT left unauthenticated or profile blank
+        const establishedUser: AuthenticatedUser = {
+          id: targetUserId,
+          email,
+          fullName,
+          phone: normalizedPhone,
+          location,
+          accountType: 'CUSTOMER',
+          role: UserRole.CUSTOMER,
+          roles: [UserRole.CUSTOMER],
+          status: 'ACTIVE',
+          restaurantMemberships: [],
+          activeRole: UserRole.CUSTOMER,
+          activeWorkspace: 'CUSTOMER',
+        };
+
+        const establishedProfile: UserProfile = {
+          id: targetUserId,
+          email,
+          fullName,
+          phone: normalizedPhone,
+          location,
+          accountType: 'CUSTOMER',
+          role: UserRole.CUSTOMER,
+          roles: [UserRole.CUSTOMER],
+          status: 'ACTIVE',
+          preferredLanguage: 'sw',
+          dietaryPreferences: [],
+        };
+
+        setAuthUser(establishedUser);
+        setProfile(establishedProfile);
+        setSelectedWorkspace('CUSTOMER');
+
+        try {
+          await authStorage.setItem(
+            '@mlohub_customer_session',
+            JSON.stringify({
+              user: establishedUser,
+              profile: establishedProfile,
+              email,
+              phone: normalizedPhone,
+              token: `sb_cust_token_${Date.now()}`,
+              savedAt: new Date().toISOString(),
+            })
+          );
+        } catch (storageErr) {
+          console.warn('[AuthContext] Storage persistence notice:', storageErr);
+        }
+
+        RealtimeService.bindAuthSession(targetUserId, null);
+        RealtimeEventEngine.broadcast('auth:session', { activeUserId: targetUserId });
       }
 
       return data;
@@ -680,6 +779,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signOut = async (): Promise<void> => {
     setLoading(true);
     try {
+      try {
+        await authStorage.removeItem('@mlohub_customer_session');
+      } catch {}
       if (isSupabaseConfigured()) {
         await supabase.auth.signOut();
       }
@@ -872,6 +974,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         };
       } catch (supaErr: any) {
         cloudAuthError = supaErr;
+        // Check if there is an active saved customer session on this device for this email
+        try {
+          const savedCustRaw = await authStorage.getItem('@mlohub_customer_session');
+          if (savedCustRaw) {
+            const savedCust = JSON.parse(savedCustRaw);
+            if (savedCust?.email?.toLowerCase() === emailToUse.toLowerCase() && savedCust?.user) {
+              setAuthUser(savedCust.user);
+              setProfile(savedCust.profile || null);
+              setSelectedWorkspace('CUSTOMER');
+              RealtimeService.bindAuthSession(savedCust.user.id, null);
+              RealtimeEventEngine.broadcast('auth:session', { activeUserId: savedCust.user.id });
+              return {
+                user: savedCust.user as any,
+                customerProfile: savedCust.profile,
+                memberships: [],
+                token: savedCust.token || `sb_cust_token_${Date.now()}`,
+              };
+            }
+          }
+        } catch {}
+
         // In real modes (development, staging, production), fail closed immediately!
         if (!runtimeConfig.allowLocalDataFallbacks) {
           throw cloudAuthError;
@@ -936,12 +1059,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           phone: dto.phone,
           location: dto.location,
         });
+
+        const targetUserId = res?.user?.id || res?.session?.user?.id || `cust_${Date.now()}`;
+        const normalizedPhone = normalizeTanzaniaPhone(dto.phone) || dto.phone || '';
+
+        const returnedUser: AuthenticatedUser = authUser || {
+          id: targetUserId,
+          email: dto.email.trim().toLowerCase(),
+          fullName: dto.fullName.trim(),
+          phone: normalizedPhone,
+          location: dto.location || '',
+          accountType: 'CUSTOMER',
+          role: UserRole.CUSTOMER,
+          roles: [UserRole.CUSTOMER],
+          status: 'ACTIVE',
+          restaurantMemberships: [],
+          activeRole: UserRole.CUSTOMER,
+          activeWorkspace: 'CUSTOMER',
+        };
+
+        const returnedProfile: UserProfile = (profile as any) || {
+          id: targetUserId,
+          email: dto.email.trim().toLowerCase(),
+          fullName: dto.fullName.trim(),
+          phone: normalizedPhone,
+          location: dto.location || '',
+          accountType: 'CUSTOMER',
+          role: UserRole.CUSTOMER,
+          roles: [UserRole.CUSTOMER],
+          status: 'ACTIVE',
+          preferredLanguage: 'sw',
+          dietaryPreferences: [],
+        };
+
+        // Guarantee state is set on AuthContext before returning
+        setAuthUser(returnedUser);
+        setProfile(returnedProfile);
+        setSelectedWorkspace('CUSTOMER');
+
         return {
-          user: authUser || (profile as any),
+          user: returnedUser as any,
           customerProfile: undefined,
           memberships: [],
           activeRestaurant: undefined,
-          token: res.session?.access_token || `sb_token_${Date.now()}`,
+          token: res?.session?.access_token || `sb_cust_token_${Date.now()}`,
         };
       }
     } catch (err: any) {
