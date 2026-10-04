@@ -43,5 +43,7 @@ node_modules
 !.env.example
 dist/
 dist-*/
+!dist-production/
+!dist-production/**
 *.zip
 ANTIGRAVITY_RECOVERY_STATUS*.txt

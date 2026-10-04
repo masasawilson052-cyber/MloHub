@@ -151,11 +151,20 @@ export default function ResetPasswordScreen() {
       }
 
       if (!recoveryVerifiedRef.current) {
-        markRecoveryInvalid();
+        // Allow a brief grace period for onAuthStateChange to deliver PASSWORD_RECOVERY
+        const fallbackTimer = setTimeout(() => {
+          if (mounted && !recoveryVerifiedRef.current) {
+            markRecoveryInvalid();
+          }
+        }, 1200);
+        return () => clearTimeout(fallbackTimer);
       }
     };
 
-    initializeRecovery();
+    let cleanupFallback: (() => void) | void;
+    void initializeRecovery().then((cleanup) => {
+      cleanupFallback = cleanup;
+    });
 
     const urlSub =
       Platform.OS !== 'web'
@@ -168,6 +177,9 @@ export default function ResetPasswordScreen() {
 
     return () => {
       mounted = false;
+      if (typeof cleanupFallback === 'function') {
+        cleanupFallback();
+      }
       subscription?.unsubscribe();
       urlSub?.remove();
     };

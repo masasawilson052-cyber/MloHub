@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, PaymentStatus, OrderOperationalEvent } from '../types/domain';
+import { NotificationService } from '../services/NotificationService';
 
 export class OrderRepository {
   private static mapRowToOrder(row: any, items?: OrderItem[]): Order {
@@ -32,6 +33,8 @@ export class OrderRepository {
       completedAt: row.completed_at,
       cancelledAt: row.cancelled_at,
       cancellationReason: row.cancellation_reason,
+      customMealRequestId: row.custom_meal_request_id || undefined,
+      customMealSnapshot: row.custom_meal_snapshot || undefined,
       items: items || (row.order_items || []).map(this.mapRowToOrderItem),
       createdAt: row.created_at || new Date().toISOString(),
       updatedAt: row.updated_at || new Date().toISOString(),
@@ -286,6 +289,57 @@ export class OrderRepository {
     const refreshed = await this.getOrderById(orderId);
     if (!refreshed) {
       throw new Error(`Order ${orderId} not found after transition.`);
+    }
+
+    if (refreshed.customerId) {
+      void (async () => {
+        try {
+          const isCustomMeal = Boolean(refreshed.customMealRequestId);
+          let titleEn = `Order ${canonicalStatus}`;
+          let titleSw = `Agizo ${canonicalStatus}`;
+          let msgEn = `${refreshed.restaurantName || 'The restaurant'} updated your order status to ${canonicalStatus}.`;
+          let msgSw = `${refreshed.restaurantName || 'Mkahawa'} umesasisha hali ya agizo lako kuwa ${canonicalStatus}.`;
+
+          if (canonicalStatus === 'ACCEPTED') {
+            titleEn = isCustomMeal ? 'Custom Meal Accepted!' : 'Order Accepted!';
+            titleSw = isCustomMeal ? 'Chakula Maalum Kimekubaliwa!' : 'Agizo Limekubaliwa!';
+            msgEn = isCustomMeal
+              ? `${refreshed.restaurantName || 'The kitchen'} has accepted your custom meal and will start preparation shortly.`
+              : `${refreshed.restaurantName || 'The restaurant'} has accepted your order (${refreshed.orderNumber}).`;
+            msgSw = isCustomMeal
+              ? `${refreshed.restaurantName || 'Jiko'} limekubali ombi lako la chakula maalum na litaanza maandalizi punde.`
+              : `${refreshed.restaurantName || 'Mkahawa'} umekubali agizo lako (${refreshed.orderNumber}).`;
+          } else if (canonicalStatus === 'PREPARING') {
+            titleEn = isCustomMeal ? 'Custom Meal in Preparation!' : 'Order in Preparation!';
+            titleSw = isCustomMeal ? 'Chakula Maalum Kinatayarishwa!' : 'Agizo Linatayarishwa!';
+            msgEn = isCustomMeal
+              ? `Great news! ${refreshed.restaurantName || 'The kitchen'} is now preparing your custom meal!`
+              : `Great news! ${refreshed.restaurantName || 'The kitchen'} is now preparing your order (${refreshed.orderNumber})!`;
+            msgSw = isCustomMeal
+              ? `Habari njema! ${refreshed.restaurantName || 'Jiko'} sasa linatayarisha chakula chako maalum!`
+              : `Habari njema! ${refreshed.restaurantName || 'Jiko'} sasa linatayarisha agizo lako (${refreshed.orderNumber})!`;
+          } else if (canonicalStatus === 'READY') {
+            titleEn = isCustomMeal ? 'Custom Meal Ready!' : 'Order Ready!';
+            titleSw = isCustomMeal ? 'Chakula Maalum Liko Tayari!' : 'Agizo Liko Tayari!';
+            msgEn = `${refreshed.restaurantName || 'The restaurant'} marked your order as ready!`;
+            msgSw = `${refreshed.restaurantName || 'Mkahawa'} umeweka agizo lako tayari!`;
+          }
+
+          await NotificationService.sendNotification({
+            userId: refreshed.customerId,
+            orderId: refreshed.id,
+            restaurantId: refreshed.restaurantId,
+            type: 'ORDER_STATUS_CHANGED',
+            category: 'ORDER',
+            titleEn,
+            titleSw,
+            messageEn: msgEn,
+            messageSw: msgSw,
+          });
+        } catch (notifErr) {
+          console.warn('[OrderRepository] Failed to send customer transition notification:', notifErr);
+        }
+      })();
     }
 
     return refreshed;

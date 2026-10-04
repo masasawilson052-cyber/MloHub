@@ -225,6 +225,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       }
 
+      // Self-heal missing profile row for customer so they persist across logins and appear in admin
+      if (!profileRow && !runtimeConfig.allowLocalDataFallbacks && isSupabaseConfigured()) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: sbUser.id,
+            email: userEmail,
+            full_name: userFullName,
+            phone: userPhone || null,
+            role: resolvedRole,
+            roles: roles,
+            account_type: isAdminUser ? 'ADMIN' : 'CUSTOMER',
+            status: 'ACTIVE',
+            created_at: sbUser.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'id' });
+        } catch (healErr) {
+          console.warn('[AuthContext] Self-heal profile upsert error:', healErr);
+        }
+      } else if (profileRow && !profileRow.phone && userPhone && isSupabaseConfigured()) {
+        try {
+          await supabase.from('profiles').update({ phone: userPhone }).eq('id', sbUser.id);
+        } catch {}
+      }
+
       const accountType: AccountType = isAdminUser
         ? 'ADMIN'
         : profileRow?.account_type || (
@@ -580,14 +604,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     try {
       const email = params.email.trim().toLowerCase();
-      // Omit phone from initial signUp metadata so handle_new_user() trigger never fails
-      // on public.profiles phone UNIQUE constraint if the phone number was already used.
       const { data, error } = await supabase.auth.signUp({
         email,
         password: params.password,
         options: {
           data: {
             full_name: params.fullName.trim(),
+            phone: params.phone?.trim() || '',
             location: params.location?.trim() || '',
             account_type: 'CUSTOMER',
           },
@@ -598,15 +621,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(mapSupabaseAuthError(error.message));
       }
 
-      if (data.session) {
-        if (params.phone?.trim() && data.session.user?.id) {
-          try {
-            await supabase
-              .from('profiles')
-              .update({ phone: params.phone.trim() })
-              .eq('id', data.session.user.id);
-          } catch {}
+      const targetUserId = data.user?.id || data.session?.user?.id;
+      if (targetUserId) {
+        try {
+          await supabase
+            .from('profiles')
+            .upsert({
+              id: targetUserId,
+              email,
+              full_name: params.fullName.trim(),
+              phone: params.phone?.trim() || null,
+              location: params.location?.trim() || '',
+              account_type: 'CUSTOMER',
+              role: 'CUSTOMER',
+              roles: ['CUSTOMER'],
+              status: 'ACTIVE',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'id' });
+        } catch (profileErr) {
+          console.warn('[AuthContext] Initial profile upsert warning:', profileErr);
         }
+      }
+
+      if (data.session) {
         await applyAuthState(data.session);
       }
 

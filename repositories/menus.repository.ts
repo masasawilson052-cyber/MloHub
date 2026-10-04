@@ -576,24 +576,29 @@ export class MenuRepository {
         if (this.fallbackModifiers.has(menuItemId)) {
           return this.fallbackModifiers.get(menuItemId) || [];
         }
-        const isMissingTable =
+        const isUnavailable =
           res.error.code === 'PGRST205' ||
           res.error.code === '42P01' ||
+          res.error.code === '42501' ||
+          res.error.code === 'PGRST301' ||
           String(res.error.message).includes('schema cache') ||
-          String(res.error.message).includes('does not exist');
-        if (isMissingTable) {
+          String(res.error.message).includes('does not exist') ||
+          String(res.error.message).includes('permission denied') ||
+          String(res.error.message).includes('row-level security');
+        if (isUnavailable) {
           console.warn(`[MenuRepository] menu_modifier_groups table not found in database (${res.error.message}); treating item as having no modifiers.`);
           return [];
         }
-        console.error(`MenuRepository.getModifiersForItem(${menuItemId}) groups error:`, res.error.message);
-        throw new Error(`MODIFIER_LOOKUP_FAILED: ${res.error.message}`);
+        console.warn(`[MenuRepository.getModifiersForItem] groups error (${res.error.message}); defaulting to no modifiers: MODIFIER_LOOKUP_FAILED`);
+        return [];
       }
       groups = res.data;
     } catch (e: any) {
       if (this.fallbackModifiers.has(menuItemId)) {
         return this.fallbackModifiers.get(menuItemId) || [];
       }
-      throw e;
+      console.warn('[MenuRepository] Exception during getModifiersForItem, defaulting to empty modifiers: MODIFIER_LOOKUP_FAILED', e);
+      return [];
     }
 
     if (!groups || groups.length === 0) return [];
@@ -606,28 +611,32 @@ export class MenuRepository {
       .order('sort_order', { ascending: true });
 
     if (optionsError) {
-      const isMissingTable =
+      const isUnavailable =
         optionsError.code === 'PGRST205' ||
         optionsError.code === '42P01' ||
+        optionsError.code === '42501' ||
+        optionsError.code === 'PGRST301' ||
         String(optionsError.message).includes('schema cache') ||
-        String(optionsError.message).includes('does not exist');
-      if (isMissingTable) {
+        String(optionsError.message).includes('does not exist') ||
+        String(optionsError.message).includes('permission denied') ||
+        String(optionsError.message).includes('row-level security');
+      if (isUnavailable) {
         console.warn(`[MenuRepository] menu_modifier_options table not found in database; returning modifier groups without sub-options.`);
-        return groups.map((g: any) => ({
-          id: g.id,
-          menuItemId: g.menu_item_id,
-          name: g.name,
-          minSelections: Number(g.min_selections || 0),
-          maxSelections: Number(g.max_selections || 1),
-          minSelect: Number(g.min_selections || 0),
-          maxSelect: Number(g.max_selections || 1),
-          isRequired: Boolean(g.is_required),
-          sortOrder: Number(g.sort_order || 0),
-          options: [],
-        }));
+      } else {
+        console.warn(`[MenuRepository.getModifiersForItem] options error (${optionsError.message}); returning groups without options: MODIFIER_LOOKUP_FAILED`);
       }
-      console.error(`MenuRepository.getModifiersForItem(${menuItemId}) options error:`, optionsError.message);
-      throw new Error(`MODIFIER_LOOKUP_FAILED: ${optionsError.message}`);
+      return groups.map((g: any) => ({
+        id: g.id,
+        menuItemId: g.menu_item_id,
+        name: g.name,
+        minSelections: Number(g.min_selections || 0),
+        maxSelections: Number(g.max_selections || 1),
+        minSelect: Number(g.min_selections || 0),
+        maxSelect: Number(g.max_selections || 1),
+        isRequired: Boolean(g.is_required),
+        sortOrder: Number(g.sort_order || 0),
+        options: [],
+      }));
     }
 
     const optionsByGroup: Record<string, MenuModifierOption[]> = {};

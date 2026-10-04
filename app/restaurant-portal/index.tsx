@@ -1055,9 +1055,19 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
           payload?.eventType === 'RESTAURANT_NEW_PAID_ORDER' ||
           payload?.event === 'order:paid' ||
           payload?.data?.paymentStatus === 'SUCCESS' ||
-          payload?.data?.payment_status === 'SUCCESS'
+          payload?.data?.payment_status === 'SUCCESS' ||
+          payload?.eventType === 'CUSTOM_MEAL_CREATED' ||
+          payload?.eventType === 'CUSTOM_MEAL_INVITATION'
         ) {
           OrderNotificationSoundService.playNewPaidOrderAlert().catch(() => undefined);
+        }
+        if (payload?.eventType === 'CUSTOM_MEAL_CREATED') {
+          Alert.alert(
+            language === 'sw' ? '🍲 Ombi Jipya la Chakula Maalum!' : '🍲 New Custom Meal Request!',
+            language === 'sw'
+              ? `Mteja ameomba chakula maalum "${payload?.data?.title || ''}". Fungua tab ya Chakula Maalum kutuma ofa yako!`
+              : `A customer requested custom meal "${payload?.data?.title || ''}". Check the Custom Meals tab to view requirements and submit your quote!`
+          );
         }
         if (
           payload?.action === 'PUBLISHED' ||
@@ -1099,6 +1109,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         handleRealtimeEvent(payload);
       }
     });
+    const unsubscribeCustomMealCreated = RealtimeEventEngine.subscribe('custom_meal_requests', handleRealtimeEvent);
     const unsubscribeRestaurant = RealtimeService.subscribeToRestaurantOrders(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeMenu = RealtimeService.subscribeToMenu(activeRestaurant.id, () => handleRealtimeEvent());
     const unsubscribeReservations = RealtimeService.subscribeToReservations(activeRestaurant.id, () => handleRealtimeEvent());
@@ -1110,6 +1121,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       unsubscribeResync();
       unsubscribeOrders();
       unsubscribeRestaurantUpdates();
+      unsubscribeCustomMealCreated();
       unsubscribeRestaurant();
       unsubscribeMenu();
       unsubscribeReservations();

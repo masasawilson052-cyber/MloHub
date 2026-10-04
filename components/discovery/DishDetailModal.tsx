@@ -70,7 +70,8 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   const isAddPending = isDishAddPending(dish.id);
 
   const handleAddToCart = async () => {
-    if (!dish.branchId || isAddPending) return;
+    if (isAddPending) return;
+    const targetBranchId = dish.branchId || dish.restaurantId;
     const selectedQty = quantity;
     const realImageUrl = hasRealImage ? dish.imageUrl : undefined;
     const measuredRect = realImageUrl ? await measureViewRect(dishImageRef) : null;
@@ -83,8 +84,8 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         description: dish.desc,
         restaurantId: dish.restaurantId,
         restaurantName: dish.restaurantName,
-        branchId: dish.branchId,
-        branchName: dish.branchName,
+        branchId: targetBranchId,
+        branchName: dish.branchName || dish.restaurantName,
         priceTzs: dish.priceNum,
         quantity: selectedQty,
         imageUrl: realImageUrl,

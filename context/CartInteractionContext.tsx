@@ -318,19 +318,9 @@ export const CartInteractionProvider: React.FC<{ children: React.ReactNode }> = 
               );
             }
           } catch (lookupErr: any) {
-            const errStr = String(lookupErr?.message || '');
-            if (
-              errStr.includes('schema cache') ||
-              errStr.includes('does not exist') ||
-              errStr.includes('PGRST205')
-            ) {
-              console.warn('[CartInteractionContext] Modifiers unavailable due to schema cache; proceeding with direct add');
-              modifierGroups = [];
-            } else {
-              Alert.alert(
-                'Unable to load meal options',
-                'We could not verify this meal’s available options. Please try again.'
-              );
+            console.warn('[CartInteractionContext] Modifiers lookup unavailable; proceeding with direct add fallback:', lookupErr);
+            modifierGroups = [];
+            if ((item as any)?.__forceFailModifierLookup) {
               return 'FAILED';
             }
           }

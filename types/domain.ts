@@ -365,6 +365,8 @@ export interface Order {
   deliveryDestinationLongitude?: number;
   cancelledAt?: string;
   cancellationReason?: string;
+  customMealRequestId?: string;
+  customMealSnapshot?: any;
   items?: OrderItem[];
   createdAt: string;
   updatedAt: string;

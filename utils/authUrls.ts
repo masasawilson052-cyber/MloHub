@@ -75,12 +75,6 @@ export function getPasswordResetRedirectUrl(
     return NATIVE_RESET_PASSWORD_URL;
   }
 
-  /*
-   * Browser:
-   *
-   * Current browser origin is safest
-   * for hosted production and local development / preview.
-   */
   const rawOrigin =
     options?.windowOrigin !== undefined
       ? options.windowOrigin
@@ -88,6 +82,25 @@ export function getPasswordResetRedirectUrl(
       ? window.location.origin
       : null;
 
+  /*
+   * If a non-localhost HTTPS reset URL is explicitly configured,
+   * honor it when origin is absent or localhost so emails never send localhost links.
+   */
+  if (
+    configuredResetUrl &&
+    configuredResetUrl.startsWith('https://') &&
+    !isLocalhostUrl(configuredResetUrl) &&
+    (!rawOrigin || isLocalhostUrl(rawOrigin))
+  ) {
+    return configuredResetUrl;
+  }
+
+  /*
+   * Browser:
+   *
+   * Current browser origin is safest
+   * for hosted production and local development / preview.
+   */
   if (rawOrigin) {
     const origin = trimTrailingSlash(rawOrigin);
 
@@ -180,7 +193,7 @@ export function extractPkceCodeFromResetInput(
   }
 
   const rawUrl =
-    url !== undefined
+    typeof url === 'string' && url.trim().length > 0
       ? url
       : typeof window !== 'undefined' && window.location?.href
       ? window.location.href
@@ -203,6 +216,21 @@ export function extractPkceCodeFromResetInput(
       const urlCode = searchParams.get('code');
       if (urlCode && urlCode.trim()) {
         return { code: urlCode.trim(), hasError: false };
+      }
+    }
+
+    const hashIndex = rawUrl.indexOf('#');
+    if (hashIndex !== -1) {
+      const hashPart = rawUrl.slice(hashIndex + 1);
+      const hashParams = new URLSearchParams(hashPart);
+      const hashErr =
+        hashParams.get('error') || hashParams.get('error_description');
+      if (hashErr && hashErr.trim()) {
+        return { hasError: true };
+      }
+      const hashCode = hashParams.get('code');
+      if (hashCode && hashCode.trim()) {
+        return { code: hashCode.trim(), hasError: false };
       }
     }
   }

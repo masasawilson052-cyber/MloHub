@@ -33,20 +33,19 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [revealedUsers, setRevealedUsers] = useState<Record<string, boolean>>({});
 
-  const maskPhone = (phone?: string) => {
+  const formatPhone = (phone?: string) => {
     if (!phone) return 'No phone';
-    if (phone.length <= 4) return '••••';
-    return `${phone.slice(0, 4)} ••• •• ${phone.slice(-2)}`;
-  };
-
-  const maskEmail = (email?: string) => {
-    if (!email) return 'No email';
-    const parts = email.split('@');
-    if (parts.length !== 2) return '••••@••••';
-    const name = parts[0];
-    const domain = parts[1];
-    const maskedName = name.length > 2 ? `${name.slice(0, 2)}••••` : '••';
-    return `${maskedName}@${domain}`;
+    const clean = phone.replace(/\s+/g, '');
+    if (clean.startsWith('+')) {
+      return clean;
+    }
+    if (clean.startsWith('255') && clean.length === 12) {
+      return `+255 ${clean.slice(3, 6)} ${clean.slice(6, 9)} ${clean.slice(9)}`;
+    }
+    if (clean.startsWith('0') && clean.length === 10) {
+      return `+255 ${clean.slice(1, 4)} ${clean.slice(4, 7)} ${clean.slice(7)}`;
+    }
+    return clean;
   };
 
   const filtered = users.filter((u) => {
@@ -212,7 +211,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                     <View style={styles.infoRow}>
                       <Ionicons name="call-outline" size={12} color={colors.textSecondary} />
                       <Text style={styles.infoText}>
-                        {isRevealed ? (u.phone || 'No phone') : maskPhone(u.phone)}
+                        {u.phone ? formatPhone(u.phone) : 'No phone'}
                       </Text>
                       {u.isPhoneVerified && (
                         <Ionicons name="checkmark-circle" size={12} color="#10b981" />
@@ -221,7 +220,7 @@ export const UsersManager: React.FC<UsersManagerProps> = ({
                     <View style={styles.infoRow}>
                       <Ionicons name="mail-outline" size={12} color={colors.textSecondary} />
                       <Text style={styles.infoText}>
-                        {isRevealed ? u.email : maskEmail(u.email)}
+                        {u.email || 'No email'}
                       </Text>
                     </View>
                     {u.companyOrGroup && (

@@ -8,6 +8,8 @@ import {
   DeclineReason,
   CustomMealFulfillmentMode,
 } from '../types/domain';
+import { NotificationService } from '../services/NotificationService';
+import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 
 export interface StructuredQuoteInput {
   requestId: string;
@@ -172,6 +174,74 @@ export class CustomMealRepository {
     if (error) {
       console.error('CustomMealRepository.createStructuredRequest error:', error.message);
       throw new Error(`Failed to create structured custom meal request: ${error.message}`);
+    }
+
+    const reqId = data?.request_id || data?.id;
+    if (reqId && typeof (supabase.from('custom_meal_invitations') as any).upsert === 'function') {
+      void (async () => {
+        try {
+          const { data: restaurants } = await supabase
+            .from('restaurants')
+            .select('id, name, owner_user_id')
+            .eq('is_published', true)
+            .eq('is_active', true)
+            .limit(10);
+
+          if (restaurants && restaurants.length > 0) {
+            const invitationRows = restaurants.map((r: any) => ({
+              request_id: reqId,
+              restaurant_id: r.id,
+              status: 'INVITED',
+              match_score: 5.0,
+              match_reasons: ['CUSTOM_MEAL_REQUEST', 'VERIFIED_RESTAURANT'],
+              quote_deadline: params.quoteDeadline,
+            }));
+
+            await (supabase.from('custom_meal_invitations') as any).upsert(invitationRows, {
+              onConflict: 'request_id,restaurant_id',
+            });
+
+            const userMap = new Map<string, string>();
+            for (const r of restaurants) {
+              if (r.owner_user_id) userMap.set(r.owner_user_id, r.id);
+            }
+
+            try {
+              const { data: members } = await supabase
+                .from('restaurant_members')
+                .select('user_id, restaurant_id')
+                .in('restaurant_id', restaurants.map((r: any) => r.id))
+                .eq('is_active', true);
+              for (const m of (members || [])) {
+                if (m.user_id) userMap.set(m.user_id, m.restaurant_id);
+              }
+            } catch {}
+
+            for (const [userId, restaurantId] of userMap.entries()) {
+              try {
+                await NotificationService.sendNotification({
+                  userId,
+                  restaurantId,
+                  type: 'CUSTOM_MEAL_REQUEST',
+                  category: 'ORDER',
+                  titleEn: 'New Custom Meal Request!',
+                  titleSw: 'Ombi Jipya la Chakula Maalum!',
+                  messageEn: `A customer requested "${params.title}" (${params.servings} servings) in ${params.customerArea}. Tap to submit your quote!`,
+                  messageSw: `Mteja ameomba "${params.title}" (watu ${params.servings}) eneo la ${params.customerArea}. Gusa ili kutuma bei yako!`,
+                  payload: { requestId: reqId, title: params.title },
+                });
+              } catch {}
+            }
+
+            RealtimeEventEngine.publish('custom_meal_requests', {
+              eventType: 'CUSTOM_MEAL_CREATED',
+              data: { requestId: reqId, title: params.title, customerArea: params.customerArea },
+            });
+          }
+        } catch (inviteErr) {
+          console.warn('[CustomMealRepository] Invitation and notification dispatch warning:', inviteErr);
+        }
+      })();
     }
 
     return data;
@@ -339,6 +409,28 @@ export class CustomMealRepository {
       console.error('CustomMealRepository.submitStructuredQuote error:', error.message);
       throw new Error(`Failed to submit structured quote: ${error.message}`);
     }
+
+    // Notify customer that a quote was received
+    void (async () => {
+      try {
+        const req = await this.getRequestById(params.requestId);
+        if (req && req.customerId) {
+          await NotificationService.sendNotification({
+            userId: req.customerId,
+            restaurantId: params.restaurantId,
+            type: 'CUSTOM_MEAL_QUOTE_RECEIVED',
+            category: 'ORDER',
+            titleEn: 'New Quote for Custom Meal!',
+            titleSw: 'Ofa Mpya ya Chakula Maalum!',
+            messageEn: `A kitchen submitted a quote for "${req.dishName || req.title}". Review and accept to place your order!`,
+            messageSw: `Jiko limetuma ofa kwa ajili ya "${req.dishName || req.title}". Kagua na ukubali ili kuweka agizo!`,
+            payload: { requestId: params.requestId, restaurantId: params.restaurantId },
+          });
+        }
+      } catch (quoteNotifErr) {
+        console.warn('[CustomMealRepository] Failed to notify customer of quote:', quoteNotifErr);
+      }
+    })();
 
     return data;
   }
