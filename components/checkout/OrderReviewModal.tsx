@@ -668,7 +668,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                       accessibilityRole="button"
                       accessibilityLabel={pm.displayName}
                     >
-                      <PaymentProviderLogo methodCode={pm.id} size={32} />
+                      <PaymentProviderLogo methodCode={pm.id} size={45} />
                       <Text
                         style={[
                           styles.pmLabel,
@@ -932,8 +932,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    gap: 8,
+    minHeight: 60,
     backgroundColor: colors.card,
     borderRadius: Radii.sm,
     borderWidth: 1,
@@ -948,7 +950,8 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginRight: 6,
   },
   pmLabel: {
-    fontSize: 13,
+    flex: 1,
+    fontSize: 12.5,
     fontWeight: '600',
     color: colors.textPrimary,
   },

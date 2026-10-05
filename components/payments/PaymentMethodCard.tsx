@@ -47,7 +47,7 @@ export const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
         },
       ]}
     >
-      <PaymentProviderLogo methodCode={method.id} size={42} />
+      <PaymentProviderLogo methodCode={method.id} size={50} />
 
       <View style={styles.content}>
         <View style={styles.topRow}>

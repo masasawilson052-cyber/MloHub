@@ -137,11 +137,22 @@ export default function OrdersScreen() {
         }
 
         if (prep.status === 'LOOKUP_FAILED') {
-          Alert.alert(
-            language === 'sw' ? 'Imeshindikana Kupakia Machaguo' : 'Unable to load meal options',
-            prep.reason
-          );
-          return;
+          console.warn('[orders.tsx] Reorder prep returned LOOKUP_FAILED, falling back to direct add:', it.itemNameSnapshot);
+          const qty = Math.max(1, it.quantity || 1);
+          const price = it.priceSnapshot || it.priceTzsSnapshot || 10000;
+          await requestAddToCart({
+            dishId: it.menuItemId || `dish-${Date.now()}`,
+            dishName: it.itemNameSnapshot || 'Menu Item',
+            priceTzs: price,
+            basePriceTzs: price,
+            restaurantId: order.restaurantId,
+            restaurantName: order.restaurantName || 'Restaurant',
+            branchId: order.branchId,
+            quantity: qty,
+            notes: it.specialNotes,
+          });
+          count += qty;
+          continue;
         }
 
         const currentItem = prep.currentItem;

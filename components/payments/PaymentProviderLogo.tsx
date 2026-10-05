@@ -53,18 +53,21 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
   const letter = getMethodLetter(normalizedCode);
   const accent = config?.accentColor || colors.primary;
 
+  const containerWidth = Math.round(size * 1.18);
+
   return (
     <View style={styles.outerContainer} accessibilityRole="image" accessibilityLabel={config?.displayName || 'Payment Provider'}>
       <View
         style={[
           styles.logoContainer,
           {
-            width: size,
+            width: containerWidth,
             height: size,
-            borderRadius: Math.round(size * 0.28),
-            backgroundColor: colors.surfaceInteractive,
+            borderRadius: Math.round(size * 0.22),
+            backgroundColor: '#FFFFFF',
             borderColor: colors.border,
             overflow: 'hidden',
+            padding: 2,
           },
         ]}
       >
@@ -72,9 +75,8 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
           <Image
             source={logoSource}
             style={{
-              width: size,
-              height: size,
-              borderRadius: Math.round(size * 0.28),
+              width: '100%',
+              height: '100%',
             }}
             resizeMode="contain"
             onError={() => setImageError(true)}

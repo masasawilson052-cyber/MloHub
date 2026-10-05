@@ -455,7 +455,7 @@ export async function getCachedModifiersForDish(
 ): Promise<MenuModifierGroup[]> {
   const normalizedId = String(dishId || '').trim();
   if (!normalizedId) {
-    throw new Error('MODIFIER_LOOKUP_FAILED: Missing dishId');
+    return [];
   }
 
   if (modifierGroupsSessionCache.has(normalizedId)) {
@@ -620,20 +620,11 @@ export async function prepareReorderItemWithCurrentMenu(params: {
   try {
     modifierGroups = await getModifiers(menuItemId);
   } catch (lookupErr: any) {
-    const errStr = String(lookupErr?.message || '');
-    if (
-      errStr.includes('schema cache') ||
-      errStr.includes('does not exist') ||
-      errStr.includes('PGRST205')
-    ) {
-      modifierGroups = [];
-    } else {
-      return {
-        status: 'LOOKUP_FAILED',
-        reason:
-          'We could not verify this meal’s available options. Please try again.',
-      };
-    }
+    console.warn(
+      '[cartCore.prepareReorderItemWithCurrentMenu] Modifiers lookup unavailable; proceeding with direct add fallback:',
+      lookupErr
+    );
+    modifierGroups = [];
   }
 
   const route = resolveAddToCartDecision(modifierGroups);

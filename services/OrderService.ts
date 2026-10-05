@@ -1,7 +1,7 @@
 import { OrderRepository } from '../repositories/orders.repository';
 import { CustomMealRepository } from '../repositories/customMeals.repository';
 import { NotificationRepository } from '../repositories/notifications.repository';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, CustomMealRequest } from '../types/domain';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
@@ -156,6 +156,32 @@ export class OrderService {
           orderId: createdOrder.id,
           restaurantId: dto.restaurantId,
         });
+
+        // Also notify restaurant owner
+        try {
+          const { data: restaurant } = await supabase
+            .from('restaurants')
+            .select('id, name, owner_id')
+            .eq('id', dto.restaurantId)
+            .maybeSingle();
+
+          const restOwnerId = restaurant?.owner_id || (restaurant as any)?.owner_user_id;
+          if (restOwnerId && restOwnerId !== dto.userId) {
+            await NotificationRepository.createNotification({
+              userId: restOwnerId,
+              restaurantId: dto.restaurantId,
+              orderId: createdOrder.id,
+              type: 'NEW_ORDER',
+              category: 'ORDER',
+              titleEn: `New Order #${createdOrder.orderNumber || orderNumber}!`,
+              titleSw: `Agizo Jipya #${createdOrder.orderNumber || orderNumber}!`,
+              messageEn: `New order received for ${dto.diningOption} (${itemsData.length} items). Tap to manage.`,
+              messageSw: `Agizo jipya limepokelewa la ${dto.diningOption} (vyakula ${itemsData.length}). Gusa ili kuhudumia.`,
+            });
+          }
+        } catch (rNotifErr) {
+          console.warn('Failed to notify restaurant owner in OrderService:', rNotifErr);
+        }
       } catch (err) {
         console.warn('Failed to send notification in OrderService:', err);
       }
