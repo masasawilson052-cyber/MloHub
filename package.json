@@ -34,6 +34,7 @@
     "production:build": "node scripts/build-production.cjs",
     "production:check": "node scripts/production-preflight.cjs",
     "production:preview": "node scripts/serve-demo.cjs dist-production",
+    "deploy:prod": "npm run production:build && eas deploy --prod",
     "test:production": "node tests/productionPayments.cjs",
     "test:final-hardening": "tsx tests/finalBlockerClosure.test.ts",
     "test:admin-truth": "tsx tests/adminFinalTruthClosure.test.ts",
