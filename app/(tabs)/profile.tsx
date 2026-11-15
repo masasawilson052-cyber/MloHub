@@ -31,6 +31,7 @@ import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 import { authStorage } from '../../lib/authStorage';
+import { isCustomerOnlyApp } from '../../lib/appVariant';
 
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
@@ -391,6 +392,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* SECTION: PARTNER & ADMIN WORKSPACE SHORTCUTS */}
+        {!isCustomerOnlyApp() && (
         <View
           style={[
             styles.menuGroup,
@@ -476,6 +478,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
         </View>
+        )}
 
         {/* SECTION: HELP & SUPPORT */}
         <View

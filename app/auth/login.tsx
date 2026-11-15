@@ -22,6 +22,7 @@ import { UserRole, hasAdminAccess } from '../../db/types';
 import { Button } from '../../components/ui/Button';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { ApplicationRepository } from '../../repositories/applications.repository';
+import { getAppPlatformVariant } from '../../lib/appVariant';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -34,11 +35,14 @@ export default function LoginScreen() {
   const params = useLocalSearchParams<{ type?: string; returnTo?: string }>();
   const { language } = useLanguage();
   const { login, logout, switchWorkspace, isAuthLoading } = useAuth();
-  const isAdminLogin = params.type === 'admin';
+  const appVariant = getAppPlatformVariant();
+  const isAdminLogin = appVariant === 'admin' || params.type === 'admin';
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
-  const [isRestaurantLogin, setIsRestaurantLogin] = useState(params.type === 'restaurant');
+  const [isRestaurantLogin, setIsRestaurantLogin] = useState(
+    appVariant === 'partner' || params.type === 'restaurant'
+  );
   const enablePhoneAuth = process.env.EXPO_PUBLIC_ENABLE_PHONE_AUTH === 'true';
   const [emailOrPhone, setEmailOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -49,8 +53,8 @@ export default function LoginScreen() {
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   useEffect(() => {
-    setIsRestaurantLogin(params.type === 'restaurant');
-  }, [params.type]);
+    setIsRestaurantLogin(appVariant === 'partner' || params.type === 'restaurant');
+  }, [appVariant, params.type]);
 
   const handleLogin = async () => {
     setErrorMsg(null);
@@ -106,6 +110,29 @@ export default function LoginScreen() {
           (res.user.roles.includes(UserRole.RESTAURANT_OWNER) ||
             res.user.roles.includes(UserRole.RESTAURANT_STAFF)));
 
+      if (appVariant === 'customer') {
+        if (switchWorkspace) {
+          try {
+            await switchWorkspace('CUSTOMER');
+          } catch {}
+        }
+        router.replace('/(tabs)');
+        return;
+      }
+
+      if (appVariant === 'partner') {
+        if (hasRestaurantAccess && switchWorkspace) {
+          const restId = res.activeRestaurant?.id || res.memberships?.[0]?.restaurantId || (res.user as any)?.activeRestaurantId;
+          try {
+            await switchWorkspace('RESTAURANT_OWNER', restId);
+          } catch (wsErr) {
+            console.warn('[Login] switchWorkspace warning:', wsErr);
+          }
+        }
+        router.replace('/restaurant-portal');
+        return;
+      }
+
       if (hasAdminAccess(res.user)) {
         router.replace('/admin');
       } else if (isRestaurantLogin || hasRestaurantAccess) {
@@ -153,16 +180,20 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       {/* Top Header */}
       <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </TouchableOpacity>
+        {router.canGoBack() ? (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
         <Text style={styles.headerTitle}>
           {isAdminLogin ? 'Administrator Sign In' : isRestaurantLogin ? 'Restaurant Partner Login' : 'Customer Sign In'}
         </Text>
@@ -357,22 +388,24 @@ export default function LoginScreen() {
         </View>}
 
         {/* Discrete Portal Switcher */}
-        <TouchableOpacity
-          style={styles.switchPortalBtn}
-          onPress={() => { setIsRestaurantLogin(!isRestaurantLogin); router.setParams({ type: isRestaurantLogin ? 'customer' : 'restaurant' }); }}
-        >
-          <Ionicons
-            name={isRestaurantLogin ? 'person-outline' : 'restaurant-outline'}
-            size={16}
-            color={colors.primary}
-            style={{ marginRight: 6 }}
-          />
-          <Text style={styles.switchPortalText}>
-            {isRestaurantLogin
-              ? language === 'sw' ? 'Unataka kuagiza chakula? Ingia kama Mteja' : 'Looking for meals? Customer Sign In'
-              : language === 'sw' ? 'Mmiliki wa Mgahawa? Ingia hapa' : 'Restaurant Partner? Sign in to Kitchen Portal'}
-          </Text>
-        </TouchableOpacity>
+        {appVariant === 'unified' && !isAdminLogin && (
+          <TouchableOpacity
+            style={styles.switchPortalBtn}
+            onPress={() => { setIsRestaurantLogin(!isRestaurantLogin); router.setParams({ type: isRestaurantLogin ? 'customer' : 'restaurant' }); }}
+          >
+            <Ionicons
+              name={isRestaurantLogin ? 'person-outline' : 'restaurant-outline'}
+              size={16}
+              color={colors.primary}
+              style={{ marginRight: 6 }}
+            />
+            <Text style={styles.switchPortalText}>
+              {isRestaurantLogin
+                ? language === 'sw' ? 'Unataka kuagiza chakula? Ingia kama Mteja' : 'Looking for meals? Customer Sign In'
+                : language === 'sw' ? 'Mmiliki wa Mgahawa? Ingia hapa' : 'Restaurant Partner? Sign in to Kitchen Portal'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Quick Demo Credentials Prefill - Renders ONLY when runtimeConfig.isDemo is true */}
         {runtimeConfig.isDemo && (

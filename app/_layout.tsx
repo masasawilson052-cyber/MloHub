@@ -16,6 +16,7 @@ import { ConnectionNotice } from '../components/ConnectionNotice';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { AdminPreviewProvider } from '../context/AdminPreviewContext';
 import { CustomerLocationProvider } from '../context/CustomerLocationContext';
+import { getAppPlatformVariant } from '../lib/appVariant';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {
@@ -61,6 +62,7 @@ function RootNavigationLayout() {
   useEffect(() => {
     if (!isReady || isAuthLoading || (!isThemeHydrated && !splashFallbackReady)) return;
 
+    const variant = getAppPlatformVariant();
     const inOnboarding = segments[0] === 'onboarding';
     const inAuth = segments[0] === 'auth';
     // Recovery and activation links must survive onboarding and signed-in redirects.
@@ -70,12 +72,43 @@ function RootNavigationLayout() {
     if (inAuth && ['login', 'register-restaurant'].includes((segments as readonly string[])[1])) return;
     const inRestaurantPortal = segments[0] === 'restaurant-portal';
 
+    if (variant === 'partner') {
+      if (!isAuthenticated && !inAuth && segments[0] !== 'partner' && !inRestaurantPortal) {
+        router.replace('/auth/login?type=restaurant');
+        return;
+      }
+      if (isAuthenticated && inAuth) {
+        router.replace('/partner');
+        return;
+      }
+      return;
+    }
+
+    if (variant === 'admin') {
+      if (!isAuthenticated && !inAuth && segments[0] !== 'admin') {
+        router.replace('/auth/login?type=admin');
+        return;
+      }
+      if (isAuthenticated && inAuth) {
+        router.replace('/admin');
+        return;
+      }
+      return;
+    }
+
     if (!hasCompletedOnboarding && !inOnboarding && !isAuthenticated && !inRestaurantPortal && segments[0] !== 'admin') {
       router.replace('/onboarding');
       return;
     }
 
     if (isAuthenticated) {
+      if (variant === 'customer') {
+        if (inAuth) {
+          router.replace('/(tabs)');
+        }
+        return;
+      }
+
       // Respect active workspace: if owner switched to customer workspace, allow customer tabs
       if (activeWorkspace === 'RESTAURANT_OWNER' && inAuth) {
         router.replace('/restaurant-portal');

@@ -654,7 +654,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
               {/* Payment Method */}
               <View style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>Payment Method (Mobile Money)</Text>
+                <Text style={styles.sectionLabel}>Payment Method (Mobile Money & Bank)</Text>
                 <View style={styles.paymentMethodsGrid}>
                   {MOBILE_MONEY_METHODS.map((pm) => (
                     <TouchableOpacity
@@ -682,7 +682,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Mobile Money Number</Text>
+                  <Text style={styles.inputLabel}>Payment Account / Phone Number</Text>
                   <TextInput
                     style={styles.textInput}
                     value={payerPhone}

@@ -287,6 +287,8 @@ export type PaymentMethodCode =
   | 'AIRTEL_MONEY'
   | 'MIXX_BY_YAS'
   | 'HALOPESA'
+  | 'CRDB'
+  | 'NMB'
   | 'CARD'
   | 'CASH_ON_DELIVERY';
 

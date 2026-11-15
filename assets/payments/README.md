@@ -5,6 +5,8 @@ Place official telecom provider PNG logos in this directory:
 - `airtel-money.png` (Airtel Money)
 - `mixx-by-yas.png` (Mixx by Yas / Tigo)
 - `halopesa.png` (HaloPesa)
+- `crdb.png` (CRDB Bank / SimBanking)
+- `nmb.png` (NMB Bank / NMB Mkononi)
 
 Specs: 128x128 or 256x256 PNG with transparency, < 50KB.
 See `PAYMENT_PROVIDER_ASSETS.md` for full details.

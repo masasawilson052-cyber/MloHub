@@ -10,6 +10,8 @@ export type PaymentMethodCode =
   | 'AIRTEL_MONEY'
   | 'MIXX_BY_YAS'
   | 'HALOPESA'
+  | 'CRDB'
+  | 'NMB'
   | 'CARD'
   | 'CASH_ON_DELIVERY';
 
@@ -130,6 +132,10 @@ export function getCarrierDetails(methodCode: PaymentMethodCode): CarrierDetails
       return { code: 'MIXX_BY_YAS', name: 'Mixx by Yas (Tigo)', ussd: '*150*01#', color: '#002f6c', bgColor: '#e3f2fd' };
     case 'HALOPESA':
       return { code: 'HALOPESA', name: 'HaloPesa (Halotel)', ussd: '*150*88#', color: '#ff6600', bgColor: '#fff3e0' };
+    case 'CRDB':
+      return { code: 'CRDB', name: 'CRDB Bank (SimBanking)', ussd: '*150*03#', color: '#00843D', bgColor: '#e8f5e9' };
+    case 'NMB':
+      return { code: 'NMB', name: 'NMB Bank (NMB Mkononi)', ussd: '*150*66#', color: '#F58220', bgColor: '#fff3e0' };
     case 'CARD':
       return { code: 'CARD', name: 'Visa / Mastercard', ussd: 'Web Checkout', color: '#1a1f71', bgColor: '#ede7f6' };
     case 'CASH_ON_DELIVERY':

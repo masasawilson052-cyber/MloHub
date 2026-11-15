@@ -7,7 +7,7 @@ export interface PaymentPushRequest {
   orderId: string;
   amountTzs: number;
   payerPhone: string;
-  channel: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA' | 'CARD';
+  channel: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA' | 'CRDB' | 'NMB' | 'CARD';
   reference: string;
   callbackUrl: string;
 }

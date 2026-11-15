@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacing, Radii, Shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { isPartnerOnlyApp } from '../../lib/appVariant';
 import { ApplicationRepository } from '../../repositories/applications.repository';
 import { PlatformSettingsRepository } from '../../repositories/platformSettings.repository';
 import { supabase, isSupabaseConfigured } from '../../lib/supabase';
@@ -559,11 +560,13 @@ export default function RegisterRestaurantScreen() {
 
             <TouchableOpacity
               style={[styles.returnBtn, { backgroundColor: colors.surfaceInteractive, marginTop: 8 }]}
-              onPress={() => router.replace('/(tabs)/explore')}
+              onPress={() => router.replace(isPartnerOnlyApp() ? '/auth/login?type=restaurant' : '/(tabs)/explore')}
               activeOpacity={0.88}
             >
               <Text style={[styles.returnBtnText, { color: colors.textPrimary }]}>
-                {language === 'sw' ? 'Rudi Kwenye Programu' : 'Return to Explore App'}
+                {isPartnerOnlyApp()
+                  ? (language === 'sw' ? 'Rudi Kwenye Kuingia kwa Mgahawa' : 'Back to Partner Sign In')
+                  : (language === 'sw' ? 'Rudi Kwenye Programu' : 'Return to Explore App')}
               </Text>
             </TouchableOpacity>
           </View>

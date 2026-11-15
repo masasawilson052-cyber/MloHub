@@ -6,7 +6,7 @@ import { AdminPage, AdminPageQuery } from '../types/admin';
 export class PaymentRepository {
   public static async createForOrder(params: {
     orderId: string;
-    methodCode: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA';
+    methodCode: 'MPESA' | 'AIRTEL_MONEY' | 'MIXX_BY_YAS' | 'HALOPESA' | 'CRDB' | 'NMB';
     payerPhone: string;
     idempotencyKey: string;
   }): Promise<{ success: boolean; paymentId?: string; status?: string; error?: string }> {

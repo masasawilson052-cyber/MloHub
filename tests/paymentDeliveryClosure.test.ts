@@ -215,13 +215,15 @@ export async function runPaymentDeliveryClosureTests(): Promise<{ passed: number
   // --------------------------------------------------------------------------
   console.log('\n--- Group C: Mobile-Money Providers & Carrier Detection ---');
 
-  // C1: Canonical 4 mobile money operators
-  assert(MOBILE_MONEY_METHODS.length === 4, 'C1: Exactly 4 canonical mobile money operators configured');
+  // C1: Canonical payment operators (4 mobile money + 2 banks)
+  assert(MOBILE_MONEY_METHODS.length === 6, 'C1: Exactly 6 canonical payment operators configured');
   const operatorIds = MOBILE_MONEY_METHODS.map((m) => m.id);
   assert(operatorIds.includes('MPESA'), 'C1: Vodacom M-Pesa is configured');
   assert(operatorIds.includes('AIRTEL_MONEY'), 'C1: Airtel Money is configured');
   assert(operatorIds.includes('MIXX_BY_YAS'), 'C1: Mixx by Yas (Tigo Pesa) is configured');
   assert(operatorIds.includes('HALOPESA'), 'C1: HaloPesa is configured');
+  assert(operatorIds.includes('CRDB'), 'C1: CRDB Bank is configured');
+  assert(operatorIds.includes('NMB'), 'C1: NMB Bank is configured');
 
   // C2: Non-canonical methods are NOT present in primary checkout
   assert(!operatorIds.includes('CARD' as any), 'C2: Card payment is NOT in mobile money checkout');

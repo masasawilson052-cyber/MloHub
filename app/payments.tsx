@@ -109,6 +109,12 @@ export default function PaymentsScreen() {
     if (rawMethod.includes('HALO') || rawProvider.includes('HALO')) {
       return { code: 'HALOPESA', name: 'HaloPesa', color: colors.primary, bg: colors.primarySoft };
     }
+    if (rawMethod.includes('CRDB') || rawProvider.includes('CRDB')) {
+      return { code: 'CRDB', name: 'CRDB Bank', color: '#00843D', bg: colors.successSoft };
+    }
+    if (rawMethod.includes('NMB') || rawProvider.includes('NMB')) {
+      return { code: 'NMB', name: 'NMB Bank', color: '#F58220', bg: colors.surfaceInteractive };
+    }
     if (rawMethod.includes('MPESA') || rawMethod.includes('M_PESA') || rawProvider.includes('VODACOM')) {
       return { code: 'MPESA', name: 'M-Pesa', color: colors.success, bg: colors.successSoft };
     }

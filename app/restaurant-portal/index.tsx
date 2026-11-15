@@ -49,6 +49,7 @@ import {
   RestaurantVerificationDocument,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { isPartnerOnlyApp } from '../../lib/appVariant';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import {
   listDocumentsForApplication,
@@ -124,6 +125,7 @@ export default function RestaurantPortalScreen() {
     activeWorkspace,
     switchWorkspace,
     refreshProfile,
+    logout,
   } = useAuth();
 
   const [checkingApp, setCheckingApp] = useState(false);
@@ -719,16 +721,27 @@ export default function RestaurantPortalScreen() {
           </Text>
           <TouchableOpacity
             style={styles.gatePrimaryBtn}
-            onPress={() => router.replace('/')}
+            onPress={async () => {
+              if (isPartnerOnlyApp()) {
+                await logout();
+                router.replace('/auth/login?type=restaurant');
+                return;
+              }
+              router.replace('/');
+            }}
           >
-            <Text style={styles.gatePrimaryBtnText}>Rudi Nyumbani</Text>
+            <Text style={styles.gatePrimaryBtnText}>
+              {isPartnerOnlyApp() ? 'Badili Akaunti / Sign Out' : 'Rudi Nyumbani'}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.gateSecondaryBtn}
-            onPress={() => router.replace('/(tabs)/profile')}
-          >
-            <Text style={styles.gateSecondaryBtnText}>Tazama Profaili Yangu</Text>
-          </TouchableOpacity>
+          {!isPartnerOnlyApp() && (
+            <TouchableOpacity
+              style={styles.gateSecondaryBtn}
+              onPress={() => router.replace('/(tabs)/profile')}
+            >
+              <Text style={styles.gateSecondaryBtnText}>Tazama Profaili Yangu</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </SafeAreaView>
     );

@@ -15,6 +15,8 @@ const PAYMENT_LOGOS: Record<string, ImageSourcePropType> = {
   AIRTEL_MONEY: require('../../assets/payments/airtel-money.png'),
   MIXX_BY_YAS: require('../../assets/payments/mixx-by-yas.png'),
   HALOPESA: require('../../assets/payments/halopesa.png'),
+  CRDB: require('../../assets/payments/crdb.png'),
+  NMB: require('../../assets/payments/nmb.png'),
 };
 
 /**
@@ -43,6 +45,10 @@ export const PaymentProviderLogo: React.FC<PaymentProviderLogoProps> = ({
         return 'Y';
       case 'HALOPESA':
         return 'H';
+      case 'CRDB':
+        return 'C';
+      case 'NMB':
+        return 'N';
       default:
         return 'P';
     }

@@ -14,7 +14,9 @@ export type MobileMoneyMethodCode =
   | 'MPESA'
   | 'AIRTEL_MONEY'
   | 'MIXX_BY_YAS'
-  | 'HALOPESA';
+  | 'HALOPESA'
+  | 'CRDB'
+  | 'NMB';
 
 export interface MobileMoneyMethodConfig {
   id: MobileMoneyMethodCode;
@@ -83,6 +85,30 @@ export const MOBILE_MONEY_METHODS: MobileMoneyMethodConfig[] = [
     phonePrefixes: ['062', '25562'],
     accentColor: '#FF6600',
     logoFilename: 'halopesa.png',
+  },
+  {
+    id: 'CRDB',
+    displayName: 'CRDB Bank',
+    carrierName: 'CRDB SimBanking',
+    shortName: 'CRDB',
+    ussdCode: '*150*03#',
+    ussdGuidanceEn: 'Look for the CRDB SimBanking prompt on your phone or dial *150*03# and enter your PIN to approve.',
+    ussdGuidanceSw: 'Angalia ujumbe wa CRDB SimBanking kwenye simu yako au piga *150*03# kisha weka PIN kukamilisha.',
+    phonePrefixes: [],
+    accentColor: '#00843D',
+    logoFilename: 'crdb.png',
+  },
+  {
+    id: 'NMB',
+    displayName: 'NMB Bank',
+    carrierName: 'NMB Mkononi',
+    shortName: 'NMB',
+    ussdCode: '*150*66#',
+    ussdGuidanceEn: 'Look for the NMB Mkononi prompt on your phone or dial *150*66# and enter your PIN to approve.',
+    ussdGuidanceSw: 'Angalia ujumbe wa NMB Mkononi kwenye simu yako au piga *150*66# kisha weka PIN kukamilisha.',
+    phonePrefixes: [],
+    accentColor: '#F58220',
+    logoFilename: 'nmb.png',
   },
 ];
 

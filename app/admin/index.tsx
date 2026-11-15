@@ -59,6 +59,7 @@ import {
   MerchantSettlement,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import { isAdminOnlyApp } from '../../lib/appVariant';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import { AdminSystemHealthService, PlatformHealthStatus } from '../../services/AdminSystemHealthService';
@@ -386,7 +387,7 @@ export default function AdminPortalScreen() {
           <View style={styles.unauthActions}>
             <TouchableOpacity
               style={[styles.unauthPrimaryBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/auth/login')}
+              onPress={() => router.push('/auth/login?type=admin')}
             >
               <Text style={styles.unauthPrimaryBtnText}>Log In as Admin</Text>
             </TouchableOpacity>
@@ -399,10 +400,17 @@ export default function AdminPortalScreen() {
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => router.replace('/')}
+              onPress={async () => {
+                if (isAdminOnlyApp()) {
+                  await logout();
+                  router.replace('/auth/login?type=admin');
+                  return;
+                }
+                router.replace('/');
+              }}
             >
               <Text style={[styles.unauthSecondaryBtnText, { color: colors.textPrimary }]}>
-                Back to Customer App
+                {isAdminOnlyApp() ? 'Switch Admin Account' : 'Back to Customer App'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -853,7 +861,7 @@ export default function AdminPortalScreen() {
         onRefresh={loadPlatformData}
         onLogout={async () => {
           await logout();
-          router.replace('/auth/login');
+          router.replace(isAdminOnlyApp() ? '/auth/login?type=admin' : '/auth/login');
         }}
       />
 

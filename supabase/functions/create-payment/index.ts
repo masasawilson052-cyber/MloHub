@@ -17,6 +17,10 @@ function dbPaymentMethod(method: PaymentMethodCode): string {
       return 'MIXX_BY_YAS';
     case 'HALOPESA':
       return 'HALOPESA';
+    case 'CRDB':
+      return 'CRDB';
+    case 'NMB':
+      return 'NMB';
     case 'CARD':
       return 'CARD';
     default:

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'rea
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { isPartnerOnlyApp } from '../../lib/appVariant';
 import { UserRole } from '../../db/types';
 import { Colors, Shadows } from '../../constants/theme';
 import { ApplicationRepository } from '../../repositories/applications.repository';
@@ -26,6 +27,7 @@ export default function PartnerIndexRoute() {
     activeRestaurant,
     switchWorkspace,
     refreshProfile,
+    logout,
   } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [pendingApp, setPendingApp] = useState<RestaurantApplication | null>(null);
@@ -145,8 +147,20 @@ export default function PartnerIndexRoute() {
             <Text style={styles.appRefLabel}>Kumbukumbu ya Ombi / Reference ID:</Text>
             <Text style={styles.appRefCode}>{pendingApp.id}</Text>
           </View>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
-            <Text style={styles.backBtnText}>Rudi Nyumbani / Return to Home</Text>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={async () => {
+              if (isPartnerOnlyApp()) {
+                await logout();
+                router.replace('/auth/login?type=restaurant');
+                return;
+              }
+              router.replace('/');
+            }}
+          >
+            <Text style={styles.backBtnText}>
+              {isPartnerOnlyApp() ? 'Ondoka / Switch Account' : 'Rudi Nyumbani / Return to Home'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -159,8 +173,20 @@ export default function PartnerIndexRoute() {
         <Ionicons name="alert-circle" size={48} color="#dc2626" />
         <Text style={styles.errorTitle}>Workspace Access Error</Text>
         <Text style={styles.errorSub}>{error}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
-          <Text style={styles.backBtnText}>Return to Home</Text>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={async () => {
+            if (isPartnerOnlyApp()) {
+              await logout();
+              router.replace('/auth/login?type=restaurant');
+              return;
+            }
+            router.replace('/');
+          }}
+        >
+          <Text style={styles.backBtnText}>
+            {isPartnerOnlyApp() ? 'Sign Out / Switch Account' : 'Return to Home'}
+          </Text>
         </TouchableOpacity>
       </View>
     );

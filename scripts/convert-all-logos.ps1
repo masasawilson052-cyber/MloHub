@@ -46,3 +46,9 @@ Convert-Image "C:\Users\hp\Downloads\Mixx_by_Yas-860x645-1 (1).jpg" "$baseDir\mi
 
 # 4. HALOPESA (transparent background)
 Convert-Image "C:\Users\hp\Downloads\halopesa.png" "$baseDir\halopesa.png" 33 136 976 246 460 116 0 0 0 0
+
+# 5. CRDB (transparent background)
+Convert-Image "C:\Users\hp\Downloads\images.png" "$baseDir\crdb.png" 0 0 725 275 494 187 0 0 0 0
+
+# 6. NMB (transparent background)
+Convert-Image "C:\Users\hp\Downloads\download.png" "$baseDir\nmb.png" 8 45 150 58 490 189 0 0 0 0

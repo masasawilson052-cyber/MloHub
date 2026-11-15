@@ -45,7 +45,7 @@ export class ClickPesaGateway implements PaymentGateway {
   this.assertConfigured();
   if(!Number.isSafeInteger(request.amount)||request.amount<=0||request.currency!=='TZS')throw new Error('A positive whole TZS amount is required.');
   if(!/^[a-z0-9]{1,20}$/i.test(request.orderReference))throw new Error('Use a unique alphanumeric payment reference of at most 20 characters.');
-  if(!['MPESA','AIRTEL_MONEY','MIXX_BY_YAS','HALOPESA'].includes(request.methodCode))throw new Error('USSD collection supports mobile money only.');
+  if(!['MPESA','AIRTEL_MONEY','MIXX_BY_YAS','HALOPESA','CRDB','NMB'].includes(request.methodCode))throw new Error('USSD collection supports mobile money and banks only.');
   let phone=request.phoneNumber.replace(/[^0-9]/g,'');if(/^0[67]\d{8}$/.test(phone))phone='255'+phone.slice(1);
   if(!/^255[67]\d{8}$/.test(phone))throw new Error('Enter a valid Tanzanian mobile-money phone number.');
   const payload={amount:String(request.amount),currency:'TZS',orderReference:request.orderReference,phoneNumber:phone};
