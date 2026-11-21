@@ -273,6 +273,8 @@ export interface Translations {
   restaurantRetry: string;
   reserveTableBtn: string;
   menuAllCategories: string;
+  itemsCount: string;
+  itemSingularCount: string;
   mamaNtilie: string;
 
   // Image Upload & Media
@@ -553,6 +555,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     restaurantRetry: 'Retry',
     reserveTableBtn: 'Reserve a Table',
     menuAllCategories: 'All',
+    itemsCount: 'items',
+    itemSingularCount: 'item',
     mamaNtilie: 'Mama Ntilie',
 
     // Image Upload & Media
@@ -831,6 +835,8 @@ const TRANSLATIONS: Record<Language, Translations> = {
     restaurantRetry: 'Jaribu Tena',
     reserveTableBtn: 'Weka Meza',
     menuAllCategories: 'Zote',
+    itemsCount: 'vyakula',
+    itemSingularCount: 'chakula',
     mamaNtilie: 'Mama Ntilie',
 
     // Image Upload & Media

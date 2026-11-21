@@ -1,15 +1,12 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
-  Platform,
 } from 'react-native';
 import { Badge } from '../ui/Badge';
 import { PriceText } from '../ui/PriceText';
-import { FreshnessBadge } from '../ui/FreshnessBadge';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -48,40 +45,31 @@ export interface MenuSectionProps {
   categories: string[];
   dbCategories?: CategoryItem[];
   menuItems: MenuItem[];
-  highlightedDish?: MenuItem | null;
-  selectedCategory: string;
-  onSelectCategory: (category: string) => void;
   onAddToCart: (dish: MenuItem, sourceRef?: React.RefObject<View | null>) => void;
   isDishAddPending: (dishId: string) => boolean;
   getItemCartQuantity: (dishId: string) => number;
   restaurant: any;
   selectedBranch?: any;
-  scrollViewRef?: React.RefObject<ScrollView | null>;
+  onSectionLayout?: (category: string, relativeY: number) => void;
 }
 
 export const MenuSection: React.FC<MenuSectionProps> = ({
   categories,
   dbCategories = [],
   menuItems,
-  highlightedDish,
-  selectedCategory,
-  onSelectCategory,
   onAddToCart,
   isDishAddPending,
   getItemCartQuantity,
   restaurant,
   selectedBranch,
-  scrollViewRef,
+  onSectionLayout,
 }) => {
   const { t, language } = useLanguage();
   const { colors: _tc } = useTheme();
   colors = _tc;
   const styles = createStyles(colors);
 
-  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
   const imageRefs = useRef<Record<string, React.RefObject<View | null>>>({});
-  const categoryOffsets = useRef<Record<string, number>>({});
-  const highlightedRef = useRef<View | null>(null);
 
   const getImageRef = (dishId: string) => {
     if (!imageRefs.current[dishId]) {
@@ -103,136 +91,19 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
     return groups;
   }, [menuItems, language]);
 
-  // Categories to display
-  const activeCategories = useMemo(() => {
-    if (selectedCategory !== 'All') {
-      return [selectedCategory];
-    }
-    return Object.keys(groupedMenu);
-  }, [selectedCategory, groupedMenu]);
-
-  const handleCategoryPress = (cat: string) => {
-    onSelectCategory(cat);
-    if (cat === 'All') {
-      const topY = categoryOffsets.current['All'] ?? 0;
-      if (scrollViewRef?.current) {
-        scrollViewRef.current.scrollTo({ y: Math.max(0, topY - 10), animated: true });
-      }
-      return;
-    }
-    const targetY = categoryOffsets.current[cat];
-    if (targetY != null && scrollViewRef?.current) {
-      scrollViewRef.current.scrollTo({ y: Math.max(0, targetY - 60), animated: true });
-    }
-  };
+  // Always render ALL categories in order (jumping rather than single-category filtering)
+  const allCategoryNames = useMemo(() => {
+    const definedOrder = categories.filter((c) => c !== 'All');
+    const existingKeys = Object.keys(groupedMenu);
+    const ordered = definedOrder.filter((c) => existingKeys.includes(c));
+    const remaining = existingKeys.filter((c) => !ordered.includes(c));
+    return [...ordered, ...remaining];
+  }, [categories, groupedMenu]);
 
   return (
     <View style={styles.container}>
-      {/* Highlighted Dish from Discovery (Target Intent) */}
-      {highlightedDish ? (
-        <View style={styles.highlightedSection}>
-          <View style={styles.highlightedHeaderRow}>
-            <Text style={styles.highlightedEyebrow}>
-              {language === 'sw' ? 'CHAKULA ULICHOTAFUTA' : 'YOU SEARCHED FOR THIS DISH'}
-            </Text>
-            {highlightedDish.freshnessTier || highlightedDish.verificationTier ? (
-              <FreshnessBadge
-                tier={
-                  (highlightedDish.freshnessTier ||
-                    highlightedDish.verificationTier) as any
-                }
-                size="sm"
-              />
-            ) : null}
-          </View>
-          <View style={styles.highlightedCard}>
-            {(highlightedDish.imageUrl || highlightedDish.photoUrl) ? (
-              <View ref={highlightedRef} collapsable={false} style={styles.dishThumbWrap}>
-                <FoodImage
-                  source={highlightedDish.imageUrl || highlightedDish.photoUrl}
-                  cardSource={highlightedDish.photoCardUrl || highlightedDish.imageCardUrl}
-                  style={styles.dishThumb}
-                  priority="high"
-                  fallbackIconSize={24}
-                  alt={highlightedDish.name}
-                />
-              </View>
-            ) : null}
-
-            <View style={styles.dishInfoCol}>
-              <Text style={styles.dishName}>{highlightedDish.name}</Text>
-              {highlightedDish.desc ? (
-                <Text style={styles.dishDesc} numberOfLines={2}>
-                  {highlightedDish.desc}
-                </Text>
-              ) : null}
-              <PriceText
-                amountTzs={highlightedDish.priceNum}
-                size="sm"
-                color={colors.primary}
-                style={styles.priceRow}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.addBtn,
-                isDishAddPending(highlightedDish.id) && { opacity: 0.65 },
-              ]}
-              disabled={isDishAddPending(highlightedDish.id)}
-              onPress={() => onAddToCart(highlightedDish, highlightedRef)}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel={`Add ${highlightedDish.name} to order`}
-            >
-              <Text style={styles.addBtnText}>
-                {isDishAddPending(highlightedDish.id) ? '...' : language === 'sw' ? '+ Ongeza' : '+ Add'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
-
-      {/* Sticky Category Tabs Bar */}
-      <View
-        style={styles.stickyHeaderWrap}
-        onLayout={(e) => {
-          categoryOffsets.current['All'] = e.nativeEvent.layout.y;
-        }}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryPillsRow}
-        >
-          {categories.map((cat) => {
-            const isActive = selectedCategory === cat;
-            return (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-                onPress={() => handleCategoryPress(cat)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={`Category ${cat}`}
-              >
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    isActive && styles.categoryPillTextActive,
-                  ]}
-                >
-                  {cat === 'All' ? t('menuAllCategories') : cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Category Sections & Menu Cards */}
       <View style={styles.menuContainer}>
-        {activeCategories.length === 0 ? (
+        {allCategoryNames.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
               {language === 'sw'
@@ -241,7 +112,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
             </Text>
           </View>
         ) : (
-          activeCategories.map((catName) => {
+          allCategoryNames.map((catName) => {
             const items = groupedMenu[catName] || [];
             if (items.length === 0) return null;
 
@@ -250,14 +121,15 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                 key={catName}
                 style={styles.categoryGroup}
                 onLayout={(e) => {
-                  categoryOffsets.current[catName] = e.nativeEvent.layout.y;
+                  const relY = e.nativeEvent.layout.y;
+                  onSectionLayout?.(catName, relY);
                 }}
               >
-                {/* Category Header */}
+                {/* Category Header with localized item count */}
                 <View style={styles.categoryHeader}>
                   <Text style={styles.categoryTitle}>{catName}</Text>
                   <Text style={styles.categoryCount}>
-                    {items.length} {language === 'sw' ? 'vyakula' : 'items'}
+                    {items.length} {items.length === 1 ? t('itemSingularCount') : t('itemsCount')}
                   </Text>
                 </View>
 
@@ -268,8 +140,6 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                     const inCart = cartQty > 0;
                     const isPending = isDishAddPending(dish.id);
                     const isSoldOut = dish.isAvailable === false;
-                    const hasRealImage =
-                      Boolean(dish.imageUrl) && !brokenImages[dish.id];
                     const itemRef = getImageRef(dish.id);
 
                     return (
@@ -387,71 +257,6 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
     container: {
       width: '100%',
-    },
-    highlightedSection: {
-      marginHorizontal: Spacing.md,
-      marginTop: Spacing.xs,
-      marginBottom: Spacing.sm,
-      padding: Spacing.md,
-      backgroundColor: colors.warningSoft,
-      borderRadius: Radii.lg,
-      borderWidth: 1.5,
-      borderColor: colors.warning,
-    },
-    highlightedHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: Spacing.xs,
-    },
-    highlightedEyebrow: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: colors.warning,
-      letterSpacing: 0.5,
-    },
-    highlightedCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.card,
-      borderRadius: Radii.md,
-      padding: Spacing.md,
-      marginTop: 4,
-    },
-    stickyHeaderWrap: {
-      position: (Platform.OS === 'web' ? 'sticky' : 'relative') as any,
-      top: 0,
-      zIndex: 100,
-      backgroundColor: colors.card,
-      paddingVertical: Spacing.xs,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      ...Shadows.sm,
-    },
-    categoryPillsRow: {
-      paddingHorizontal: Spacing.md,
-      gap: Spacing.xs,
-    },
-    categoryPill: {
-      paddingHorizontal: Spacing.md,
-      paddingVertical: 7,
-      borderRadius: Radii.full,
-      backgroundColor: colors.surfaceInteractive,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    categoryPillActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    categoryPillText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    categoryPillTextActive: {
-      color: colors.onPrimary,
-      fontWeight: '700',
     },
     menuContainer: {
       paddingHorizontal: Spacing.md,

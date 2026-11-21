@@ -213,6 +213,7 @@ export class MenuRepository {
       description_sw: item.descriptionSw || item.description,
       price_tzs: priceTzs,
       photo_url: item.photoUrl || item.imageUrl,
+      photo_card_url: item.photoCardUrl || null,
       stock_quantity: item.stockQuantity ?? 50,
       is_available: item.isAvailable ?? true,
       is_archived: false,
@@ -270,6 +271,9 @@ export class MenuRepository {
     }
     if (updates.photoUrl !== undefined || updates.imageUrl !== undefined) {
       payload.photo_url = (updates.photoUrl ?? updates.imageUrl) || null;
+    }
+    if (updates.photoCardUrl !== undefined) {
+      payload.photo_card_url = updates.photoCardUrl || null;
     }
     if (updates.stockQuantity !== undefined) {
       payload.stock_quantity = updates.stockQuantity;

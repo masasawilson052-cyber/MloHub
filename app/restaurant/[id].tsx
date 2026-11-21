@@ -29,12 +29,19 @@ import {
   RestaurantHeader,
   RestaurantDecisionFacts,
   MenuSection,
+  CategoryTabBar,
+  HighlightedDishBanner,
   RestaurantSkeleton,
   RestaurantErrorView,
   MenuItem,
   CategoryItem,
   createRestaurantDetailStyles,
 } from '../../components/restaurant-page';
+import {
+  jumpTargetY,
+  activeCategoryAt,
+  tabPillScrollX,
+} from '../../utils/menuScroll';
 
 let colors: ThemeColors = lightColors;
 
@@ -60,11 +67,65 @@ export default function RestaurantDetailScreen() {
   const { requestAddToCart, isDishAddPending } = useCartInteraction();
 
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [activeCategory, setActiveCategory] = useState('All');
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const scrollViewRef = useRef<ScrollView | null>(null);
+  const tabScrollViewRef = useRef<ScrollView | null>(null);
+  const menuContainerYRef = useRef<number>(0);
+  const categoryRelativeOffsetsRef = useRef<Record<string, number>>({});
+  const tabPillOffsetsRef = useRef<Record<string, { x: number; width: number }>>({});
+  const isJumpingRef = useRef<boolean>(false);
+  const jumpTimeoutRef = useRef<any>(null);
+
+  const handleTabPress = (cat: string) => {
+    setActiveCategory(cat);
+    isJumpingRef.current = true;
+    if (jumpTimeoutRef.current) {
+      clearTimeout(jumpTimeoutRef.current);
+    }
+    jumpTimeoutRef.current = setTimeout(() => {
+      isJumpingRef.current = false;
+    }, 600);
+
+    const targetY = jumpTargetY({
+      category: cat,
+      menuContainerY: menuContainerYRef.current,
+      categoryRelativeOffsets: categoryRelativeOffsetsRef.current,
+      tabBarHeight: 52,
+    });
+
+    scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+
+    const tabX = tabPillScrollX({
+      activeCategory: cat,
+      tabPillOffsets: tabPillOffsetsRef.current,
+      paddingLeft: 24,
+    });
+    tabScrollViewRef.current?.scrollTo({ x: tabX, animated: true });
+  };
+
+  const handleScroll = (e: any) => {
+    if (isJumpingRef.current) return;
+    const scrollY = e.nativeEvent?.contentOffset?.y ?? 0;
+    const currentActive = activeCategoryAt({
+      scrollY,
+      menuContainerY: menuContainerYRef.current,
+      categoryRelativeOffsets: categoryRelativeOffsetsRef.current,
+      categories,
+      tabBarHeight: 52,
+    });
+    if (currentActive !== activeCategory) {
+      setActiveCategory(currentActive);
+      const tabX = tabPillScrollX({
+        activeCategory: currentActive,
+        tabPillOffsets: tabPillOffsetsRef.current,
+        paddingLeft: 24,
+      });
+      tabScrollViewRef.current?.scrollTo({ x: tabX, animated: true });
+    }
+  };
 
   // 1. Matched or Direct Fallback
   const matched = restaurants.find((r) => r.id === id);
@@ -342,40 +403,74 @@ export default function RestaurantDetailScreen() {
         ref={scrollViewRef}
         contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContainer]}
         showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       >
-        {/* 1. Header with Cover, Logo, Verified badge & Reservation CTA */}
-        <RestaurantHeader
-          restaurant={restaurant}
-          supportsReservations={supportsReservations}
-          onOpenReserveModal={() => setIsReserveModalOpen(true)}
-        />
+        {/* Child 0: Single Wrapper View with Header, Facts, and optional Highlighted Dish */}
+        <View style={styles.topInfoSlot}>
+          {/* 1. Header with Cover, Logo, Verified badge & Reservation CTA */}
+          <RestaurantHeader
+            restaurant={restaurant}
+            supportsReservations={supportsReservations}
+            onOpenReserveModal={() => setIsReserveModalOpen(true)}
+          />
 
-        {/* 2. Decision Facts Row: Open/Opens At/Closed, Delivery fee & time, Min order, Distance, Services */}
-        <RestaurantDecisionFacts
-          restaurant={restaurant}
-          branch={selectedBranch}
-          operatingHours={operatingHours}
-          deliveryZones={deliveryZones}
-          customerArea={customerLocation?.serviceAreaName || customerLocation?.cityName}
-          customerCoords={customerLocation?.latitude ? { latitude: customerLocation.latitude, longitude: customerLocation.longitude } : undefined}
-          supportsReservations={supportsReservations}
-        />
+          {/* 2. Decision Facts Row: Open/Opens At/Closed, Delivery fee & time, Min order, Distance, Services */}
+          <RestaurantDecisionFacts
+            restaurant={restaurant}
+            branch={selectedBranch}
+            operatingHours={operatingHours}
+            deliveryZones={deliveryZones}
+            customerArea={customerLocation?.serviceAreaName || customerLocation?.cityName}
+            customerCoords={customerLocation?.latitude ? { latitude: customerLocation.latitude, longitude: customerLocation.longitude } : undefined}
+            supportsReservations={supportsReservations}
+          />
 
-        {/* 3. Sticky Menu Categories & Dish Cards */}
-        <MenuSection
-          categories={categories}
-          dbCategories={dbCategories}
-          menuItems={menuItems}
-          highlightedDish={highlightedItem}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          onAddToCart={handleAddToCart}
-          isDishAddPending={isDishAddPending}
-          getItemCartQuantity={getItemCartQuantity}
-          restaurant={restaurant}
-          selectedBranch={selectedBranch}
-          scrollViewRef={scrollViewRef}
-        />
+          {/* Optional Highlighted Dish from Discovery (Target Intent) */}
+          {highlightedItem ? (
+            <HighlightedDishBanner
+              dish={highlightedItem}
+              onAddToCart={handleAddToCart}
+              isPending={isDishAddPending(highlightedItem.id)}
+            />
+          ) : null}
+        </View>
+
+        {/* Child 1: Sticky Category Tab Bar (Always strictly Child 1 for stickyHeaderIndices={[1]}) */}
+        <View style={styles.stickyTabBarWrap}>
+          <CategoryTabBar
+            categories={categories}
+            activeCategory={activeCategory}
+            onSelectCategory={handleTabPress}
+            tabScrollViewRef={tabScrollViewRef}
+            onPillLayout={(cat, layout) => {
+              tabPillOffsetsRef.current[cat] = layout;
+            }}
+          />
+        </View>
+
+        {/* Child 2: Menu Categories & Dish Cards (Rendering all categories, recording relative section offsets) */}
+        <View
+          style={styles.menuBodySlot}
+          onLayout={(e) => {
+            menuContainerYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <MenuSection
+            categories={categories}
+            dbCategories={dbCategories}
+            menuItems={menuItems}
+            onAddToCart={handleAddToCart}
+            isDishAddPending={isDishAddPending}
+            getItemCartQuantity={getItemCartQuantity}
+            restaurant={restaurant}
+            selectedBranch={selectedBranch}
+            onSectionLayout={(cat, relY) => {
+              categoryRelativeOffsetsRef.current[cat] = relY;
+            }}
+          />
+        </View>
 
         {/* 4. Google Maps Location Card */}
         <View style={styles.mapSectionCard}>

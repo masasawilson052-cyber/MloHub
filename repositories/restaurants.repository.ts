@@ -417,6 +417,7 @@ export class RestaurantRepository {
       closing_hours: restaurant.closingHours ?? '',
       logo_url: restaurant.logoUrl,
       cover_image_url: restaurant.coverImageUrl,
+      cover_card_url: restaurant.coverCardUrl,
       food_spot_photos: restaurant.foodSpotPhotos || [],
       specialty: restaurant.specialty,
       specialist_badge: restaurant.specialistBadge,
@@ -468,6 +469,7 @@ export class RestaurantRepository {
     if (updates.verificationStatus !== undefined) rowUpdates.verification_status = updates.verificationStatus;
     if (updates.sellerTier !== undefined) rowUpdates.seller_tier = updates.sellerTier;
     if (updates.coverImageUrl !== undefined) rowUpdates.cover_image_url = updates.coverImageUrl;
+    if (updates.coverCardUrl !== undefined) rowUpdates.cover_card_url = updates.coverCardUrl;
     if (updates.logoUrl !== undefined) rowUpdates.logo_url = updates.logoUrl;
     if (updates.foodSpotPhotos !== undefined) rowUpdates.food_spot_photos = updates.foodSpotPhotos;
     if (updates.openingHours !== undefined) rowUpdates.opening_hours = updates.openingHours;

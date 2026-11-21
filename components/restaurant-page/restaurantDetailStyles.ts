@@ -100,4 +100,15 @@ export const createRestaurantDetailStyles = (colors: ThemeColors) =>
       borderRadius: Radii.md,
       overflow: 'hidden',
     },
+    topInfoSlot: {
+      width: '100%',
+    },
+    stickyTabBarWrap: {
+      width: '100%',
+      zIndex: 10,
+      backgroundColor: colors.surface,
+    },
+    menuBodySlot: {
+      width: '100%',
+    },
   });

@@ -61,6 +61,7 @@ import { runRestaurant100PercentClosureTests } from './restaurant100PercentClosu
 import { runCategoryGridSearchTestSuite } from './categoryGridSearch.test';
 import { runRestaurantDecisionFactsTestSuite } from './restaurantDecisionFacts.test';
 import { runImageUrlSizingTestSuite } from './imageUrlSizing.test';
+import { runMenuScrollTestSuite } from './menuScroll.test';
 
 
 let passed = 0;
@@ -818,6 +819,11 @@ async function runMasterTestSuite() {
   const imageSizingResults = await runImageUrlSizingTestSuite();
   passed += imageSizingResults.passed;
   failed += imageSizingResults.failed;
+
+  // Menu Category Tab Scroll & Jump Mathematics Suite
+  const menuScrollResults = await runMenuScrollTestSuite();
+  passed += menuScrollResults.passed;
+  failed += menuScrollResults.failed;
 
   // Final Results
   console.log('\n================================================================');
