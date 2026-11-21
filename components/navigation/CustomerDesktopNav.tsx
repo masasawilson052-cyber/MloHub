@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, useWindowDimensions } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Radii } from '../../constants/theme';
@@ -25,9 +25,15 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
   const { user, isAuthenticated, logout } = useAuth();
   const { totalItems, setIsCartOpen } = useCart();
   const { unreadCount } = useNotifications();
+  const { width } = useWindowDimensions();
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+
+  const isCompactDesktop = width < 1040;
+  const showLogoTagline = width >= 1180;
+  const isSearchVisible = !isCompactDesktop || isSearchExpanded || searchQuery.length > 0;
 
   const handleDesktopLogout = async () => {
     const title = language === 'sw' ? 'Ondoka kwenye Akaunti' : 'Sign Out';
@@ -85,7 +91,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
         },
       ]}
     >
-      <View style={styles.innerContainer}>
+      <View style={[styles.innerContainer, width < 1040 && { paddingHorizontal: 10, gap: 8 }]}>
         {/* Brand Logo */}
         <TouchableOpacity
           style={styles.logoBtn}
@@ -98,53 +104,89 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
           </View>
           <View>
             <Text style={[styles.logoBrand, { color: colors.textPrimary }]}>MloHub</Text>
-            <Text style={[styles.logoTagline, { color: colors.textMuted }]}>
-              Tanzania Food Marketplace
-            </Text>
+            {showLogoTagline && (
+              <Text style={[styles.logoTagline, { color: colors.textMuted }]}>
+                Tanzania Food Marketplace
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
 
-        {/* Desktop Search Bar */}
-        <View
-          style={[
-            styles.searchBarContainer,
-            {
-              backgroundColor: colors.inputBackground,
-              borderColor: colors.inputBorder,
-            },
-          ]}
-        >
-          <Ionicons
-            name="search-outline"
-            size={17}
-            color={colors.textMuted}
-            style={styles.searchIcon}
-          />
-          <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={
-              language === 'sw'
-                ? 'Tafuta chakula, mgahawa au eneo...'
-                : 'Search dishes, restaurants, areas...'
-            }
-            placeholderTextColor={colors.inputPlaceholder}
-            returnKeyType="search"
-            onSubmitEditing={handleSearchSubmit}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery('')}
-              style={styles.clearSearchBtn}
-            >
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Desktop Search Bar: Collapsible on < 1040px, inline responsive on >= 1040px */}
+        {isCompactDesktop && !isSearchVisible ? (
+          <TouchableOpacity
+            style={[
+              styles.iconActionBtn,
+              {
+                backgroundColor: colors.surfaceInteractive,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={() => setIsSearchExpanded(true)}
+            accessibilityRole="button"
+            accessibilityLabel={language === 'sw' ? 'Tafuta' : 'Search'}
+          >
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={colors.textPrimary}
+            />
+          </TouchableOpacity>
+        ) : (
+          <View
+            style={[
+              isCompactDesktop ? styles.searchBarContainerCompact : styles.searchBarContainer,
+              !isCompactDesktop && { maxWidth: width >= 1280 ? 280 : 180 },
+              {
+                backgroundColor: colors.inputBackground,
+                borderColor: colors.inputBorder,
+              },
+            ]}
+          >
+            <Ionicons
+              name="search-outline"
+              size={16}
+              color={colors.textMuted}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              style={[styles.searchInput, { color: colors.textPrimary }]}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoFocus={isCompactDesktop && isSearchExpanded}
+              placeholder={
+                isCompactDesktop
+                  ? (language === 'sw' ? 'Tafuta...' : 'Search...')
+                  : (language === 'sw'
+                      ? 'Tafuta chakula, mgahawa au eneo...'
+                      : 'Search dishes, restaurants, areas...')
+              }
+              placeholderTextColor={colors.inputPlaceholder}
+              returnKeyType="search"
+              onSubmitEditing={handleSearchSubmit}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearSearchBtn}
+              >
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : isCompactDesktop ? (
+              <TouchableOpacity
+                onPress={() => setIsSearchExpanded(false)}
+                style={styles.clearSearchBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close search"
+              >
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
 
         {/* Central Nav Links */}
-        <View style={styles.navLinksRow}>
+        <View style={[styles.navLinksRow, width < 1150 && { gap: 2 }]}>
           {navItems.map((item) => {
             const active = isActive(item.path);
             return (
@@ -152,6 +194,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
                 key={item.path}
                 style={[
                   styles.navLink,
+                  width < 1150 && { paddingHorizontal: 6, gap: 3 },
                   active && { backgroundColor: colors.navActiveBackground },
                 ]}
                 onPress={() => router.push(item.path as any)}
@@ -160,15 +203,17 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
               >
                 <Ionicons
                   name={(active ? item.activeIcon : item.icon) as any}
-                  size={17}
+                  size={16}
                   color={active ? colors.primary : colors.navText}
                 />
                 <Text
                   style={[
                     styles.navLinkLabel,
+                    width < 1150 && { fontSize: 12 },
                     { color: active ? colors.navActiveText : colors.navText },
                     active && styles.navLinkLabelActive,
                   ]}
+                  numberOfLines={1}
                 >
                   {item.label}
                 </Text>
@@ -178,7 +223,7 @@ export const CustomerDesktopNav: React.FC<CustomerDesktopNavProps> = ({ onOpenCa
         </View>
 
         {/* Right Actions: Language, Theme, Notifications, Cart, Profile */}
-        <View style={styles.rightActionsRow}>
+        <View style={[styles.rightActionsRow, width < 1040 && { gap: 5 }]}>
           {/* Language Switch */}
           <TouchableOpacity
             style={[
@@ -362,13 +407,26 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   searchBarContainer: {
     flex: 1,
-    maxWidth: 320,
+    maxWidth: 280,
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: Radii.full,
     borderWidth: 1,
     paddingHorizontal: 12,
     height: 38,
+    flexShrink: 1,
+  },
+  searchBarContainerCompact: {
+    position: 'absolute',
+    left: 110,
+    right: 250,
+    height: 38,
+    zIndex: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radii.full,
+    borderWidth: 1,
+    paddingHorizontal: 12,
   },
   searchIcon: {
     marginRight: 6,

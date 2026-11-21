@@ -18,12 +18,14 @@ import { DishCardSkeleton } from '../../components/discovery/DishCardSkeleton';
 import { CustomMealBanner } from '../../components/CustomMealBanner';
 import { LocationModal } from '../../components/LocationModal';
 import { WelcomeSheet } from '../../components/WelcomeSheet';
+import { CategoryGrid } from '../../components/discovery/CategoryGrid';
 import { ReservationModal } from '../../components/ReservationModal';
 import { RestaurantCard } from '../../components/RestaurantCard';
 import { ServiceCard } from '../../components/ServiceCard';
 import { Restaurant } from '../../types/domain';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
+import { DESKTOP_MIN_WIDTH } from '../../constants/layout';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
@@ -248,12 +250,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* Header */}
-      <Header
-        location={currentLocation}
-        onOpenLocation={openLocationSelector}
-        onOpenProfile={() => router.push('/(tabs)/profile')}
-      />
+      {/* Header: Visible only on mobile/tablet below DESKTOP_MIN_WIDTH */}
+      {width < DESKTOP_MIN_WIDTH && (
+        <Header
+          location={currentLocation}
+          onOpenLocation={openLocationSelector}
+          onOpenProfile={() => router.push('/(tabs)/profile')}
+        />
+      )}
 
       <ScrollView
         contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContainer]}
@@ -328,6 +332,9 @@ export default function HomeScreen() {
               );
             })}
           </View>
+
+          {/* 1-Tap Category Grid (Fast Craving Discovery) */}
+          <CategoryGrid />
         </View>
 
         {/* SECTION 1: POPULAR DISHES NEAR YOU */}

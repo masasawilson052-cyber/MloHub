@@ -11,6 +11,7 @@ import { CustomerDesktopNav } from '../../components/navigation/CustomerDesktopN
 import { ThemeQuickSwitcher } from '../../components/theme/ThemeQuickSwitcher';
 import { CustomerCartHost } from '../../components/cart/CustomerCartHost';
 import { Spacing } from '../../constants/theme';
+import { DESKTOP_MIN_WIDTH } from '../../constants/layout';
 
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
@@ -22,7 +23,7 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const segments = useSegments();
-  const isDesktop = width >= 900;
+  const isDesktop = width >= DESKTOP_MIN_WIDTH;
   const activeTab = (segments as readonly string[])[1] ?? 'index';
   const isCommerceTab =
     activeTab === 'index' || activeTab === 'explore' || activeTab === 'custom';

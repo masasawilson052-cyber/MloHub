@@ -27,6 +27,8 @@ import { DiscoveryRepository } from '../../repositories/discovery.repository';
 import { DishDiscoveryResult, DiscoveryQuery, DiscoverySort } from '../../types/discovery';
 import { AnalyticsService } from '../../services/AnalyticsService';
 import { useMloHubDB } from '../../context/DbContext';
+import { getCategoryById, FoodCategory } from '../../config/foodCategories';
+import { searchByCategory } from '../../services/categorySearch';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -45,12 +47,25 @@ export default function ExploreScreen() {
     openNow?: string;
     neighborhood?: string;
     mode?: string;
+    category?: string;
   }>();
 
   const { t, language } = useLanguage();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
   const { restaurants } = useMloHubDB();
+
+  const [selectedCategory, setSelectedCategory] = useState<FoodCategory | undefined>(() =>
+    params.category ? getCategoryById(params.category) : undefined
+  );
+
+  useEffect(() => {
+    if (params.category) {
+      setSelectedCategory(getCategoryById(params.category));
+    } else {
+      setSelectedCategory(undefined);
+    }
+  }, [params.category]);
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>(params.mode === 'map' ? 'map' : 'list');
   const [searchQuery, setSearchQuery] = useState(params.q || '');
@@ -86,62 +101,103 @@ export default function ExploreScreen() {
     (filters.minRating ? 1 : 0) +
     (filters.neighborhood && filters.neighborhood !== 'All' ? 1 : 0);
 
-  const executeSearch = useCallback(async (currentFilters: DiscoveryQuery, sortMode: DiscoverySort) => {
-    setIsLoading(true);
-    try {
-      const marketplacePromise = currentFilters.query && currentFilters.query.trim().length >= 2
-        ? DiscoveryRepository.searchMarketplace(
-            currentFilters.query.trim(),
-            customerLocation.latitude,
-            customerLocation.longitude,
-            10
-          )
-        : Promise.resolve({ restaurants: [], dishes: [], cuisines: [] });
+  const executeSearch = useCallback(
+    async (
+      currentFilters: DiscoveryQuery,
+      sortMode: DiscoverySort,
+      activeCategory?: FoodCategory
+    ) => {
+      setIsLoading(true);
+      try {
+        if (activeCategory && !currentFilters.query) {
+          // Parallel multi-channel category search: cuisineTypes + top 3 keywords, de-duplicated & sorted
+          const response = await searchByCategory(
+            activeCategory,
+            {
+              ...currentFilters,
+              latitude: customerLocation.latitude,
+              longitude: customerLocation.longitude,
+            },
+            sortMode
+          );
+          setResults(response.results);
+          setTotalCount(response.totalCount);
+          setMatchedRestaurants([]);
+          setMatchedCuisines(activeCategory.cuisineTypes || []);
+          setSimilarDishes([]);
+          return;
+        }
 
-      const [response, marketData] = await Promise.all([
-        DiscoveryService.searchDishes({
-          ...currentFilters,
-          latitude: customerLocation.latitude,
-          longitude: customerLocation.longitude,
-          sortBy: sortMode,
-          limit: 30,
-        }),
-        marketplacePromise,
-      ]);
+        const effectiveCuisineTypes =
+          activeCategory && activeCategory.cuisineTypes.length > 0
+            ? activeCategory.cuisineTypes
+            : currentFilters.cuisineTypes;
 
-      setResults(response.results);
-      setTotalCount(response.totalCount);
-      setMatchedRestaurants(marketData.restaurants || []);
-      setMatchedCuisines(marketData.cuisines || []);
+        const marketplacePromise =
+          currentFilters.query && currentFilters.query.trim().length >= 2
+            ? DiscoveryRepository.searchMarketplace(
+                currentFilters.query.trim(),
+                customerLocation.latitude,
+                customerLocation.longitude,
+                10
+              )
+            : Promise.resolve({ restaurants: [], dishes: [], cuisines: [] });
 
-      AnalyticsService.trackEvent('SEARCH_COMPLETED', {
-        query: currentFilters.query,
-        neighborhood: currentFilters.neighborhood,
-        resultCount: response.totalCount,
-        sortMode,
-      });
+        const [response, marketData] = await Promise.all([
+          DiscoveryService.searchDishes({
+            ...currentFilters,
+            cuisineTypes: effectiveCuisineTypes,
+            latitude: customerLocation.latitude,
+            longitude: customerLocation.longitude,
+            sortBy: sortMode,
+            limit: 30,
+          }),
+          marketplacePromise,
+        ]);
 
-      if (response.totalCount === 0 && currentFilters.query) {
-        AnalyticsService.trackEvent('SEARCH_NO_RESULTS', {
+        setResults(response.results);
+        setTotalCount(response.totalCount);
+        setMatchedRestaurants(marketData.restaurants || []);
+        setMatchedCuisines(marketData.cuisines || []);
+
+        AnalyticsService.trackEvent('SEARCH_COMPLETED', {
           query: currentFilters.query,
-          filterValue: currentFilters.maxPriceTzs,
+          neighborhood: currentFilters.neighborhood,
+          resultCount: response.totalCount,
+          sortMode,
         });
-        const similar = await DiscoveryService.getSimilarDishes(currentFilters.query, currentFilters.maxPriceTzs);
-        setSimilarDishes(similar);
-      } else {
-        setSimilarDishes([]);
-      }
-    } catch (err) {
-      console.error('ExploreScreen: Discovery query failed:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [customerLocation.latitude, customerLocation.longitude]);
 
-  // Run search when query, filters, or sort change
+        if (response.totalCount === 0 && currentFilters.query) {
+          AnalyticsService.trackEvent('SEARCH_NO_RESULTS', {
+            query: currentFilters.query,
+            filterValue: currentFilters.maxPriceTzs,
+          });
+          const similar = await DiscoveryService.getSimilarDishes(
+            currentFilters.query,
+            currentFilters.maxPriceTzs
+          );
+          setSimilarDishes(similar);
+        } else {
+          setSimilarDishes([]);
+        }
+      } catch (err) {
+        console.error('ExploreScreen: Discovery query failed:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [customerLocation.latitude, customerLocation.longitude]
+  );
+
+  // Run search when query, filters, category or sort change
   useEffect(() => {
-    executeSearch({ ...filters, query: searchQuery }, activeSort);
-  }, [searchQuery, filters, activeSort, executeSearch]);
+    executeSearch({ ...filters, query: searchQuery }, activeSort, selectedCategory);
+  }, [searchQuery, filters, activeSort, selectedCategory, executeSearch]);
+
+  const handleClearCategory = () => {
+    setSelectedCategory(undefined);
+    router.setParams({ category: undefined as any });
+  };
 
   const handleClearFilters = () => {
     setFilters({
@@ -153,6 +209,8 @@ export default function ExploreScreen() {
       availableOnly: true,
     });
     setSearchQuery('');
+    setSelectedCategory(undefined);
+    router.setParams({ category: undefined as any });
   };
 
   const toggleCompare = (dish: DishDiscoveryResult) => {
@@ -229,6 +287,36 @@ export default function ExploreScreen() {
             activeCount={activeFilterCount}
           />
         ) : null}
+
+        {/* Active Category Filter Chip */}
+        {selectedCategory && (
+          <View style={styles.activeCategoryRow}>
+            <View style={styles.activeCategoryChip}>
+              <Ionicons
+                name={selectedCategory.icon as any}
+                size={16}
+                color={colors.primary}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.activeCategoryText}>
+                {language === 'sw' ? selectedCategory.labelSw : selectedCategory.labelEn}
+              </Text>
+              <TouchableOpacity
+                onPress={handleClearCategory}
+                style={styles.categoryChipClose}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  language === 'sw'
+                    ? `Ondoa kichujio cha ${selectedCategory.labelSw}`
+                    : `Remove ${selectedCategory.labelEn} filter`
+                }
+                activeOpacity={0.7}
+              >
+                <Ionicons name="close-circle" size={17} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Results Metadata & Sort Bar */}
         <View style={styles.metaRow}>
@@ -584,6 +672,31 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   restaurantMiniDistance: {
     fontSize: 10,
     color: colors.textSecondary,
+  },
+  activeCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+  },
+  activeCategoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceInteractive,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: Radii.full,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  activeCategoryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginRight: 6,
+  },
+  categoryChipClose: {
+    padding: 2,
   },
 });
 let styles = createStyles(lightColors);
