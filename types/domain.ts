@@ -48,6 +48,7 @@ export interface Restaurant {
   closingHours?: string;
   logoUrl?: string;
   coverImageUrl?: string;
+  coverCardUrl?: string;
   foodSpotPhotos?: string[];
   specialty?: string;
   specialistBadge?: string;
@@ -265,6 +266,7 @@ export interface MenuItem {
   priceTzs: number;
   currency: string;
   photoUrl?: string;
+  photoCardUrl?: string;
   imageUrl?: string;
   stockQuantity?: number;
   isAvailable: boolean;

@@ -360,12 +360,14 @@ export default function HomeScreen() {
             <DishCardSkeleton />
           </View>
         ) : popularDishes.length > 0 ? (
-          popularDishes.slice(0, 4).map((dish) => (
+          popularDishes.slice(0, 4).map((dish, idx) => (
             <DishCard
               key={dish.menuItemId}
               dish={dish}
               onToggleCompare={toggleCompare}
               isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
+              priority={idx < 2 ? 'high' : 'normal'}
+              isAboveFold={idx < 2}
             />
           ))
         ) : (
@@ -400,6 +402,8 @@ export default function HomeScreen() {
               dish={dish}
               onToggleCompare={toggleCompare}
               isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
+              priority="low"
+              isAboveFold={false}
             />
           ))
         ) : null}
@@ -423,6 +427,8 @@ export default function HomeScreen() {
               onToggleFavorite={() => toggleFavorite(restaurant.id)}
               onViewMenu={() => router.push(`/restaurant/${restaurant.id}`)}
               onReserve={() => setSelectedReserveRestaurant(restaurant as any)}
+              priority="low"
+              isAboveFold={false}
             />
           ))
         ) : (

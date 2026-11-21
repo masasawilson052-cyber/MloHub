@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -18,6 +17,7 @@ import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../trust/ReportDiscrepancyModal';
 import { useLanguage } from '../../context/LanguageContext';
+import { FoodImage } from '../ui/FoodImage';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -30,6 +30,8 @@ interface DishCardProps {
   onToggleCompare?: (dish: DishDiscoveryResult) => void;
   isCompared?: boolean;
   showCompareButton?: boolean;
+  priority?: 'low' | 'normal' | 'high';
+  isAboveFold?: boolean;
 }
 
 export const DishCard: React.FC<DishCardProps> = ({
@@ -38,6 +40,8 @@ export const DishCard: React.FC<DishCardProps> = ({
   onToggleCompare,
   isCompared = false,
   showCompareButton = true,
+  priority,
+  isAboveFold,
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
@@ -112,21 +116,17 @@ export const DishCard: React.FC<DishCardProps> = ({
     >
       {/* Visual / Image Section */}
       <View style={styles.imageContainer}>
-        {hasRealImage ? (
-          <View ref={dishImageRef} collapsable={false} style={styles.image}>
-            <Image
-              source={{ uri: dish.imageUrl }}
-              style={styles.image}
-              resizeMode="cover"
-              onError={() => setImageError(true)}
-            />
-          </View>
-        ) : (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderEmoji}>🍲</Text>
-            <Text style={styles.placeholderText}>{t('mlohubDishPlaceholder')}</Text>
-          </View>
-        )}
+        <View ref={dishImageRef} collapsable={false} style={styles.image}>
+          <FoodImage
+            source={dish.imageUrl}
+            cardSource={dish.imageCardUrl || (dish as any).photoCardUrl}
+            style={styles.image}
+            priority={priority}
+            isAboveFold={isAboveFold}
+            alt={primaryDishName}
+            onError={() => setImageError(true)}
+          />
+        </View>
 
         {/* Top Badges: Trust & Availability */}
         <View style={[styles.topBadgesRow, !showTrustPill && styles.topBadgesRowRightOnly]}>

@@ -274,6 +274,12 @@ export interface Translations {
   reserveTableBtn: string;
   menuAllCategories: string;
   mamaNtilie: string;
+
+  // Image Upload & Media
+  imageUploadTooLarge: string;
+  imageUploadFailed: string;
+  imageGalleryPermissionDenied: string;
+  imageCameraPermissionDenied: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -548,6 +554,12 @@ const TRANSLATIONS: Record<Language, Translations> = {
     reserveTableBtn: 'Reserve a Table',
     menuAllCategories: 'All',
     mamaNtilie: 'Mama Ntilie',
+
+    // Image Upload & Media
+    imageUploadTooLarge: 'Image exceeds 500 KB limit after compression. Please select a smaller photo.',
+    imageUploadFailed: 'Failed to upload image. Please try again.',
+    imageGalleryPermissionDenied: 'Permission to access device photo gallery was denied.',
+    imageCameraPermissionDenied: 'Permission to access device camera was denied.',
   },
   sw: {
     // Tabs
@@ -820,6 +832,12 @@ const TRANSLATIONS: Record<Language, Translations> = {
     reserveTableBtn: 'Weka Meza',
     menuAllCategories: 'Zote',
     mamaNtilie: 'Mama Ntilie',
+
+    // Image Upload & Media
+    imageUploadTooLarge: 'Picha inazidi kiwango cha 500 KB baada ya kupunguza ukubwa. Tafadhali chagua picha ndogo.',
+    imageUploadFailed: 'Imeshindwa kupakia picha. Tafadhali jaribu tena.',
+    imageGalleryPermissionDenied: 'Ruhusa ya kufungua picha haijatolewa.',
+    imageCameraPermissionDenied: 'Ruhusa ya kufungua kamera haijatolewa.',
   },
 };
 

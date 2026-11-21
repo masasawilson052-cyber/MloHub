@@ -166,6 +166,8 @@ export interface MenuItemEntity {
   priceTzs?: number;
   category: string;
   photoUrl?: string;
+  photoCardUrl?: string;
+  photo_card_url?: string;
   stockQuantity?: number;
   estimatedPrepTimeMinutes?: number;
   prepTimeMinutes?: number;
@@ -255,6 +257,8 @@ export interface RestaurantEntity {
   closingHours?: string;
   logoUrl?: string;
   coverImageUrl?: string;
+  coverCardUrl?: string;
+  cover_card_url?: string;
   specialty: string;
   specialistBadge?: string;
   specialistBadgeSw?: string;

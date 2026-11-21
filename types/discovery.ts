@@ -49,6 +49,7 @@ export interface DishDiscoveryResult {
   description?: string;
   descriptionSw?: string;
   imageUrl?: string;
+  imageCardUrl?: string;
 
   // Restaurant & Branch Context
   restaurantId: string;

@@ -31,6 +31,7 @@ export class MenuRepository {
       priceTzs: row.price_tzs || 0,
       currency: 'TZS',
       photoUrl: row.photo_url,
+      photoCardUrl: row.photo_card_url,
       imageUrl: row.photo_url,
       stockQuantity: row.stock_quantity ?? 50,
       isAvailable: row.is_available ?? true,

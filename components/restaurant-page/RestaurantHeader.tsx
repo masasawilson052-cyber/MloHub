@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 import { Spacing, Radii, Shadows } from '../../constants/theme';
+import { FoodImage } from '../ui/FoodImage';
 
 let colors: ThemeColors = lightColors;
 
@@ -24,6 +25,8 @@ interface RestaurantHeaderProps {
     logo_url?: string;
     coverImageUrl?: string;
     cover_image_url?: string;
+    coverCardUrl?: string;
+    cover_card_url?: string;
     foodSpotPhotos?: string[];
     sellerTier?: string;
     seller_tier?: string;
@@ -73,24 +76,25 @@ export const RestaurantHeader: React.FC<RestaurantHeaderProps> = ({
         ]}
       >
         {coverImage ? (
-          <Image
-            source={{ uri: coverImage }}
+          <FoodImage
+            source={coverImage}
+            cardSource={restaurant.coverCardUrl || restaurant.cover_card_url}
+            targetWidth={1200}
             style={[StyleSheet.absoluteFill, { opacity: 0.85 }]}
-            resizeMode="cover"
-            accessibilityRole="image"
-            accessibilityLabel={`${restaurant.name} cover`}
+            priority="high"
+            alt={`${restaurant.name} cover`}
           />
         ) : null}
 
         {/* Logo circle: Logo image or Initials in circle (No emoji) */}
         <View style={styles.logoCircle}>
           {logoImage ? (
-            <Image
-              source={{ uri: logoImage }}
+            <FoodImage
+              source={logoImage}
+              targetWidth={400}
               style={styles.logoImage}
-              resizeMode="cover"
-              accessibilityRole="image"
-              accessibilityLabel={`${restaurant.name} logo`}
+              priority="high"
+              alt={`${restaurant.name} logo`}
             />
           ) : (
             <Text style={styles.logoInitials}>

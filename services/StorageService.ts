@@ -1,5 +1,16 @@
 import { supabase } from '../lib/supabase';
 
+// Lazy load Platform to allow isomorphic execution in Node.js test runners
+function getPlatformOS(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const rn = require('react-native');
+    return rn?.Platform?.OS || 'web';
+  } catch {
+    return 'node';
+  }
+}
+
 // Lazy load ImagePicker to allow isomorphic execution in Node.js test runners
 let imagePickerModule: any = null;
 function getImagePicker(): any {
@@ -33,16 +44,47 @@ export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 export type MediaTargetKind = 'logo' | 'cover' | 'gallery' | 'menu' | 'avatar';
 
 export const TARGET_MAX_DIMENSIONS: Record<MediaTargetKind, number> = {
-  logo: 1000,
-  avatar: 1000,
-  menu: 1600,
-  gallery: 1600,
-  cover: 2000,
+  logo: 512,
+  avatar: 512,
+  menu: 1200,
+  gallery: 1200,
+  cover: 1600,
 };
 
 export interface MediaUploadResult {
   publicUrl: string;
   storagePath: string;
+  cardUrl?: string;
+  cardStoragePath?: string;
+}
+
+export function getImageErrorMessage(
+  key:
+    | 'imageUploadTooLarge'
+    | 'imageUploadFailed'
+    | 'imageGalleryPermissionDenied'
+    | 'imageCameraPermissionDenied',
+  lang: 'en' | 'sw' = 'en'
+): string {
+  const messages = {
+    imageUploadTooLarge: {
+      en: 'Image exceeds 500 KB limit after compression. Please select a smaller photo.',
+      sw: 'Picha inazidi kiwango cha 500 KB baada ya kupunguza ukubwa. Tafadhali chagua picha ndogo.',
+    },
+    imageUploadFailed: {
+      en: 'Failed to upload image. Please try again.',
+      sw: 'Imeshindwa kupakia picha. Tafadhali jaribu tena.',
+    },
+    imageGalleryPermissionDenied: {
+      en: 'Permission to access device photo gallery was denied.',
+      sw: 'Ruhusa ya kufungua picha haijatolewa.',
+    },
+    imageCameraPermissionDenied: {
+      en: 'Permission to access device camera was denied.',
+      sw: 'Ruhusa ya kufungua kamera haijatolewa.',
+    },
+  };
+  return messages[key][lang] || messages[key].en;
 }
 
 export interface PickedImageResult {
@@ -127,9 +169,21 @@ export function extractStoragePath(input: string): string | null {
   return null;
 }
 
+async function getFileSize(uri: string): Promise<number> {
+  try {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    return blob.size;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Dimension resizing and compression using expo-image-manipulator.
- * Maintains aspect ratio, does not upscale smaller images, and compresses to ~0.82.
+ * Limits: menu 1,200 px, cover 1,600 px, gallery 1,200 px, logo 512 px, avatar 512 px, quality 0.75.
+ * Uses JPEG on iOS, WebP where supported on web/Android, else JPEG.
+ * Retries compression at 0.65 then 0.55 if > 500 KB before rejecting.
  */
 export async function optimizeAndResizeImage(params: {
   uri: string;
@@ -137,14 +191,26 @@ export async function optimizeAndResizeImage(params: {
   width?: number;
   height?: number;
   quality?: number;
+  maxDim?: number;
+  language?: 'en' | 'sw';
 }): Promise<{ uri: string; mimeType: string }> {
-  const maxDim = TARGET_MAX_DIMENSIONS[params.targetKind] || 1600;
-  const quality = params.quality ?? 0.82;
+  const maxDim = params.maxDim || TARGET_MAX_DIMENSIONS[params.targetKind] || 1200;
+  const initialQuality = params.quality ?? 0.75;
   const manipulator = getImageManipulator();
 
   if (!manipulator || !manipulator.manipulateAsync) {
     // In environments where expo-image-manipulator is unavailable (e.g. Node test runner)
     return { uri: params.uri, mimeType: 'image/jpeg' };
+  }
+
+  // Determine output format: JPEG on iOS, WebP where supported on web/Android, else JPEG
+  let saveFormat = manipulator.SaveFormat ? manipulator.SaveFormat.JPEG : 'jpeg';
+  let mimeType = 'image/jpeg';
+
+  const isIOS = getPlatformOS() === 'ios';
+  if (!isIOS && manipulator.SaveFormat && manipulator.SaveFormat.WEBP) {
+    saveFormat = manipulator.SaveFormat.WEBP;
+    mimeType = 'image/webp';
   }
 
   const w = params.width;
@@ -170,15 +236,62 @@ export async function optimizeAndResizeImage(params: {
     actions.push({});
   }
 
-  const saveOptions: any = {
-    compress: quality,
-    format: manipulator.SaveFormat ? manipulator.SaveFormat.JPEG : 'jpeg',
-  };
+  // Compression attempts: 0.75 -> 0.65 -> 0.55
+  const qualitySteps = [initialQuality, 0.65, 0.55].filter(
+    (q, idx, arr) => q <= initialQuality && (idx === 0 || q < arr[idx - 1])
+  );
 
-  const result = await manipulator.manipulateAsync(params.uri, actions, saveOptions);
+  let finalResultUri = params.uri;
+  let finalResultMime = mimeType;
+  let passedSizeCheck = false;
+
+  for (const quality of qualitySteps) {
+    try {
+      const result = await manipulator.manipulateAsync(params.uri, actions, {
+        compress: quality,
+        format: saveFormat,
+      });
+      finalResultUri = result.uri;
+      finalResultMime = mimeType;
+
+      const size = await getFileSize(result.uri);
+      // In tests or mock envs, size is 0; in real execution, enforce <= 500 KB limit
+      if (size === 0 || size <= 500 * 1024) {
+        passedSizeCheck = true;
+        break;
+      }
+    } catch (manipErr) {
+      // If WebP fails on this platform, fall back to JPEG
+      if (saveFormat !== (manipulator.SaveFormat ? manipulator.SaveFormat.JPEG : 'jpeg')) {
+        saveFormat = manipulator.SaveFormat ? manipulator.SaveFormat.JPEG : 'jpeg';
+        mimeType = 'image/jpeg';
+        const retryResult = await manipulator.manipulateAsync(params.uri, actions, {
+          compress: quality,
+          format: saveFormat,
+        });
+        finalResultUri = retryResult.uri;
+        finalResultMime = mimeType;
+        const size = await getFileSize(retryResult.uri);
+        if (size === 0 || size <= 500 * 1024) {
+          passedSizeCheck = true;
+          break;
+        }
+      } else {
+        throw manipErr;
+      }
+    }
+  }
+
+  if (!passedSizeCheck) {
+    const finalSize = await getFileSize(finalResultUri);
+    if (finalSize > 500 * 1024) {
+      throw new Error(getImageErrorMessage('imageUploadTooLarge', params.language));
+    }
+  }
+
   return {
-    uri: result.uri,
-    mimeType: 'image/jpeg',
+    uri: finalResultUri,
+    mimeType: finalResultMime,
   };
 }
 
@@ -189,18 +302,19 @@ export class StorageService {
   static async pickAndValidateImage(options?: {
     aspect?: [number, number];
     quality?: number;
+    language?: 'en' | 'sw';
   }): Promise<PickedImageResult | null> {
     const ImagePicker = getImagePicker();
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      throw new Error('Permission to access device photo gallery was denied.');
+      throw new Error(getImageErrorMessage('imageGalleryPermissionDenied', options?.language));
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: options?.aspect || [4, 3],
-      quality: options?.quality ?? 0.8,
+      quality: options?.quality ?? 0.75,
     });
 
     if (result.canceled || !result.assets || result.assets.length === 0) {
@@ -258,7 +372,7 @@ export class StorageService {
       .upload(storagePath, blob, {
         contentType: mimeType,
         upsert: true,
-        cacheControl: '3600',
+        cacheControl: '31536000',
       });
 
     if (error) {
@@ -296,7 +410,8 @@ export class StorageService {
   /**
    * Upload Restaurant Cover:
    * Object path: restaurants/{restaurantId}/cover/{uuid}.{ext}
-   * Target max dimension: 2000px
+   * Target max dimension: 1600px
+   * Also generates and uploads a 400px card version: restaurants/{restaurantId}/cover/{uuid}_card.{ext}
    */
   static async uploadRestaurantCover(params: {
     restaurantId: string;
@@ -304,17 +419,54 @@ export class StorageService {
     mimeType?: string;
     width?: number;
     height?: number;
+    language?: 'en' | 'sw';
   }): Promise<MediaUploadResult> {
     const optimized = await optimizeAndResizeImage({
       uri: params.fileUri,
       targetKind: 'cover',
       width: params.width,
       height: params.height,
+      language: params.language,
     });
     const ext = getExtension(optimized.mimeType || params.mimeType, optimized.uri);
     const uuid = generateUuid();
     const storagePath = `restaurants/${params.restaurantId}/cover/${uuid}.${ext}`;
-    return StorageService.uploadBlob(storagePath, optimized.uri, optimized.mimeType || 'image/jpeg');
+    const mainResult = await StorageService.uploadBlob(
+      storagePath,
+      optimized.uri,
+      optimized.mimeType || 'image/jpeg'
+    );
+
+    let cardUrl: string | undefined;
+    let cardStoragePath: string | undefined;
+    try {
+      const cardOptimized = await optimizeAndResizeImage({
+        uri: params.fileUri,
+        targetKind: 'cover',
+        maxDim: 400,
+        quality: 0.75,
+        width: params.width,
+        height: params.height,
+        language: params.language,
+      });
+      const cardExt = getExtension(cardOptimized.mimeType || params.mimeType, cardOptimized.uri);
+      cardStoragePath = `restaurants/${params.restaurantId}/cover/${uuid}_card.${cardExt}`;
+      const cardUpload = await StorageService.uploadBlob(
+        cardStoragePath,
+        cardOptimized.uri,
+        cardOptimized.mimeType || 'image/jpeg'
+      );
+      cardUrl = cardUpload.publicUrl;
+    } catch (cardErr) {
+      console.warn('[StorageService] Failed to generate card thumbnail for restaurant cover:', cardErr);
+    }
+
+    return {
+      publicUrl: mainResult.publicUrl,
+      storagePath: mainResult.storagePath,
+      cardUrl,
+      cardStoragePath,
+    };
   }
 
   /**
@@ -344,7 +496,8 @@ export class StorageService {
   /**
    * Upload Menu Item Photo:
    * Object path: restaurants/{restaurantId}/menu/{menuItemId}/{uuid}.{ext}
-   * Target max dimension: 1600px
+   * Target max dimension: 1200px
+   * Also generates and uploads a 400px card version: restaurants/{restaurantId}/menu/{menuItemId}/{uuid}_card.{ext}
    */
   static async uploadMenuItemPhoto(params: {
     restaurantId: string;
@@ -353,17 +506,54 @@ export class StorageService {
     mimeType?: string;
     width?: number;
     height?: number;
+    language?: 'en' | 'sw';
   }): Promise<MediaUploadResult> {
     const optimized = await optimizeAndResizeImage({
       uri: params.fileUri,
       targetKind: 'menu',
       width: params.width,
       height: params.height,
+      language: params.language,
     });
     const ext = getExtension(optimized.mimeType || params.mimeType, optimized.uri);
     const uuid = generateUuid();
     const storagePath = `restaurants/${params.restaurantId}/menu/${params.menuItemId}/${uuid}.${ext}`;
-    return StorageService.uploadBlob(storagePath, optimized.uri, optimized.mimeType || 'image/jpeg');
+    const mainResult = await StorageService.uploadBlob(
+      storagePath,
+      optimized.uri,
+      optimized.mimeType || 'image/jpeg'
+    );
+
+    let cardUrl: string | undefined;
+    let cardStoragePath: string | undefined;
+    try {
+      const cardOptimized = await optimizeAndResizeImage({
+        uri: params.fileUri,
+        targetKind: 'menu',
+        maxDim: 400,
+        quality: 0.75,
+        width: params.width,
+        height: params.height,
+        language: params.language,
+      });
+      const cardExt = getExtension(cardOptimized.mimeType || params.mimeType, cardOptimized.uri);
+      cardStoragePath = `restaurants/${params.restaurantId}/menu/${params.menuItemId}/${uuid}_card.${cardExt}`;
+      const cardUpload = await StorageService.uploadBlob(
+        cardStoragePath,
+        cardOptimized.uri,
+        cardOptimized.mimeType || 'image/jpeg'
+      );
+      cardUrl = cardUpload.publicUrl;
+    } catch (cardErr) {
+      console.warn('[StorageService] Failed to generate card thumbnail for menu photo:', cardErr);
+    }
+
+    return {
+      publicUrl: mainResult.publicUrl,
+      storagePath: mainResult.storagePath,
+      cardUrl,
+      cardStoragePath,
+    };
   }
 
   /**
@@ -402,7 +592,16 @@ export class StorageService {
       return false;
     }
 
-    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([storagePath]);
+    const pathsToDelete = [storagePath];
+    if (!storagePath.includes('_card.')) {
+      const dotIdx = storagePath.lastIndexOf('.');
+      if (dotIdx !== -1) {
+        const cardPath = `${storagePath.substring(0, dotIdx)}_card${storagePath.substring(dotIdx)}`;
+        pathsToDelete.push(cardPath);
+      }
+    }
+
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).remove(pathsToDelete);
     if (error) {
       console.warn(`[StorageService] Failed to delete media at ${storagePath}:`, error);
       return false;

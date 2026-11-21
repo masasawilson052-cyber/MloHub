@@ -60,6 +60,7 @@ import { runRestaurantAuthorityVerificationClosureTests } from './restaurantAuth
 import { runRestaurant100PercentClosureTests } from './restaurant100PercentClosure.test';
 import { runCategoryGridSearchTestSuite } from './categoryGridSearch.test';
 import { runRestaurantDecisionFactsTestSuite } from './restaurantDecisionFacts.test';
+import { runImageUrlSizingTestSuite } from './imageUrlSizing.test';
 
 
 let passed = 0;
@@ -812,6 +813,11 @@ async function runMasterTestSuite() {
   const restaurantFactsResults = await runRestaurantDecisionFactsTestSuite();
   passed += restaurantFactsResults.passed;
   failed += restaurantFactsResults.failed;
+
+  // Image Sizing, Resolution & Fast 3G Performance Suite
+  const imageSizingResults = await runImageUrlSizingTestSuite();
+  passed += imageSizingResults.passed;
+  failed += imageSizingResults.failed;
 
   // Final Results
   console.log('\n================================================================');

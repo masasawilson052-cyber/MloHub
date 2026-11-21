@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Restaurant } from '../types/domain';
 import { Colors, Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { runtimeConfig } from '../lib/runtimeConfig';
+import { FoodImage } from './ui/FoodImage';
 
 import { useTheme } from '../context/ThemeContext';
 import { ThemeColors, lightColors } from '../theme/palettes';
@@ -17,6 +18,8 @@ interface RestaurantCardProps {
   onViewMenu: () => void;
   onReserve: () => void;
   onOrderAhead?: () => void;
+  priority?: 'low' | 'normal' | 'high';
+  isAboveFold?: boolean;
 }
 
 export const RestaurantCard: React.FC<RestaurantCardProps> = ({
@@ -26,6 +29,8 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
   onViewMenu,
   onReserve,
   onOrderAhead,
+  priority,
+  isAboveFold,
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const { t, language } = useLanguage();
@@ -42,10 +47,13 @@ export const RestaurantCard: React.FC<RestaurantCardProps> = ({
         ]}
       >
         {coverImage ? (
-          <Image
-            source={{ uri: coverImage }}
+          <FoodImage
+            source={coverImage}
+            cardSource={(restaurant as any).coverCardUrl}
             style={[StyleSheet.absoluteFill, { opacity: 0.9 }]}
-            resizeMode="cover"
+            priority={priority}
+            isAboveFold={isAboveFold}
+            alt={restaurant.name}
           />
         ) : (
           <View style={styles.emojiCircle}>

@@ -25,6 +25,7 @@ export interface RuntimeConfig {
   readonly isProduction: boolean;
   readonly allowLocalDataFallbacks: boolean;
   readonly requiresRealSupabase: boolean;
+  readonly imageTransformsEnabled: boolean;
   readonly environmentLabel: 'LOCAL DEVELOPMENT' | 'DEMO' | 'STAGING' | 'PRODUCTION' | 'TEST';
 }
 
@@ -132,6 +133,9 @@ const baseConfig: RuntimeConfig = Object.freeze({
   isProduction: activeMode === 'production',
   allowLocalDataFallbacks,
   requiresRealSupabase,
+  imageTransformsEnabled:
+    typeof process !== 'undefined' &&
+    process.env?.EXPO_PUBLIC_IMAGE_TRANSFORMS_ENABLED === 'true',
   environmentLabel: resolveEnvironmentLabel(activeMode),
 });
 
@@ -161,6 +165,13 @@ export const runtimeConfig: RuntimeConfig = {
     return (
       testingOverrides?.requiresRealSupabase ??
       (this.mode === 'development' || this.mode === 'staging' || this.mode === 'production')
+    );
+  },
+  get imageTransformsEnabled() {
+    return (
+      testingOverrides?.imageTransformsEnabled ??
+      (typeof process !== 'undefined' &&
+        process.env?.EXPO_PUBLIC_IMAGE_TRANSFORMS_ENABLED === 'true')
     );
   },
   get environmentLabel() {

@@ -425,12 +425,14 @@ export default function ExploreScreen() {
                 )}
 
                 {results.length > 0 ? (
-                  results.map((dish) => (
+                  results.map((dish, idx) => (
                     <DishCard
                       key={`${dish.menuItemId}-${dish.branchId}`}
                       dish={dish}
                       onToggleCompare={toggleCompare}
                       isCompared={comparedDishes.some((d) => d.menuItemId === dish.menuItemId)}
+                      priority={idx < 4 ? 'high' : 'low'}
+                      isAboveFold={idx < 4}
                     />
                   ))
                 ) : (

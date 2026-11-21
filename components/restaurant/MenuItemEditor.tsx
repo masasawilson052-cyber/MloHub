@@ -191,6 +191,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
     const targetItemId = item?.id || generateUuid();
     const oldPhotoUrl = item?.photoUrl || item?.imageUrl;
     let finalPhotoUrl = isPhotoRemoved ? '' : (photoUrl.trim() || undefined);
+    let finalPhotoCardUrl = isPhotoRemoved ? '' : (item?.photoCardUrl || undefined);
 
     try {
       setIsSaving(true);
@@ -204,8 +205,12 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
           menuItemId: targetItemId,
           fileUri: pendingImage.uri,
           mimeType: pendingImage.mimeType,
+          language: language === 'sw' ? 'sw' : 'en',
         });
         finalPhotoUrl = uploadedMedia.publicUrl;
+        if (uploadedMedia.cardUrl) {
+          finalPhotoCardUrl = uploadedMedia.cardUrl;
+        }
       }
 
       setUploadStatus(language === 'sw' ? 'Inahifadhi mabadiliko...' : 'Saving menu changes...');
@@ -223,6 +228,7 @@ export const MenuItemEditor: React.FC<MenuItemEditorProps> = ({
         priceTzs: parsedBase,
         photoUrl: isPhotoRemoved ? '' : finalPhotoUrl,
         imageUrl: isPhotoRemoved ? '' : finalPhotoUrl,
+        photoCardUrl: isPhotoRemoved ? '' : finalPhotoCardUrl,
         preparationMinutes: parseInt(prepTime, 10) || 20,
         dietaryTags,
         spiceLevel,

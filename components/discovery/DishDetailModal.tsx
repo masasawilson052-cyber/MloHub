@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ScrollView,
   Platform,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { formatTzs } from '../../utils/formatters';
 import { useCartInteraction } from '../../hooks/useCartInteraction';
 import { measureViewRect } from '../menu/MenuItemCustomizationModal';
 import { useLanguage } from '../../context/LanguageContext';
+import { FoodImage } from '../ui/FoodImage';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -28,6 +28,8 @@ export interface DishDetailItem {
   desc?: string;
   priceNum: number;
   imageUrl?: string;
+  imageCardUrl?: string;
+  photoCardUrl?: string;
   rating?: number;
   reviews?: number;
   restaurantId: string;
@@ -120,20 +122,17 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
 
           {/* Dish Image */}
           <View style={styles.imageBox}>
-            {hasRealImage ? (
-              <View ref={dishImageRef} collapsable={false} style={styles.dishImage}>
-                <Image
-                  source={{ uri: dish.imageUrl }}
-                  style={styles.dishImage}
-                  resizeMode="cover"
-                  onError={() => setImageError(true)}
-                />
-              </View>
-            ) : (
-              <View style={styles.placeholderBox}>
-                <Text style={styles.placeholderEmoji}>🍲</Text>
-              </View>
-            )}
+            <View ref={dishImageRef} collapsable={false} style={styles.dishImage}>
+              <FoodImage
+                source={dish.imageUrl}
+                cardSource={dish.imageCardUrl || dish.photoCardUrl}
+                targetWidth={1200}
+                style={styles.dishImage}
+                priority="high"
+                alt={dish.name}
+                onError={() => setImageError(true)}
+              />
+            </View>
           </View>
 
           <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>

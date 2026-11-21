@@ -9,6 +9,7 @@ export * from './Price';
 export * from './Rating';
 export * from './FreshnessBadge';
 export * from './Status';
+export * from './FoodImage';
 export * from './DishImage';
 export * from './AppImage';
 export * from './EmptyState';

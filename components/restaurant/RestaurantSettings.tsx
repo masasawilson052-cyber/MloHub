@@ -213,7 +213,10 @@ export const RestaurantSettings: React.FC<RestaurantSettingsProps> = ({
 
       const oldCover = coverImageUrl;
       setCoverImageUrl(uploaded.publicUrl);
-      await onSaveProfile({ coverImageUrl: uploaded.publicUrl });
+      await onSaveProfile({
+        coverImageUrl: uploaded.publicUrl,
+        coverCardUrl: uploaded.cardUrl,
+      });
 
       if (oldCover) {
         await StorageService.deleteMedia(oldCover);

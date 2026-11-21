@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   ScrollView,
   Platform,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 import { Spacing, Radii, Shadows } from '../../constants/theme';
+import { FoodImage } from '../ui/FoodImage';
 
 let colors: ThemeColors = lightColors;
 
@@ -30,6 +30,8 @@ export interface MenuItem {
   categoryId?: string;
   imageUrl?: string;
   photoUrl?: string;
+  photoCardUrl?: string;
+  imageCardUrl?: string;
   isAvailable?: boolean;
   freshnessTier?: string;
   verificationTier?: string;
@@ -144,17 +146,15 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
             ) : null}
           </View>
           <View style={styles.highlightedCard}>
-            {highlightedDish.imageUrl && !brokenImages[`hl-${highlightedDish.id}`] ? (
+            {(highlightedDish.imageUrl || highlightedDish.photoUrl) ? (
               <View ref={highlightedRef} collapsable={false} style={styles.dishThumbWrap}>
-                <Image
-                  source={{ uri: highlightedDish.imageUrl }}
+                <FoodImage
+                  source={highlightedDish.imageUrl || highlightedDish.photoUrl}
+                  cardSource={highlightedDish.photoCardUrl || highlightedDish.imageCardUrl}
                   style={styles.dishThumb}
-                  resizeMode="cover"
-                  onError={() =>
-                    setBrokenImages((prev) => ({ ...prev, [`hl-${highlightedDish.id}`]: true }))
-                  }
-                  accessibilityRole="image"
-                  accessibilityLabel={highlightedDish.name}
+                  priority="high"
+                  fallbackIconSize={24}
+                  alt={highlightedDish.name}
                 />
               </View>
             ) : null}
@@ -263,7 +263,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
 
                 {/* Dish Cards in this Category */}
                 <View style={styles.cardsList}>
-                  {items.map((dish) => {
+                  {items.map((dish, dishIdx) => {
                     const cartQty = getItemCartQuantity(dish.id);
                     const inCart = cartQty > 0;
                     const isPending = isDishAddPending(dish.id);
@@ -285,24 +285,19 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                         accessibilityRole="button"
                         accessibilityLabel={`${dish.name}, ${dish.price}`}
                       >
-                        {hasRealImage ? (
+                        {(dish.imageUrl || dish.photoUrl) ? (
                           <View
                             ref={itemRef}
                             collapsable={false}
                             style={styles.dishThumbWrap}
                           >
-                            <Image
-                              source={{ uri: dish.imageUrl }}
+                            <FoodImage
+                              source={dish.imageUrl || dish.photoUrl}
+                              cardSource={dish.photoCardUrl || dish.imageCardUrl}
                               style={styles.dishThumb}
-                              resizeMode="cover"
-                              onError={() =>
-                                setBrokenImages((prev) => ({
-                                  ...prev,
-                                  [dish.id]: true,
-                                }))
-                              }
-                              accessibilityRole="image"
-                              accessibilityLabel={dish.name}
+                              priority={dishIdx < 4 ? 'high' : 'low'}
+                              fallbackIconSize={24}
+                              alt={dish.name}
                             />
                           </View>
                         ) : null}

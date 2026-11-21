@@ -202,12 +202,12 @@ export async function runMediaCutoverTestSuite(): Promise<{ passed: number; fail
   );
 
   record(
-    TARGET_MAX_DIMENSIONS.logo === 1000 &&
-    TARGET_MAX_DIMENSIONS.avatar === 1000 &&
-    TARGET_MAX_DIMENSIONS.menu === 1600 &&
-    TARGET_MAX_DIMENSIONS.gallery === 1600 &&
-    TARGET_MAX_DIMENSIONS.cover === 2000,
-    'Criterion M.1: Dimension resizing targets configured: logo/avatar 1000px, menu/gallery 1600px, cover 2000px'
+    TARGET_MAX_DIMENSIONS.logo === 512 &&
+    TARGET_MAX_DIMENSIONS.avatar === 512 &&
+    TARGET_MAX_DIMENSIONS.menu === 1200 &&
+    TARGET_MAX_DIMENSIONS.gallery === 1200 &&
+    TARGET_MAX_DIMENSIONS.cover === 1600,
+    'Criterion M.1: Dimension resizing targets configured: logo/avatar 512px, menu/gallery 1200px, cover 1600px'
   );
 
   // --------------------------------------------------------------------------

@@ -27,6 +27,7 @@ export class DiscoveryRepository {
       description: row.description,
       descriptionSw: row.description_sw,
       imageUrl: row.image_url,
+      imageCardUrl: row.photo_card_url || row.image_card_url || undefined,
 
       restaurantId: row.restaurant_id,
       restaurantName: row.restaurant_name,

@@ -44,6 +44,7 @@ export class RestaurantRepository {
       closingHours: row.closing_hours ?? '',
       logoUrl: row.logo_url,
       coverImageUrl: row.cover_image_url,
+      coverCardUrl: row.cover_card_url,
       foodSpotPhotos: Array.isArray(row.food_spot_photos) ? row.food_spot_photos : (row.food_spot_photos ? [row.food_spot_photos] : []),
       specialty: row.specialty,
       specialistBadge: row.specialist_badge,

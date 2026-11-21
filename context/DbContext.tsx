@@ -161,6 +161,7 @@ function mapDomainRestaurantToEntity(r: Restaurant): RestaurantEntity {
     closingHours: r.closingHours || '',
     logoUrl: r.logoUrl,
     coverImageUrl: r.coverImageUrl,
+    coverCardUrl: (r as any).coverCardUrl,
     foodSpotPhotos: r.foodSpotPhotos || [],
     specialty: r.specialty || r.cuisine || 'Local Cuisine',
     specialistBadge: r.specialistBadge,
