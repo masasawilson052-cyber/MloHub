@@ -6,9 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 import { Header } from '../../components/Header';
 import { HeroSearchBar } from '../../components/discovery/HeroSearchBar';
@@ -16,6 +17,7 @@ import { DishCard } from '../../components/discovery/DishCard';
 import { DishCardSkeleton } from '../../components/discovery/DishCardSkeleton';
 import { CustomMealBanner } from '../../components/CustomMealBanner';
 import { LocationModal } from '../../components/LocationModal';
+import { WelcomeSheet } from '../../components/WelcomeSheet';
 import { ReservationModal } from '../../components/ReservationModal';
 import { RestaurantCard } from '../../components/RestaurantCard';
 import { ServiceCard } from '../../components/ServiceCard';
@@ -39,10 +41,62 @@ export default function HomeScreen() {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { user, profile } = useAuth();
-  const { restaurants: dbRestaurants, favorites, toggleFavorite, loading } = useMloHubDB();
+  const { user, profile, isAuthenticated } = useAuth();
+  const {
+    restaurants: dbRestaurants,
+    favorites,
+    toggleFavorite,
+    loading,
+    hasCompletedOnboarding,
+    onboardingPrefLoaded,
+    setOnboardingCompleted,
+  } = useMloHubDB();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
+
+  const params = useLocalSearchParams<{ fresh?: string; welcome?: string }>();
+  const isWeb = Platform.OS === 'web';
+  const webWelcome = isWeb && typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('welcome') === '1' ||
+    new URLSearchParams(window.location.search).get('fresh') === '1'
+  );
+  const forceWelcome = params.welcome === '1' || params.fresh === '1' || Boolean(webWelcome);
+
+  useEffect(() => {
+    if (isWeb && typeof window !== 'undefined' && (new URLSearchParams(window.location.search).get('fresh') === '1' || params.fresh === '1')) {
+      try {
+        window.localStorage.removeItem('@mlohub_onboarding_completed');
+      } catch {}
+    }
+  }, [params.fresh, isWeb]);
+
+  // First-time visitor welcome sheet & area selection coordination
+  const [isChoosingAreaFromWelcome, setIsChoosingAreaFromWelcome] = useState(false);
+  const [dismissedWelcome, setDismissedWelcome] = useState(false);
+
+  const shouldShowWelcome =
+    Boolean(onboardingPrefLoaded) &&
+    !dismissedWelcome &&
+    (!hasCompletedOnboarding || forceWelcome) &&
+    !isAuthenticated &&
+    !isChoosingAreaFromWelcome;
+
+  const handleChooseAreaFromWelcome = () => {
+    setIsChoosingAreaFromWelcome(true);
+    setIsLocationModalOpen(true);
+  };
+
+  const handleLocationModalClose = () => {
+    setIsLocationModalOpen(false);
+    if (isChoosingAreaFromWelcome) {
+      setIsChoosingAreaFromWelcome(false);
+    }
+  };
+
+  const handleWelcomeDismiss = async () => {
+    setDismissedWelcome(true);
+    await setOnboardingCompleted(true);
+  };
 
   // Search and Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -409,7 +463,15 @@ export default function HomeScreen() {
       {/* Location Modal */}
       <LocationModal
         visible={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
+        onClose={handleLocationModalClose}
+      />
+
+      {/* Welcome Sheet for First-Time Visitors (One-Screen Onboarding) */}
+      <WelcomeSheet
+        visible={shouldShowWelcome}
+        onStart={handleWelcomeDismiss}
+        onClose={handleWelcomeDismiss}
+        onChooseArea={handleChooseAreaFromWelcome}
       />
 
       {/* Table Reservation Modal */}

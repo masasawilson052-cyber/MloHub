@@ -92,6 +92,7 @@ interface DbContextType {
   isCloudBacked: boolean;
   dbSnapshot: MloHubDatabaseSchema;
   hasCompletedOnboarding: boolean;
+  onboardingPrefLoaded: boolean;
   user?: UserEntity;
   users: UserEntity[];
   restaurants: RestaurantEntity[];
@@ -147,6 +148,7 @@ function mapDomainRestaurantToEntity(r: Restaurant): RestaurantEntity {
     isOpen: r.isOpen ?? false,
     isVerified: r.isVerified ?? false,
     isPublished: r.isPublished ?? false,
+    launchStatus: r.launchStatus || (r as any).launch_status || 'PUBLISHED',
     isActive: r.isActive ?? true,
     isSuspended: r.isSuspended ?? r.verificationStatus === 'SUSPENDED',
     suspensionReason: r.suspensionReason ?? r.archivedReason ?? undefined,
@@ -252,6 +254,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cloudNotifications, setCloudNotifications] = useState<NotificationEntity[]>([]);
   const [cloudUser, setCloudUser] = useState<UserEntity | undefined>(undefined);
   const [onboardingState, setOnboardingState] = useState<boolean>(false);
+  const [onboardingPrefLoaded, setOnboardingPrefLoaded] = useState<boolean>(false);
   const [clientFavorites, setClientFavorites] = useState<string[]>([]);
 
   const isCloud = isSupabaseConfigured();
@@ -264,6 +267,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         // Test / Demo mode: preserve existing local snapshot behavior
         const snapshot = await MloHubDB.init();
         setDbState({ ...snapshot });
+        setOnboardingPrefLoaded(true);
 
         if (isCloud) {
           try {
@@ -301,6 +305,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         if (onboardingPref === 'true') {
           setOnboardingState(true);
         }
+        setOnboardingPrefLoaded(true);
 
         // 3. Current Authenticated Supabase User
         const { data: { user: authUser }, error: authErr } = await supabase.auth.getUser();
@@ -439,6 +444,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     // Real mode: client preference only
     await setClientPreference(ONBOARDING_PREF_KEY, String(completed));
     setOnboardingState(completed);
+    setOnboardingPrefLoaded(true);
   };
 
   const updateUser = async (data: Partial<UserEntity>): Promise<UserEntity> => {
@@ -731,6 +737,7 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         isCloudBacked: isCloud,
         dbSnapshot: activeDbSnapshot,
         hasCompletedOnboarding: activeOnboarding,
+        onboardingPrefLoaded,
         user: activeUser,
         users: activeUsers,
         restaurants: activeRestaurants,

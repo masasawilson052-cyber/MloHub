@@ -209,6 +209,16 @@ export interface Translations {
   onboardingSlide3Title: string;
   onboardingSlide3Sub: string;
 
+  // One-Screen Welcome Sheet
+  welcomeTagline: string;
+  welcomeStartBtn: string;
+  welcomeUseLocationBtn: string;
+  welcomeChooseAreaBtn: string;
+  welcomeLanguageLabel: string;
+  welcomeLocationUnavailable: string;
+  welcomeCurrentArea: string;
+  welcomeCloseBtn: string;
+
   // Dish Card & Trust System
   trustBadgeVerifiedToday: string;
   trustBadgeConfirmedRecently: string;
@@ -451,6 +461,16 @@ const TRANSLATIONS: Record<Language, Translations> = {
     onboardingSlide3Title: 'Request\nMeals Your Way',
     onboardingSlide3Sub: 'Send custom meal requests, compare\noptions, and enjoy a more personalized\ndining experience.',
 
+    // One-Screen Welcome Sheet
+    welcomeTagline: 'Good food near you',
+    welcomeStartBtn: 'Start',
+    welcomeUseLocationBtn: 'Use my location',
+    welcomeChooseAreaBtn: 'Choose area instead',
+    welcomeLanguageLabel: 'Language',
+    welcomeLocationUnavailable: 'Location access unavailable. Select your area below.',
+    welcomeCurrentArea: 'Delivery area:',
+    welcomeCloseBtn: 'Close',
+
     // Dish Card & Trust System
     trustBadgeVerifiedToday: 'Verified Today',
     trustBadgeConfirmedRecently: 'Confirmed Recently',
@@ -690,6 +710,16 @@ const TRANSLATIONS: Record<Language, Translations> = {
     onboardingSlide2Sub: 'Weka meza kirahisi, dhibiti mipango yako,\nna pokea taarifa za papo hapo.',
     onboardingSlide3Title: 'Agiza Chakula\nkwa Ladha Yako',
     onboardingSlide3Sub: 'Tuma maombi ya chakula maalum, linganisha\nofa, na furahia uzoefu wa kipekee.',
+
+    // One-Screen Welcome Sheet
+    welcomeTagline: 'Chakula bora karibu nawe',
+    welcomeStartBtn: 'Anza',
+    welcomeUseLocationBtn: 'Tumia eneo langu',
+    welcomeChooseAreaBtn: 'Chagua eneo badala yake',
+    welcomeLanguageLabel: 'Lugha',
+    welcomeLocationUnavailable: 'Hatuwezi kupata eneo lako. Chagua eneo lako hapa chini.',
+    welcomeCurrentArea: 'Eneo la uwasilishaji:',
+    welcomeCloseBtn: 'Funga',
 
     // Dish Card & Trust System
     trustBadgeVerifiedToday: 'Imethibitishwa Leo',

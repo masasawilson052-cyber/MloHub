@@ -10,7 +10,7 @@ http.createServer((req,res)=>{
   let name;try {name=decodeURIComponent(new URL(req.url,'http://localhost').pathname);}catch{res.writeHead(400);return res.end();}
   const wanted=path.resolve(root,'.'+name);
   if (wanted!==root&&!wanted.startsWith(root+path.sep)){res.writeHead(403);return res.end();}
-  const candidates=[wanted,wanted+'.html',path.join(wanted,'index.html')];
+  const candidates=[wanted,wanted+'.html',path.join(wanted,'index.html'),name.startsWith('/restaurant/')?path.join(root,'restaurant','[id].html'):null].filter(Boolean);
   let file=candidates.find(p=>fs.existsSync(p)&&fs.statSync(p).isFile());
   if (!file&&!path.extname(name)) file=path.join(root,'index.html');
   if (!file){res.writeHead(404);return res.end('Not found');}

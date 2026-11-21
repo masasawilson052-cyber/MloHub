@@ -84,8 +84,10 @@ export function runPack5aCustomerTestSuite() {
 
   const onboardingPath = path.join(rootDir, 'app/onboarding.tsx');
   assert(fs.existsSync(onboardingPath), 'app/onboarding.tsx exists');
+  // Legacy 3-slide onboarding was replaced by the single-screen WelcomeSheet on home.
+  // app/onboarding.tsx is preserved as an instant redirect to /(tabs) for backward compatibility with legacy links.
   const onboardingContent = fs.readFileSync(onboardingPath, 'utf-8');
-  assert(onboardingContent.includes("router.replace('/(tabs)')"), 'Onboarding completion routes directly to discovery /(tabs)');
+  assert(onboardingContent.includes("router.replace('/(tabs)')"), 'Legacy onboarding route redirects directly to discovery /(tabs)');
 
   // ---------------------------------------------------------------------------
   // 4. Honest Auth Landing & Progressive Registration

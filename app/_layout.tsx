@@ -96,11 +96,6 @@ function RootNavigationLayout() {
       return;
     }
 
-    if (!hasCompletedOnboarding && !inOnboarding && !isAuthenticated && !inRestaurantPortal && segments[0] !== 'admin') {
-      router.replace('/onboarding');
-      return;
-    }
-
     if (isAuthenticated) {
       if (variant === 'customer') {
         if (inAuth) {
