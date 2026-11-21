@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole, hasAdminAccess } from '../../db/types';
 import { Button } from '../../components/ui/Button';
 import { runtimeConfig } from '../../lib/runtimeConfig';
+import DemoAccountsQuickFill from '../../demo/DemoAccountsQuickFill';
 import { ApplicationRepository } from '../../repositories/applications.repository';
 import { getAppPlatformVariant } from '../../lib/appVariant';
 
@@ -408,54 +409,13 @@ export default function LoginScreen() {
         )}
 
         {/* Quick Demo Credentials Prefill - Renders ONLY when runtimeConfig.isDemo is true */}
-        {runtimeConfig.isDemo && (
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>⚡ Quick Demo Accounts</Text>
-            <View style={styles.demoButtonsRow}>
-              <TouchableOpacity
-                style={[styles.demoPill, { borderColor: colors.danger }]}
-                onPress={() => {
-                  if (!runtimeConfig.isDemo) {
-                    Alert.alert('Restricted', 'Demo accounts are disabled in this environment.');
-                    return;
-                  }
-                  setEmailOrPhone('admin@mlohub.tz');
-                  setPassword('password123');
-                }}
-              >
-                <Text style={[styles.demoPillText, { color: colors.danger }]}>🛡️ Super Admin</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.demoPill, { borderColor: '#f97316' }]}
-                onPress={() => {
-                  if (!runtimeConfig.isDemo) {
-                    Alert.alert('Restricted', 'Demo accounts are disabled in this environment.');
-                    return;
-                  }
-                  setEmailOrPhone('mama.amina@mlohub.tz');
-                  setPassword('password123');
-                }}
-              >
-                <Text style={[styles.demoPillText, { color: colors.primary }]}>🍳 Restaurant</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.demoPill, { borderColor: '#0284c7' }]}
-                onPress={() => {
-                  if (!runtimeConfig.isDemo) {
-                    Alert.alert('Restricted', 'Demo accounts are disabled in this environment.');
-                    return;
-                  }
-                  setEmailOrPhone('frank.mlaki@mlohub.tz');
-                  setPassword('password123');
-                }}
-              >
-                <Text style={[styles.demoPillText, { color: colors.info }]}>👤 Customer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        <DemoAccountsQuickFill
+          colors={colors}
+          onSelectAccount={(email, pass) => {
+            setEmailOrPhone(email);
+            setPassword(pass);
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );
