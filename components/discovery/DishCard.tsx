@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { DishDiscoveryResult } from '../../types/discovery';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { formatTzs, formatDistance, formatFreshnessBadge } from '../../utils/formatters';
@@ -16,6 +17,7 @@ import { useCartInteraction } from '../../hooks/useCartInteraction';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../trust/ReportDiscrepancyModal';
+import { useLanguage } from '../../context/LanguageContext';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -39,6 +41,8 @@ export const DishCard: React.FC<DishCardProps> = ({
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const router = useRouter();
+  const { language, t, getTrustBadgeLabel } = useLanguage();
+  const isSwahili = language === 'sw';
   const [imageError, setImageError] = useState(false);
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -61,7 +65,24 @@ export const DishCard: React.FC<DishCardProps> = ({
     isAvailable: dish.isAvailable,
   });
 
+  const showTrustPill = TrustService.shouldShowBadgeOnCard(trustAssessment.badgeCode);
+  const translatedTrustLabel = getTrustBadgeLabel(trustAssessment.badgeCode);
+
   const freshnessBadge = formatFreshnessBadge(dish.freshnessTier);
+
+  // Language name inversion: Swahili shows name_sw title and name_en underneath; English does the reverse.
+  const primaryDishName = isSwahili
+    ? (dish.dishNameSw || dish.dishName)
+    : (dish.dishName || dish.dishNameSw || '');
+  const secondaryDishName = isSwahili
+    ? (dish.dishName && dish.dishName.trim().toLowerCase() !== primaryDishName.trim().toLowerCase() ? dish.dishName : undefined)
+    : (dish.dishNameSw && dish.dishNameSw.trim().toLowerCase() !== primaryDishName.trim().toLowerCase() ? dish.dishNameSw : undefined);
+
+  // Restaurant & Area deduplication: When restaurant name and area/neighborhood are identical, show once.
+  const showNeighborhood = Boolean(
+    dish.neighborhood &&
+    dish.neighborhood.trim().toLowerCase() !== dish.restaurantName.trim().toLowerCase()
+  );
 
   const handleCardPress = () => {
     if (onPress) {
@@ -87,7 +108,7 @@ export const DishCard: React.FC<DishCardProps> = ({
       onPress={handleCardPress}
       activeOpacity={0.88}
       accessibilityRole="button"
-      accessibilityLabel={`${dish.dishName} at ${dish.restaurantName}, ${formatTzs(dish.priceTzs)}${dish.distanceKm != null ? `, ${formatDistance(dish.distanceKm)} away` : ''}`}
+      accessibilityLabel={`${primaryDishName} ${t('cardAccessibilityAt')} ${dish.restaurantName}, ${formatTzs(dish.priceTzs)}${dish.distanceKm != null ? `, ${formatDistance(dish.distanceKm)} ${t('cardAccessibilityAway')}` : ''}`}
     >
       {/* Visual / Image Section */}
       <View style={styles.imageContainer}>
@@ -103,50 +124,52 @@ export const DishCard: React.FC<DishCardProps> = ({
         ) : (
           <View style={styles.placeholderContainer}>
             <Text style={styles.placeholderEmoji}>🍲</Text>
-            <Text style={styles.placeholderText}>MloHub Dish</Text>
+            <Text style={styles.placeholderText}>{t('mlohubDishPlaceholder')}</Text>
           </View>
         )}
 
         {/* Top Badges: Trust & Availability */}
-        <View style={styles.topBadgesRow}>
-          <TouchableOpacity
-            style={[
-              styles.badgePill,
-              trustAssessment.badgeTone === 'positive' && styles.trustPillPositive,
-              trustAssessment.badgeTone === 'warning' && styles.trustPillWarning,
-              trustAssessment.badgeTone === 'critical' && styles.trustPillCritical,
-              trustAssessment.badgeTone === 'neutral' && styles.trustPillNeutral,
-            ]}
-            onPress={(e) => {
-              e.stopPropagation();
-              setShowTrustModal(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Trust indicator: ${trustAssessment.badgeLabel}. Tap for verification details.`}
-          >
-            <Text
+        <View style={[styles.topBadgesRow, !showTrustPill && styles.topBadgesRowRightOnly]}>
+          {showTrustPill ? (
+            <TouchableOpacity
               style={[
-                styles.badgePillText,
-                trustAssessment.badgeTone === 'positive' && styles.trustTextPositive,
-                trustAssessment.badgeTone === 'warning' && styles.trustTextWarning,
-                trustAssessment.badgeTone === 'critical' && styles.trustTextCritical,
-                trustAssessment.badgeTone === 'neutral' && styles.trustTextNeutral,
+                styles.badgePill,
+                trustAssessment.badgeTone === 'positive' && styles.trustPillPositive,
+                trustAssessment.badgeTone === 'warning' && styles.trustPillWarning,
+                trustAssessment.badgeTone === 'critical' && styles.trustPillCritical,
+                trustAssessment.badgeTone === 'neutral' && styles.trustPillNeutral,
               ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                setShowTrustModal(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('trustIndicatorLabel')}: ${translatedTrustLabel}. ${t('trustTapForDetails')}`}
             >
-              🛡️ {trustAssessment.badgeLabel}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.badgePillText,
+                  trustAssessment.badgeTone === 'positive' && styles.trustTextPositive,
+                  trustAssessment.badgeTone === 'warning' && styles.trustTextWarning,
+                  trustAssessment.badgeTone === 'critical' && styles.trustTextCritical,
+                  trustAssessment.badgeTone === 'neutral' && styles.trustTextNeutral,
+                ]}
+              >
+                🛡️ {translatedTrustLabel}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           {isAvailable ? (
             <View style={[styles.availPill, isLowStock && styles.lowStockPill]}>
               <View style={[styles.availDot, isLowStock && styles.lowStockDot]} />
               <Text style={[styles.availText, isLowStock && styles.lowStockText]}>
-                {isLowStock ? 'Low Stock' : 'Available'}
+                {isLowStock ? t('lowStockBadge') : t('availableBadge')}
               </Text>
             </View>
           ) : (
             <View style={styles.unavailPill}>
-              <Text style={styles.unavailText}>Sold Out</Text>
+              <Text style={styles.unavailText}>{t('soldOutBadge')}</Text>
             </View>
           )}
         </View>
@@ -164,11 +187,11 @@ export const DishCard: React.FC<DishCardProps> = ({
         <View style={styles.titleRow}>
           <View style={styles.titleCol}>
             <Text style={styles.dishName} numberOfLines={1}>
-              {dish.dishName}
+              {primaryDishName}
             </Text>
-            {dish.dishNameSw && dish.dishNameSw !== dish.dishName ? (
+            {secondaryDishName ? (
               <Text style={styles.dishNameSw} numberOfLines={1}>
-                {dish.dishNameSw}
+                {secondaryDishName}
               </Text>
             ) : null}
           </View>
@@ -182,7 +205,7 @@ export const DishCard: React.FC<DishCardProps> = ({
           <Text style={styles.restaurantName} numberOfLines={1}>
             {dish.restaurantName}
           </Text>
-          {dish.neighborhood ? (
+          {showNeighborhood ? (
             <>
               <Text style={styles.dotSeparator}>•</Text>
               <Text style={styles.neighborhood} numberOfLines={1}>
@@ -204,7 +227,7 @@ export const DishCard: React.FC<DishCardProps> = ({
             </View>
           ) : (
             <View style={styles.ratingBox}>
-              <Text style={styles.newBadgeText}>New</Text>
+              <Text style={styles.newBadgeText}>{t('newDishBadge')}</Text>
             </View>
           )}
 
@@ -218,10 +241,19 @@ export const DishCard: React.FC<DishCardProps> = ({
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Compare ${dish.dishName}`}
+                accessibilityLabel={`${t('compareActionAccessibility')}: ${primaryDishName}`}
               >
-                <Text style={[styles.compareBtnText, isCompared && styles.compareBtnTextActive]}>
-                  {isCompared ? '✓ Comp' : '+ Comp'}
+                <Ionicons
+                  name={isCompared ? 'checkmark' : 'swap-horizontal'}
+                  size={13}
+                  color={isCompared ? colors.primary : colors.textPrimary}
+                  style={styles.compareBtnIcon}
+                />
+                <Text
+                  style={[styles.compareBtnText, isCompared && styles.compareBtnTextActive]}
+                  numberOfLines={1}
+                >
+                  {t('compareAction')}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -257,10 +289,10 @@ export const DishCard: React.FC<DishCardProps> = ({
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Add ${dish.dishName} to order`}
+                accessibilityLabel={`${t('addOrderActionAccessibility')}: ${primaryDishName}`}
               >
                 <Text style={[styles.addOrderBtnText, isDishInCart && styles.addOrderBtnTextInCart]}>
-                  {isAddPending ? '...' : isDishInCart ? `✓ ${dishCartQuantity}` : '+ Add'}
+                  {isAddPending ? '...' : isDishInCart ? `✓ ${dishCartQuantity}` : t('addOrderAction')}
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -335,6 +367,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  topBadgesRowRightOnly: {
+    justifyContent: 'flex-end',
   },
   badgePill: {
     paddingHorizontal: 8,
@@ -462,6 +497,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   ratingBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   starIcon: {
     color: colors.warning,
@@ -484,10 +520,16 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
   compareBtn: {
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: Radii.sm,
     backgroundColor: colors.divider,
+  },
+  compareBtnIcon: {
+    marginRight: 1,
   },
   compareBtnActive: {
     backgroundColor: colors.primarySoft,
@@ -506,6 +548,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 0,
   },
   addOrderBtn: {
     paddingHorizontal: 10,

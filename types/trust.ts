@@ -5,6 +5,15 @@
 
 export type TrustFreshnessCategory = 'FRESH' | 'RECENT' | 'AGING' | 'STALE' | 'UNKNOWN';
 
+export type DishTrustBadgeCode =
+  | 'VERIFIED_TODAY'
+  | 'CONFIRMED_RECENTLY'
+  | 'AGING'
+  | 'NEEDS_VERIFICATION'
+  | 'UNVERIFIED'
+  | 'UNDER_REVIEW'
+  | 'DISPUTED';
+
 export type TrustTier = 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN';
 
 export type TrustDimension =
@@ -66,7 +75,8 @@ export interface DishTrustAssessment {
   // Numerical values (strictly internal / operational)
   priceConfidenceScore: number; // 0.0 to 1.0
   // Explainability
-  badgeLabel: string;
+  badgeCode: DishTrustBadgeCode;
+  badgeLabel: DishTrustBadgeCode | string;
   badgeTone: 'positive' | 'neutral' | 'warning' | 'critical';
   shortExplanation: string;
   detailedReasons: string[];

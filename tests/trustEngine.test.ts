@@ -90,7 +90,7 @@ export async function runTrustEngineTests(): Promise<{ passed: number; failed: n
 
   assert(freshDish.priceTier === 'HIGH', 'Fresh dish receives HIGH priceTier');
   assert(freshDish.freshnessCategory === 'FRESH', 'Fresh dish receives FRESH category');
-  assert(freshDish.badgeLabel === 'Verified Today', 'Fresh dish badge reads "Verified Today"');
+  assert(freshDish.badgeCode === 'VERIFIED_TODAY', 'Fresh dish badge code is "VERIFIED_TODAY"');
   assert(freshDish.badgeTone === 'positive', 'Fresh dish badge tone is positive');
   assert(!freshDish.isReportedDiscrepancy, 'Fresh dish is not marked as reported discrepancy');
 
@@ -104,7 +104,7 @@ export async function runTrustEngineTests(): Promise<{ passed: number; failed: n
 
   assert(staleDish.freshnessCategory === 'STALE', 'Stale dish receives STALE category');
   assert(staleDish.priceTier === 'LOW', 'Stale dish receives LOW price tier');
-  assert(staleDish.badgeLabel === 'Needs Verification', 'Stale dish badge reads "Needs Verification"');
+  assert(staleDish.badgeCode === 'NEEDS_VERIFICATION', 'Stale dish badge code is "NEEDS_VERIFICATION"');
   assert(staleDish.badgeTone === 'warning', 'Stale dish badge tone is warning');
 
   // --------------------------------------------------------------------------
@@ -228,7 +228,7 @@ export async function runTrustEngineTests(): Promise<{ passed: number; failed: n
     restaurantId: 'rest_recovery_test',
     lastVerifiedAt: new Date().toISOString(),
   });
-  assert(dishDisputed.badgeLabel === 'Disputed Price', 'Confirmed discrepancy sets badge to "Disputed Price"');
+  assert(dishDisputed.badgeCode === 'DISPUTED', 'Confirmed discrepancy sets badge code to "DISPUTED"');
   assert(dishDisputed.badgeTone === 'critical', 'Disputed price tone is critical');
 
   // Restaurant correction
@@ -239,7 +239,7 @@ export async function runTrustEngineTests(): Promise<{ passed: number; failed: n
     restaurantId: 'rest_recovery_test',
     lastVerifiedAt: new Date().toISOString(),
   });
-  assert(dishRecovered.badgeLabel === 'Verified Today', 'Restaurant correction instantly restores badge to "Verified Today"');
+  assert(dishRecovered.badgeCode === 'VERIFIED_TODAY', 'Restaurant correction instantly restores badge code to "VERIFIED_TODAY"');
   assert(dishRecovered.badgeTone === 'positive', 'Restored badge tone is positive');
 
   // --------------------------------------------------------------------------

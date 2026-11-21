@@ -8,6 +8,7 @@ import { TRUST_RULES } from '../config/trustRules';
 import {
   TrustFreshnessCategory,
   TrustTier,
+  DishTrustBadgeCode,
   DishTrustAssessment,
   RestaurantTrustAssessment,
   CustomerDiscrepancyReport,
@@ -170,43 +171,43 @@ class TrustServiceClass {
     }
 
     // Badge and Explanations
-    let badgeLabel = 'Verified Price';
+    let badgeCode: DishTrustBadgeCode = 'UNVERIFIED';
     let badgeTone: 'positive' | 'neutral' | 'warning' | 'critical' = 'positive';
     let shortExplanation = 'Price recently verified by restaurant';
     const detailedReasons: string[] = [];
 
     if (worstReportState === 'CONFIRMED') {
-      badgeLabel = 'Disputed Price';
+      badgeCode = 'DISPUTED';
       badgeTone = 'critical';
       shortExplanation = 'Customers reported a price mismatch under review';
       detailedReasons.push('A confirmed customer discrepancy was logged for this item.');
     } else if (worstReportState === 'UNDER_REVIEW' || worstReportState === 'UNVERIFIED_REPORT') {
-      badgeLabel = 'Price Under Review';
+      badgeCode = 'UNDER_REVIEW';
       badgeTone = 'warning';
       shortExplanation = 'A customer recently reported a price difference';
       detailedReasons.push('An unverified customer report is being checked with the kitchen.');
     } else if (freshnessCategory === 'FRESH') {
-      badgeLabel = 'Verified Today';
+      badgeCode = 'VERIFIED_TODAY';
       badgeTone = 'positive';
       shortExplanation = 'Price confirmed accurate within the last 24 hours';
       detailedReasons.push('Updated or audited within 24 hours by restaurant staff.');
     } else if (freshnessCategory === 'RECENT') {
-      badgeLabel = 'Confirmed Recently';
+      badgeCode = 'CONFIRMED_RECENTLY';
       badgeTone = 'neutral';
       shortExplanation = 'Verified accurate within the last 3 days';
       detailedReasons.push('Audited within the past 72 hours.');
     } else if (freshnessCategory === 'AGING') {
-      badgeLabel = 'Audited 3+ Days Ago';
+      badgeCode = 'AGING';
       badgeTone = 'neutral';
       shortExplanation = 'Last verified between 3 and 7 days ago';
       detailedReasons.push('Price has not been re-audited in over 3 days.');
     } else if (freshnessCategory === 'STALE') {
-      badgeLabel = 'Needs Verification';
+      badgeCode = 'NEEDS_VERIFICATION';
       badgeTone = 'warning';
       shortExplanation = 'Price has not been confirmed in over a week';
       detailedReasons.push('Menu prices can fluctuate; please confirm with staff if unsure.');
     } else {
-      badgeLabel = 'Unverified Price';
+      badgeCode = 'UNVERIFIED';
       badgeTone = 'neutral';
       shortExplanation = 'Listing imported without manual price audit';
       detailedReasons.push('This item does not yet have a recorded manual audit timestamp.');
@@ -226,7 +227,8 @@ class TrustServiceClass {
       availabilityTier,
       freshnessCategory,
       priceConfidenceScore,
-      badgeLabel,
+      badgeCode,
+      badgeLabel: badgeCode,
       badgeTone,
       shortExplanation,
       detailedReasons,
@@ -557,6 +559,31 @@ class TrustServiceClass {
     this.userItemReportHistory.clear();
     this.userDailyReportCount.clear();
   }
+
+  /**
+   * Card-visibility rule for dish cards:
+   * Shows positive signals (VERIFIED_TODAY, CONFIRMED_RECENTLY) and warnings (UNDER_REVIEW, DISPUTED).
+   * Hides UNVERIFIED, AGING, and NEEDS_VERIFICATION on cards (kept in details modal).
+   */
+  public shouldShowBadgeOnCard(badgeCode?: DishTrustBadgeCode | string | null): boolean {
+    if (!badgeCode) return false;
+    switch (badgeCode) {
+      case 'VERIFIED_TODAY':
+      case 'CONFIRMED_RECENTLY':
+      case 'UNDER_REVIEW':
+      case 'DISPUTED':
+        return true;
+      case 'UNVERIFIED':
+      case 'AGING':
+      case 'NEEDS_VERIFICATION':
+      default:
+        return false;
+    }
+  }
 }
 
 export const TrustService = new TrustServiceClass();
+
+export function shouldShowTrustBadgeOnCard(badgeCode?: DishTrustBadgeCode | string | null): boolean {
+  return TrustService.shouldShowBadgeOnCard(badgeCode);
+}

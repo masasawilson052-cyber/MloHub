@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { DishTrustBadgeCode } from '../types/trust';
 
 export type Language = 'en' | 'sw';
 
@@ -207,6 +208,40 @@ export interface Translations {
   onboardingSlide2Sub: string;
   onboardingSlide3Title: string;
   onboardingSlide3Sub: string;
+
+  // Dish Card & Trust System
+  trustBadgeVerifiedToday: string;
+  trustBadgeConfirmedRecently: string;
+  trustBadgeAging: string;
+  trustBadgeNeedsVerification: string;
+  trustBadgeUnverified: string;
+  trustBadgeUnderReview: string;
+  trustBadgeDisputed: string;
+
+  trustDescVerifiedToday: string;
+  trustDescConfirmedRecently: string;
+  trustDescAging: string;
+  trustDescNeedsVerification: string;
+  trustDescUnverified: string;
+  trustDescUnderReview: string;
+  trustDescDisputed: string;
+
+  trustIndicatorLabel: string;
+  trustTapForDetails: string;
+
+  availableBadge: string;
+  lowStockBadge: string;
+  soldOutBadge: string;
+  newDishBadge: string;
+
+  compareAction: string;
+  compareActionActive: string;
+  compareActionAccessibility: string;
+  addOrderAction: string;
+  addOrderActionAccessibility: string;
+  mlohubDishPlaceholder: string;
+  cardAccessibilityAt: string;
+  cardAccessibilityAway: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -415,6 +450,40 @@ const TRANSLATIONS: Record<Language, Translations> = {
     onboardingSlide2Sub: 'Book tables easily, manage your plans,\nand get instant reservation updates.',
     onboardingSlide3Title: 'Request\nMeals Your Way',
     onboardingSlide3Sub: 'Send custom meal requests, compare\noptions, and enjoy a more personalized\ndining experience.',
+
+    // Dish Card & Trust System
+    trustBadgeVerifiedToday: 'Verified Today',
+    trustBadgeConfirmedRecently: 'Confirmed Recently',
+    trustBadgeAging: 'Audited 3+ Days Ago',
+    trustBadgeNeedsVerification: 'Needs Verification',
+    trustBadgeUnverified: 'Unverified Price',
+    trustBadgeUnderReview: 'Price Under Review',
+    trustBadgeDisputed: 'Disputed Price',
+
+    trustDescVerifiedToday: 'Price confirmed accurate within the last 24 hours',
+    trustDescConfirmedRecently: 'Verified accurate within the last 3 days',
+    trustDescAging: 'Last verified between 3 and 7 days ago',
+    trustDescNeedsVerification: 'Price has not been confirmed in over a week',
+    trustDescUnverified: 'Listing imported without manual price audit',
+    trustDescUnderReview: 'A customer recently reported a price difference',
+    trustDescDisputed: 'Customers reported a price mismatch under review',
+
+    trustIndicatorLabel: 'Trust indicator',
+    trustTapForDetails: 'Tap for verification details',
+
+    availableBadge: 'Available',
+    lowStockBadge: 'Low Stock',
+    soldOutBadge: 'Sold Out',
+    newDishBadge: 'New',
+
+    compareAction: 'Compare',
+    compareActionActive: 'Compare',
+    compareActionAccessibility: 'Compare',
+    addOrderAction: '+ Add',
+    addOrderActionAccessibility: 'Add to order',
+    mlohubDishPlaceholder: 'MloHub Dish',
+    cardAccessibilityAt: 'at',
+    cardAccessibilityAway: 'away',
   },
   sw: {
     // Tabs
@@ -621,14 +690,110 @@ const TRANSLATIONS: Record<Language, Translations> = {
     onboardingSlide2Sub: 'Weka meza kirahisi, dhibiti mipango yako,\nna pokea taarifa za papo hapo.',
     onboardingSlide3Title: 'Agiza Chakula\nkwa Ladha Yako',
     onboardingSlide3Sub: 'Tuma maombi ya chakula maalum, linganisha\nofa, na furahia uzoefu wa kipekee.',
+
+    // Dish Card & Trust System
+    trustBadgeVerifiedToday: 'Imethibitishwa Leo',
+    trustBadgeConfirmedRecently: 'Imethibitishwa Hivi Karibuni',
+    trustBadgeAging: 'Ilikaguliwa Siku 3+ Zilizopita',
+    trustBadgeNeedsVerification: 'Inahitaji Uhakiki',
+    trustBadgeUnverified: 'Bei Haijathibitishwa',
+    trustBadgeUnderReview: 'Bei Inakaguliwa',
+    trustBadgeDisputed: 'Bei Inayobishaniwa',
+
+    trustDescVerifiedToday: 'Bei imethibitishwa kuwa sahihi ndani ya saa 24 zilizopita',
+    trustDescConfirmedRecently: 'Imethibitishwa kuwa sahihi ndani ya siku 3 zilizopita',
+    trustDescAging: 'Ilikaguliwa mara ya mwisho kati ya siku 3 na 7 zilizopita',
+    trustDescNeedsVerification: 'Bei haijathibitishwa kwa zaidi ya wiki moja',
+    trustDescUnverified: 'Orodha iliwekwa bila ukaguzi wa bei',
+    trustDescUnderReview: 'Mteja aliripoti tofauti ya bei hivi karibuni',
+    trustDescDisputed: 'Wateja waliripoti tofauti ya bei inayochunguzwa',
+
+    trustIndicatorLabel: 'Kielelezo cha uaminifu',
+    trustTapForDetails: 'Gusa kwa maelezo ya uhakiki',
+
+    availableBadge: 'Inapatikana',
+    lowStockBadge: 'Imebaki Chache',
+    soldOutBadge: 'Imeisha',
+    newDishBadge: 'Mpya',
+
+    compareAction: 'Linganisha',
+    compareActionActive: 'Linganisha',
+    compareActionAccessibility: 'Linganisha',
+    addOrderAction: '+ Ongeza',
+    addOrderActionAccessibility: 'Weka kwenye agizo',
+    mlohubDishPlaceholder: 'Chakula cha MloHub',
+    cardAccessibilityAt: 'katika',
+    cardAccessibilityAway: 'umbali wa',
   },
 };
 
-interface LanguageContextType {
+export const TRUST_BADGE_LABELS: Record<Language, Record<DishTrustBadgeCode, string>> = {
+  en: {
+    VERIFIED_TODAY: 'Verified Today',
+    CONFIRMED_RECENTLY: 'Confirmed Recently',
+    AGING: 'Audited 3+ Days Ago',
+    NEEDS_VERIFICATION: 'Needs Verification',
+    UNVERIFIED: 'Unverified Price',
+    UNDER_REVIEW: 'Price Under Review',
+    DISPUTED: 'Disputed Price',
+  },
+  sw: {
+    VERIFIED_TODAY: 'Imethibitishwa Leo',
+    CONFIRMED_RECENTLY: 'Imethibitishwa Hivi Karibuni',
+    AGING: 'Ilikaguliwa Siku 3+ Zilizopita',
+    NEEDS_VERIFICATION: 'Inahitaji Uhakiki',
+    UNVERIFIED: 'Bei Haijathibitishwa',
+    UNDER_REVIEW: 'Bei Inakaguliwa',
+    DISPUTED: 'Bei Inayobishaniwa',
+  },
+};
+
+export const TRUST_BADGE_EXPLANATIONS: Record<Language, Record<DishTrustBadgeCode, string>> = {
+  en: {
+    VERIFIED_TODAY: 'Price confirmed accurate within the last 24 hours',
+    CONFIRMED_RECENTLY: 'Verified accurate within the last 3 days',
+    AGING: 'Last verified between 3 and 7 days ago',
+    NEEDS_VERIFICATION: 'Price has not been confirmed in over a week',
+    UNVERIFIED: 'Listing imported without manual price audit',
+    UNDER_REVIEW: 'A customer recently reported a price difference',
+    DISPUTED: 'Customers reported a price mismatch under review',
+  },
+  sw: {
+    VERIFIED_TODAY: 'Bei imethibitishwa kuwa sahihi ndani ya saa 24 zilizopita',
+    CONFIRMED_RECENTLY: 'Imethibitishwa kuwa sahihi ndani ya siku 3 zilizopita',
+    AGING: 'Ilikaguliwa mara ya mwisho kati ya siku 3 na 7 zilizopita',
+    NEEDS_VERIFICATION: 'Bei haijathibitishwa kwa zaidi ya wiki moja',
+    UNVERIFIED: 'Orodha iliwekwa bila ukaguzi wa bei',
+    UNDER_REVIEW: 'Mteja aliripoti tofauti ya bei hivi karibuni',
+    DISPUTED: 'Wateja waliripoti tofauti ya bei inayochunguzwa',
+  },
+};
+
+export function getTrustBadgeLabel(
+  code?: DishTrustBadgeCode | string | null,
+  language: Language = 'en'
+): string {
+  if (!code) return '';
+  const key = code as DishTrustBadgeCode;
+  return TRUST_BADGE_LABELS[language]?.[key] || TRUST_BADGE_LABELS.en[key] || String(code);
+}
+
+export function getTrustBadgeExplanation(
+  code?: DishTrustBadgeCode | string | null,
+  language: Language = 'en'
+): string {
+  if (!code) return '';
+  const key = code as DishTrustBadgeCode;
+  return TRUST_BADGE_EXPLANATIONS[language]?.[key] || TRUST_BADGE_EXPLANATIONS.en[key] || '';
+}
+
+export interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
   t: (key: keyof Translations) => string;
+  getTrustBadgeLabel: (code?: DishTrustBadgeCode | string | null) => string;
+  getTrustBadgeExplanation: (code?: DishTrustBadgeCode | string | null) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -644,8 +809,25 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     return TRANSLATIONS[language][key] || TRANSLATIONS['en'][key] || String(key);
   };
 
+  const boundGetTrustBadgeLabel = (code?: DishTrustBadgeCode | string | null): string => {
+    return getTrustBadgeLabel(code, language);
+  };
+
+  const boundGetTrustBadgeExplanation = (code?: DishTrustBadgeCode | string | null): string => {
+    return getTrustBadgeExplanation(code, language);
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, toggleLanguage, t }}>
+    <LanguageContext.Provider
+      value={{
+        language,
+        setLanguage,
+        toggleLanguage,
+        t,
+        getTrustBadgeLabel: boundGetTrustBadgeLabel,
+        getTrustBadgeExplanation: boundGetTrustBadgeExplanation,
+      }}
+    >
       {children}
     </LanguageContext.Provider>
   );

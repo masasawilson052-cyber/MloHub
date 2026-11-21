@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { Colors, Spacing, Radii, Shadows } from '../../constants/theme';
 import { DishTrustAssessment, RestaurantTrustAssessment } from '../../types/trust';
+import { useLanguage } from '../../context/LanguageContext';
 
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -38,7 +39,15 @@ export const TrustExplanationModal: React.FC<TrustExplanationModalProps> = ({
   onOpenReportModal,
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { getTrustBadgeLabel, getTrustBadgeExplanation } = useLanguage();
   if (!visible) return null;
+
+  const dishBadgeLabel = dishAssessment
+    ? getTrustBadgeLabel(dishAssessment.badgeCode || dishAssessment.badgeLabel)
+    : '';
+  const dishBadgeExplanation = dishAssessment
+    ? getTrustBadgeExplanation(dishAssessment.badgeCode || dishAssessment.badgeLabel) || dishAssessment.shortExplanation
+    : '';
 
   return (
     <Modal
@@ -89,14 +98,14 @@ export const TrustExplanationModal: React.FC<TrustExplanationModalProps> = ({
                         dishAssessment.badgeTone === 'neutral' && styles.tierTextNeutral,
                       ]}
                     >
-                      {dishAssessment.badgeLabel}
+                      {dishBadgeLabel}
                     </Text>
                   </View>
                   <Text style={styles.dishNameTitle}>{dishAssessment.dishName}</Text>
                 </View>
 
                 <Text style={styles.explanationText}>
-                  {dishAssessment.shortExplanation}
+                  {dishBadgeExplanation}
                 </Text>
 
                 {dishAssessment.detailedReasons.length > 0 ? (

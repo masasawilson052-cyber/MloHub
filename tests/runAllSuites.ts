@@ -30,6 +30,7 @@ import { runSmsOtpTestSuite } from './smsOtp.test';
 import { runPaymentArchitectureTestSuite } from './paymentArchitecture.test';
 import { runRealtimePipelineTests } from './realtimePipeline.test';
 import { runTrustEngineTests } from './trustEngine.test';
+import { runDishCardTrustVisibilityTests } from './dishCardTrustVisibility.test';
 import { runDbContextCutoverTestSuite } from './dbContextCutover.test';
 import { runCustomerCutoverTestSuite } from './customerCutover.test';
 import { runRestaurantPortalCutoverTests } from './restaurantPortalCutover.test';
@@ -655,6 +656,11 @@ async function runMasterTestSuite() {
   const trustResults = await runTrustEngineTests();
   passed += trustResults.passed;
   failed += trustResults.failed;
+
+  // Dish Card Trust Badge Visibility & Labels Suite
+  const cardTrustResults = await runDishCardTrustVisibilityTests();
+  passed += cardTrustResults.passed;
+  failed += cardTrustResults.failed;
 
   // Integrated Dual-Account & Regression Test Suite
 
