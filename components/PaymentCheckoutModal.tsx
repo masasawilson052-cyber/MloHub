@@ -14,7 +14,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Radii, Shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { useMloHubDB } from '../context/DbContext';
 import {
   PaymentApi,
   PaymentInitiationResult,
@@ -101,7 +100,6 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   const styles = createStyles(colors);
   const { language } = useLanguage();
   const { user } = useAuth();
-  const { restaurants } = useMloHubDB();
 
   // State Machine
   const [step, setStep] = useState<PaymentFlowStep>('METHOD');

@@ -56,9 +56,11 @@ if (isProduction) {
       moduleName === '../db' ||
       moduleName === '../../db' ||
       moduleName === '@/db' ||
+      moduleName.endsWith('/db') ||
       moduleName === '../db/index' ||
       moduleName === '../../db/index' ||
       moduleName === '@/db/index' ||
+      moduleName.endsWith('/db/index') ||
       moduleName.endsWith('/db/seed') ||
       moduleName.endsWith('/db/repositories')
     ) {

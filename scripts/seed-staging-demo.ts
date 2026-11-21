@@ -11,6 +11,7 @@
  *  - Passwords provided strictly via environment variables (never hard-coded).
  *  - Fully idempotent (safe to run multiple times).
  *  - Supports --reset flag to delete only seeded rows and accounts.
+ *  - Image validation: Refuses to upload any image < 800px wide or > 500 KB.
  *
  * Usage:
  *   STAGING_SEED_CONFIRM=yes STAGING_DEFAULT_PASSWORD="YourPassword123!" \
@@ -25,10 +26,109 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { STAGING_RESTAURANTS, SeedRestaurant } from './seed-staging-data';
+import { STAGING_RESTAURANTS } from './seed/data';
 
 const PROD_PROJECT_REF = 'rrebkpeumvqffuwtqvje';
 const MEDIA_BUCKET = 'mlohub-media';
+const MIN_IMAGE_WIDTH_PX = 800;
+const MAX_IMAGE_SIZE_BYTES = 500 * 1024; // 500 KB = 512,000 bytes
+
+interface ImageDimensions {
+  width: number;
+  height: number;
+}
+
+/**
+ * Extracts width and height from PNG, JPEG, and WebP image buffers without external dependencies.
+ */
+export function getImageDimensions(buffer: Buffer): ImageDimensions | null {
+  if (buffer.length < 24) return null;
+
+  // 1. PNG: Signature (8 bytes) + Chunk Length (4 bytes) + 'IHDR' (4 bytes) + Width (4 bytes BE) + Height (4 bytes BE)
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    if (buffer.toString('ascii', 12, 16) === 'IHDR') {
+      return {
+        width: buffer.readUInt32BE(16),
+        height: buffer.readUInt32BE(20),
+      };
+    }
+  }
+
+  // 2. JPEG: Starts with 0xFF 0xD8 (SOI), then markers
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+    let offset = 2;
+    while (offset < buffer.length) {
+      if (buffer[offset] !== 0xff) {
+        offset++;
+        continue;
+      }
+      while (offset < buffer.length && buffer[offset] === 0xff) {
+        offset++;
+      }
+      if (offset >= buffer.length) break;
+      const marker = buffer[offset];
+      offset++;
+
+      // Skip standalone markers without payload (SOI, EOI, Restart markers)
+      if (marker === 0xd8 || marker === 0xd9 || (marker >= 0xd0 && marker <= 0xd7)) {
+        continue;
+      }
+
+      if (offset + 2 > buffer.length) break;
+      const length = buffer.readUInt16BE(offset);
+
+      // Start of Frame markers (SOF0 - SOF15, except DHT 0xC4 and DAC 0xCC)
+      const isSof =
+        (marker >= 0xc0 && marker <= 0xc3) ||
+        (marker >= 0xc5 && marker <= 0xc7) ||
+        (marker >= 0xc9 && marker <= 0xcb) ||
+        (marker >= 0xcd && marker <= 0xcf);
+
+      if (isSof && marker !== 0xc4 && marker !== 0xcc) {
+        if (offset + 7 <= buffer.length) {
+          const height = buffer.readUInt16BE(offset + 3);
+          const width = buffer.readUInt16BE(offset + 5);
+          return { width, height };
+        }
+      }
+
+      offset += length;
+    }
+  }
+
+  // 3. WebP: 'RIFF'....'WEBP'
+  if (
+    buffer.length >= 30 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    const chunkHeader = buffer.toString('ascii', 12, 16);
+    // Extended WebP (VP8X)
+    if (chunkHeader === 'VP8X' && buffer.length >= 30) {
+      const width = 1 + buffer.readUIntLE(24, 3);
+      const height = 1 + buffer.readUIntLE(27, 3);
+      return { width, height };
+    }
+    // Lossy WebP (VP8 )
+    if (chunkHeader === 'VP8 ' && buffer.length >= 30) {
+      const width = buffer.readUInt16LE(26) & 0x3fff;
+      const height = buffer.readUInt16LE(28) & 0x3fff;
+      return { width, height };
+    }
+    // Lossless WebP (VP8L)
+    if (chunkHeader === 'VP8L' && buffer.length >= 25) {
+      const b0 = buffer[21];
+      const b1 = buffer[22];
+      const b2 = buffer[23];
+      const b3 = buffer[24];
+      const width = 1 + (((b1 & 0x3f) << 8) | b0);
+      const height = 1 + (((b3 & 0xf) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6));
+      return { width, height };
+    }
+  }
+
+  return null;
+}
 
 function deterministicUuid(namespace: string, key: string): string {
   const hash = createHash('sha256').update(`${namespace}:${key}`).digest('hex');
@@ -142,7 +242,7 @@ async function main() {
   }
 
   // --------------------------------------------------------------------------
-  // SEED MODE: Validate passwords and prepare assets
+  // SEED MODE: Validate passwords and assets
   // --------------------------------------------------------------------------
   const defaultPass = process.env.STAGING_DEFAULT_PASSWORD;
   const passwords = {
@@ -161,23 +261,89 @@ async function main() {
   console.log(`   Target URL: ${supabaseUrl}`);
   console.log(`   Restaurants: ${STAGING_RESTAURANTS.length} dense zones`);
 
-  // Step 1: Upload seed images to storage bucket
-  console.log('\n📸 Step 1: Uploading cover and dish images to mlohub-media...');
+  // Step 1: Validate seed images before any uploads or DB operations
+  console.log('\n📸 Step 1: Validating seed images in scripts/seed-images...');
   const seedImagesDir = path.resolve(__dirname, 'seed-images');
-  const fallbackPng = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-    'base64'
-  );
+
+  const requiredImageFiles = new Set<string>();
+  requiredImageFiles.add('default_cover.png');
+  requiredImageFiles.add('default_dish.png');
+  for (const r of STAGING_RESTAURANTS) {
+    requiredImageFiles.add(r.coverImageFileName);
+    for (const d of r.dishes) {
+      requiredImageFiles.add(d.imageFileName);
+    }
+  }
+
+  // Also include any other local images present in the directory
+  if (fs.existsSync(seedImagesDir)) {
+    const dirEntries = fs.readdirSync(seedImagesDir);
+    for (const entry of dirEntries) {
+      if (/\.(png|jpe?g|webp)$/i.test(entry)) {
+        requiredImageFiles.add(entry);
+      }
+    }
+  }
+
+  const validationErrors: string[] = [];
+
+  for (const fileName of Array.from(requiredImageFiles).sort()) {
+    const filePath = path.join(seedImagesDir, fileName);
+    if (!fs.existsSync(filePath)) {
+      validationErrors.push(`  - ❌ ${fileName}: FILE MISSING in scripts/seed-images/`);
+      continue;
+    }
+
+    const stat = fs.statSync(filePath);
+    const sizeKb = (stat.size / 1024).toFixed(1);
+
+    if (stat.size > MAX_IMAGE_SIZE_BYTES) {
+      validationErrors.push(
+        `  - ❌ ${fileName}: File size too large (${sizeKb} KB > ${(MAX_IMAGE_SIZE_BYTES / 1024).toFixed(0)} KB limit)`
+      );
+      continue;
+    }
+
+    const fileBuf = fs.readFileSync(filePath);
+    const dims = getImageDimensions(fileBuf);
+
+    if (!dims) {
+      validationErrors.push(`  - ❌ ${fileName}: Invalid or unparseable image format (supported: PNG, JPEG, WebP)`);
+    } else if (dims.width < MIN_IMAGE_WIDTH_PX) {
+      validationErrors.push(
+        `  - ❌ ${fileName}: Image width too small (${dims.width}px < ${MIN_IMAGE_WIDTH_PX}px minimum, height: ${dims.height}px, size: ${sizeKb} KB)`
+      );
+    }
+  }
+
+  if (validationErrors.length > 0) {
+    console.error('\n🚨 IMAGE VALIDATION FAILED: Refusing to upload images that do not meet staging specs:');
+    console.error(`   Required Specs: Width >= ${MIN_IMAGE_WIDTH_PX}px, Size <= ${(MAX_IMAGE_SIZE_BYTES / 1024).toFixed(0)} KB (Recommended: 1,200x900 px, < 300 KB)`);
+    console.error('   The following files need replacing:');
+    for (const err of validationErrors) {
+      console.error(err);
+    }
+    console.error('\n   Please replace these files in scripts/seed-images/ according to scripts/seed-images/README.md.\n');
+    process.exit(1);
+  }
+
+  console.log(`   ✓ All ${requiredImageFiles.size} seed images validated (width >= ${MIN_IMAGE_WIDTH_PX}px, size <= 500 KB).`);
 
   async function uploadMedia(storagePath: string, localFileName: string): Promise<string> {
     const localFilePath = path.join(seedImagesDir, localFileName);
-    const fileBuffer = fs.existsSync(localFilePath) ? fs.readFileSync(localFilePath) : fallbackPng;
-    const mimeType = localFileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+    if (!fs.existsSync(localFilePath)) {
+      throw new Error(`Cannot upload missing seed image: ${localFileName}`);
+    }
+    const fileBuffer = fs.readFileSync(localFilePath);
+    let mimeType = 'image/png';
+    if (/\.jpe?g$/i.test(localFileName)) mimeType = 'image/jpeg';
+    else if (/\.webp$/i.test(localFileName)) mimeType = 'image/webp';
 
-    await supabase.storage.from(MEDIA_BUCKET).upload(storagePath, fileBuffer, {
+    const { error: uploadError } = await supabase.storage.from(MEDIA_BUCKET).upload(storagePath, fileBuffer, {
       contentType: mimeType,
       upsert: true,
     });
+    if (uploadError) throw uploadError;
 
     const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(storagePath);
     return data.publicUrl;

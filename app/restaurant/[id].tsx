@@ -2,6 +2,7 @@ import { directionsUrl } from '../../utils/directions';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { MenuRepository } from '../../repositories';
 import { BranchRepository } from '../../repositories/branches.repository';
+import { RestaurantRepository } from '../../repositories/restaurants.repository';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import {
   ScrollView,
@@ -74,17 +75,52 @@ export default function RestaurantDetailScreen() {
   };
 
   const matched = restaurants.find((r) => r.id === id);
+  const [directRestaurant, setDirectRestaurant] = useState<Restaurant | null>(null);
+  const [isDirectLoading, setIsDirectLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!loading && !matched && id) {
+      setIsDirectLoading(true);
+      RestaurantRepository.getById(id)
+        .then((fetched) => {
+          if (isMounted) {
+            setDirectRestaurant(fetched);
+            setIsDirectLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.warn('RestaurantDetail: Failed to fetch restaurant directly:', err);
+          if (isMounted) {
+            setIsDirectLoading(false);
+          }
+        });
+    } else if (matched) {
+      setDirectRestaurant(null);
+      setIsDirectLoading(false);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [loading, matched, id]);
+
+  const candidateRestaurant = matched || directRestaurant;
   const isAvailableForCustomers =
-    matched &&
-    !matched.isSuspended &&
-    matched.verificationStatus !== 'SUSPENDED' &&
-    matched.verificationStatus !== 'REJECTED' &&
-    matched.verificationStatus !== 'PENDING_VERIFICATION' &&
-    (matched as any).isVerified !== false &&
-    matched.isActive !== false &&
-    matched.isPublished !== false &&
-    (!(matched as any).launchStatus || (matched as any).launchStatus === 'PUBLISHED');
-  const restaurant: any = isAvailableForCustomers ? matched : undefined;
+    candidateRestaurant &&
+    !candidateRestaurant.isSuspended &&
+    candidateRestaurant.verificationStatus !== 'SUSPENDED' &&
+    candidateRestaurant.verificationStatus !== 'REJECTED' &&
+    candidateRestaurant.verificationStatus !== 'PENDING_VERIFICATION' &&
+    (candidateRestaurant as any).isVerified !== false &&
+    candidateRestaurant.isActive !== false &&
+    candidateRestaurant.isPublished !== false &&
+    (candidateRestaurant as any).launchStatus === 'PUBLISHED' &&
+    (!matched || (
+      matched.verificationStatus !== 'PENDING_VERIFICATION' &&
+      matched.isPublished !== false &&
+      (matched as any).launchStatus === 'PUBLISHED'
+    ));
+  const restaurant: any = isAvailableForCustomers ? candidateRestaurant : undefined;
 
   const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
@@ -271,7 +307,9 @@ export default function RestaurantDetailScreen() {
     });
   }, [menuItems, selectedCategory]);
 
-  if (loading) {
+  const isPageLoading = loading || (Boolean(id) && !matched && isDirectLoading);
+
+  if (isPageLoading) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

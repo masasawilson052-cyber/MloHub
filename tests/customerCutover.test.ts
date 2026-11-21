@@ -45,18 +45,10 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
     assert(fs.existsSync(filePath), `Target file exists: ${name} (${path.basename(filePath)})`);
   }
 
-  const sources = {
-    index: fs.readFileSync(files.index, 'utf8'),
-    explore: fs.readFileSync(files.explore, 'utf8'),
-    bookings: fs.readFileSync(files.bookings, 'utf8'),
-    orders: fs.readFileSync(files.orders, 'utf8'),
-    custom: fs.readFileSync(files.custom, 'utf8'),
-    profile: fs.readFileSync(files.profile, 'utf8'),
-    restaurantDetail: fs.readFileSync(files.restaurantDetail, 'utf8'),
-    reservationModal: fs.readFileSync(files.reservationModal, 'utf8'),
-    paymentCheckoutModal: fs.readFileSync(files.paymentCheckoutModal, 'utf8'),
-    orderReviewModal: fs.readFileSync(files.orderReviewModal, 'utf8'),
-  };
+  const sources: Record<string, string> = {};
+  for (const [name, filePath] of Object.entries(files)) {
+    sources[name] = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+  }
 
   // ==========================================================================
   // Criterion A: app/(tabs)/index.tsx

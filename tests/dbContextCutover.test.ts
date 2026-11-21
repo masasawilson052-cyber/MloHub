@@ -40,9 +40,9 @@ export async function runDbContextCutoverTestSuite(): Promise<{ passed: number; 
   assert(fs.existsSync(restaurantRepoPath), 'repositories/restaurants.repository.ts exists');
   assert(fs.existsSync(customMealRepoPath), 'repositories/customMeals.repository.ts exists');
 
-  const dbContextSrc = fs.readFileSync(dbContextPath, 'utf8');
-  const restaurantRepoSrc = fs.readFileSync(restaurantRepoPath, 'utf8');
-  const customMealRepoSrc = fs.readFileSync(customMealRepoPath, 'utf8');
+  const dbContextSrc = fs.readFileSync(dbContextPath, 'utf8').replace(/\r\n/g, '\n');
+  const restaurantRepoSrc = fs.readFileSync(restaurantRepoPath, 'utf8').replace(/\r\n/g, '\n');
+  const customMealRepoSrc = fs.readFileSync(customMealRepoPath, 'utf8').replace(/\r\n/g, '\n');
 
   // A. Real mode does not initialize MloHubDB
   assert(

@@ -63,6 +63,7 @@ export async function runDemoIsolationTestSuite(): Promise<{ passed: number; fai
   // Read critical source files for static verification
   const favoritesModalSrc = readSrc(path.join(rootDir, 'components', 'profile', 'FavoritesModal.tsx'));
   const loginSrc = readSrc(path.join(rootDir, 'app', 'auth', 'login.tsx'));
+  const demoQuickFillSrc = readSrc(path.join(rootDir, 'demo', 'DemoAccountsQuickFill.tsx'));
   const systemHealthSrc = readSrc(path.join(rootDir, 'components', 'admin', 'SystemHealth.tsx'));
   const discoveryRepoSrc = readSrc(path.join(rootDir, 'repositories', 'discovery.repository.ts'));
   const restaurantServiceSrc = readSrc(path.join(rootDir, 'services', 'RestaurantService.ts'));
@@ -210,11 +211,12 @@ export async function runDemoIsolationTestSuite(): Promise<{ passed: number; fai
 
   // Criterion L: Quick Demo Account UI is strictly guarded by runtimeConfig.isDemo
   assert(
-    loginSrc.includes('{runtimeConfig.isDemo && (') &&
-    loginSrc.includes('⚡ Quick Demo Accounts'),
+    (loginSrc.includes('<DemoAccountsQuickFill') && demoQuickFillSrc.includes('if (!runtimeConfig.isDemo)')) ||
+    (loginSrc.includes('{runtimeConfig.isDemo && (') && loginSrc.includes('⚡ Quick Demo Accounts')),
     'Criterion L1: Quick Demo Accounts prefill is strictly guarded by runtimeConfig.isDemo'
   );
   assert(
+    demoQuickFillSrc.includes('if (!runtimeConfig.isDemo) {') ||
     loginSrc.includes('if (!runtimeConfig.isDemo) {'),
     'Criterion L2: Quick Demo button handlers verify runtimeConfig.isDemo before prefilling'
   );
