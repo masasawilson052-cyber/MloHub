@@ -252,6 +252,28 @@ export interface Translations {
   mlohubDishPlaceholder: string;
   cardAccessibilityAt: string;
   cardAccessibilityAway: string;
+
+  // Restaurant Page & Decision Facts
+  factsOpenNow: string;
+  factsOpensAt: string;
+  factsClosed: string;
+  factsNotTakingOrders: string;
+  factsDeliveryFrom: string;
+  factsFinalFeeAtCheckout: string;
+  factsDeliveryNotAvailable: string;
+  factsEstTime: string;
+  factsMinOrder: string;
+  factsNoMinOrder: string;
+  factsServiceDelivery: string;
+  factsServiceTakeaway: string;
+  factsServiceDineIn: string;
+  factsServiceReservations: string;
+  restaurantLoading: string;
+  restaurantLoadError: string;
+  restaurantRetry: string;
+  reserveTableBtn: string;
+  menuAllCategories: string;
+  mamaNtilie: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -504,6 +526,28 @@ const TRANSLATIONS: Record<Language, Translations> = {
     mlohubDishPlaceholder: 'MloHub Dish',
     cardAccessibilityAt: 'at',
     cardAccessibilityAway: 'away',
+
+    // Restaurant Page & Decision Facts
+    factsOpenNow: 'Open Now',
+    factsOpensAt: 'Opens at',
+    factsClosed: 'Closed',
+    factsNotTakingOrders: 'Not taking orders right now',
+    factsDeliveryFrom: 'Delivery from',
+    factsFinalFeeAtCheckout: 'Final fee shown at checkout',
+    factsDeliveryNotAvailable: 'Delivery not available here, choose Takeaway',
+    factsEstTime: '~{min} min',
+    factsMinOrder: 'Min {amount}',
+    factsNoMinOrder: 'No minimum',
+    factsServiceDelivery: 'Delivery',
+    factsServiceTakeaway: 'Takeaway',
+    factsServiceDineIn: 'Dine-in',
+    factsServiceReservations: 'Reservations',
+    restaurantLoading: 'Loading restaurant details...',
+    restaurantLoadError: 'Could not load restaurant details',
+    restaurantRetry: 'Retry',
+    reserveTableBtn: 'Reserve a Table',
+    menuAllCategories: 'All',
+    mamaNtilie: 'Mama Ntilie',
   },
   sw: {
     // Tabs
@@ -570,7 +614,7 @@ const TRANSLATIONS: Record<Language, Translations> = {
     viewMenuBtn: 'Angalia Menyu',
     topPickBadge: 'CHAGUO BORA',
     verifiedBadge: 'IMETHIBITISHWA',
-    openBadge: 'IMEUNGULIWA',
+    openBadge: 'IMEFUNGULIWA',
     closedBadge: 'IMEFUNGWA',
     noRestaurantsTitle: 'Hakuna mgahawa uliopatikana',
     noRestaurantsMsg: 'Hakuna mgahawa unaolingana na utafutaji wako. Jaribu vyakula vya Asili, Vya Afya, au Burgers.',
@@ -754,6 +798,28 @@ const TRANSLATIONS: Record<Language, Translations> = {
     mlohubDishPlaceholder: 'Chakula cha MloHub',
     cardAccessibilityAt: 'katika',
     cardAccessibilityAway: 'umbali wa',
+
+    // Restaurant Page & Decision Facts
+    factsOpenNow: 'Imefunguliwa',
+    factsOpensAt: 'Inafungua saa',
+    factsClosed: 'Imefungwa',
+    factsNotTakingOrders: 'Haipokei oda kwa sasa',
+    factsDeliveryFrom: 'Uwasilishaji kuanzia',
+    factsFinalFeeAtCheckout: 'Ada kamili itaonekana wakati wa kulipia',
+    factsDeliveryNotAvailable: 'Uwasilishaji haupatikani hapa, chagua Kuchukua',
+    factsEstTime: '~Dak {min}',
+    factsMinOrder: 'Kiwango cha chini {amount}',
+    factsNoMinOrder: 'Bila kima cha chini',
+    factsServiceDelivery: 'Uwasilishaji',
+    factsServiceTakeaway: 'Kuchukua',
+    factsServiceDineIn: 'Kula Ndani',
+    factsServiceReservations: 'Kuweka Meza',
+    restaurantLoading: 'Inapakia taarifa za mkahawa...',
+    restaurantLoadError: 'Hatuwezi kupakia taarifa za mkahawa',
+    restaurantRetry: 'Jaribu Tena',
+    reserveTableBtn: 'Weka Meza',
+    menuAllCategories: 'Zote',
+    mamaNtilie: 'Mama Ntilie',
   },
 };
 

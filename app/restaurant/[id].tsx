@@ -1,107 +1,97 @@
-import { directionsUrl } from '../../utils/directions';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { MenuRepository } from '../../repositories';
-import { BranchRepository } from '../../repositories/branches.repository';
-import { RestaurantRepository } from '../../repositories/restaurants.repository';
-import { runtimeConfig } from '../../lib/runtimeConfig';
-import {
-  ScrollView,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Platform,
-  Linking,
-  useWindowDimensions,
-  ActivityIndicator,
-} from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Restaurant } from '../../types/domain';
+import { MenuRepository } from '../../repositories';
+import { BranchRepository } from '../../repositories/branches.repository';
+import { RestaurantRepository } from '../../repositories/restaurants.repository';
+import { BranchOperationsRepository } from '../../repositories/branchOperations.repository';
+import { runtimeConfig } from '../../lib/runtimeConfig';
+import { directionsUrl } from '../../utils/directions';
 import { ReservationModal } from '../../components/ReservationModal';
 import { GoogleMapView } from '../../components/GoogleMapView';
-import { Colors, Spacing, Radii, Shadows } from '../../theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { useMloHubDB } from '../../context/DbContext';
 import { useCart } from '../../context/CartContext';
 import { useCartInteraction } from '../../hooks/useCartInteraction';
+import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { CustomerCartHost } from '../../components/cart/CustomerCartHost';
-import { FreshnessBadge } from '../../components/ui/FreshnessBadge';
-import { Badge } from '../../components/ui/Badge';
-import { PriceText } from '../../components/ui/PriceText';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../../components/trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../../components/trust/ReportDiscrepancyModal';
-
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors, lightColors } from '../../theme/palettes';
+
+import {
+  RestaurantHeader,
+  RestaurantDecisionFacts,
+  MenuSection,
+  RestaurantSkeleton,
+  RestaurantErrorView,
+  MenuItem,
+  CategoryItem,
+  createRestaurantDetailStyles,
+} from '../../components/restaurant-page';
 
 let colors: ThemeColors = lightColors;
 
 function parsePriceTzs(priceStr: string | number): number {
   if (typeof priceStr === 'number') return priceStr;
-  const cleaned = priceStr.replace(/[^0-9]/g, '');
+  const cleaned = String(priceStr).replace(/[^0-9]/g, '');
   return parseInt(cleaned, 10) || 10000;
 }
 
 export default function RestaurantDetailScreen() {
-  const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { colors: _tc } = useTheme();
+  colors = _tc;
+  const styles = createRestaurantDetailStyles(colors);
   const { id, highlightDishId } = useLocalSearchParams<{ id: string; highlightDishId?: string }>();
   const router = useRouter();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const { restaurants, favorites, toggleFavorite, loading } = useMloHubDB();
+  const { location: customerLocation } = useCustomerLocation();
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
   const { items } = useCart();
   const { requestAddToCart, isDishAddPending } = useCartInteraction();
+
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showTrustModal, setShowTrustModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
-  const highlightedImageRef = useRef<View | null>(null);
-  const menuImageRefs = useRef<Record<string, React.RefObject<View | null>>>({});
+  const scrollViewRef = useRef<ScrollView | null>(null);
 
-  const getMenuImageRef = (dishId: string): React.RefObject<View | null> => {
-    if (!menuImageRefs.current[dishId]) {
-      menuImageRefs.current[dishId] = React.createRef<View | null>();
-    }
-    return menuImageRefs.current[dishId];
-  };
-
+  // 1. Matched or Direct Fallback
   const matched = restaurants.find((r) => r.id === id);
   const [directRestaurant, setDirectRestaurant] = useState<Restaurant | null>(null);
   const [isDirectLoading, setIsDirectLoading] = useState(false);
 
+  const fetchDirectRestaurant = () => {
+    if (!id) return;
+    setIsDirectLoading(true);
+    RestaurantRepository.getById(id)
+      .then((fetched) => {
+        setDirectRestaurant(fetched);
+        setIsDirectLoading(false);
+      })
+      .catch((err) => {
+        console.warn('RestaurantDetail: direct fetch failed:', err);
+        setIsDirectLoading(false);
+      });
+  };
+
   useEffect(() => {
-    let isMounted = true;
     if (!loading && !matched && id) {
-      setIsDirectLoading(true);
-      RestaurantRepository.getById(id)
-        .then((fetched) => {
-          if (isMounted) {
-            setDirectRestaurant(fetched);
-            setIsDirectLoading(false);
-          }
-        })
-        .catch((err) => {
-          console.warn('RestaurantDetail: Failed to fetch restaurant directly:', err);
-          if (isMounted) {
-            setIsDirectLoading(false);
-          }
-        });
+      fetchDirectRestaurant();
     } else if (matched) {
       setDirectRestaurant(null);
       setIsDirectLoading(false);
     }
-    return () => {
-      isMounted = false;
-    };
   }, [loading, matched, id]);
 
   const candidateRestaurant = matched || directRestaurant;
@@ -115,128 +105,117 @@ export default function RestaurantDetailScreen() {
     candidateRestaurant.isActive !== false &&
     candidateRestaurant.isPublished !== false &&
     (candidateRestaurant as any).launchStatus === 'PUBLISHED' &&
-    (!matched || (
-      matched.verificationStatus !== 'PENDING_VERIFICATION' &&
-      matched.isPublished !== false &&
-      (matched as any).launchStatus === 'PUBLISHED'
-    ));
+    (!matched ||
+      (matched.verificationStatus !== 'PENDING_VERIFICATION' &&
+        matched.isPublished !== false &&
+        (matched as any).launchStatus === 'PUBLISHED'));
+
   const restaurant: any = isAvailableForCustomers ? candidateRestaurant : undefined;
 
-  const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
-  const [dbCategories, setDbCategories] = useState<any[]>([]);
-  const [branchPrices, setBranchPrices] = useState<any[]>([]);
-  const [branchItemStates, setBranchItemStates] = useState<any[]>([]);
-  const [isMenuLoading, setIsMenuLoading] = useState(false);
+  // 2. Branches, Operating Hours & Delivery Zones
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+  const [operatingHours, setOperatingHours] = useState<any[]>([]);
+  const [deliveryZones, setDeliveryZones] = useState<any[]>([]);
 
   useEffect(() => {
-    let isMounted = true;
     if (id) {
       BranchRepository.listByRestaurant(id)
         .then((bList) => {
-          if (isMounted) {
-            const activeBranches = bList.filter((b: any) => b.isActive !== false);
-            const resolvedList = activeBranches.length > 0 ? activeBranches : bList;
-            setBranches(resolvedList);
-            if (resolvedList.length > 0) {
-              setSelectedBranch(resolvedList[0]);
-            }
-          }
+          const activeBranches = bList.filter((b: any) => b.isActive !== false);
+          const resolvedList = activeBranches.length > 0 ? activeBranches : bList;
+          setBranches(resolvedList);
+          if (resolvedList.length > 0) setSelectedBranch(resolvedList[0]);
         })
-        .catch((err) => {
-          console.warn('RestaurantDetail: Failed to fetch branches:', err);
-        });
+        .catch((err) => console.warn('RestaurantDetail: branch list failed:', err));
     }
-    return () => {
-      isMounted = false;
-    };
   }, [id]);
 
   useEffect(() => {
-    let isMounted = true;
+    const branchId = selectedBranch?.id || branches[0]?.id;
+    if (branchId) {
+      Promise.all([
+        BranchOperationsRepository.getOperatingHours(branchId).catch(() => []),
+        BranchOperationsRepository.getDeliveryZones(branchId).catch(() => []),
+      ]).then(([hours, zones]) => {
+        setOperatingHours(hours || []);
+        setDeliveryZones(zones || []);
+      });
+    }
+  }, [selectedBranch?.id, branches]);
+
+  // 3. Dynamic Menu Loading from Repository
+  const [dbMenuItems, setDbMenuItems] = useState<any[]>([]);
+  const [dbCategories, setDbCategories] = useState<CategoryItem[]>([]);
+  const [branchPrices, setBranchPrices] = useState<any[]>([]);
+  const [branchItemStates, setBranchItemStates] = useState<any[]>([]);
+
+  useEffect(() => {
     if (id) {
-      setIsMenuLoading(true);
       Promise.all([
         MenuRepository.listItems(id),
         MenuRepository.listCategories(id).catch(() => []),
-      ])
-        .then(([items, cats]: [any, any]) => {
-          if (isMounted) {
-            setDbMenuItems(items || []);
-            setDbCategories(cats || []);
-            setIsMenuLoading(false);
-          }
-        })
-        .catch((err: any) => {
-          console.warn('RestaurantDetail: Failed to fetch live menu items:', err);
-          if (isMounted) setIsMenuLoading(false);
-        });
+      ]).then(([mItems, mCats]: [any, any]) => {
+        setDbMenuItems(mItems || []);
+        setDbCategories(mCats || []);
+      });
     }
-    return () => {
-      isMounted = false;
-    };
   }, [id]);
 
   useEffect(() => {
-    let isMounted = true;
     const branchIdToQuery = selectedBranch?.id || branches[0]?.id;
     if (branchIdToQuery) {
       Promise.all([
         MenuRepository.listBranchPrices(branchIdToQuery).catch(() => []),
         MenuRepository.getBranchMenuItems(branchIdToQuery).catch(() => []),
       ]).then(([prices, itemStates]) => {
-        if (isMounted) {
-          setBranchPrices(prices || []);
-          setBranchItemStates(itemStates || []);
-        }
+        setBranchPrices(prices || []);
+        setBranchItemStates(itemStates || []);
       });
     }
-    return () => {
-      isMounted = false;
-    };
   }, [selectedBranch?.id, branches]);
 
-  const menuItems = useMemo(() => {
+  // 4. Resolve Menu Items with effective prices & categories
+  const menuItems: MenuItem[] = useMemo(() => {
     if (dbMenuItems && dbMenuItems.length > 0) {
       const catMap = new Map<string, string>();
       for (const c of dbCategories) {
-        catMap.set(c.id, language === 'sw' && c.nameSw ? c.nameSw : (c.nameEn || c.name));
+        catMap.set(c.id, language === 'sw' && c.nameSw ? c.nameSw : c.nameEn || c.name);
       }
       return dbMenuItems
         .filter((item) => {
-          const branchState = branchItemStates.find((bs: any) => bs.menuItemId === item.id);
-          return branchState?.operationalStatus !== 'HIDDEN';
+          const bs = branchItemStates.find((s: any) => s.menuItemId === item.id);
+          return bs?.operationalStatus !== 'HIDDEN';
         })
         .map((item) => {
-          const branchPriceRow = branchPrices.find((bp: any) => bp.menuItemId === item.id);
-          const branchState = branchItemStates.find((bs: any) => bs.menuItemId === item.id);
+          const bp = branchPrices.find((p: any) => p.menuItemId === item.id);
+          const bs = branchItemStates.find((s: any) => s.menuItemId === item.id);
           const effectivePrice =
-            branchPriceRow?.priceTzs && branchPriceRow.priceTzs > 0
-              ? branchPriceRow.priceTzs
-              : branchState?.priceOverrideTzs && branchState.priceOverrideTzs > 0
-              ? branchState.priceOverrideTzs
+            bp?.priceTzs && bp.priceTzs > 0
+              ? bp.priceTzs
+              : bs?.priceOverrideTzs && bs.priceOverrideTzs > 0
+              ? bs.priceOverrideTzs
               : item.basePrice;
-          const isBranchAvailable =
-            (branchPriceRow ? branchPriceRow.isAvailable !== false : true) &&
-            (branchState
-              ? branchState.isAvailable !== false && branchState.operationalStatus !== 'SOLD_OUT_TODAY'
-              : true);
-          const isAvailable = item.isAvailable !== false && isBranchAvailable;
+          const isBranchAvail =
+            (bp ? bp.isAvailable !== false : true) &&
+            (bs ? bs.isAvailable !== false && bs.operationalStatus !== 'SOLD_OUT_TODAY' : true);
+          const isAvailable = item.isAvailable !== false && isBranchAvail;
           const resolvedCat =
             (item.categoryId && catMap.get(item.categoryId)) ||
             item.categoryName ||
             item.category ||
             (language === 'sw' ? 'Vyakula' : 'Dishes');
+
           return {
             id: item.id,
-            name: language === 'sw' && item.nameSw ? item.nameSw : (item.nameEn || item.name),
+            name: language === 'sw' && item.nameSw ? item.nameSw : item.nameEn || item.name,
             nameSw: item.nameSw,
-            desc: language === 'sw' && item.descriptionSw ? item.descriptionSw : (item.description || ''),
+            desc: language === 'sw' && item.descriptionSw ? item.descriptionSw : item.description || '',
             price: `TZS ${effectivePrice.toLocaleString()}`,
             priceNum: effectivePrice,
             popular: (item as any).isPopular ?? (item as any).popular ?? false,
             category: resolvedCat,
+            categoryId: item.categoryId,
             imageUrl: item.imageUrl,
             photoUrl: item.imageUrl,
             isAvailable,
@@ -245,26 +224,20 @@ export default function RestaurantDetailScreen() {
     }
     return ((restaurant?.menu as any[]) || []).map((m) => ({
       ...m,
+      priceNum: parsePriceTzs(m.price),
       isAvailable: m.isAvailable !== false,
+      category: m.category || (language === 'sw' ? 'Vyakula' : 'Dishes'),
     }));
   }, [dbMenuItems, dbCategories, branchPrices, branchItemStates, restaurant?.menu, language]);
 
-  const isFavorite = restaurant ? favorites.includes(restaurant.id) : false;
-  const highlightedItem = highlightDishId ? menuItems.find((m: any) => m.id === highlightDishId) : null;
-  const coverImage = restaurant?.coverImageUrl || (restaurant as any)?.foodSpotPhotos?.[0];
-  const isBasicSeller = (restaurant as any)?.sellerTier === 'BASIC_SELLER';
-
-  const restaurantAssessment = useMemo(() => {
-    return TrustService.computeRestaurantTrust({
-      restaurantId: restaurant?.id || '',
-      restaurantName: restaurant?.name || '',
-      isVerified: (restaurant as any)?.isVerified ?? false,
-      verificationStatus: (restaurant as any)?.verificationStatus ?? 'PENDING_VERIFICATION',
-      totalOrders: (restaurant as any)?.totalOrders ?? 0,
-      completedOrders: (restaurant as any)?.completedOrders ?? 0,
-      menuLastVerifiedAt: (restaurant as any)?.menuUpdatedAt || (restaurant as any)?.menuLastVerifiedAt || undefined,
+  const categories = useMemo(() => {
+    const cats = ['All'];
+    menuItems.forEach((m) => {
+      const cat = m.category || (language === 'sw' ? 'Vyakula' : 'Dishes');
+      if (!cats.includes(cat)) cats.push(cat);
     });
-  }, [restaurant]);
+    return cats;
+  }, [menuItems, language]);
 
   const supportsReservations = useMemo(() => {
     return (
@@ -274,83 +247,59 @@ export default function RestaurantDetailScreen() {
     );
   }, [restaurant, branches]);
 
-  // Extract Categories
-  const categories = useMemo(() => {
-    const cats = ['All'];
-    menuItems.forEach((m: any) => {
-      let cat = (m as any).category;
-      if (!cat) {
-        const lower = ((m as any).name || '').toLowerCase();
-        if (lower.includes('biryani') || lower.includes('pilau')) cat = 'Biryani & Rice';
-        else if (lower.includes('kuku') || lower.includes('choma') || lower.includes('meat') || lower.includes('beef') || lower.includes('mshikaki')) cat = 'Grills & Meat';
-        else if (lower.includes('juice') || lower.includes('tea') || lower.includes('chai') || lower.includes('soda')) cat = 'Drinks';
-        else cat = 'Dishes';
-      }
-      if (!cats.includes(cat)) cats.push(cat);
+  const restaurantAssessment = useMemo(() => {
+    return TrustService.computeRestaurantTrust({
+      restaurantId: restaurant?.id || '',
+      restaurantName: restaurant?.name || '',
+      isVerified: (restaurant as any)?.isVerified ?? false,
+      verificationStatus: (restaurant as any)?.verificationStatus ?? 'PENDING_VERIFICATION',
+      totalOrders: (restaurant as any)?.totalOrders ?? 0,
+      completedOrders: (restaurant as any)?.completedOrders ?? 0,
+      menuLastVerifiedAt:
+        (restaurant as any)?.menuUpdatedAt || (restaurant as any)?.menuLastVerifiedAt || undefined,
     });
-    return cats;
-  }, [menuItems]);
+  }, [restaurant]);
 
-  // Filter Menu
-  const filteredMenu = useMemo(() => {
-    if (selectedCategory === 'All') return menuItems;
-    return menuItems.filter((m: any) => {
-      let cat = (m as any).category;
-      if (!cat) {
-        const lower = ((m as any).name || '').toLowerCase();
-        if (lower.includes('biryani') || lower.includes('pilau')) cat = 'Biryani & Rice';
-        else if (lower.includes('kuku') || lower.includes('choma') || lower.includes('meat') || lower.includes('beef') || lower.includes('mshikaki')) cat = 'Grills & Meat';
-        else if (lower.includes('juice') || lower.includes('tea') || lower.includes('chai') || lower.includes('soda')) cat = 'Drinks';
-        else cat = 'Dishes';
-      }
-      return cat === selectedCategory;
-    });
-  }, [menuItems, selectedCategory]);
+  // Dish availability badge: language === 'sw' ? 'Imeisha' : 'Sold Out'
+  const handleAddToCart = (dish: MenuItem, sourceRef?: React.RefObject<View | null>) => {
+    if (isDishAddPending(dish.id) || dish.isAvailable === false) return;
+    const targetBranchId =
+      selectedBranch?.id || branches[0]?.id || restaurant?.branchId || restaurant?.id;
+    const targetBranchName = selectedBranch?.name || branches[0]?.name || restaurant?.name;
+
+    void requestAddToCart(
+      {
+        dishId: dish.id,
+        dishName: dish.name,
+        dishNameSwahili: dish.nameSw,
+        description: dish.desc,
+        restaurantId: restaurant.id,
+        restaurantName: restaurant.name,
+        branchId: targetBranchId,
+        branchName: targetBranchName,
+        priceTzs: dish.priceNum,
+        imageUrl: dish.imageUrl,
+      },
+      { sourceRef }
+    );
+  };
+
+  const getItemCartQuantity = (dishId: string) => {
+    return items.filter((i) => i.dishId === dishId).reduce((sum, i) => sum + i.quantity, 0);
+  };
 
   const isPageLoading = loading || (Boolean(id) && !matched && isDirectLoading);
 
   if (isPageLoading) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ marginTop: 12, color: colors.textSecondary }}>
-            {language === 'sw' ? 'Inapakia mkahawa...' : 'Loading restaurant...'}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <RestaurantSkeleton />;
   }
 
   if (!restaurant) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>🍽️</Text>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 8, textAlign: 'center' }}>
-            {language === 'sw' ? 'Mkahawa Haujapatikana' : 'Restaurant Not Found'}
-          </Text>
-          <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }}>
-            {language === 'sw'
-              ? 'Mkahawa unaoutafuta haupo au umefungwa kwa sasa.'
-              : 'The restaurant you are looking for does not exist or is currently unavailable.'}
-          </Text>
-          <TouchableOpacity
-            style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: Radii.md }}
-            onPress={() => router.back()}
-          >
-            <Text style={{ color: colors.onPrimary, fontWeight: '700' }}>
-              {language === 'sw' ? 'Rudi Nyuma' : 'Go Back'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
+    return <RestaurantErrorView message={language === 'sw' ? 'Mkahawa Haujapatikana' : 'Restaurant Not Found'} onRetry={fetchDirectRestaurant} />;
   }
 
-  const handleOpenGoogleMaps = () => {
-    Linking.openURL(directionsUrl(restaurant)).catch(() => undefined);
-  };
+  const isFavorite = favorites.includes(restaurant.id);
+  const highlightedItem = highlightDishId ? menuItems.find((m) => m.id === highlightDishId) : null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -360,7 +309,6 @@ export default function RestaurantDetailScreen() {
           style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessible={true}
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
@@ -376,9 +324,8 @@ export default function RestaurantDetailScreen() {
             style={styles.favBtn}
             onPress={() => toggleFavorite(restaurant.id)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessible={true}
             accessibilityRole="button"
-            accessibilityLabel={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            accessibilityLabel={isFavorite ? 'Remove favorite' : 'Add favorite'}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
@@ -392,444 +339,45 @@ export default function RestaurantDetailScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          isLargeScreen && styles.largeScreenContainer,
-        ]}
+        ref={scrollViewRef}
+        contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContainer]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Banner Visual */}
-        <View
-          style={[
-            styles.visualBanner,
-            { backgroundColor: restaurant.bgGradient ? restaurant.bgGradient[0] : '#113a26' },
-          ]}
-        >
-          {coverImage && (
-            <Image
-              source={{ uri: coverImage }}
-              style={[StyleSheet.absoluteFill, { opacity: 0.65 }]}
-              resizeMode="cover"
-            />
-          )}
-          <View style={styles.emojiCircle}>
-            <Text style={styles.emoji}>{restaurant.emoji || '🍲'}</Text>
-          </View>
-        </View>
+        {/* 1. Header with Cover, Logo, Verified badge & Reservation CTA */}
+        <RestaurantHeader
+          restaurant={restaurant}
+          supportsReservations={supportsReservations}
+          onOpenReserveModal={() => setIsReserveModalOpen(true)}
+        />
 
-        {/* Restaurant Header */}
-        <View style={styles.headerCard}>
-          <View style={styles.badgeRow}>
-            <Badge
-              label={
-                isBasicSeller
-                  ? language === 'sw' ? 'MAMA LISHE' : 'COMMUNITY KITCHEN'
-                  : language === 'sw' ? 'MGAHAWA ULIOHAKIKISHWA' : 'VERIFIED RESTAURANT'
-              }
-              variant={isBasicSeller ? 'neutral' : 'success'}
-              size="sm"
-            />
-            <View style={[styles.openBadge, !restaurant.isOpen && styles.closedBadge]}>
-              <Text style={[styles.openText, !restaurant.isOpen && styles.closedText]}>
-                {restaurant.isOpen ? t('openBadge') : t('closedBadge')}
-              </Text>
-            </View>
-          </View>
+        {/* 2. Decision Facts Row: Open/Opens At/Closed, Delivery fee & time, Min order, Distance, Services */}
+        <RestaurantDecisionFacts
+          restaurant={restaurant}
+          branch={selectedBranch}
+          operatingHours={operatingHours}
+          deliveryZones={deliveryZones}
+          customerArea={customerLocation?.serviceAreaName || customerLocation?.cityName}
+          customerCoords={customerLocation?.latitude ? { latitude: customerLocation.latitude, longitude: customerLocation.longitude } : undefined}
+          supportsReservations={supportsReservations}
+        />
 
-          <Text style={styles.name}>{restaurant.name}</Text>
-          <Text style={styles.cuisine}>
-            {[restaurant.cuisine, restaurant.address].filter(Boolean).join(' • ')}
-          </Text>
+        {/* 3. Sticky Menu Categories & Dish Cards */}
+        <MenuSection
+          categories={categories}
+          dbCategories={dbCategories}
+          menuItems={menuItems}
+          highlightedDish={highlightedItem}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          onAddToCart={handleAddToCart}
+          isDishAddPending={isDishAddPending}
+          getItemCartQuantity={getItemCartQuantity}
+          restaurant={restaurant}
+          selectedBranch={selectedBranch}
+          scrollViewRef={scrollViewRef}
+        />
 
-          {/* Quick Metrics */}
-          <View style={styles.metricsRow}>
-            <View style={styles.metricItem}>
-              {restaurant.rating && restaurant.rating > 0 ? (
-                <>
-                  <Text style={styles.metricStar}>★ {typeof restaurant.rating === 'number' ? restaurant.rating.toFixed(1) : restaurant.rating}</Text>
-                  <Text style={styles.metricSub}>
-                    {restaurant.reviews ? `${restaurant.reviews} ${language === 'sw' ? 'maoni' : 'reviews'}` : (language === 'sw' ? 'MloHub' : 'Verified')}
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.metricVal}>✨ New</Text>
-                  <Text style={styles.metricSub}>{language === 'sw' ? 'Mkahawa Mpya' : 'Fresh Listing'}</Text>
-                </>
-              )}
-            </View>
-            {restaurant.time ? (
-              <>
-                <Text style={styles.divider}>|</Text>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricVal}>⏱ {restaurant.time}</Text>
-                  <Text style={styles.metricSub}>
-                    {language === 'sw' ? 'Muda wa kupika' : 'Prep time'}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-            {(restaurant.distance || restaurant.neighborhood) ? (
-              <>
-                <Text style={styles.divider}>|</Text>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricVal}>📍 {restaurant.distance || restaurant.neighborhood}</Text>
-                  <Text style={styles.metricSub}>
-                    {restaurant.neighborhood || (language === 'sw' ? 'Eneo' : 'Location')}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-          </View>
-
-          {/* Action CTAs */}
-          <View style={styles.actionRow}>
-            {supportsReservations && (
-              <TouchableOpacity
-                style={styles.bookTableBtn}
-                onPress={() => setIsReserveModalOpen(true)}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="calendar-outline" size={16} color={colors.primaryDark} style={{ marginRight: 6 }} />
-                <Text style={styles.bookTableText}>{t('reserveBtn')}</Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-              style={[styles.customMealBtn, !supportsReservations && { flex: 1 }]}
-              onPress={() => router.push('/(tabs)/custom')}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="flame-outline" size={16} color={colors.white} style={{ marginRight: 6 }} />
-              <Text style={styles.customMealText}>
-                {language === 'sw' ? 'Mlo Maalum' : 'Custom Dish'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Why You Can Trust This Listing */}
-        <View style={styles.trustCardSection}>
-          <View style={styles.trustCardHeader}>
-            <View style={styles.trustTitleRow}>
-              <Text style={styles.trustShieldIcon}>🛡️</Text>
-              <Text style={styles.trustTitleText}>
-                {language === 'sw' ? 'Kwanini Unaweza Kuamini Wasifu Huu' : 'Why You Can Trust This Listing'}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.trustSummaryPill,
-                restaurantAssessment.badgeTone === 'positive' && styles.trustPillPositive,
-                restaurantAssessment.badgeTone === 'warning' && styles.trustPillWarning,
-              ]}
-            >
-              <Text style={styles.trustSummaryPillText}>
-                {restaurantAssessment.summaryBadge}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.trustGrid}>
-            <View style={styles.trustMetricCol}>
-              <Text style={styles.trustMetricLabel}>
-                {language === 'sw' ? 'Usajili wa Kisheria' : 'Legal Verification'}
-              </Text>
-              <Text style={styles.trustMetricVal}>
-                {restaurant?.verificationStatus === 'VERIFIED'
-                  ? (restaurant.tinNumber && restaurant.businessLicenseNumber
-                      ? '✓ BRELA & TIN'
-                      : restaurant.tinNumber
-                      ? '✓ TIN Verified'
-                      : '✓ Verified')
-                  : (restaurant?.verificationStatus === 'REJECTED'
-                      ? 'Rejected'
-                      : 'Pending Review')}
-              </Text>
-            </View>
-            <View style={styles.trustMetricCol}>
-              <Text style={styles.trustMetricLabel}>
-                {language === 'sw' ? 'Utekelezaji wa Oda' : 'Order Reliability'}
-              </Text>
-              <Text style={styles.trustMetricVal}>
-                {restaurantAssessment.isLowSample
-                  ? 'New Partner'
-                  : `${Math.round(restaurantAssessment.bayesianReliabilityRate * 100)}% Fulfilled`}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.trustActionsRow}>
-            <TouchableOpacity
-              style={styles.trustExplainBtn}
-              onPress={() => setShowTrustModal(true)}
-              accessibilityRole="button"
-              accessibilityLabel="View trust details"
-            >
-              <Text style={styles.trustExplainBtnText}>
-                {language === 'sw' ? 'Maelezo Zaidi' : 'How Trust is Calculated'} ›
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.trustReportBtn}
-              onPress={() => setShowReportModal(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Report discrepancy"
-            >
-              <Text style={styles.trustReportBtnText}>
-                ⚠️ {language === 'sw' ? 'Ripoti Bei / Menyu' : 'Report Error'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Highlighted Dish from Discovery (Target Intent) */}
-        {highlightedItem ? (
-          <View style={styles.highlightedSection}>
-            <View style={styles.highlightedHeaderRow}>
-              <Text style={styles.highlightedEyebrow}>
-                {language === 'sw' ? 'CHAKULA ULICHOTAFUTA' : 'YOU SEARCHED FOR THIS DISH'}
-              </Text>
-              {(highlightedItem?.freshnessTier || (highlightedItem as any)?.verificationTier) ? (
-                <FreshnessBadge tier={(highlightedItem.freshnessTier || (highlightedItem as any).verificationTier) as any} size="sm" />
-              ) : null}
-            </View>
-            <View style={styles.highlightedCard}>
-              {highlightedItem.imageUrl && !brokenImages[`highlight-${highlightedItem.id}`] ? (
-                <View
-                  ref={highlightedImageRef}
-                  collapsable={false}
-                  style={styles.menuItemThumbWrap}
-                >
-                  <Image
-                    source={{ uri: highlightedItem.imageUrl }}
-                    style={styles.menuItemThumb}
-                    resizeMode="cover"
-                    onError={() =>
-                      setBrokenImages((prev) => ({
-                        ...prev,
-                        [`highlight-${highlightedItem.id}`]: true,
-                      }))
-                    }
-                  />
-                </View>
-              ) : null}
-              <View style={styles.highlightedLeft}>
-                <Text style={styles.highlightedName}>{highlightedItem.name}</Text>
-                <Text style={styles.highlightedDesc}>{highlightedItem.desc}</Text>
-                <Text style={styles.highlightedPrice}>{highlightedItem.price}</Text>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.addHighlightedBtn,
-                  isDishAddPending(highlightedItem.id) && { opacity: 0.65 },
-                ]}
-                disabled={isDishAddPending(highlightedItem.id)}
-                onPress={() => {
-                  if (isDishAddPending(highlightedItem.id)) return;
-                  const hasRealHighlightImg = Boolean(
-                    highlightedItem.imageUrl &&
-                      !brokenImages[`highlight-${highlightedItem.id}`]
-                  );
-                  void requestAddToCart(
-                    {
-                      dishId: highlightedItem.id,
-                      dishName: highlightedItem.name,
-                      dishNameSwahili: highlightedItem.nameSw,
-                      description: highlightedItem.desc,
-                      restaurantId: restaurant.id,
-                      restaurantName: restaurant.name,
-                      branchId:
-                        selectedBranch?.id ||
-                        branches[0]?.id ||
-                        restaurant?.branchId ||
-                        restaurant?.id,
-                      branchName:
-                        selectedBranch?.name ||
-                        branches[0]?.name ||
-                        restaurant?.name,
-                      priceTzs: parsePriceTzs(highlightedItem.price),
-                      imageUrl: hasRealHighlightImg
-                        ? highlightedItem.imageUrl
-                        : undefined,
-                    },
-                    {
-                      sourceRef: highlightedImageRef,
-                    }
-                  );
-                }}
-                activeOpacity={0.85}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${highlightedItem.name} to meal order`}
-              >
-                <Text style={styles.addHighlightedBtnText}>
-                  {isDishAddPending(highlightedItem.id) ? 'Adding...' : '+ Add to Order'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Category Navigation Pills */}
-        <View style={styles.categorySection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryPillsRow}>
-            {categories.map((cat) => {
-              const isActive = selectedCategory === cat;
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.categoryPill, isActive && styles.categoryPillActive]}
-                  onPress={() => setSelectedCategory(cat)}
-                  activeOpacity={0.8}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Filter menu by ${cat}`}
-                >
-                  <Text style={[styles.categoryPillText, isActive && styles.categoryPillTextActive]}>
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {/* Menu Items List */}
-        <View style={styles.menuSection}>
-          <Text style={styles.menuHeading}>
-            {selectedCategory === 'All'
-              ? language === 'sw' ? 'Vyakula Vinavyopatikana' : 'Available Menu'
-              : selectedCategory}
-          </Text>
-
-          <View style={styles.menuList}>
-            {filteredMenu.map((item) => {
-              const itemCartQuantity = items
-                .filter((i) => i.dishId === item.id)
-                .reduce((sum, i) => sum + i.quantity, 0);
-              const inCart = itemCartQuantity > 0;
-              const isItemPending = isDishAddPending(item.id);
-              const isSoldOut = item.isAvailable === false;
-              const priceVal = parsePriceTzs(item.price);
-              const hasRealItemImage = Boolean(
-                item.imageUrl && !brokenImages[item.id]
-              );
-              const itemImageRef = getMenuImageRef(item.id);
-              const targetBranchId =
-                selectedBranch?.id ||
-                branches[0]?.id ||
-                restaurant?.branchId ||
-                restaurant?.id;
-              const targetBranchName =
-                selectedBranch?.name || branches[0]?.name || restaurant?.name;
-
-              const handleSelectMenuItem = () => {
-                if (isItemPending || isSoldOut) return;
-                void requestAddToCart(
-                  {
-                    dishId: item.id,
-                    dishName: item.name,
-                    dishNameSwahili: item.nameSw,
-                    description: item.desc,
-                    restaurantId: restaurant.id,
-                    restaurantName: restaurant.name,
-                    branchId: targetBranchId,
-                    branchName: targetBranchName,
-                    priceTzs: priceVal,
-                    imageUrl: hasRealItemImage ? item.imageUrl : undefined,
-                  },
-                  {
-                    sourceRef: itemImageRef,
-                  }
-                );
-              };
-
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.menuCard, isSoldOut && { opacity: 0.65 }]}
-                  activeOpacity={0.88}
-                  onPress={handleSelectMenuItem}
-                  disabled={isItemPending || isSoldOut}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select and customize ${item.name}`}
-                >
-                  {hasRealItemImage ? (
-                    <View
-                      ref={itemImageRef}
-                      collapsable={false}
-                      style={styles.menuItemThumbWrap}
-                    >
-                      <Image
-                        source={{ uri: item.imageUrl }}
-                        style={styles.menuItemThumb}
-                        resizeMode="cover"
-                        onError={() =>
-                          setBrokenImages((prev) => ({
-                            ...prev,
-                            [item.id]: true,
-                          }))
-                        }
-                      />
-                    </View>
-                  ) : null}
-
-                  <View style={styles.menuItemLeft}>
-                    <View style={styles.menuTitleRow}>
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      {item.popular && !isSoldOut && (
-                        <View style={styles.popBadge}>
-                          <Text style={styles.popBadgeText}>{t('topPickBadge')}</Text>
-                        </View>
-                      )}
-                      {isSoldOut && (
-                        <Badge
-                          label={language === 'sw' ? 'Imeisha' : 'Sold Out'}
-                          variant="error"
-                          size="sm"
-                        />
-                      )}
-                    </View>
-                    <Text style={styles.itemDesc}>{item.desc}</Text>
-                    <PriceText amountTzs={priceVal} size="sm" color={colors.primary} style={styles.itemPriceText} />
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.menuAddBtn,
-                      inCart && styles.menuAddBtnInCart,
-                      (isItemPending || isSoldOut) && { opacity: 0.65 },
-                    ]}
-                    disabled={isItemPending || isSoldOut}
-                    onPress={(e) => {
-                      e?.stopPropagation?.();
-                      handleSelectMenuItem();
-                    }}
-                    activeOpacity={0.85}
-                    accessible={true}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add or customize ${item.name}`}
-                  >
-                    <Text style={[styles.menuAddBtnText, inCart && styles.menuAddBtnTextInCart]}>
-                      {isSoldOut
-                        ? (language === 'sw' ? 'Imeisha' : 'Sold Out')
-                        : isItemPending
-                        ? '...'
-                        : inCart
-                        ? `✓ ${itemCartQuantity}`
-                        : '+ Add'}
-                    </Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* GOOGLE MAPS LOCATION & DIRECTIONS SECTION */}
+        {/* 4. Google Maps Location Card */}
         <View style={styles.mapSectionCard}>
           <View style={styles.mapSectionHeader}>
             <View>
@@ -841,20 +389,17 @@ export default function RestaurantDetailScreen() {
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.openMapsHeaderBtn}
-              onPress={handleOpenGoogleMaps}
+              style={styles.openMapsBtn}
+              onPress={() => Linking.openURL(directionsUrl(restaurant)).catch(() => undefined)}
               activeOpacity={0.8}
             >
-              <Ionicons name="navigate-outline" size={14} color={colors.white} />
-              <Text style={styles.openMapsHeaderText}>
+              <Ionicons name="navigate-outline" size={14} color={colors.onPrimary} />
+              <Text style={styles.openMapsBtnText}>
                 {language === 'sw' ? 'Elekea Huko' : 'Directions'}
               </Text>
             </TouchableOpacity>
           </View>
-
-          <Text style={styles.mapAddressText}>📍 {restaurant.address}</Text>
-
-          {/* Interactive Map Component */}
+          <Text style={styles.mapAddressText}>📍 {restaurant.address || restaurant.neighborhood}</Text>
           <View style={styles.mapWrap}>
             <GoogleMapView
               restaurants={[restaurant as any]}
@@ -865,7 +410,7 @@ export default function RestaurantDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Unified Customer Cart Host (Floating Cart Dock + Drawer + Order Review) */}
+      {/* Unified Customer Cart Host */}
       <CustomerCartHost
         showWhenEmpty={true}
         isVerifiedRestaurant={(restaurant as any)?.isVerified || false}
@@ -878,15 +423,13 @@ export default function RestaurantDetailScreen() {
         onClose={() => setIsReserveModalOpen(false)}
       />
 
-      {/* Trust Details Modal */}
+      {/* Trust Details & Discrepancy Modals */}
       <TrustExplanationModal
         visible={showTrustModal}
         onClose={() => setShowTrustModal(false)}
         restaurantAssessment={restaurantAssessment}
         onOpenReportModal={() => setShowReportModal(true)}
       />
-
-      {/* Discrepancy Reporting Modal */}
       <ReportDiscrepancyModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
@@ -897,504 +440,3 @@ export default function RestaurantDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const createStyles = (colors: ThemeColors) => StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.appBackground,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceInteractive,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  favBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceInteractive,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: Spacing.sm,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  largeScreenContainer: {
-    maxWidth: 800,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  visualBanner: {
-    height: 180,
-    width: '100%',
-    justifyContent: 'flex-end',
-    padding: Spacing.lg,
-  },
-  emojiCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: -32,
-    ...Shadows.md,
-    borderWidth: 2,
-    borderColor: colors.divider,
-  },
-  emoji: {
-    fontSize: 32,
-  },
-  headerCard: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    padding: Spacing.lg,
-    paddingTop: 40,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  openBadge: {
-    backgroundColor: colors.successSoft,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-  },
-  closedBadge: {
-    backgroundColor: colors.surfaceInteractive,
-  },
-  openText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  closedText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    marginTop: 4,
-  },
-  cuisine: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceInteractive,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginTop: Spacing.md,
-  },
-  metricItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  metricStar: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.warning,
-  },
-  metricVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  metricSub: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
-  divider: {
-    color: colors.border,
-    fontSize: 16,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  bookTableBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: colors.primarySoft,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bookTableText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  customMealBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: colors.primary,
-    borderRadius: Radii.md,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customMealText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.onPrimary,
-  },
-  highlightedSection: {
-    margin: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: colors.warningSoft,
-    borderRadius: Radii.lg,
-    borderWidth: 1.5,
-    borderColor: colors.warning,
-  },
-  highlightedHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  highlightedEyebrow: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.warning,
-    letterSpacing: 0.5,
-  },
-  highlightedCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    marginTop: 4,
-  },
-  highlightedLeft: {
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  highlightedName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  highlightedDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  highlightedPrice: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.primary,
-    marginTop: 4,
-  },
-  addHighlightedBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: Radii.sm,
-    paddingVertical: 8,
-    paddingHorizontal: Spacing.md,
-  },
-  addHighlightedBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.onPrimary,
-  },
-  categorySection: {
-    marginVertical: Spacing.sm,
-  },
-  categoryPillsRow: {
-    paddingHorizontal: Spacing.md,
-    gap: Spacing.xs,
-  },
-  categoryPill: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
-    borderRadius: Radii.full,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  categoryPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  categoryPillTextActive: {
-    color: colors.onPrimary,
-  },
-  menuSection: {
-    paddingHorizontal: Spacing.md,
-    marginTop: Spacing.xs,
-  },
-  menuHeading: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  menuList: {
-    gap: Spacing.sm,
-  },
-  menuCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    ...Shadows.sm,
-  },
-  menuItemThumbWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: Radii.md,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceInteractive,
-    marginRight: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-  },
-  menuItemThumb: {
-    width: '100%',
-    height: '100%',
-  },
-  menuItemLeft: {
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  menuTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  popBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radii.full,
-    marginLeft: 6,
-  },
-  popBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.accentDark,
-  },
-  itemDesc: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  itemPriceText: {
-    marginTop: 4,
-  },
-  menuAddBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: Radii.sm,
-    backgroundColor: colors.primary,
-  },
-  menuAddBtnInCart: {
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  menuAddBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.onPrimary,
-  },
-  menuAddBtnTextInCart: {
-    color: colors.primary,
-  },
-  mapSectionCard: {
-    margin: Spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.divider,
-    marginTop: Spacing.lg,
-  },
-  mapSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  mapSectionEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.textMuted,
-  },
-  mapSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  openMapsHeaderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radii.sm,
-  },
-  openMapsHeaderText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onPrimary,
-    marginLeft: 4,
-  },
-  mapAddressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: Spacing.sm,
-  },
-  mapWrap: {
-    borderRadius: Radii.md,
-    overflow: 'hidden',
-  },
-  trustCardSection: {
-    backgroundColor: colors.appBackground,
-    marginHorizontal: Spacing.md,
-    marginTop: Spacing.md,
-    borderRadius: Radii.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  trustCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  trustTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  trustShieldIcon: {
-    fontSize: 16,
-  },
-  trustTitleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  trustSummaryPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radii.full,
-    backgroundColor: colors.divider,
-  },
-  trustSummaryPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  trustGrid: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginVertical: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-  },
-  trustMetricCol: {
-    flex: 1,
-  },
-  trustMetricLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  trustMetricVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  trustActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.xs,
-  },
-  trustExplainBtn: {
-    paddingVertical: 4,
-  },
-  trustExplainBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.info,
-  },
-  trustReportBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: Radii.sm,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  trustReportBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  trustPillPositive: {
-    backgroundColor: colors.successSoft,
-  },
-  trustPillWarning: {
-    backgroundColor: colors.warningSoft,
-  },
-});
-let styles = createStyles(lightColors);

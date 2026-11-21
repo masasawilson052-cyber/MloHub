@@ -59,6 +59,7 @@ import { runRestaurantPlatformFinalClosureTests } from './restaurantPlatformFina
 import { runRestaurantAuthorityVerificationClosureTests } from './restaurantAuthorityVerificationClosure.test';
 import { runRestaurant100PercentClosureTests } from './restaurant100PercentClosure.test';
 import { runCategoryGridSearchTestSuite } from './categoryGridSearch.test';
+import { runRestaurantDecisionFactsTestSuite } from './restaurantDecisionFacts.test';
 
 
 let passed = 0;
@@ -806,6 +807,11 @@ async function runMasterTestSuite() {
   const categoryGridResults = await runCategoryGridSearchTestSuite();
   passed += categoryGridResults.passed;
   failed += categoryGridResults.failed;
+
+  // Restaurant Decision Facts & Operating Status Suite
+  const restaurantFactsResults = await runRestaurantDecisionFactsTestSuite();
+  passed += restaurantFactsResults.passed;
+  failed += restaurantFactsResults.failed;
 
   // Final Results
   console.log('\n================================================================');
