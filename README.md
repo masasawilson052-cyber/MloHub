@@ -93,6 +93,16 @@ npm install
 - **iOS**: `npm run ios`
 - **Expo Dev Server**: `npm start`
 
+### Staging Demo Data Seed
+Populate a staging Supabase project with 8 realistic Dar es Salaam restaurants, 72 verified dishes, operating hours, delivery zones, and test logins:
+```bash
+STAGING_SEED_CONFIRM=yes STAGING_DEFAULT_PASSWORD="YourPassword123!" npm run seed:staging
+```
+To reset only the seeded staging data:
+```bash
+STAGING_SEED_CONFIRM=yes npm run seed:staging -- --reset
+```
+
 ---
 
 ## Testing & Quality

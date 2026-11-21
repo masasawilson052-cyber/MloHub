@@ -39,7 +39,8 @@
     "test:final-hardening": "tsx tests/finalBlockerClosure.test.ts",
     "test:admin-truth": "tsx tests/adminFinalTruthClosure.test.ts",
     "test:customer-closure": "tsx tests/customerFinalClosure.test.ts",
-    "test:runtime-closure": "tsx tests/runtimeClosureFinal.test.ts"
+    "test:runtime-closure": "tsx tests/runtimeClosureFinal.test.ts",
+    "seed:staging": "tsx scripts/seed-staging-demo.ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
