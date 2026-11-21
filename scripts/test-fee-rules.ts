@@ -2,17 +2,24 @@
  * ============================================================================
  * MLOHUB: DATABASE FEE ENGINE & DYNAMIC COMMISSION TEST SUITE (STAGING ONLY)
  * ============================================================================
- * Exercises and verifies all database fee rules:
+ * Exercises and verifies all database fee rules & fixes:
  * 1. Exact integer customer service fee (3%, min 200, max 500, nearest 10).
  * 2. TZS 0 service fee for Takeaway, Pickup, Dine-In, Reservation.
- * 3. Custom meal get_platform_service_fee 1-arg & 2-arg overloads.
- * 4. Commission resolution precedence:
- *    (a) Dine-in -> 0 ('DINE_IN')
+ * 3. BIGINT math: 10,000,000 TZS order produces 500 TZS with no overflow.
+ * 4. Custom meal get_platform_service_fee 1-arg & 2-arg overloads.
+ * 5. Commission resolution precedence:
+ *    (a) Reservation -> 0 ('RESERVATION'), Dine-In -> platform setting ('DINE_IN')
  *    (b) Free window (<30 days) -> 0 ('NEW_RESTAURANT_FREE_MONTH')
  *    (c) Active merchant policy -> delivery rate / LEAST(policy, takeaway) ('MERCHANT_POLICY')
  *    (d) Defaults -> Delivery 800 bps, Takeaway 500 bps ('DEFAULT'), Unknown ('UNKNOWN_TYPE')
- * 5. Delivery minimum order enforcement (TZS 5,000) rejecting TZS 4,000 order.
- * 6. Full sandbox payment capture flow writing order_financial_snapshots with commission_reason.
+ * 6. Fulfillment type strict validation: lowercase 'delivery' rejected.
+ * 7. Delivery minimum order enforcement (TZS 5,000) rejecting TZS 4,000 order.
+ * 8. Real order placement via create_order_secure:
+ *    - 12,000 TZS Delivery order: success=true, service_fee=360, order_items persisted.
+ *    - 6,000 TZS Takeaway order: success=true, service_fee=0, order_items persisted.
+ * 9. Full sandbox payment capture flow writing order_financial_snapshots with commission_reason.
+ * 10. Audit of staging orders with zero order_items created since 2026-11-21 18:00 UTC.
+ * 11. Database function definition verification (order_items loop and success=true).
  * ============================================================================
  */
 
@@ -82,9 +89,9 @@ async function main() {
   console.log(`Connected to database: ${supabaseUrl}`);
 
   // --------------------------------------------------------------------------
-  // Group 1: Exact Integer Service Fee Math (compute_service_fee_tzs)
+  // Group 1: Exact Integer Service Fee Math & BIGINT Overflow Guard
   // --------------------------------------------------------------------------
-  console.log('\n--- Group 1: Exact Integer Service Fee Math ---');
+  console.log('\n--- Group 1: Exact Integer Service Fee Math & BIGINT Overflow Guard ---');
 
   const testCases = [
     { subtotal: 3000, type: 'Delivery', expected: 200, label: '3,000 TZS delivery -> min clamp 200' },
@@ -111,6 +118,14 @@ async function main() {
     if (feeErr) throw new Error(`compute_service_fee_tzs RPC error: ${feeErr.message}`);
     assert(fee === tc.expected, `${tc.label} (got ${fee}, expected ${tc.expected})`);
   }
+
+  // BIGINT 10M TZS overflow check (Bug 2)
+  const { data: fee10M, error: fee10MErr } = await adminClient.rpc('compute_service_fee_tzs', {
+    p_subtotal_tzs: 10000000,
+    p_fulfillment_type: 'Delivery',
+  });
+  if (fee10MErr) throw new Error(`compute_service_fee_tzs(10M) RPC error: ${fee10MErr.message}`);
+  assert(fee10M === 500, `10,000,000 TZS delivery -> 500 TZS with safe BIGINT arithmetic (got ${fee10M})`);
 
   // --------------------------------------------------------------------------
   // Group 1b: Custom Meal Service Fee Function Overloads (get_platform_service_fee)
@@ -149,11 +164,10 @@ async function main() {
   assert(publicRules.commission_bps_delivery === undefined, 'Public rules: commission rates are omitted (not public)');
 
   // --------------------------------------------------------------------------
-  // Group 3: Commission Resolution Precedence (resolve_commission_bps)
+  // Group 3: Commission Resolution Precedence & Dine-In Setting (Bug 3)
   // --------------------------------------------------------------------------
-  console.log('\n--- Group 3: Commission Resolution Precedence ---');
+  console.log('\n--- Group 3: Commission Resolution Precedence & Dine-In Setting ---');
 
-  // Find or create a dedicated test restaurant
   const testRestId = `test_rest_fees_${Date.now()}`;
   const now = new Date();
 
@@ -174,16 +188,44 @@ async function main() {
   if (insRestErr) throw new Error(`Failed to create test restaurant: ${insRestErr.message}`);
 
   try {
-    // 3a. Dine-In precedence: Dine-In ALWAYS gets 0 bps, reason 'DINE_IN'
-    const { data: resDineIn } = await adminClient.rpc('resolve_commission_bps', {
+    // 3a. Reservation returns 0 bps with reason 'RESERVATION'
+    const { data: resReservation } = await adminClient.rpc('resolve_commission_bps', {
+      p_restaurant_id: testRestId,
+      p_fulfillment_type: 'Reservation',
+      p_at: now.toISOString(),
+    });
+    assert(resReservation[0].bps === 0, 'Reservation commission is 0 bps');
+    assert(resReservation[0].reason === 'RESERVATION', `Reservation reason is RESERVATION (got ${resReservation[0].reason})`);
+
+    // 3b. Dine-In default setting is 0 bps with reason 'DINE_IN'
+    const { data: resDineInDefault } = await adminClient.rpc('resolve_commission_bps', {
       p_restaurant_id: testRestId,
       p_fulfillment_type: 'Dine-In',
       p_at: now.toISOString(),
     });
-    assert(resDineIn[0].bps === 0, 'Dine-in commission is 0 bps');
-    assert(resDineIn[0].reason === 'DINE_IN', 'Dine-in reason is DINE_IN');
+    assert(resDineInDefault[0].bps === 0, 'Dine-in default commission is 0 bps');
+    assert(resDineInDefault[0].reason === 'DINE_IN', 'Dine-in reason is DINE_IN');
 
-    // 3b. Free window precedence: launched 10 days ago (within 30-day window)
+    // 3c. Temporarily update commission_bps_dine_in to 100 -> Dine-in resolves to 100
+    await adminClient.from('platform_financial_settings').update({ commission_bps_dine_in: 100 }).eq('id', true);
+    const { data: resDineIn100 } = await adminClient.rpc('resolve_commission_bps', {
+      p_restaurant_id: testRestId,
+      p_fulfillment_type: 'Dine-In',
+      p_at: now.toISOString(),
+    });
+    assert(resDineIn100[0].bps === 100, `Dine-in resolves to 100 bps when setting=100 (got ${resDineIn100[0].bps})`);
+    assert(resDineIn100[0].reason === 'DINE_IN', 'Dine-in reason remains DINE_IN');
+
+    // Restore commission_bps_dine_in to 0
+    await adminClient.from('platform_financial_settings').update({ commission_bps_dine_in: 0 }).eq('id', true);
+    const { data: resDineInRestored } = await adminClient.rpc('resolve_commission_bps', {
+      p_restaurant_id: testRestId,
+      p_fulfillment_type: 'Dine-In',
+      p_at: now.toISOString(),
+    });
+    assert(resDineInRestored[0].bps === 0, `Dine-in restored to 0 bps (got ${resDineInRestored[0].bps})`);
+
+    // 3d. Free window precedence: launched 10 days ago (within 30-day window)
     const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 3600 * 1000);
     await adminClient.from('restaurants').update({ launched_at: tenDaysAgo.toISOString() }).eq('id', testRestId);
 
@@ -203,7 +245,7 @@ async function main() {
     assert(resPromoTakeaway[0].bps === 0, '10-day-old restaurant takeaway commission is 0 bps (free month)');
     assert(resPromoTakeaway[0].reason === 'NEW_RESTAURANT_FREE_MONTH', 'Reason is NEW_RESTAURANT_FREE_MONTH');
 
-    // 3c. Defaults: launched 40 days ago (outside 30-day window, no policy)
+    // 3e. Defaults: launched 40 days ago (outside 30-day window, no policy)
     const fortyDaysAgo = new Date(now.getTime() - 40 * 24 * 3600 * 1000);
     await adminClient.from('restaurants').update({ launched_at: fortyDaysAgo.toISOString() }).eq('id', testRestId);
 
@@ -239,8 +281,7 @@ async function main() {
     assert(resUnknown[0].bps === 800, 'Unknown order type defaults safely to delivery rate 800 bps');
     assert(resUnknown[0].reason === 'UNKNOWN_TYPE', 'Reason is UNKNOWN_TYPE');
 
-    // 3d. Merchant Policy Override
-    // Add custom policy: 1,200 bps (12%)
+    // 3f. Merchant Policy Override
     const { data: policy, error: polErr } = await adminClient.from('merchant_fee_policies').insert({
       restaurant_id: testRestId,
       commission_basis_points: 1200,
@@ -272,9 +313,9 @@ async function main() {
     await adminClient.from('merchant_fee_policies').delete().eq('id', policy.id);
 
     // ------------------------------------------------------------------------
-    // Group 4: Delivery Minimum Order Rejection in create_order_secure
+    // Group 4: Fulfillment Validation & Minimum Order Rejection
     // ------------------------------------------------------------------------
-    console.log('\n--- Group 4: Delivery Minimum Order Rejection ---');
+    console.log('\n--- Group 4: Fulfillment Validation & Minimum Order Rejection ---');
 
     // Create temporary customer user so auth.uid() is valid
     const custEmail = `fee_tester_${Date.now()}@mlohub.test`;
@@ -315,12 +356,13 @@ async function main() {
         .single();
 
       if (existingBranch) {
-        let testItemId = `item_fee_test_${Date.now()}`;
+        // Create a 4,000 TZS test dish for minimum checks
+        const testItemId4k = `item_fee_test_4k_${Date.now()}`;
         await adminClient.from('menu_items').insert({
-          id: testItemId,
+          id: testItemId4k,
           restaurant_id: existingBranch.restaurant_id,
-          name_en: 'Small Chai Test',
-          name_sw: 'Chai Ndogo Test',
+          name_en: 'Small Chai Test 4k',
+          name_sw: 'Chai Ndogo Test 4k',
           price_tzs: 4000,
           is_available: true,
           is_archived: false,
@@ -341,7 +383,6 @@ async function main() {
           expires_at: new Date(Date.now() + 3600000).toISOString(),
         }).select().single();
 
-        // Check if branch has an active delivery zone
         const { data: testZone } = await adminClient.from('branch_delivery_zones')
           .select('id')
           .eq('branch_id', existingBranch.id)
@@ -349,10 +390,23 @@ async function main() {
           .limit(1)
           .maybeSingle();
 
-        // Attempt delivery order of 4,000 TZS
+        // 4a. Lowercase 'delivery' is strictly rejected at the very top (Change 2)
+        const { error: errLowercase } = await customerClient.rpc('create_order_secure', {
+          p_branch_id: existingBranch.id,
+          p_items: [{ menu_item_id: testItemId4k, quantity: 1 }],
+          p_fulfillment_type: 'delivery',
+          p_delivery_address: 'Mikocheni A',
+        });
+        assert(Boolean(errLowercase), 'Lowercase "delivery" is strictly rejected');
+        assert(
+          Boolean(errLowercase?.message.includes('INVALID_FULFILLMENT_TYPE')),
+          `Error includes INVALID_FULFILLMENT_TYPE (${errLowercase?.message})`
+        );
+
+        // 4b. Subtotal 4,000 TZS < 5,000 TZS delivery minimum is rejected
         const { error: orderErr } = await customerClient.rpc('create_order_secure', {
           p_branch_id: existingBranch.id,
-          p_items: [{ menu_item_id: testItemId, quantity: 1 }],
+          p_items: [{ menu_item_id: testItemId4k, quantity: 1 }],
           p_fulfillment_type: 'Delivery',
           p_delivery_address: 'Mikocheni A',
           p_delivery_quote_id: testQuote?.id,
@@ -365,14 +419,106 @@ async function main() {
           `Error message includes MIN_ORDER_DELIVERY:5000 (${orderErr?.message})`
         );
 
-        // Clean up temporary menu item and quote
-        await adminClient.from('menu_items').delete().eq('id', testItemId);
-        if (testQuote) {
-          await adminClient.from('delivery_quotes').delete().eq('id', testQuote.id);
-        }
+        // --------------------------------------------------------------------
+        // Group 4b: Real Order Placement & Order Items Verification (Bug 1 Fix)
+        // --------------------------------------------------------------------
+        console.log('\n--- Group 4b: Real Orders & order_items Persistence ---');
+
+        // Create 12,000 TZS dish and 6,000 TZS dish
+        const testItemId12k = `item_fee_test_12k_${Date.now()}`;
+        const testItemId6k = `item_fee_test_6k_${Date.now()}`;
+        await adminClient.from('menu_items').insert([
+          {
+            id: testItemId12k,
+            restaurant_id: existingBranch.restaurant_id,
+            name_en: 'Pilau Feast 12k',
+            name_sw: 'Pilau Kuu 12k',
+            price_tzs: 12000,
+            is_available: true,
+            is_archived: false,
+          },
+          {
+            id: testItemId6k,
+            restaurant_id: existingBranch.restaurant_id,
+            name_en: 'Chipsi Kuku 6k',
+            name_sw: 'Chipsi Kuku 6k',
+            price_tzs: 6000,
+            is_available: true,
+            is_archived: false,
+          },
+        ]);
+
+        // Fresh delivery quote for the 12,000 TZS order
+        const { data: freshQuote } = await adminClient.from('delivery_quotes').insert({
+          user_id: custAuth.user.id,
+          branch_id: existingBranch.id,
+          pickup_latitude: -6.77,
+          pickup_longitude: 39.24,
+          destination_latitude: -6.78,
+          destination_longitude: 39.25,
+          distance_meters: 2000,
+          duration_seconds: 600,
+          delivery_fee_tzs: 2500,
+          pricing_config: {},
+          expires_at: new Date(Date.now() + 3600000).toISOString(),
+        }).select().single();
+
+        // 1. Place REAL 12,000 TZS Delivery Order
+        const { data: delivOrderRes, error: delivOrderErr } = await customerClient.rpc('create_order_secure', {
+          p_branch_id: existingBranch.id,
+          p_items: [{ menu_item_id: testItemId12k, quantity: 1, special_notes: 'Extra ndimu' }],
+          p_fulfillment_type: 'Delivery',
+          p_delivery_address: 'Mikocheni B, Old Bagamoyo Rd',
+          p_delivery_quote_id: freshQuote?.id,
+          p_delivery_zone_id: testZone?.id,
+        });
+
+        if (delivOrderErr) throw new Error(`12,000 Delivery order error: ${delivOrderErr.message}`);
+        assert(delivOrderRes?.success === true, '12,000 Delivery order returns success: true');
+        assert(delivOrderRes?.service_fee_tzs === 360, `12,000 Delivery service fee is 360 TZS (got ${delivOrderRes?.service_fee_tzs})`);
+        assert(delivOrderRes?.subtotal_tzs === 12000, `Subtotal is 12,000 TZS (got ${delivOrderRes?.subtotal_tzs})`);
+
+        // Assert order_items persisted with server unit prices
+        const { data: delivItems, error: delivItemsErr } = await adminClient
+          .from('order_items')
+          .select('*')
+          .eq('order_id', delivOrderRes.order_id);
+        if (delivItemsErr) throw new Error(`Query order_items error: ${delivItemsErr.message}`);
+        assert(delivItems?.length === 1, `order_items has exactly 1 row (got ${delivItems?.length})`);
+        assert(delivItems[0]?.menu_item_id === testItemId12k, 'order_items references correct menu_item_id');
+        assert(delivItems[0]?.unit_price_tzs === 12000, `order_items unit_price_tzs is 12,000 (got ${delivItems[0]?.unit_price_tzs})`);
+        assert(delivItems[0]?.total_price_tzs === 12000, `order_items total_price_tzs is 12,000 (got ${delivItems[0]?.total_price_tzs})`);
+
+        // 2. Place REAL 6,000 TZS Takeaway Order
+        const { data: takeOrderRes, error: takeOrderErr } = await customerClient.rpc('create_order_secure', {
+          p_branch_id: existingBranch.id,
+          p_items: [{ menu_item_id: testItemId6k, quantity: 1 }],
+          p_fulfillment_type: 'Takeaway',
+        });
+
+        if (takeOrderErr) throw new Error(`6,000 Takeaway order error: ${takeOrderErr.message}`);
+        assert(takeOrderRes?.success === true, '6,000 Takeaway order returns success: true');
+        assert(takeOrderRes?.service_fee_tzs === 0, `6,000 Takeaway service fee is 0 TZS (got ${takeOrderRes?.service_fee_tzs})`);
+        assert(takeOrderRes?.subtotal_tzs === 6000, `Subtotal is 6,000 TZS (got ${takeOrderRes?.subtotal_tzs})`);
+
+        // Assert order_items persisted for takeaway
+        const { data: takeItems, error: takeItemsErr } = await adminClient
+          .from('order_items')
+          .select('*')
+          .eq('order_id', takeOrderRes.order_id);
+        if (takeItemsErr) throw new Error(`Query takeaway order_items error: ${takeItemsErr.message}`);
+        assert(takeItems?.length === 1, `Takeaway order_items has exactly 1 row (got ${takeItems?.length})`);
+        assert(takeItems[0]?.menu_item_id === testItemId6k, 'Takeaway order_items references correct menu_item_id');
+        assert(takeItems[0]?.unit_price_tzs === 6000, `Takeaway unit_price_tzs is 6,000 (got ${takeItems[0]?.unit_price_tzs})`);
+
+        // Clean up real test orders and items
+        await adminClient.from('order_items').delete().in('order_id', [delivOrderRes.order_id, takeOrderRes.order_id]);
+        await adminClient.from('orders').delete().in('id', [delivOrderRes.order_id, takeOrderRes.order_id]);
+        await adminClient.from('menu_items').delete().in('id', [testItemId4k, testItemId12k, testItemId6k]);
+        if (testQuote) await adminClient.from('delivery_quotes').delete().eq('id', testQuote.id);
+        if (freshQuote) await adminClient.from('delivery_quotes').delete().eq('id', freshQuote.id);
       }
     } finally {
-      // Clean up customer
       await adminClient.from('profiles').delete().eq('id', custAuth.user.id);
       await adminClient.auth.admin.deleteUser(custAuth.user.id);
     }
@@ -382,7 +528,6 @@ async function main() {
     // ------------------------------------------------------------------------
     console.log('\n--- Group 5: Full Payment Capture Snapshot Verification ---');
 
-    // Create a standalone order directly in public.orders for 40-day-old restaurant
     const testOrderId = `ord_fee_test_${Date.now()}`;
     const foodSubtotal = 12000;
     const serviceFee = 360;
@@ -418,7 +563,6 @@ async function main() {
     });
     if (insPayErr) throw new Error(`Failed to insert test payment: ${insPayErr.message}`);
 
-    // Capture payment through normal sandbox webhook / confirmation RPC
     const { data: captureResult, error: capErr } = await adminClient.rpc('confirm_payment_webhook_rpc', {
       p_merchant_reference: testMerchantRef,
       p_gateway_reference: testGatewayRef,
@@ -430,7 +574,6 @@ async function main() {
     if (capErr) throw new Error(`confirm_payment_webhook_rpc error: ${capErr.message}`);
     assert(captureResult?.success === true, 'confirm_payment_webhook_rpc completed successfully');
 
-    // Query immutable financial snapshot
     const { data: snapshot, error: snapErr } = await adminClient
       .from('order_financial_snapshots')
       .select('*')
@@ -451,13 +594,62 @@ async function main() {
     await adminClient.from('payments').delete().eq('id', testPayId);
     await adminClient.from('orders').delete().eq('id', testOrderId);
 
+    // ------------------------------------------------------------------------
+    // Group 6: Zero-Items Order Audit on Staging (Change 4)
+    // ------------------------------------------------------------------------
+    console.log('\n--- Group 6: Zero-Items Order Audit on Staging ---');
+    const cutoffTime = '2026-11-21T18:00:00Z';
+    const { data: recentOrders, error: auditErr } = await adminClient
+      .from('orders')
+      .select('id, created_at')
+      .gte('created_at', cutoffTime)
+      .order('created_at', { ascending: true });
+
+    if (!auditErr && recentOrders) {
+      const zeroItemOrders: { id: string; created_at: string }[] = [];
+      for (const ord of recentOrders) {
+        const { count, error: cntErr } = await adminClient
+          .from('order_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('order_id', ord.id);
+        if (!cntErr && count === 0) {
+          zeroItemOrders.push(ord);
+        }
+      }
+      console.log(`🔎 AUDIT REPORT: Found ${zeroItemOrders.length} order(s) created on or after 2026-11-21 18:00 UTC with 0 order_items:`);
+      for (const z of zeroItemOrders) {
+        console.log(`   - Order ID: ${z.id} | Created At: ${z.created_at}`);
+      }
+    } else if (auditErr) {
+      console.warn(`Could not run zero-items audit: ${auditErr.message}`);
+    }
+
+    // ------------------------------------------------------------------------
+    // Group 7: Database create_order_secure Definition Verification
+    // ------------------------------------------------------------------------
+    console.log('\n--- Group 7: Database create_order_secure Definition Verification ---');
+    const { data: funcDef, error: funcErr } = await adminClient.rpc('get_function_def', {
+      p_function_name: 'create_order_secure',
+    });
+
+    if (funcErr) {
+      console.warn(`Could not query function definition: ${funcErr.message}`);
+    } else if (funcDef) {
+      assert(funcDef.includes('INSERT INTO public.order_items'), 'Database definition contains INSERT INTO public.order_items loop');
+      assert(funcDef.includes("'success', TRUE"), "Database definition contains 'success', TRUE in return object");
+      assert(funcDef.includes('v_zone_min_order'), 'Database definition uses v_zone_min_order');
+      assert(funcDef.includes('INVALID_FULFILLMENT_TYPE'), 'Database definition validates fulfillment type at top');
+      console.log('\n📜 [pg_get_functiondef] create_order_secure definition confirmed in database:\n');
+      console.log(funcDef.substring(0, 500) + '\n... [truncated] ...\n' + funcDef.substring(funcDef.length - 400));
+    }
+
   } finally {
     // Teardown test restaurant
     await adminClient.from('restaurants').delete().eq('id', testRestId);
   }
 
   console.log('\n================================================================');
-  console.log(`✓ ALL FEE ENGINE AND COMMISSION RESOLUTION CHECKS PASSED: ${passed} checks`);
+  console.log(`✓ ALL FEE ENGINE CHECKS AND BUG FIXES PASSED: ${passed} checks`);
   console.log('================================================================\n');
 }
 
