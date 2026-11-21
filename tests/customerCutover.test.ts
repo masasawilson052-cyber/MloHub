@@ -237,8 +237,8 @@ export async function runCustomerCutoverTestSuite(): Promise<{ passed: number; f
   });
   assert(quote.subtotalTzs === 27500, 'OrderService quote calculates accurate subtotal (27500 TZS)');
   assert(quote.deliveryFeeTzs === 2500, 'OrderService quote calculates delivery fee (2500 TZS)');
-  assert(quote.serviceFeeTzs === 1500, 'OrderService quote calculates service fee (1500 TZS)');
-  assert(quote.totalTzs === 31500, 'OrderService quote calculates total fee (31500 TZS)');
+  assert(quote.serviceFeeTzs === 500, 'OrderService quote calculates service fee (500 TZS, clamped at max)');
+  assert(quote.totalTzs === 30500, 'OrderService quote calculates total fee (30500 TZS: 27500 + 500 + 2500)');
 
   // ==========================================================================
   // Criterion L: Pack 3D.1 Standard Order Visibility Acceptance Tests

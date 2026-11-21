@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
   AppState,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Spacing, Radii, Shadows } from '../constants/theme';
@@ -66,6 +67,7 @@ export interface PaymentCheckoutModalProps {
   isReservation?: boolean;
   deliveryFee?: number;
   serviceFee?: number;
+  totalTzs?: number;
   guestCount?: string;
   itemDescription?: string;
   initialMethodCode?: PaymentMethodCode;
@@ -88,8 +90,9 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
   paymentTypeOverride,
   amountTzs,
   isReservation = false,
-  deliveryFee = 0,
-  serviceFee = 1500,
+  deliveryFee,
+  serviceFee,
+  totalTzs,
   guestCount = '2',
   itemDescription,
   initialMethodCode = 'MPESA',
@@ -123,10 +126,22 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
   // Calculation breakdown
   const isCustomMeal = !!customMealRequestId;
-  const subtotal = Math.max(0, amountTzs);
-  const currentDelivery = isReservation ? 0 : deliveryFee;
-  const currentServiceFee = isReservation ? 0 : serviceFee;
-  const totalBill = isReservation ? subtotal : subtotal + currentDelivery + currentServiceFee;
+  const isOrder = !isReservation && !isCustomMeal;
+  const isMissingServerPricing =
+    isOrder &&
+    (amountTzs === undefined ||
+      amountTzs === null ||
+      deliveryFee === undefined ||
+      deliveryFee === null ||
+      serviceFee === undefined ||
+      serviceFee === null ||
+      totalTzs === undefined ||
+      totalTzs === null);
+
+  const subtotal = Math.max(0, amountTzs ?? 0);
+  const currentDelivery = isReservation || isCustomMeal ? 0 : (deliveryFee ?? 0);
+  const currentServiceFee = isReservation || isCustomMeal ? 0 : (serviceFee ?? 0);
+  const totalBill = isReservation || isCustomMeal ? subtotal : (totalTzs ?? 0);
   const paymentType: PaymentType =
     paymentTypeOverride ||
     (isReservation
@@ -252,6 +267,16 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
 
   // STEP 2 -> STEP 3 (Trigger Push)
   const handleTriggerPaymentRequest = async () => {
+    if (isMissingServerPricing) {
+      Alert.alert(
+        language === 'sw' ? 'Hitilafu ya Bei' : 'Pricing Incomplete',
+        language === 'sw'
+          ? 'Taarifa za malipo ya agizo kutoka kwenye seva hazijakamilika.'
+          : 'Authoritative server pricing information is missing. Cannot proceed with payment.'
+      );
+      return;
+    }
+
     if (!payerPhone.trim()) {
       setPhoneError(
         language === 'sw'
@@ -392,6 +417,28 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            {isMissingServerPricing ? (
+              <View style={styles.centerSection}>
+                <Ionicons name="alert-circle-outline" size={54} color={colors.danger} />
+                <Text style={styles.statusTitle}>
+                  {language === 'sw' ? 'Hitilafu ya Bei' : 'Missing Server Pricing'}
+                </Text>
+                <Text style={styles.statusSubtitle}>
+                  {language === 'sw'
+                    ? 'Taarifa za malipo ya agizo kutoka kwenye seva hazijakamilika. Tafadhali jaribu kuweka agizo upya.'
+                    : 'Authoritative server pricing information is missing or incomplete for this order. Please try placing your order again.'}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, { backgroundColor: colors.primary, marginTop: 20 }]}
+                  onPress={handleModalClose}
+                >
+                  <Text style={styles.primaryActionBtnText}>
+                    {language === 'sw' ? 'Funga' : 'Close'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
             {/* 1. ORDER & AMOUNT SUMMARY CARD */}
             <View style={styles.summaryCard}>
               <View style={styles.summaryTop}>
@@ -725,6 +772,8 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                 onCancel={handleModalClose}
               />
             )}
+            </>
+          )}
           </ScrollView>
         </View>
       </View>

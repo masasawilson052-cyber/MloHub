@@ -18,6 +18,7 @@ import { RealtimeEventEngine, RealtimeEventPayload } from '../db/realtime/eventE
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { DemoOrderPipelineAdapter } from './demo/DemoOrderPipelineAdapter';
+import { computeServiceFeeTzs, DEFAULT_FEE_RULES } from '../config/platformFees';
 
 export interface SubmitMenuOrderDTO {
   userId: string;
@@ -74,7 +75,7 @@ export class OrderPipelineServiceImpl {
   async submitStandardMenuOrder(dto: SubmitMenuOrderDTO): Promise<Order> {
     if (runtimeConfig.allowLocalDataFallbacks && !isSupabaseConfigured()) {
       const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
-      const serviceFee = 1500;
+      const serviceFee = computeServiceFeeTzs(subtotal, dto.diningOption, DEFAULT_FEE_RULES);
       const deliveryFee = dto.diningOption === 'Delivery' ? 2500 : 0;
       const totalTzs = subtotal + serviceFee + deliveryFee;
 
@@ -117,7 +118,7 @@ export class OrderPipelineServiceImpl {
     }
 
     const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
-    const serviceFee = 1500;
+    const serviceFee = computeServiceFeeTzs(subtotal, dto.diningOption, DEFAULT_FEE_RULES);
     const deliveryFee = dto.diningOption === 'Delivery' ? 2500 : 0;
     const totalTzs = subtotal + serviceFee + deliveryFee;
 
@@ -182,7 +183,7 @@ export class OrderPipelineServiceImpl {
         status: 'ACCEPTED',
         paymentStatus: 'PENDING',
         subtotalTzs: demoRes.budgetTzs,
-        serviceFeeTzs: 1500,
+        serviceFeeTzs: 0,
         deliveryFeeTzs: 2500,
         totalTzs: demoRes.budgetTzs,
         currency: 'TZS',
@@ -233,7 +234,7 @@ export class OrderPipelineServiceImpl {
         status: 'CANCELLED',
         paymentStatus: 'PENDING',
         subtotalTzs: demoRes.budgetTzs,
-        serviceFeeTzs: 1500,
+        serviceFeeTzs: 0,
         deliveryFeeTzs: 2500,
         totalTzs: demoRes.budgetTzs,
         currency: 'TZS',
@@ -311,7 +312,7 @@ export class OrderPipelineServiceImpl {
         status: canonicalStatus,
         paymentStatus: 'PENDING',
         subtotalTzs: demoRes.budgetTzs,
-        serviceFeeTzs: 1500,
+        serviceFeeTzs: 0,
         deliveryFeeTzs: 2500,
         totalTzs: demoRes.budgetTzs,
         currency: 'TZS',

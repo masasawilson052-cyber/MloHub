@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import { Alert } from 'react-native';
 import { OrderService, OrderQuote } from '../services/OrderService';
 import { RealtimeService } from '../services/RealtimeService';
-import { PlatformSettingsRepository } from '../repositories/platformSettings.repository';
+import { useFeeRules } from '../hooks/useFeeRules';
 
 import {
   CartAddOutcome,
@@ -55,7 +55,6 @@ export interface CartContextType {
 }
 
 const FIXED_DELIVERY_FEE_TZS = 2500;
-const FIXED_SERVICE_FEE_TZS = 1500;
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -66,35 +65,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [branchId, setBranchId] = useState<string | null>(null);
   const [branchName, setBranchName] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [customerServiceFeeTzs, setCustomerServiceFeeTzs] = useState(1500);
-  const [minimumOrderValueTzs, setMinimumOrderValueTzs] = useState(2000);
+  const { feeRules } = useFeeRules();
+  const minimumOrderValueTzs = feeRules.minimumOrderValueTzs;
 
   const itemsRef = useRef<CartItem[]>([]);
   const restaurantIdRef = useRef<string | null>(null);
   const restaurantNameRef = useRef<string | null>(null);
   const branchIdRef = useRef<string | null>(null);
   const branchNameRef = useRef<string | null>(null);
-
-  // Load authoritative platform financial settings
-  useEffect(() => {
-    let isMounted = true;
-    PlatformSettingsRepository.getFinancialSettings()
-      .then((settings) => {
-        if (!isMounted) return;
-        if (settings.customerServiceFeeTzs !== undefined) {
-          setCustomerServiceFeeTzs(settings.customerServiceFeeTzs);
-        }
-        if (settings.minimumOrderValueTzs !== undefined) {
-          setMinimumOrderValueTzs(settings.minimumOrderValueTzs);
-        }
-      })
-      .catch((err) => {
-        console.warn('Failed to load financial settings in CartContext:', err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Sync restaurant and branch metadata with items
   useEffect(() => {
@@ -290,10 +268,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         items: items.map((i) => ({ unitPriceTzs: i.priceTzs, quantity: i.quantity })),
         diningOption,
         deliveryFeeTzs,
-        serviceFeeTzs: customerServiceFeeTzs,
+        feeRules,
       });
     },
-    [items, customerServiceFeeTzs]
+    [items, feeRules]
   );
 
   const defaultQuote = useMemo(() => getOrderQuote('Delivery', 0), [getOrderQuote]);
@@ -314,7 +292,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         branchId,
         branchName,
         pricingDisclaimer,
-        customerServiceFeeTzs,
+        customerServiceFeeTzs: serviceFeeTzs,
         minimumOrderValueTzs,
         addToCart,
         removeFromCart,

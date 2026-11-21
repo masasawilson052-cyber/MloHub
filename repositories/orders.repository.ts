@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, PaymentStatus, OrderOperationalEvent } from '../types/domain';
 import { NotificationService } from '../services/NotificationService';
+import { computeServiceFeeTzs, DEFAULT_FEE_RULES } from '../config/platformFees';
 
 export class OrderRepository {
   private static mapRowToOrder(row: any, items?: OrderItem[]): Order {
@@ -127,7 +128,7 @@ export class OrderRepository {
       status: order.status || 'PENDING',
       payment_status: order.paymentStatus || 'PENDING',
       subtotal_tzs: order.subtotalTzs || 0,
-      service_fee_tzs: order.serviceFeeTzs || 1500,
+      service_fee_tzs: order.serviceFeeTzs ?? computeServiceFeeTzs(order.subtotalTzs || 0, order.fulfillmentType, DEFAULT_FEE_RULES),
       delivery_fee_tzs: order.deliveryFeeTzs || 0,
       total_tzs: order.totalTzs || 0,
       dining_option: order.fulfillmentType || 'Delivery',

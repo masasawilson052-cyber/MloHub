@@ -282,6 +282,42 @@ export interface Translations {
   imageUploadFailed: string;
   imageGalleryPermissionDenied: string;
   imageCameraPermissionDenied: string;
+
+  // Platform Fee Rules
+  feeRulesTitle: string;
+  feeRulesSubtitle: string;
+  feeRulesServiceFeeBps: string;
+  feeRulesServiceFeeBpsHint: string;
+  feeRulesServiceFeeMin: string;
+  feeRulesServiceFeeMinHint: string;
+  feeRulesServiceFeeMax: string;
+  feeRulesServiceFeeMaxHint: string;
+  feeRulesDeliveryMinOrder: string;
+  feeRulesDeliveryMinOrderHint: string;
+  feeRulesMinOrderTakeaway: string;
+  feeRulesMinOrderTakeawayHint: string;
+  feeRulesCommDelivery: string;
+  feeRulesCommDeliveryHint: string;
+  feeRulesCommTakeaway: string;
+  feeRulesCommTakeawayHint: string;
+  feeRulesCommDineIn: string;
+  feeRulesCommDineInHint: string;
+  feeRulesFreeDays: string;
+  feeRulesFreeDaysHint: string;
+  feeRulesReasonLabel: string;
+  feeRulesReasonPlaceholder: string;
+  feeRulesSaveBtn: string;
+  feeRulesSaving: string;
+  feeRulesLiveExampleTitle: string;
+  feeRulesExampleSubtotal: string;
+  feeRulesExampleServiceFee: string;
+  feeRulesExampleCommission: string;
+  feeRulesExamplePayout: string;
+  feeRulesInvalidPercent: string;
+  feeRulesInvalidNumber: string;
+  feeRulesReasonRequired: string;
+  feeRulesUpdatedSuccess: string;
+  feeRulesUpdateError: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -564,6 +600,42 @@ const TRANSLATIONS: Record<Language, Translations> = {
     imageUploadFailed: 'Failed to upload image. Please try again.',
     imageGalleryPermissionDenied: 'Permission to access device photo gallery was denied.',
     imageCameraPermissionDenied: 'Permission to access device camera was denied.',
+
+    // Platform Fee Rules
+    feeRulesTitle: 'Platform Financial Fee Rules',
+    feeRulesSubtitle: 'Configure customer service fees, order type commission tiers, and launch grace periods.',
+    feeRulesServiceFeeBps: 'Customer Service Fee (%)',
+    feeRulesServiceFeeBpsHint: 'Percentage of food subtotal for delivery orders (0-100%, max 2 decimals)',
+    feeRulesServiceFeeMin: 'Service Fee Minimum (TZS)',
+    feeRulesServiceFeeMinHint: 'Floor for delivery service fee',
+    feeRulesServiceFeeMax: 'Service Fee Maximum (TZS)',
+    feeRulesServiceFeeMaxHint: 'Cap for delivery service fee',
+    feeRulesDeliveryMinOrder: 'Delivery Minimum Order (TZS)',
+    feeRulesDeliveryMinOrderHint: 'Minimum subtotal required for delivery checkout',
+    feeRulesMinOrderTakeaway: 'Minimum Order (Takeaway/Dine-In) (TZS)',
+    feeRulesMinOrderTakeawayHint: 'Global subtotal floor for non-delivery orders',
+    feeRulesCommDelivery: 'Delivery Commission (%)',
+    feeRulesCommDeliveryHint: 'Standard commission rate on delivery orders',
+    feeRulesCommTakeaway: 'Takeaway Commission (%)',
+    feeRulesCommTakeawayHint: 'Commission rate on takeaway and pickup orders',
+    feeRulesCommDineIn: 'Dine-In Commission (%)',
+    feeRulesCommDineInHint: 'Commission rate on dine-in orders',
+    feeRulesFreeDays: 'New Restaurant Grace Period (Days)',
+    feeRulesFreeDaysHint: '0% commission window after restaurant goes live',
+    feeRulesReasonLabel: 'Reason for Mutation (Audit Requirement)',
+    feeRulesReasonPlaceholder: 'e.g. Approved fee policy revision Q4',
+    feeRulesSaveBtn: 'Preview Impact & Save Changes',
+    feeRulesSaving: 'Saving...',
+    feeRulesLiveExampleTitle: 'Live Fee & Payout Example',
+    feeRulesExampleSubtotal: 'Food Subtotal',
+    feeRulesExampleServiceFee: 'Customer Service Fee',
+    feeRulesExampleCommission: 'Platform Commission',
+    feeRulesExamplePayout: 'Restaurant food payout',
+    feeRulesInvalidPercent: 'Percentage must be between 0 and 100 with at most 2 decimal places.',
+    feeRulesInvalidNumber: 'Please enter a valid positive number.',
+    feeRulesReasonRequired: 'Please provide a descriptive reason of at least 4 characters.',
+    feeRulesUpdatedSuccess: 'Financial configuration and fee rules updated successfully.',
+    feeRulesUpdateError: 'Failed to update platform fee rules.',
   },
   sw: {
     // Tabs
@@ -844,6 +916,42 @@ const TRANSLATIONS: Record<Language, Translations> = {
     imageUploadFailed: 'Imeshindwa kupakia picha. Tafadhali jaribu tena.',
     imageGalleryPermissionDenied: 'Ruhusa ya kufungua picha haijatolewa.',
     imageCameraPermissionDenied: 'Ruhusa ya kufungua kamera haijatolewa.',
+
+    // Platform Fee Rules
+    feeRulesTitle: 'Sheria za Ada za Mfumo',
+    feeRulesSubtitle: 'Weka ada ya huduma ya mteja, viwango vya kamisheni kwa aina ya agizo, na siku za msamaha wa mwanzo.',
+    feeRulesServiceFeeBps: 'Ada ya Huduma ya Mteja (%)',
+    feeRulesServiceFeeBpsHint: 'Asilimia ya jumla ya chakula kwa maagizo ya kuletewa (0-100%, desimali 2)',
+    feeRulesServiceFeeMin: 'Kiwango cha Chini cha Ada ya Huduma (TZS)',
+    feeRulesServiceFeeMinHint: 'Kiwango cha chini cha ada ya huduma ya kuletewa',
+    feeRulesServiceFeeMax: 'Kiwango cha Juu cha Ada ya Huduma (TZS)',
+    feeRulesServiceFeeMaxHint: 'Kikomo cha juu cha ada ya huduma ya kuletewa',
+    feeRulesDeliveryMinOrder: 'Kiwango cha Chini cha Agizo la Kuletewa (TZS)',
+    feeRulesDeliveryMinOrderHint: 'Kiwango cha chini cha chakula kwa maagizo ya kuletewa',
+    feeRulesMinOrderTakeaway: 'Kiwango cha Chini cha Agizo (Kuchukua/Kula Hapo) (TZS)',
+    feeRulesMinOrderTakeawayHint: 'Kiwango cha chini kwa maagizo yasiyo ya kuletewa',
+    feeRulesCommDelivery: 'Kamisheni ya Kuletewa (%)',
+    feeRulesCommDeliveryHint: 'Kiwango cha kamisheni kwa maagizo ya kuletewa',
+    feeRulesCommTakeaway: 'Kamisheni ya Kuchukua (%)',
+    feeRulesCommTakeawayHint: 'Kiwango cha kamisheni kwa maagizo ya kuchukua mwenyewe',
+    feeRulesCommDineIn: 'Kamisheni ya Kula Hapo (%)',
+    feeRulesCommDineInHint: 'Kiwango cha kamisheni kwa maagizo ya kula hapo mkahawani',
+    feeRulesFreeDays: 'Siku za Msamaha kwa Mgahawa Mpya (Siku)',
+    feeRulesFreeDaysHint: 'Muda wa bila kamisheni (0%) baada ya mgahawa kuanza',
+    feeRulesReasonLabel: 'Sababu ya Mabadiliko (Ukaguzi)',
+    feeRulesReasonPlaceholder: 'mfano: Marekebisho yaliyoidhinishwa ya ada',
+    feeRulesSaveBtn: 'Hakiki Matokeo na Hifadhi Mabadiliko',
+    feeRulesSaving: 'Inahifadhi...',
+    feeRulesLiveExampleTitle: 'Mfano Halisi wa Ada na Malipo',
+    feeRulesExampleSubtotal: 'Jumla ya Chakula',
+    feeRulesExampleServiceFee: 'Ada ya Huduma ya Mteja',
+    feeRulesExampleCommission: 'Kamisheni ya Mfumo',
+    feeRulesExamplePayout: 'Restaurant food payout',
+    feeRulesInvalidPercent: 'Asilimia lazima iwe kati ya 0 na 100 yenye desimali zisizozidi mbili.',
+    feeRulesInvalidNumber: 'Tafadhali ingiza nambari sahihi chanya.',
+    feeRulesReasonRequired: 'Tafadhali toa sababu ya maelezo yenye herufi zisizopungua 4.',
+    feeRulesUpdatedSuccess: 'Sheria za ada zimehifadhiwa kikamilifu.',
+    feeRulesUpdateError: 'Imeshindwa kusasisha sheria za ada.',
   },
 };
 

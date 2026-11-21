@@ -14,7 +14,7 @@ import { CryptoEngine } from '../db/auth/crypto';
 import { AdminOnboardingService } from '../services/AdminOnboardingService';
 import { AdminApiService } from '../services/AdminApiService';
 import { DataReportsRepository } from '../repositories/dataReports.repository';
-import { FINANCIAL_CONFIG, calculateOrderFinancials } from '../config/platformFees';
+import { calculateOrderFinancials } from '../config/platformFees';
 
 let passed = 0;
 let failed = 0;
@@ -308,23 +308,20 @@ export async function runAdminPortalTestSuite(): Promise<{ passedCount: number; 
   // ---------------------------------------------------------------------------
   console.log('\nTest Group 5: Centralized Financial Authority & Fee Invariance');
 
-  assert(FINANCIAL_CONFIG.DEFAULT_PLATFORM_COMMISSION_RATE === 0.10, 'Standard platform commission is exactly 10.0%');
-  assert(FINANCIAL_CONFIG.SERVICE_FEE_TZS === 1500, 'Customer service fee is fixed at 1,500 TZS');
-  assert(FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS === 2500, 'Standard delivery fee is fixed at 2,500 TZS');
-
   // Calculate standard delivery order: 10,000 TZS food subtotal
-  const calcDelivery = calculateOrderFinancials(10000);
+  const calcDelivery = calculateOrderFinancials(10000, { commissionRate: 0.10 });
   assert(calcDelivery.subtotalTzs === 10000, 'Subtotal correctly captured as 10,000 TZS');
   assert(calcDelivery.platformCommissionTzs === 1000, 'Platform commission exactly 1,000 TZS (10%)');
-  assert(calcDelivery.serviceFeeTzs === 1500, 'Service fee applied as 1,500 TZS');
+  assert(calcDelivery.serviceFeeTzs === 300, 'Service fee dynamically computed as 300 TZS (3% of 10,000)');
   assert(calcDelivery.deliveryFeeTzs === 2500, 'Delivery fee applied as 2,500 TZS');
-  assert(calcDelivery.totalTzs === 14000, 'Total customer charge is 14,000 TZS');
+  assert(calcDelivery.totalTzs === 12800, 'Total customer charge is 12,800 TZS (10,000 + 300 + 2,500)');
   assert(calcDelivery.netRestaurantPayoutTzs === 9000, 'Net restaurant payout is 9,000 TZS (10,000 - 1,000)');
 
-  // Dine-in order: waives delivery fee
+  // Dine-in order: waives delivery fee and service fee
   const calcDineIn = calculateOrderFinancials(10000, { isDineInOrTakeaway: true });
   assert(calcDineIn.deliveryFeeTzs === 0, 'Delivery fee is 0 for Dine-In/Takeaway');
-  assert(calcDineIn.totalTzs === 11500, 'Total customer charge is 11,500 TZS for Dine-In');
+  assert(calcDineIn.serviceFeeTzs === 0, 'Service fee is 0 for Dine-In/Takeaway');
+  assert(calcDineIn.totalTzs === 10000, 'Total customer charge is 10,000 TZS for Dine-In');
 
   // Custom commission rate override (e.g. 8% promotional tier)
   const calcPromo = calculateOrderFinancials(20000, { commissionRate: 0.08 });

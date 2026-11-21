@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { runtimeConfig } from '../lib/runtimeConfig';
-import { FINANCIAL_CONFIG } from '../config/platformFees';
+import { FINANCIAL_CONFIG, DEFAULT_FEE_RULES } from '../config/platformFees';
 import { ApplicationRepository } from '../repositories/applications.repository';
 import { DataReportsRepository } from '../repositories/dataReports.repository';
 
@@ -224,8 +224,9 @@ async function runDemoReadinessAudit() {
 
   // 11. Platform Financial Authority Invariant (P15 & P16)
   const feeIntegrity =
-    FINANCIAL_CONFIG.DEFAULT_PLATFORM_COMMISSION_RATE === 0.10 &&
-    FINANCIAL_CONFIG.SERVICE_FEE_TZS === 1500 &&
+    DEFAULT_FEE_RULES.serviceFeeBps === 300 &&
+    DEFAULT_FEE_RULES.serviceFeeMinTzs === 200 &&
+    DEFAULT_FEE_RULES.serviceFeeMaxTzs === 500 &&
     FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS === 2500;
 
   recordCheck(
@@ -234,7 +235,7 @@ async function runDemoReadinessAudit() {
     'Financial Integrity',
     feeIntegrity,
     feeIntegrity
-      ? `Platform commission: ${FINANCIAL_CONFIG.DEFAULT_PLATFORM_COMMISSION_RATE * 100}%, Service Fee: ${FINANCIAL_CONFIG.SERVICE_FEE_TZS} TZS, Delivery: ${FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS} TZS.`
+      ? `Platform service fee: 3% (200-500 TZS), Delivery: ${FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS} TZS.`
       : 'Platform fees deviate from authoritative financial specification.'
   );
 

@@ -800,6 +800,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           amountTzs={createdOrder.subtotalTzs}
           deliveryFee={createdOrder.deliveryFeeTzs}
           serviceFee={createdOrder.serviceFeeTzs}
+          totalTzs={createdOrder.totalTzs}
           initialMethodCode={selectedMethod}
           initialPhone={payerPhone}
         />

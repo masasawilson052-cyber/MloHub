@@ -10,7 +10,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { runtimeConfig } from '../lib/runtimeConfig';
-import { FINANCIAL_CONFIG } from '../config/platformFees';
 import { SmsTemplates } from '../services/sms/smsTemplates';
 import { ApplicationRepository } from '../repositories/applications.repository';
 
@@ -124,19 +123,6 @@ export async function runDemoReadinessTestSuite(
   );
 
   // 10. P15 & P16: Platform Financial Authority & Payment Truth
-  assert(
-    FINANCIAL_CONFIG.DEFAULT_PLATFORM_COMMISSION_RATE === 0.10,
-    'P15: Canonical platform commission rate is 10%'
-  );
-  assert(
-    FINANCIAL_CONFIG.SERVICE_FEE_TZS === 1500,
-    'P15: Canonical customer service fee is 1500 TZS'
-  );
-  assert(
-    FINANCIAL_CONFIG.STANDARD_DELIVERY_FEE_TZS === 2500,
-    'P15: Canonical standard delivery fee is 2500 TZS'
-  );
-
   const paymentsMonitorCode = fs.readFileSync(
     path.join(__dirname, '..', 'components/admin/PaymentsMonitor.tsx'),
     'utf8'

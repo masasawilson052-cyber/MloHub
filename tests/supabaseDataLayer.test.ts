@@ -98,9 +98,9 @@ export async function runSupabaseDataLayerTestSuite(): Promise<{ passedCount: nu
 
   assert(standardOrder.customerId === 'usr-customer-test', 'Order assigned to correct customer');
   assert(standardOrder.subtotalTzs === 26000, 'Subtotal calculated correctly: 24000 + 2000 = 26000');
-  assert(standardOrder.serviceFeeTzs === 1500, 'MloHub platform service fee is 1,500 TZS');
+  assert(standardOrder.serviceFeeTzs === 500, 'MloHub platform service fee dynamically calculated (500 TZS, clamped at max)');
   assert(standardOrder.deliveryFeeTzs === 2500, 'Delivery fee applied for Delivery fulfillment (2,500 TZS)');
-  assert(standardOrder.totalTzs === 30000, 'Total calculated correctly: 26000 + 1500 + 2500 = 30000');
+  assert(standardOrder.totalTzs === 29000, 'Total calculated correctly: 26000 + 500 + 2500 = 29000');
   assert(standardOrder.items !== undefined && standardOrder.items.length === 2, 'Order has 2 line items with immutable snapshots');
   if (standardOrder.items) {
     assert(standardOrder.items[0].itemNameSnapshot === 'Biryani ya Kuku', 'Line item 1 snapshot name preserved');

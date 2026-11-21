@@ -16,10 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import {
   PlatformSettingsRepository,
-  PlatformFinancialSettings,
   PlatformOperationalSettings,
 } from '../../repositories/platformSettings.repository';
-import { formatTzs } from '../../config/platformFees';
+import { FeeRulesForm } from './FeeRulesForm';
 
 
 import { ThemeColors, lightColors } from '../../theme/palettes';
@@ -35,15 +34,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
   const [activeTab, setActiveTab] = useState<SettingsTab>('FINANCE');
   const [loading, setLoading] = useState(false);
-
-  // Financial Settings State
-  const [finSettings, setFinSettings] = useState<PlatformFinancialSettings | null>(null);
-  const [commissionInput, setCommissionInput] = useState('10.0');
-  const [serviceFeeInput, setServiceFeeInput] = useState('1500');
-  const [minOrderInput, setMinOrderInput] = useState('2000');
-  const [finChangeReason, setFinChangeReason] = useState('');
-  const [showFinConfirm, setShowFinConfirm] = useState(false);
-  const [isSavingFin, setIsSavingFin] = useState(false);
 
   // Operational Settings State
   const [opSettings, setOpSettings] = useState<PlatformOperationalSettings | null>(null);
@@ -64,16 +54,8 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
     const loadSettings = async () => {
       setLoading(true);
       try {
-        const [fin, op] = await Promise.all([
-          PlatformSettingsRepository.getFinancialSettings(),
-          PlatformSettingsRepository.getOperationalSettings(),
-        ]);
+        const op = await PlatformSettingsRepository.getOperationalSettings();
         if (isMounted) {
-          setFinSettings(fin);
-          setCommissionInput((fin.defaultCommissionRate * 100).toFixed(1));
-          setServiceFeeInput(fin.customerServiceFeeTzs.toString());
-          setMinOrderInput(fin.minimumOrderValueTzs.toString());
-
           setOpSettings(op);
           setFreshDays(op.freshDays.toString());
           setRecentDays(op.recentDays.toString());
@@ -97,46 +79,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
       isMounted = false;
     };
   }, []);
-
-  const handleSaveFinancial = async () => {
-    if (finChangeReason.trim().length < 4) {
-      Alert.alert('Reason Required', 'Please provide a descriptive reason of at least 4 characters.');
-      return;
-    }
-
-    setIsSavingFin(true);
-    try {
-      const commPct = parseFloat(commissionInput);
-      const sFee = parseInt(serviceFeeInput, 10);
-      const minOrd = parseInt(minOrderInput, 10);
-
-      const res = await PlatformSettingsRepository.updateFinancialSettings({
-        commissionPercent: commPct,
-        serviceFeeTzs: sFee,
-        minimumOrderTzs: minOrd,
-        reason: finChangeReason.trim(),
-      });
-
-      if (!res.success) {
-        Alert.alert('Update Failed', res.error || 'Check administrator credentials.');
-        return;
-      }
-
-      Alert.alert(
-        'Settings Updated',
-        'Financial configuration updated. Changes apply immediately to new orders only.'
-      );
-      setShowFinConfirm(false);
-      setFinChangeReason('');
-
-      const updated = await PlatformSettingsRepository.getFinancialSettings();
-      setFinSettings(updated);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update financial settings.');
-    } finally {
-      setIsSavingFin(false);
-    }
-  };
 
   const handleSaveOperational = async () => {
     const f = parseInt(freshDays, 10);
@@ -247,113 +189,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
         </View>
       ) : activeTab === 'FINANCE' ? (
         /* FINANCIAL POLICY TAB */
-        <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.cardHeaderRow}>
-            <Ionicons name="cash-outline" size={20} color={colors.primary} />
-            <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-              Centralized Financial Fee Authority
-            </Text>
-          </View>
-          <Text style={[styles.cardNotice, { color: colors.textSecondary }]}>
-            Enforced authoritatively in PostgreSQL (<Text style={{ fontFamily: 'monospace' }}>create_order_secure</Text>). Changes apply strictly to NEW orders. Historical orders retain their economic snapshot forever.
-          </Text>
-
-          <View style={styles.formGrid}>
-            <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Platform Commission (%)
-              </Text>
-              <TextInput
-                style={[
-                  styles.inputField,
-                  {
-                    backgroundColor: colors.inputBackground,
-                    color: colors.textPrimary,
-                    borderColor: colors.inputBorder,
-                  },
-                ]}
-                value={commissionInput}
-                onChangeText={setCommissionInput}
-                keyboardType="numeric"
-              />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
-                Standard deduction on food subtotal
-              </Text>
-            </View>
-
-            <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Customer Service Fee (TZS)
-              </Text>
-              <TextInput
-                style={[
-                  styles.inputField,
-                  {
-                    backgroundColor: colors.inputBackground,
-                    color: colors.textPrimary,
-                    borderColor: colors.inputBorder,
-                  },
-                ]}
-                value={serviceFeeInput}
-                onChangeText={setServiceFeeInput}
-                keyboardType="numeric"
-              />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
-                Fixed charge per order checkout
-              </Text>
-            </View>
-
-            <View style={styles.formCol}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Minimum Order Value (TZS)
-              </Text>
-              <TextInput
-                style={[
-                  styles.inputField,
-                  {
-                    backgroundColor: colors.inputBackground,
-                    color: colors.textPrimary,
-                    borderColor: colors.inputBorder,
-                  },
-                ]}
-                value={minOrderInput}
-                onChangeText={setMinOrderInput}
-                keyboardType="numeric"
-              />
-              <Text style={[styles.fieldHint, { color: colors.textMuted }]}>
-                Subtotal floor required for checkout
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.reasonBlock}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-              Reason for Policy Mutation (Audit Requirement)
-            </Text>
-            <TextInput
-              style={[
-                styles.reasonInput,
-                {
-                  backgroundColor: colors.inputBackground,
-                  color: colors.textPrimary,
-                  borderColor: colors.inputBorder,
-                },
-              ]}
-              placeholder="e.g., Launch merchant incentive or holiday fee adjustment"
-              placeholderTextColor={colors.inputPlaceholder}
-              value={finChangeReason}
-              onChangeText={setFinChangeReason}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-            onPress={() => setShowFinConfirm(true)}
-          >
-            <Ionicons name="shield-checkmark-outline" size={16} color={colors.onPrimary} style={{ marginRight: 6 }} />
-            <Text style={styles.saveBtnText}>Preview Impact & Save Changes</Text>
-          </TouchableOpacity>
-        </View>
+        <FeeRulesForm />
       ) : activeTab === 'FRESHNESS' ? (
         /* CATALOG FRESHNESS TAB */
         <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -600,108 +436,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ language = 'en' })
           </TouchableOpacity>
         </View>
       )}
-
-      {/* Confirmation Modal for Financial Policy Mutation */}
-      <Modal visible={showFinConfirm} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: colors.modalBackdrop }]}>
-          <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: colors.surfaceRaised,
-                borderColor: colors.borderStrong,
-              },
-            ]}
-          >
-            <View style={styles.modalHeaderRow}>
-              <Ionicons name="warning" size={24} color={colors.warning} />
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                Confirm Financial Policy Mutation
-              </Text>
-            </View>
-
-            <Text style={[styles.modalNotice, { color: colors.textSecondary }]}>
-              You are about to change the authoritative platform financial structure. This action requires SUPER_ADMIN credentials and will be logged to the immutable audit trail.
-            </Text>
-
-            <View
-              style={[
-                styles.impactBox,
-                {
-                  backgroundColor: colors.surfaceInteractive,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
-                  Commission:
-                </Text>
-                <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
-                  {finSettings ? (finSettings.defaultCommissionRate * 100).toFixed(1) : '10.0'}% → {commissionInput}%
-                </Text>
-              </View>
-              <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
-                  Service Fee:
-                </Text>
-                <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
-                  {finSettings ? formatTzs(finSettings.customerServiceFeeTzs) : '1,500 TZS'} → {formatTzs(serviceFeeInput)}
-                </Text>
-              </View>
-              <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
-                  Minimum Order:
-                </Text>
-                <Text style={[styles.impactVal, { color: colors.textPrimary }]}>
-                  {finSettings ? formatTzs(finSettings.minimumOrderValueTzs) : '2,000 TZS'} → {formatTzs(minOrderInput)}
-                </Text>
-              </View>
-              <View style={styles.impactRow}>
-                <Text style={[styles.impactLabel, { color: colors.textSecondary }]}>
-                  Reason:
-                </Text>
-                <Text style={[styles.impactVal, { color: colors.textPrimary, fontWeight: '400' }]}>
-                  {finChangeReason}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={[styles.immutabilityReminder, { color: colors.textMuted }]}>
-              Note: This change affects NEW orders only. Existing orders, escrow captures, and completed settlements remain unchanged.
-            </Text>
-
-            <View style={styles.modalActionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.cancelBtn,
-                  {
-                    backgroundColor: colors.surfaceInteractive,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => setShowFinConfirm(false)}
-              >
-                <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-                onPress={handleSaveFinancial}
-                disabled={isSavingFin}
-              >
-                {isSavingFin ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Confirm Policy Mutation</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 };

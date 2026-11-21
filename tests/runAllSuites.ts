@@ -340,7 +340,7 @@ async function runMasterTestSuite() {
 
   assert(placedOrder !== undefined, 'Order placed successfully');
   assert(placedOrder.status === 'PENDING', 'Order status initialized to PENDING');
-  assert(placedOrder.totalTzs === 24000 + 1500 + 2500, 'Order total calculated with service & delivery fees');
+  assert(placedOrder.totalTzs === 24000 + 500 + 2500, 'Order total calculated with dynamic service fee (500 max) & delivery fee');
 
   // ---------------------------------------------------------------------------
   // SCENARIO 10: Restaurant Accepts Order with Estimated Prep Time

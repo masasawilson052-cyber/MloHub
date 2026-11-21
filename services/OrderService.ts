@@ -6,6 +6,7 @@ import { runtimeConfig } from '../lib/runtimeConfig';
 import { Order, OrderItem, OrderStatus, CustomMealRequest } from '../types/domain';
 import { RealtimeEventEngine } from '../db/realtime/eventEngine';
 import { MloHubDB } from '../db';
+import { computeServiceFeeTzs, DEFAULT_FEE_RULES, PublicFeeRules } from '../config/platformFees';
 
 export interface SubmitMenuOrderDTO {
   userId: string;
@@ -64,9 +65,12 @@ export class OrderService {
     diningOption: 'Delivery' | 'Dine-In' | 'Takeaway';
     deliveryFeeTzs?: number;
     serviceFeeTzs?: number;
+    feeRules?: PublicFeeRules;
   }): OrderQuote {
     const subtotalTzs = params.items.reduce((sum, item) => sum + item.unitPriceTzs * item.quantity, 0);
-    const serviceFeeTzs = params.serviceFeeTzs !== undefined ? params.serviceFeeTzs : 1500;
+    const serviceFeeTzs = params.serviceFeeTzs !== undefined
+      ? params.serviceFeeTzs
+      : computeServiceFeeTzs(subtotalTzs, params.diningOption, params.feeRules ?? DEFAULT_FEE_RULES);
     const deliveryFeeTzs = params.diningOption === 'Delivery' ? (params.deliveryFeeTzs ?? 0) : 0;
     const totalTzs = subtotalTzs + serviceFeeTzs + deliveryFeeTzs;
     const itemCount = params.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -213,7 +217,7 @@ export class OrderService {
     // Mock / Offline Fallback for automated tests
     const TEST_ONLY_PROVISIONAL_DELIVERY_FEE = 2500;
     const subtotal = dto.items.reduce((sum, item) => sum + item.totalPriceTzs, 0);
-    const serviceFee = 1500;
+    const serviceFee = computeServiceFeeTzs(subtotal, dto.diningOption, DEFAULT_FEE_RULES);
     const deliveryFee = dto.diningOption === 'Delivery' ? TEST_ONLY_PROVISIONAL_DELIVERY_FEE : 0;
     const totalTzs = subtotal + serviceFee + deliveryFee;
 
