@@ -49,6 +49,7 @@ export class PaymentRepository {
       paymentMethod: row.payment_method || 'M_PESA',
       phoneNumber: row.phone_number || '',
       status: row.status || 'PENDING',
+      duplicateOfPaymentId: row.duplicate_of_payment_id || undefined,
       idempotencyKey: row.idempotency_key,
       webhookVerified: row.webhook_verified ?? false,
       paidAt: row.paid_at,
@@ -245,7 +246,7 @@ export class PaymentRepository {
 
     if (query.status && query.status !== 'ALL') {
       if (query.status === 'CAPTURED') {
-        qb = qb.in('status', ['SUCCESS', 'CAPTURED', 'PAID']);
+        qb = qb.in('status', ['SUCCESS', 'CAPTURED', 'PAID']).is('duplicate_of_payment_id', null);
       } else if (query.status === 'FAILED') {
         qb = qb.in('status', ['FAILED', 'CANCELLED']);
       } else {

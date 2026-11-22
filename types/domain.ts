@@ -753,6 +753,7 @@ export interface Payment {
   paymentMethod: string;
   phoneNumber: string;
   status: PaymentStatus;
+  duplicateOfPaymentId?: string;
   idempotencyKey?: string;
   webhookVerified: boolean;
   paidAt?: string;

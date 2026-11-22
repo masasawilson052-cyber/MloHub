@@ -1284,6 +1284,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
     let monthGross = 0;
 
     for (const p of payments) {
+      if (p.duplicateOfPaymentId) continue;
       // Only SUCCESS counts as revenue; REFUNDED, FAILED, PENDING, CANCELLED do NOT count as retained revenue
       if (p.status === 'SUCCESS') {
         const pTime = new Date(p.createdAt).getTime();
@@ -1349,18 +1350,23 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
 
   // 12. Financial Transactions strictly from public.payments (no completed order fallback)
   const earningsTransactions: EarningsRecord[] = useMemo(() => {
-    return payments.map((p) => {
-      return {
-        orderId: p.orderId || p.id,
-        orderNumber: p.orderId ? `MLO-${p.orderId.slice(-4)}` : p.id.slice(0, 8),
-        createdAt: p.createdAt,
-        grossAmountTzs: p.amountTzs || 0,
-        platformFeeTzs: p.platformCommissionTzs || 0,
-        netPayoutTzs: p.netRestaurantPayoutTzs || (p.amountTzs - (p.platformCommissionTzs || 0)),
-        paymentStatus: p.status,
-        paymentProvider: p.provider || 'Mobile Money',
-      };
+    const results: EarningsRecord[] = [];
+    payments.map((p) => {
+      if (!p.duplicateOfPaymentId) {
+        results.push({
+          orderId: p.orderId || p.id,
+          orderNumber: p.orderId ? `MLO-${p.orderId.slice(-4)}` : p.id.slice(0, 8),
+          createdAt: p.createdAt,
+          grossAmountTzs: p.amountTzs || 0,
+          platformFeeTzs: p.platformCommissionTzs || 0,
+          netPayoutTzs: p.netRestaurantPayoutTzs || (p.amountTzs - (p.platformCommissionTzs || 0)),
+          paymentStatus: p.status,
+          paymentProvider: p.provider || 'Mobile Money',
+        });
+      }
+      return null;
     });
+    return results;
   }, [payments]);
 
   // 13. Discovery Analytics Data

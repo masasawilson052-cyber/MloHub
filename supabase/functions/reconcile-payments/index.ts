@@ -157,6 +157,7 @@ Deno.serve(async (req: Request) => {
         .from('payments')
         .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')
         .eq('id', body.paymentId)
+        .is('duplicate_of_payment_id', null)
         .maybeSingle();
 
       if (fetchErr || !payment) {
@@ -219,6 +220,7 @@ Deno.serve(async (req: Request) => {
       .from('payments')
       .select('id, order_id, amount_tzs, provider, provider_reference, merchant_reference, status, created_at, updated_at')
       .eq('status', 'PENDING')
+      .is('duplicate_of_payment_id', null)
       .lt('updated_at', staleThreshold)
       .order('updated_at', { ascending: true })
       .limit(BATCH_LIMIT);
@@ -355,17 +357,22 @@ async function reconcilePayment(
       }
 
       // Confirm via canonical RPC (same path as live webhook)
-      const { error: rpcErr } = await adminClient.rpc('confirm_payment_webhook_rpc', {
+      const { data: rpcData, error: rpcErr } = await adminClient.rpc('confirm_payment_webhook_rpc', {
         p_merchant_reference: payment.merchant_reference,
-        p_provider_reference: payment.provider_reference,
-        p_amount_tzs: payment.amount_tzs,
-        p_provider: payment.provider,
+        p_gateway_reference: payment.provider_reference,
+        p_provider: String(payment.provider || 'selcom').toLowerCase(),
+        p_collected_amount: payment.amount_tzs,
+        p_event_id: `reconcile_${payment.id}_${Date.now()}`,
         p_raw_payload: { reconciled: true, gateway_status: gatewayStatus },
       });
 
-      if (rpcErr) {
-        console.error(`[reconcile-payments] RPC confirm failed for ${payment.id}:`, rpcErr);
-        return { paymentId: payment.id, outcome: 'ERROR', reason: rpcErr.message };
+      if (rpcErr || rpcData?.success === false) {
+        console.error(`[reconcile-payments] RPC confirm failed for ${payment.id}:`, rpcErr || rpcData?.error);
+        return { paymentId: payment.id, outcome: 'ERROR', reason: rpcErr?.message || rpcData?.error };
+      }
+
+      if (rpcData?.duplicate) {
+        return { paymentId: payment.id, outcome: 'CONFIRMED', reason: 'DUPLICATE_PAYMENT' };
       }
 
       return { paymentId: payment.id, outcome: 'CONFIRMED' };

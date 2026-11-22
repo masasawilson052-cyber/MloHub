@@ -65,6 +65,7 @@ import { runMenuScrollTestSuite } from './menuScroll.test';
 import { runFeeRulesTests } from './feeRules.test';
 import { runCheckoutExperienceTestSuite } from './checkoutExperience.test';
 import { runPaymentJourneyTestSuite } from './paymentJourney.test';
+import { runPaymentSafetyTestSuite } from './paymentSafety.test';
 
 
 let passed = 0;
@@ -836,6 +837,9 @@ async function runMasterTestSuite() {
 
   // Guided Mobile Money, TCRA Prefixes & Bilingual Checkout Suite
   await runPaymentJourneyTestSuite();
+
+  // Payment Safety, Authoritative Duplicate Defense & Stuck Recovery Suite
+  await runPaymentSafetyTestSuite();
 
   // Final Results
   console.log('\n================================================================');

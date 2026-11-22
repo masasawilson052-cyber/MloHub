@@ -503,64 +503,121 @@ Deno.serve(async (req: Request) => {
         // Handle stuck pending payments
         const paymentAgeMs = Date.now() - new Date(activeOrderPayment.created_at || activeOrderPayment.updated_at || 0).getTime();
         const TEN_MINUTES_MS = 10 * 60 * 1000;
+        const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
         if (paymentAgeMs > TEN_MINUTES_MS) {
           console.log(`[create-payment] Found stuck pending payment ${activeOrderPayment.id} (age: ${Math.round(paymentAgeMs / 1000)}s). Querying gateway status...`);
+          const providerName = String(activeOrderPayment.provider || 'selcom').toLowerCase();
+          let providerStatus: any;
           try {
-            const gateway = PaymentGatewayFactory.getGateway(String(activeOrderPayment.provider || 'clickpesa').toLowerCase() as any);
-            const providerStatus = await gateway.queryStatus(
+            const gateway = PaymentGatewayFactory.getGateway(providerName as any);
+            providerStatus = await gateway.queryStatus(
               activeOrderPayment.provider_reference || '',
               activeOrderPayment.merchant_reference || ''
             );
+          } catch (err) {
+            console.warn(`[create-payment] Gateway unreachable for stuck payment ${activeOrderPayment.id}:`, err);
+            // Do NOT expire. Return GATEWAY_UNAVAILABLE
+            return response(503, {
+              success: false,
+              error: 'GATEWAY_UNAVAILABLE',
+              message: 'Payment gateway is temporarily unavailable. Please try again in a minute.',
+            });
+          }
 
-            if (providerStatus.status === 'PAID' && providerStatus.amountTzs === Number(activeOrderPayment.amount_tzs)) {
-              console.log(`[create-payment] Stuck pending payment ${activeOrderPayment.id} was actually PAID at gateway. Confirming payment.`);
-              await adminClient.rpc('confirm_payment_webhook_rpc', {
-                p_merchant_reference: activeOrderPayment.merchant_reference,
-                p_gateway_reference: providerStatus.gatewayReference || activeOrderPayment.provider_reference,
-                p_provider: String(activeOrderPayment.provider || 'clickpesa').toLowerCase(),
-                p_collected_amount: providerStatus.amountTzs,
-                p_event_id: `stuck_recovery_${activeOrderPayment.id}`,
-                p_raw_payload: {
-                  source: 'create-payment-stuck-recovery',
-                  providerStatus: providerStatus.rawResponse,
-                },
+          const gwStatus = String(providerStatus?.status || '').toUpperCase();
+          const gwAmount = Number(providerStatus?.amountTzs ?? providerStatus?.amount ?? 0);
+          const expectedAmount = Number(activeOrderPayment.amount_tzs);
+
+          if (gwStatus === 'PAID' || gwStatus === 'SUCCESS' || gwStatus === 'COMPLETED') {
+            if (gwAmount > 0 && gwAmount !== expectedAmount) {
+              console.warn(`[create-payment] Stuck payment ${activeOrderPayment.id} PAID but amount mismatch (expected ${expectedAmount}, got ${gwAmount}). Leaving active for review.`);
+              await adminClient.from('payment_review_cases').insert({
+                payment_id: activeOrderPayment.id,
+                order_id: activeOrderPayment.order_id,
+                reason: 'AMOUNT_MISMATCH',
+                amount_tzs: gwAmount,
+                status: 'OPEN',
               });
 
-              return response(200, {
-                success: true,
-                paymentId: activeOrderPayment.id,
-                providerReference: activeOrderPayment.provider_reference,
-                merchantReference: activeOrderPayment.merchant_reference,
-                status: 'SUCCESS',
-                amountTzs: activeOrderPayment.amount_tzs,
-                message: 'Order payment has already been completed.',
+              return response(409, {
+                success: false,
+                error: 'PAYMENT_NEEDS_REVIEW',
+                message: 'Payment received with unexpected amount and requires administrative review.',
               });
-            } else {
-              console.log(`[create-payment] Stuck pending payment ${activeOrderPayment.id} gateway status is ${providerStatus.status}. Marking EXPIRED and allowing new payment.`);
+            }
+
+            console.log(`[create-payment] Stuck pending payment ${activeOrderPayment.id} was actually PAID at gateway. Confirming payment.`);
+            const { data: rpcData, error: rpcErr } = await adminClient.rpc('confirm_payment_webhook_rpc', {
+              p_merchant_reference: activeOrderPayment.merchant_reference,
+              p_gateway_reference: providerStatus.gatewayReference || activeOrderPayment.provider_reference,
+              p_provider: providerName,
+              p_collected_amount: activeOrderPayment.amount_tzs,
+              p_event_id: `stuck_recovery_${activeOrderPayment.id}`,
+              p_raw_payload: {
+                source: 'create-payment-stuck-recovery',
+                providerStatus: providerStatus.rawResponse || providerStatus,
+              },
+            });
+
+            if (rpcErr || rpcData?.success === false) {
+              console.error(`[create-payment] confirm_payment_webhook_rpc failed for stuck payment ${activeOrderPayment.id}:`, rpcErr || rpcData?.error);
+              return response(500, {
+                success: false,
+                error: rpcErr?.message || rpcData?.error || 'CONFIRMATION_FAILED',
+                message: 'Failed to confirm existing completed payment.',
+              });
+            }
+
+            return response(200, {
+              success: true,
+              paymentId: activeOrderPayment.id,
+              providerReference: activeOrderPayment.provider_reference,
+              merchantReference: activeOrderPayment.merchant_reference,
+              status: 'SUCCESS',
+              amountTzs: activeOrderPayment.amount_tzs,
+              message: 'Order payment has already been completed.',
+            });
+          } else if (gwStatus === 'PENDING' || gwStatus === 'PROCESSING') {
+            if (paymentAgeMs > THIRTY_MINUTES_MS) {
+              console.log(`[create-payment] Stuck payment ${activeOrderPayment.id} has been PENDING for >30m (${Math.round(paymentAgeMs / 1000)}s). Marking EXPIRED and allowing new payment.`);
               await adminClient
                 .from('payments')
                 .update({
                   status: 'EXPIRED',
-                  failure_reason: 'Payment expired after 10 minutes without gateway confirmation.',
+                  failure_reason: 'Payment expired after 30 minutes without approval.',
                   updated_at: new Date().toISOString(),
                 })
                 .eq('id', activeOrderPayment.id)
                 .eq('status', 'PENDING');
               // Expired! Allow new payment creation to proceed.
+            } else {
+              console.log(`[create-payment] Stuck payment ${activeOrderPayment.id} is still PENDING at gateway (${Math.round(paymentAgeMs / 1000)}s old). Keeping PENDING.`);
+              return response(200, {
+                success: true,
+                paymentId: activeOrderPayment.id,
+                providerReference: activeOrderPayment.provider_reference,
+                merchantReference: activeOrderPayment.merchant_reference,
+                status: 'PENDING',
+                amountTzs: activeOrderPayment.amount_tzs,
+                ussdPrompt: activeOrderPayment.ussd_push_initiated
+                  ? `USSD push prompt sent to ${activeOrderPayment.phone_number}. Enter PIN on your phone.`
+                  : null,
+                message: 'Approve the request on your phone',
+              });
             }
-          } catch (err) {
-            console.warn(`[create-payment] Error querying gateway for stuck payment ${activeOrderPayment.id}:`, err);
+          } else {
+            console.log(`[create-payment] Stuck payment ${activeOrderPayment.id} gateway status is ${gwStatus || 'FAILED/NOT_FOUND'}. Marking EXPIRED and allowing new payment.`);
             await adminClient
               .from('payments')
               .update({
                 status: 'EXPIRED',
-                failure_reason: 'Payment expired after 10 minutes (gateway unreachable).',
+                failure_reason: `Gateway reported ${gwStatus || 'NOT_FOUND'}. Payment expired to allow new attempt.`,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', activeOrderPayment.id)
               .eq('status', 'PENDING');
-            console.log(`[create-payment] Marked stuck payment ${activeOrderPayment.id} as EXPIRED due to gateway query failure. Allowing new payment.`);
+            // Expired! Allow new payment creation to proceed.
           }
         } else {
           // Fresh pending payment (under 10 minutes): return existing active attempt
