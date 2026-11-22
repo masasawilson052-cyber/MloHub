@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 import { ThemeColors } from '../../theme/palettes';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
@@ -42,17 +43,17 @@ export const DeliveryMinimumNudge: React.FC<DeliveryMinimumNudgeProps> = ({
     return Math.min(100, Math.max(0, Math.round((subtotalTzs / effectiveMinimum) * 100)));
   }, [subtotalTzs, effectiveMinimum]);
 
+  const { t } = useLanguage();
+
   if (shortfallTzs <= 0) {
     return null;
   }
 
-  const nudgeTitle = language === 'sw'
-    ? `Ongeza ${formatTzs(shortfallTzs)} zaidi ili uletewe`
-    : `Add ${formatTzs(shortfallTzs)} more for delivery`;
-
-  const nudgeSub = language === 'sw'
-    ? `Kiwango cha chini: ${formatTzs(effectiveMinimum)} • Sasa: ${formatTzs(subtotalTzs)} (${progressPct}%)`
-    : `Delivery minimum: ${formatTzs(effectiveMinimum)} • Current: ${formatTzs(subtotalTzs)} (${progressPct}%)`;
+  const nudgeTitle = t('checkoutNudgeAddMore').replace('{amount}', formatTzs(shortfallTzs));
+  const nudgeSub = t('checkoutNudgeMinimumProgress')
+    .replace('{min}', formatTzs(effectiveMinimum))
+    .replace('{current}', formatTzs(subtotalTzs))
+    .replace('{pct}', String(progressPct));
 
   return (
     <View style={styles.card}>
@@ -72,7 +73,7 @@ export const DeliveryMinimumNudge: React.FC<DeliveryMinimumNudgeProps> = ({
         <TouchableOpacity style={styles.menuBtn} onPress={onBackToMenu}>
           <Ionicons name="restaurant-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
           <Text style={styles.menuBtnText}>
-            {language === 'sw' ? 'Rudi kwenye Menyu' : 'Back to Menu'}
+            {t('checkoutNudgeBackMenu')}
           </Text>
         </TouchableOpacity>
 
@@ -80,7 +81,7 @@ export const DeliveryMinimumNudge: React.FC<DeliveryMinimumNudgeProps> = ({
           <TouchableOpacity style={styles.takeawayBtn} onPress={onSwitchToTakeaway}>
             <Ionicons name="bag-handle-outline" size={14} color={colors.onPrimary} style={{ marginRight: 4 }} />
             <Text style={styles.takeawayBtnText}>
-              {language === 'sw' ? 'Badili iwe ya Kuchukua' : 'Switch to Takeaway'}
+              {t('checkoutNudgeSwitchTakeaway')}
             </Text>
           </TouchableOpacity>
         )}

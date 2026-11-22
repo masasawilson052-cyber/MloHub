@@ -353,9 +353,117 @@ export interface Translations {
   signUpBtn: string;
   termsAgree: string;
   forgotPasswordLink: string;
+  authEmailPhoneRequired: string;
+  authPasswordRequired: string;
+  authInvalidCredentials: string;
+  authFullNameRequired: string;
+  authValidContactRequired: string;
+  authPasswordLength: string;
+  authTermsRequired: string;
+  authRegistrationFailed: string;
+
+  // Cart & Orders
+  cartTitle: string;
+  cartClear: string;
+  cartEmptyTitle: string;
+  cartEmptyMsg: string;
+  cartEmptyAction: string;
+  cartSubtotal: string;
+  cartDeliveryFee: string;
+  cartServiceFee: string;
+  cartEstimatedTotal: string;
+  cartTotal: string;
+  cartProceedReview: string;
+  cartNotePrefix: string;
+
+  // Fulfillment Options
+  fulfillmentMethod: string;
+  fulfillmentDelivery: string;
+  fulfillmentTakeaway: string;
+  fulfillmentDineIn: string;
+
+  // Checkout Review Details
+  checkoutDeliveryAddress: string;
+  checkoutAddressPlaceholder: string;
+  checkoutSavedAddressHome: string;
+  checkoutSavedAddressWork: string;
+  checkoutSavedAddressSaved: string;
+  checkoutRoutePricing: string;
+  checkoutRouteCalculating: string;
+  checkoutOutsideRadius: string;
+  checkoutRouteVerified: string;
+  checkoutPinLocation: string;
+  checkoutDeliveryArea: string;
+  checkoutEstMins: string;
+  checkoutMinOrderPrefix: string;
+  checkoutItemsOrdered: string;
+  checkoutFoodSubtotal: string;
+  checkoutEstimatedDelivery: string;
+  checkoutSetLocationPrompt: string;
+  checkoutPlatformServiceFee: string;
+  checkoutContinuePayment: string;
+  checkoutCreatingOrder: string;
+  checkoutSecuringOrder: string;
+  checkoutPaymentConfirmed: string;
+  checkoutOrderNumber: string;
+  checkoutAwaitingAcceptance: string;
+  checkoutTrackOrder: string;
+  checkoutBackHome: string;
+  checkoutNudgeAddMore: string;
+  checkoutNudgeMinimumProgress: string;
+  checkoutNudgeBackMenu: string;
+  checkoutNudgeSwitchTakeaway: string;
+  checkoutReviewTitle: string;
+  checkoutConfirmedTitle: string;
+  checkoutRestaurantSection: string;
+  checkoutChangeLocation: string;
+  checkoutPricingDisclaimer: string;
+  verifiedKitchen: string;
+  fromAmount: string;
+  cartViewOrder: string;
+
+  // Guided Payment Journey
+  paymentHeaderTag: string;
+  paymentTitleMeal: string;
+  paymentTitleReservation: string;
+  paymentTitleCustomMeal: string;
+  paymentStepMethod: string;
+  paymentStepMethodSub: string;
+  paymentContinuePhone: string;
+  paymentStepPhone: string;
+  paymentPhoneSub: string;
+  paymentChange: string;
+  paymentPhoneLabel: string;
+  paymentPhonePlaceholder: string;
+  paymentRequestPrompt: string;
+  paymentBack: string;
+  paymentDispatching: string;
+  paymentConnectingCarrier: string;
+  paymentCheckPhone: string;
+  paymentPromptSent: string;
+  paymentUssdFallbackNotice: string;
+  paymentIvePaid: string;
+  paymentVerifyingStatus: string;
+  paymentApproveOnPhone: string;
+  paymentTimedOut: string;
+  paymentRetrySame: string;
+  paymentChangeMethod: string;
+  paymentSuccessTitle: string;
+  paymentSuccessSubtitle: string;
+  paymentReceiptAmount: string;
+  paymentReceiptRef: string;
+  paymentReceiptCarrier: string;
+  paymentReceiptTime: string;
+  paymentContinueOrder: string;
+  paymentDepositDue: string;
+  paymentTotalPayable: string;
+  paymentPhoneEmpty: string;
+  paymentPhoneInvalid: string;
+  paymentWalletSuggested: string;
+  paymentSecurityPinNotice: string;
 }
 
-const TRANSLATIONS: Record<Language, Translations> = {
+export const TRANSLATIONS: Record<Language, Translations> = {
   en: {
     // Tabs
     tabHome: 'Home',
@@ -706,6 +814,114 @@ const TRANSLATIONS: Record<Language, Translations> = {
     signUpBtn: 'Create Account & Continue',
     termsAgree: 'I agree to the Terms & Privacy Policy',
     forgotPasswordLink: 'Forgot password?',
+    authEmailPhoneRequired: 'Please enter your email or phone number.',
+    authPasswordRequired: 'Please enter your password.',
+    authInvalidCredentials: 'Invalid credentials. Please try again.',
+    authFullNameRequired: 'Please enter your full name.',
+    authValidContactRequired: 'Please enter a valid email or Tanzania phone number (+255).',
+    authPasswordLength: 'Password must be at least 6 characters.',
+    authTermsRequired: 'You must accept the terms & privacy policy to continue.',
+    authRegistrationFailed: 'Registration failed. Please try again.',
+
+    // Cart & Orders
+    cartTitle: 'Your Meal Order',
+    cartClear: 'Clear',
+    cartEmptyTitle: 'Your cart is empty',
+    cartEmptyMsg: 'Discover flavorful dishes near you and add them to your meal order.',
+    cartEmptyAction: 'Discover Food',
+    cartSubtotal: 'Subtotal',
+    cartDeliveryFee: 'Delivery Fee',
+    cartServiceFee: 'Platform Service Fee',
+    cartEstimatedTotal: 'Estimated Total',
+    cartTotal: 'Total',
+    cartProceedReview: 'Proceed to Review',
+    cartNotePrefix: 'Note',
+
+    // Fulfillment Options
+    fulfillmentMethod: 'Fulfillment Method',
+    fulfillmentDelivery: 'Delivery',
+    fulfillmentTakeaway: 'Takeaway',
+    fulfillmentDineIn: 'Dine-In',
+
+    // Checkout Review Details
+    checkoutDeliveryAddress: 'Delivery Address',
+    checkoutAddressPlaceholder: 'e.g. Street name, House/Flat number, Landmark',
+    checkoutSavedAddressHome: 'Home',
+    checkoutSavedAddressWork: 'Work',
+    checkoutSavedAddressSaved: 'Saved',
+    checkoutRoutePricing: 'Route & Delivery Pricing',
+    checkoutRouteCalculating: 'Calculating live driving route & transit fee...',
+    checkoutOutsideRadius: 'Outside Delivery Radius',
+    checkoutRouteVerified: 'Route verified by server',
+    checkoutPinLocation: 'Pin your exact location on map to calculate delivery route & fee',
+    checkoutDeliveryArea: 'Delivery Area',
+    checkoutEstMins: 'Est.',
+    checkoutMinOrderPrefix: 'Min.',
+    checkoutItemsOrdered: 'Items Ordered',
+    checkoutFoodSubtotal: 'Food Subtotal',
+    checkoutEstimatedDelivery: 'Estimated Delivery Fee',
+    checkoutSetLocationPrompt: 'Set location to calculate delivery fee',
+    checkoutPlatformServiceFee: 'Platform Service Fee',
+    checkoutContinuePayment: 'Pay',
+    checkoutCreatingOrder: 'Creating Order...',
+    checkoutSecuringOrder: 'Securing order with {restaurant}',
+    checkoutPaymentConfirmed: 'Payment Confirmed! ✓',
+    checkoutOrderNumber: 'Order #{number}',
+    checkoutAwaitingAcceptance: 'Your order is awaiting restaurant acceptance.',
+    checkoutTrackOrder: 'Track Order in Activity',
+    checkoutBackHome: 'Back to Home',
+    checkoutNudgeAddMore: 'Add {amount} more for delivery',
+    checkoutNudgeMinimumProgress: 'Delivery minimum: {min} • Current: {current} ({pct}%)',
+    checkoutNudgeBackMenu: 'Back to Menu',
+    checkoutNudgeSwitchTakeaway: 'Switch to Takeaway',
+    checkoutReviewTitle: 'Checkout & Review',
+    checkoutConfirmedTitle: 'Order Confirmed',
+    checkoutRestaurantSection: 'Restaurant',
+    checkoutChangeLocation: 'Change Location',
+    checkoutPricingDisclaimer: 'Estimate — final total is revalidated by the restaurant branch.',
+    verifiedKitchen: 'Verified Kitchen',
+    fromAmount: 'from {amount}',
+    cartViewOrder: 'View Meal Order',
+
+    // Guided Payment Journey
+    paymentHeaderTag: 'SECURE MOBILE MONEY CHECKOUT',
+    paymentTitleMeal: 'Meal Payment',
+    paymentTitleReservation: 'Table Reservation Deposit',
+    paymentTitleCustomMeal: 'Custom Meal Payment',
+    paymentStepMethod: '1. Select Payment Method',
+    paymentStepMethodSub: 'Choose your Tanzanian mobile money provider or bank.',
+    paymentContinuePhone: 'Continue',
+    paymentStepPhone: '2. Confirm Phone Number',
+    paymentPhoneSub: 'A payment prompt of TZS {amount} will be sent to this {carrier} phone.',
+    paymentChange: 'Change',
+    paymentPhoneLabel: 'Mobile Money Phone Number:',
+    paymentPhonePlaceholder: '07XX XXX XXX',
+    paymentRequestPrompt: 'Request USSD Prompt',
+    paymentBack: 'Back',
+    paymentDispatching: 'Dispatching Payment Request...',
+    paymentConnectingCarrier: 'Please wait while connecting with {carrier} network...',
+    paymentCheckPhone: 'Check your phone and enter your PIN',
+    paymentPromptSent: 'A payment prompt of TZS {amount} was sent to {phone}. {guidance}',
+    paymentUssdFallbackNotice: 'Didn’t receive the prompt? Dial {code} on your phone to approve directly.',
+    paymentIvePaid: 'I’ve Paid',
+    paymentVerifyingStatus: 'Verifying payment status...',
+    paymentApproveOnPhone: 'Please approve the prompt on your phone and enter your PIN.',
+    paymentTimedOut: 'Payment confirmation timed out.',
+    paymentRetrySame: 'Retry Same Payment',
+    paymentChangeMethod: 'Change Payment Method',
+    paymentSuccessTitle: 'Payment Verified!',
+    paymentSuccessSubtitle: 'Your transaction was successfully processed by the payment network.',
+    paymentReceiptAmount: 'Amount Paid:',
+    paymentReceiptRef: 'Reference / Token:',
+    paymentReceiptCarrier: 'Carrier Method:',
+    paymentReceiptTime: 'Timestamp:',
+    paymentContinueOrder: 'Continue to Order Confirmation',
+    paymentDepositDue: 'Reservation Deposit Due Now:',
+    paymentTotalPayable: 'Total:',
+    paymentPhoneEmpty: 'Please enter a payment phone number.',
+    paymentPhoneInvalid: 'Please enter a valid 10-digit Tanzanian number (e.g. 0754 123 456).',
+    paymentWalletSuggested: 'Suggested from phone prefix: {wallet}',
+    paymentSecurityPinNotice: 'Security Notice: MloHub will never ask for or store your mobile-money PIN. Enter your PIN exclusively on your telecom pop-up or official USSD prompt.',
   },
   sw: {
     // Tabs
@@ -1057,6 +1273,114 @@ const TRANSLATIONS: Record<Language, Translations> = {
     signUpBtn: 'Fungua Akaunti & Endelea',
     termsAgree: 'Ninakubali Vigezo na Sera ya Faragha',
     forgotPasswordLink: 'Umesahau nenosiri?',
+    authEmailPhoneRequired: 'Tafadhali weka barua pepe au namba ya simu.',
+    authPasswordRequired: 'Tafadhali weka nenosiri lako.',
+    authInvalidCredentials: 'Taarifa za kuingia si sahihi. Tafadhali jaribu tena.',
+    authFullNameRequired: 'Tafadhali weka jina kamili.',
+    authValidContactRequired: 'Tafadhali weka barua pepe sahihi au namba ya simu ya Tanzania (+255).',
+    authPasswordLength: 'Nenosiri linatakiwa kuwa na herufi 6 au zaidi.',
+    authTermsRequired: 'Lazima ukubali vigezo na masharti ili kuendelea.',
+    authRegistrationFailed: 'Usajili umeshindwa. Tafadhali jaribu tena.',
+
+    // Cart & Orders
+    cartTitle: 'Agizo Lako',
+    cartClear: 'Futa',
+    cartEmptyTitle: 'Kapu lako liko tupu',
+    cartEmptyMsg: 'Tafuta vyakula vitamu karibu yako na uongeze kwenye agizo lako.',
+    cartEmptyAction: 'Tafuta Vyakula',
+    cartSubtotal: 'Jumla ndogo',
+    cartDeliveryFee: 'Ada ya usafirishaji',
+    cartServiceFee: 'Ada ya huduma',
+    cartEstimatedTotal: 'Jumla',
+    cartTotal: 'Jumla',
+    cartProceedReview: 'Endelea na Agizo',
+    cartNotePrefix: 'Ujumbe',
+
+    // Fulfillment Options
+    fulfillmentMethod: 'Njia ya Agizo',
+    fulfillmentDelivery: 'Kuletewa',
+    fulfillmentTakeaway: 'Kuchukua',
+    fulfillmentDineIn: 'Kula Hapo',
+
+    // Checkout Review Details
+    checkoutDeliveryAddress: 'Mahali pa Kuletewa',
+    checkoutAddressPlaceholder: 'mfano: Jina la mtaa, Namba ya nyumba, Eneo maarufu',
+    checkoutSavedAddressHome: 'Nyumbani',
+    checkoutSavedAddressWork: 'Kazini',
+    checkoutSavedAddressSaved: 'Iliyohifadhiwa',
+    checkoutRoutePricing: 'Gharama ya Usafiri',
+    checkoutRouteCalculating: 'Inapiga hesabu ya njia na gharama ya usafirishaji...',
+    checkoutOutsideRadius: 'Uko Nje ya Eneo la Usafirishaji',
+    checkoutRouteVerified: 'Njia imethibitishwa na seva',
+    checkoutPinLocation: 'Weka alama ya ramani ili kupata gharama kamili ya usafirishaji',
+    checkoutDeliveryArea: 'Eneo la Usafirishaji',
+    checkoutEstMins: 'Takriban',
+    checkoutMinOrderPrefix: 'Kiwango cha chini:',
+    checkoutItemsOrdered: 'Vitu Vilivyochaguliwa',
+    checkoutFoodSubtotal: 'Jumla ya Chakula',
+    checkoutEstimatedDelivery: 'Gharama ya Kuletewa',
+    checkoutSetLocationPrompt: 'Weka eneo ili kuhesabu nauli',
+    checkoutPlatformServiceFee: 'Ada ya Huduma',
+    checkoutContinuePayment: 'Lipa',
+    checkoutCreatingOrder: 'Inatengeneza Agizo...',
+    checkoutSecuringOrder: 'Inathibitisha agizo na {restaurant}',
+    checkoutPaymentConfirmed: 'Malipo Yamethibitishwa! ✓',
+    checkoutOrderNumber: 'Agizo #{number}',
+    checkoutAwaitingAcceptance: 'Agizo lako linasubiri kupokelewa na mgahawa.',
+    checkoutTrackOrder: 'Fuatilia Agizo',
+    checkoutBackHome: 'Rudi Mwanzo',
+    checkoutNudgeAddMore: 'Ongeza {amount} zaidi ili uletewe',
+    checkoutNudgeMinimumProgress: 'Kiwango cha chini: {min} • Sasa: {current} ({pct}%)',
+    checkoutNudgeBackMenu: 'Rudi kwenye Menyu',
+    checkoutNudgeSwitchTakeaway: 'Badili iwe ya Kuchukua',
+    checkoutReviewTitle: 'Kukagua na Kulipa',
+    checkoutConfirmedTitle: 'Agizo Limethibitishwa',
+    checkoutRestaurantSection: 'Mgahawa',
+    checkoutChangeLocation: 'Badilisha Mahali',
+    checkoutPricingDisclaimer: 'Makadirio — jumla kamili inathibitishwa na mgahawa.',
+    verifiedKitchen: 'Jiko Lililoidhinishwa',
+    fromAmount: 'kuanzia {amount}',
+    cartViewOrder: 'Ona Agizo la Chakula',
+
+    // Guided Payment Journey
+    paymentHeaderTag: 'MALIPO SALAMA YA SIMU',
+    paymentTitleMeal: 'Malipo ya Chakula',
+    paymentTitleReservation: 'Amana ya Meza',
+    paymentTitleCustomMeal: 'Malipo ya Chakula Maalum',
+    paymentStepMethod: '1. Chagua Mtandao wa Malipo',
+    paymentStepMethodSub: 'Chagua mtandao wa simu utakaoutumia kulipia agizo hili.',
+    paymentContinuePhone: 'Endelea',
+    paymentStepPhone: '2. Hakiki Nambari ya Simu',
+    paymentPhoneSub: 'Ombi la malipo la TZS {amount} litatumwa kwenye simu hii ya {carrier}.',
+    paymentChange: 'Badili',
+    paymentPhoneLabel: 'Nambari ya Simu ya Malipo:',
+    paymentPhonePlaceholder: '07XX XXX XXX',
+    paymentRequestPrompt: 'Tuma Ombi la Malipo',
+    paymentBack: 'Rudi Nyuma',
+    paymentDispatching: 'Inatuma Ombi la Malipo...',
+    paymentConnectingCarrier: 'Tafadhali subiri wakati mtandao wa {carrier} unawasiliana na simu yako...',
+    paymentCheckPhone: 'Angalia simu yako na uweke PIN',
+    paymentPromptSent: 'Ombi la malipo la TZS {amount} limetumwa kwenda {phone}. {guidance}',
+    paymentUssdFallbackNotice: 'Hukuona ujumbe? Piga {code} kwenye simu yako kukamilisha malipo haya moja kwa moja.',
+    paymentIvePaid: 'Nimeshalipa',
+    paymentVerifyingStatus: 'Inathibitisha malipo...',
+    paymentApproveOnPhone: 'Tafadhali angalia simu yako na uweke PIN kukamilisha malipo.',
+    paymentTimedOut: 'Muda wa kuthibitisha malipo umekwisha.',
+    paymentRetrySame: 'Jaribu tena malipo haya',
+    paymentChangeMethod: 'Badili njia ya malipo',
+    paymentSuccessTitle: 'Malipo Yamethibitishwa!',
+    paymentSuccessSubtitle: 'Muamala wako umekamilika na kupokelewa na jikoni.',
+    paymentReceiptAmount: 'Kiasi Kilicholipwa:',
+    paymentReceiptRef: 'Kumbukumbu ya Malipo:',
+    paymentReceiptCarrier: 'Mtandao:',
+    paymentReceiptTime: 'Muda:',
+    paymentContinueOrder: 'Endelea Kwenye Agizo Lako',
+    paymentDepositDue: 'Amana Inayotakiwa Sasa:',
+    paymentTotalPayable: 'Jumla:',
+    paymentPhoneEmpty: 'Tafadhali weka namba ya simu ya malipo.',
+    paymentPhoneInvalid: 'Tafadhali weka namba sahihi ya Tanzania ya tarakimu 10 (mfano: 0754 123 456).',
+    paymentWalletSuggested: 'Imependekezwa kutokana na mtandao: {wallet}',
+    paymentSecurityPinNotice: 'Usalama wa Mteja: MloHub haitawahi kukuomba au kuhifadhi PIN yako ya simu. Weka PIN yako pekee kwenye ujumbe rasmi wa mtandao wako wa simu.',
   },
 };
 

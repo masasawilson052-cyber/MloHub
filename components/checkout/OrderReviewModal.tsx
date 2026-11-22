@@ -406,7 +406,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>
-              {step === 'CONFIRMED' ? 'Order Confirmed' : 'Checkout & Review'}
+              {step === 'CONFIRMED' ? t('checkoutConfirmedTitle') : t('checkoutReviewTitle')}
             </Text>
             {step !== 'PROCESSING' ? (
               <TouchableOpacity
@@ -446,10 +446,10 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
               {/* Restaurant Banner */}
               <View style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>Restaurant</Text>
+                <Text style={styles.sectionLabel}>{t('checkoutRestaurantSection')}</Text>
                 <Text style={styles.restaurantName}>{restaurantName || 'Restaurant'}</Text>
                 {isVerifiedRestaurant ? (
-                  <Badge label="Verified Kitchen" variant="success" size="sm" style={styles.verifiedBadge} />
+                  <Badge label={t('verifiedKitchen')} variant="success" size="sm" style={styles.verifiedBadge} />
                 ) : null}
               </View>
 
@@ -482,11 +482,11 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                     <View style={styles.inputGroup}>
                       <View style={styles.addressHeaderRow}>
                         <Text style={styles.inputLabel}>
-                          Delivery Address ({customerLocation.cityName || 'Tanzania'})
+                          {t('checkoutDeliveryAddress')} ({customerLocation.cityName || 'Tanzania'})
                         </Text>
                         <TouchableOpacity onPress={openLocationSelector}>
                           <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
-                            📍 Change Location
+                            📍 {t('checkoutChangeLocation')}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -507,7 +507,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                                 }}
                               >
                                 <Text style={[styles.pillText, isSelected && styles.pillTextActive]}>
-                                  {addr.label === 'HOME' ? '🏠 Home' : addr.label === 'WORK' ? '🏢 Work' : `📍 ${addr.label || 'Saved'}`}
+                                  {addr.label === 'HOME' ? `🏠 ${t('checkoutSavedAddressHome')}` : addr.label === 'WORK' ? `🏢 ${t('checkoutSavedAddressWork')}` : `📍 ${addr.label || t('checkoutSavedAddressSaved')}`}
                                 </Text>
                               </TouchableOpacity>
                             );
@@ -522,19 +522,19 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                           setDeliveryAddress(txt);
                           setSelectedAddressId(null);
                         }}
-                        placeholder="e.g. Street name, House/Flat number, Landmark"
+                        placeholder={t('checkoutAddressPlaceholder')}
                         placeholderTextColor={colors.inputPlaceholder}
                       />
                     </View>
 
                     {/* Route quote card */}
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabel}>Route & Delivery Pricing</Text>
+                      <Text style={styles.inputLabel}>{t('checkoutRoutePricing')}</Text>
                       {isLoadingQuote ? (
                         <View style={[styles.routeQuoteCard, { borderColor: colors.border }]}>
                           <ActivityIndicator size="small" color={colors.primary} />
                           <Text style={[styles.routeQuoteText, { color: colors.textSecondary }]}>
-                            Calculating live driving route & transit fee...
+                            {t('checkoutRouteCalculating')}
                           </Text>
                         </View>
                       ) : isOutsideDeliveryRange ? (
@@ -542,7 +542,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                           <Ionicons name="warning-outline" size={20} color={colors.danger} />
                           <View style={{ flex: 1 }}>
                             <Text style={{ fontSize: 13, fontWeight: '700', color: colors.danger }}>
-                              Outside Delivery Radius
+                              {t('checkoutOutsideRadius')}
                             </Text>
                             <Text style={{ fontSize: 12, color: colors.danger, marginTop: 2 }}>
                               {quoteError || t('deliveryRangeExceeded')}
@@ -559,7 +559,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                                   {DeliveryQuoteApi.formatDistance(deliveryQuote.distanceMeters)} • {DeliveryQuoteApi.formatDuration(deliveryQuote.durationSeconds)}
                                 </Text>
                                 <Text style={{ fontSize: 11, color: colors.textSecondary }}>
-                                  Route verified by server
+                                  {t('checkoutRouteVerified')}
                                 </Text>
                               </View>
                             </View>
@@ -572,7 +572,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                         <TouchableOpacity style={[styles.routeQuoteCard, { borderColor: colors.border }]} onPress={openLocationSelector}>
                           <Ionicons name="location-outline" size={20} color={colors.primary} />
                           <Text style={[styles.routeQuoteText, { color: colors.primary, fontWeight: '600' }]}>
-                            Pin your exact location on map to calculate delivery route & fee
+                            {t('checkoutPinLocation')}
                           </Text>
                         </TouchableOpacity>
                       ) : null}
@@ -581,7 +581,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                     {/* Delivery zones if FIXED_ZONE */}
                     {deliveryPricingMode === 'FIXED_ZONE' && deliveryZones.length > 0 && (
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Delivery Area</Text>
+                        <Text style={styles.inputLabel}>{t('checkoutDeliveryArea')}</Text>
                         {isLoadingZones ? (
                           <ActivityIndicator size="small" color={colors.primary} />
                         ) : (
@@ -598,8 +598,8 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                                     <View style={{ flex: 1 }}>
                                       <Text style={[styles.zoneName, isSelected && styles.zoneNameSelected]}>{zone.zoneName}</Text>
                                       <Text style={styles.zoneDetails}>
-                                        Est. {zone.estimatedDeliveryMinutes} mins
-                                        {zone.minimumOrderTzs > 0 ? ` • Min. TZS ${zone.minimumOrderTzs.toLocaleString()}` : ''}
+                                        {t('checkoutEstMins')} {zone.estimatedDeliveryMinutes} mins
+                                        {zone.minimumOrderTzs > 0 ? ` • ${t('checkoutMinOrderPrefix')} TZS ${zone.minimumOrderTzs.toLocaleString()}` : ''}
                                       </Text>
                                     </View>
                                     <Text style={[styles.zoneFee, isSelected && styles.zoneFeeSelected]}>
@@ -620,7 +620,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               {/* Items Summary */}
               <View style={styles.sectionCard}>
                 <Text style={styles.sectionLabel}>
-                  {language === 'sw' ? 'Vitu Vilivyochaguliwa' : 'Items Ordered'} ({formatItemCount(totalItems, language)})
+                  {t('checkoutItemsOrdered')} ({formatItemCount(totalItems, language)})
                 </Text>
                 {items.map((it) => (
                   <View key={it.dishId} style={styles.itemSummaryRow}>
@@ -633,7 +633,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
 
               {/* Payment Methods */}
               <View style={styles.sectionCard}>
-                <Text style={styles.sectionLabel}>Payment Method (Mobile Money & Bank)</Text>
+                <Text style={styles.sectionLabel}>{t('paymentStepMethod')}</Text>
                 <View style={styles.paymentMethodsGrid}>
                   {MOBILE_MONEY_METHODS.map((pm) => (
                     <TouchableOpacity
@@ -650,13 +650,13 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 </View>
 
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Payment Account / Phone Number</Text>
+                  <Text style={styles.inputLabel}>{t('paymentPhoneLabel')}</Text>
                   <TextInput
                     style={styles.textInput}
                     value={payerPhone}
                     onChangeText={setPayerPhone}
                     keyboardType="phone-pad"
-                    placeholder="+255 7XX XXX XXX"
+                    placeholder="07XX XXX XXX"
                     placeholderTextColor={colors.inputPlaceholder}
                   />
                 </View>
@@ -666,32 +666,32 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               <View style={styles.billCard}>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>
-                    {language === 'sw' ? 'Jumla ya Chakula' : 'Estimated Subtotal'}
+                    {t('checkoutFoodSubtotal')}
                   </Text>
                   <PriceText amountTzs={currentQuote.subtotalTzs} size="sm" />
                 </View>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>
-                    {language === 'sw' ? 'Gharama ya Kuletewa' : 'Estimated Delivery Fee'}
+                    {t('checkoutEstimatedDelivery')}
                   </Text>
                   {fulfillment === 'Delivery' && !deliveryQuote && !selectedDeliveryZone ? (
                     <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
-                      Set location to calculate delivery fee
+                      {t('checkoutSetLocationPrompt')}
                     </Text>
                   ) : (
                     <PriceText amountTzs={currentQuote.deliveryFeeTzs} size="sm" />
                   )}
                 </View>
                 <View style={styles.billRow}>
-                  <Text style={styles.billLabel}>Service Fee</Text>
+                  <Text style={styles.billLabel}>{t('checkoutPlatformServiceFee')}</Text>
                   <PriceText amountTzs={currentQuote.serviceFeeTzs} size="sm" />
                 </View>
                 <View style={[styles.billRow, styles.billTotalRow]}>
-                  <Text style={styles.billTotalLabel}>{t('estimatedTotal')}</Text>
+                  <Text style={styles.billTotalLabel}>{t('cartEstimatedTotal')}</Text>
                   <PriceText amountTzs={currentQuote.totalTzs} size="lg" color={colors.primaryDark} />
                 </View>
                 <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 6, textAlign: 'center' }}>
-                  {pricingDisclaimer}
+                  {t('checkoutPricingDisclaimer')}
                 </Text>
               </View>
             </ScrollView>
@@ -700,8 +700,10 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
           {step === 'PROCESSING' && (
             <View style={styles.processingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.processingTitle}>Creating Order...</Text>
-              <Text style={styles.processingSub}>Securing order with {restaurantName || 'the kitchen'}</Text>
+              <Text style={styles.processingTitle}>{t('checkoutCreatingOrder')}</Text>
+              <Text style={styles.processingSub}>
+                {t('checkoutSecuringOrder').replace('{restaurant}', restaurantName || 'the kitchen')}
+              </Text>
             </View>
           )}
 
@@ -710,12 +712,14 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
               <View style={styles.successIconCircle}>
                 <Ionicons name="checkmark-sharp" size={40} color={colors.success} />
               </View>
-              <Text style={styles.confirmedTitle}>Payment Confirmed! ✓</Text>
+              <Text style={styles.confirmedTitle}>{t('checkoutPaymentConfirmed')}</Text>
               <Text style={styles.confirmedRestaurant}>{restaurantName || 'Restaurant'}</Text>
               <View style={styles.orderIdPill}>
-                <Text style={styles.orderIdText}>Order #{confirmedOrderNumber || confirmedOrderId}</Text>
+                <Text style={styles.orderIdText}>
+                  {t('checkoutOrderNumber').replace('{number}', confirmedOrderNumber || confirmedOrderId)}
+                </Text>
               </View>
-              <Text style={styles.confirmedMessage}>Your order is awaiting restaurant acceptance.</Text>
+              <Text style={styles.confirmedMessage}>{t('checkoutAwaitingAcceptance')}</Text>
             </View>
           )}
 
@@ -726,7 +730,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                 title={
                   isDeliveryUnderMinimum
                     ? `${t('deliveryMinimumNotMet')}`
-                    : `Continue to Secure Payment (${formatItemCount(totalItems, language)})`
+                    : `${t('checkoutContinuePayment')} (${formatItemCount(totalItems, language)})`
                 }
                 onPress={handleProceedToPayment}
                 variant="primary"
@@ -738,7 +742,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
             {step === 'CONFIRMED' && (
               <View style={styles.confirmedBtnCol}>
                 <Button
-                  title="Track Order in Activity"
+                  title={t('checkoutTrackOrder')}
                   onPress={handleFinish}
                   variant="primary"
                   size="lg"
@@ -746,7 +750,7 @@ export const OrderReviewModal: React.FC<OrderReviewModalProps> = ({
                   style={styles.trackBtn}
                 />
                 <Button
-                  title="Back to Home"
+                  title={t('checkoutBackHome')}
                   onPress={onClose}
                   variant="ghost"
                   size="md"

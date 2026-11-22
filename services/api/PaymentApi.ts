@@ -175,4 +175,34 @@ export class PaymentApi {
       updatedAt: p.updated_at || undefined,
     };
   }
+
+  static async getEnabledPaymentMethods(): Promise<PaymentMethodCode[]> {
+    const DEFAULT_ENABLED_METHODS: PaymentMethodCode[] = [
+      'MPESA',
+      'MIXX_BY_YAS',
+      'AIRTEL_MONEY',
+      'HALOPESA',
+    ];
+
+    if (!isSupabaseConfigured()) {
+      return DEFAULT_ENABLED_METHODS;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        'payment-methods',
+        {
+          method: 'GET',
+        }
+      );
+
+      if (error || !data?.success || !Array.isArray(data.enabledMethods)) {
+        return DEFAULT_ENABLED_METHODS;
+      }
+
+      return data.enabledMethods as PaymentMethodCode[];
+    } catch {
+      return DEFAULT_ENABLED_METHODS;
+    }
+  }
 }

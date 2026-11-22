@@ -47,17 +47,11 @@ export const CheckoutSignInPanel: React.FC<CheckoutSignInPanelProps> = ({
   const handleSignIn = async () => {
     setErrorMsg(null);
     if (!emailOrPhone.trim()) {
-      setErrorMsg(
-        language === 'sw'
-          ? 'Tafadhali weka barua pepe au namba ya simu.'
-          : 'Please enter your email or phone number.'
-      );
+      setErrorMsg(t('authEmailPhoneRequired'));
       return;
     }
     if (!password) {
-      setErrorMsg(
-        language === 'sw' ? 'Tafadhali weka nenosiri lako.' : 'Please enter your password.'
-      );
+      setErrorMsg(t('authPasswordRequired'));
       return;
     }
 
@@ -69,17 +63,13 @@ export const CheckoutSignInPanel: React.FC<CheckoutSignInPanelProps> = ({
       });
 
       if (!res.user) {
-        setErrorMsg(
-          language === 'sw'
-            ? 'Taarifa za kuingia si sahihi. Tafadhali jaribu tena.'
-            : 'Invalid credentials. Please try again.'
-        );
+        setErrorMsg(t('authInvalidCredentials'));
         return;
       }
 
       onSuccess();
     } catch (err: any) {
-      setErrorMsg(err?.message || (language === 'sw' ? 'Imeshindwa kuingia.' : 'Login failed.'));
+      setErrorMsg(err?.message || t('authInvalidCredentials'));
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +78,7 @@ export const CheckoutSignInPanel: React.FC<CheckoutSignInPanelProps> = ({
   const handleSignUp = async () => {
     setErrorMsg(null);
     if (!fullName.trim()) {
-      setErrorMsg(language === 'sw' ? 'Tafadhali weka jina kamili.' : 'Please enter your full name.');
+      setErrorMsg(t('authFullNameRequired'));
       return;
     }
 
@@ -97,29 +87,17 @@ export const CheckoutSignInPanel: React.FC<CheckoutSignInPanelProps> = ({
     const isPhone = isValidTanzaniaPhone(trimmedInput);
 
     if (!isEmail && !isPhone) {
-      setErrorMsg(
-        language === 'sw'
-          ? 'Tafadhali weka barua pepe sahihi au namba ya simu ya Tanzania (+255).'
-          : 'Please enter a valid email or Tanzania phone number (+255).'
-      );
+      setErrorMsg(t('authValidContactRequired'));
       return;
     }
 
     if (!password || password.length < 6) {
-      setErrorMsg(
-        language === 'sw'
-          ? 'Nenosiri linatakiwa kuwa na herufi 6 au zaidi.'
-          : 'Password must be at least 6 characters.'
-      );
+      setErrorMsg(t('authPasswordLength'));
       return;
     }
 
     if (!agreeTerms) {
-      setErrorMsg(
-        language === 'sw'
-          ? 'Lazima ukubali vigezo na masharti ili kuendelea.'
-          : 'You must accept the terms & privacy policy to continue.'
-      );
+      setErrorMsg(t('authTermsRequired'));
       return;
     }
 
@@ -139,17 +117,13 @@ export const CheckoutSignInPanel: React.FC<CheckoutSignInPanelProps> = ({
       });
 
       if (!regResult.user) {
-        setErrorMsg(
-          language === 'sw'
-            ? 'Usajili umeshindwa. Tafadhali jaribu tena.'
-            : 'Registration failed. Please try again.'
-        );
+        setErrorMsg(t('authRegistrationFailed'));
         return;
       }
 
       onSuccess();
     } catch (err: any) {
-      setErrorMsg(err?.message || (language === 'sw' ? 'Usajili umeshindwa.' : 'Registration failed.'));
+      setErrorMsg(err?.message || t('authRegistrationFailed'));
     } finally {
       setIsLoading(false);
     }

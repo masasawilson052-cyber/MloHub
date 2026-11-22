@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 import { ThemeColors } from '../../theme/palettes';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
@@ -85,14 +86,16 @@ export const FulfillmentSelector: React.FC<FulfillmentSelectorProps> = ({
     saveLastFulfillmentPreference(opt);
   };
 
+  const { t } = useLanguage();
+
   const getOptionLabel = (opt: FulfillmentType) => {
     switch (opt) {
       case 'Delivery':
-        return language === 'sw' ? 'Kuletewa' : 'Delivery';
+        return t('fulfillmentDelivery');
       case 'Takeaway':
-        return language === 'sw' ? 'Kuchukua' : 'Takeaway';
+        return t('fulfillmentTakeaway');
       case 'Dine-In':
-        return language === 'sw' ? 'Kula Hapo' : 'Dine-In';
+        return t('fulfillmentDineIn');
     }
   };
 
@@ -110,7 +113,7 @@ export const FulfillmentSelector: React.FC<FulfillmentSelectorProps> = ({
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>
-        {language === 'sw' ? 'Njia ya Agizo' : 'Fulfillment Method'}
+        {t('fulfillmentMethod')}
       </Text>
       <View style={styles.pillRow}>
         {supportedOptions.map((opt) => {

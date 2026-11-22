@@ -64,6 +64,7 @@ import { runImageUrlSizingTestSuite } from './imageUrlSizing.test';
 import { runMenuScrollTestSuite } from './menuScroll.test';
 import { runFeeRulesTests } from './feeRules.test';
 import { runCheckoutExperienceTestSuite } from './checkoutExperience.test';
+import { runPaymentJourneyTestSuite } from './paymentJourney.test';
 
 
 let passed = 0;
@@ -832,6 +833,9 @@ async function runMasterTestSuite() {
 
   // Checkout Resilience, Honest Totals & Smart Fulfillment Suite
   await runCheckoutExperienceTestSuite();
+
+  // Guided Mobile Money, TCRA Prefixes & Bilingual Checkout Suite
+  await runPaymentJourneyTestSuite();
 
   // Final Results
   console.log('\n================================================================');

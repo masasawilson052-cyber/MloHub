@@ -20,6 +20,7 @@ import { Radii } from '../../theme/radius';
 import { Shadows } from '../../theme/shadows';
 import { PriceText } from '../ui/PriceText';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { ThemeColors } from '../../theme/palettes';
 
 export const CART_BAR_BASE_HEIGHT = 80;
@@ -34,6 +35,7 @@ export const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({
   bottomOffset,
 }) => {
   const { colors } = useTheme();
+  const { t } = useLanguage();
   const styles = useMemo(
     () => createStyles(colors, bottomOffset),
     [colors, bottomOffset]
@@ -87,7 +89,7 @@ export const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({
           >
             <View style={styles.summaryLeft}>
               <Text style={styles.viewCartText} numberOfLines={1}>
-                View Meal Order
+                {t('cartViewOrder')}
               </Text>
             </View>
 

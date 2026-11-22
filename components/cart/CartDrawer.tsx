@@ -74,7 +74,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.title}>Your Meal Order</Text>
+              <Text style={styles.title}>{t('cartTitle')}</Text>
               {restaurantName ? (
                 <Text style={styles.restaurantSub} numberOfLines={1}>
                   {restaurantName}
@@ -84,7 +84,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             <View style={styles.headerActions}>
               {items.length > 0 ? (
                 <TouchableOpacity onPress={clearCart} style={styles.clearBtn}>
-                  <Text style={styles.clearText}>Clear</Text>
+                  <Text style={styles.clearText}>{t('cartClear')}</Text>
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
@@ -102,10 +102,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {items.length === 0 ? (
             <EmptyState
-              title="Your cart is empty"
-              message="Discover flavorful dishes near you and add them to your meal order."
+              title={t('cartEmptyTitle')}
+              message={t('cartEmptyMsg')}
               icon="cart-outline"
-              actionTitle="Discover Food"
+              actionTitle={t('cartEmptyAction')}
               onAction={onClose}
               style={styles.emptyState}
             />
@@ -167,7 +167,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         ) : null}
                         {item.notes ? (
                           <Text style={{ fontSize: 11, fontStyle: 'italic', color: colors.textSecondary, marginTop: 2 }}>
-                            Note: {item.notes}
+                            {t('cartNotePrefix')}: {item.notes}
                           </Text>
                         ) : null}
                         <PriceText
@@ -215,7 +215,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               <View style={styles.footer}>
                 <View style={styles.feeRow}>
                   <Text style={styles.feeLabel}>
-                    {language === 'sw' ? 'Jumla ndogo' : 'Subtotal'} ({formatItemCount(totalItems, language)})
+                    {t('cartSubtotal')} ({formatItemCount(totalItems, language)})
                   </Text>
                   <PriceText amountTzs={subtotalTzs} size="sm" />
                 </View>
@@ -226,24 +226,26 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       : t('deliveryFeeAtCheckout')}
                   </Text>
                   {lowestDeliveryFeeTzs != null ? (
-                    <Text style={styles.deliveryFromText}>from {formatTzs(lowestDeliveryFeeTzs)}</Text>
+                    <Text style={styles.deliveryFromText}>
+                      {t('fromAmount').replace('{amount}', formatTzs(lowestDeliveryFeeTzs))}
+                    </Text>
                   ) : (
                     <Text style={styles.deliveryCalculatedText}>—</Text>
                   )}
                 </View>
                 <View style={styles.feeRow}>
                   <Text style={styles.feeLabel}>
-                    {language === 'sw' ? 'Ada ya Huduma ya Mfumo' : 'Platform Service Fee'}
+                    {t('cartServiceFee')}
                   </Text>
                   <PriceText amountTzs={serviceFeeTzs} size="sm" />
                 </View>
                 <View style={[styles.feeRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>{t('estimatedTotal')}</Text>
+                  <Text style={styles.totalLabel}>{t('cartEstimatedTotal')}</Text>
                   <PriceText amountTzs={estimatedTotalBillTzs} size="lg" color={colors.primaryDark} />
                 </View>
 
                 <Button
-                  title={`${language === 'sw' ? 'Endelea Kuhakiki' : 'Proceed to Review'} (${formatItemCount(totalItems, language)})`}
+                  title={`${t('cartProceedReview')} (${formatItemCount(totalItems, language)})`}
                   onPress={() => {
                     onClose();
                     onProceedToCheckout();

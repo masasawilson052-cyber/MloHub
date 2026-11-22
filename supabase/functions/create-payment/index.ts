@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeadersFor } from '../_shared/cors.ts';
 import { PaymentGatewayFactory } from '../_shared/payments/PaymentGatewayFactory.ts';
+import { isPaymentMethodEnabled } from '../_shared/payments/enabledMethods.ts';
 import { enforceRateLimit, getRequestIp } from '../_shared/security/rateLimit.ts';
 import type {
   PaymentMethodCode,
@@ -165,6 +166,14 @@ Deno.serve(async (req: Request) => {
       return response(400, {
         success: false,
         error: 'MISSING_REQUIRED_FIELDS',
+      });
+    }
+
+    if (!isPaymentMethodEnabled(methodCode)) {
+      return response(400, {
+        success: false,
+        error: 'METHOD_NOT_ENABLED',
+        message: `Payment method ${methodCode} is not enabled in this environment.`,
       });
     }
 
@@ -478,21 +487,97 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (activeOrderPayment) {
-        return response(200, {
-          success: true,
-          paymentId: activeOrderPayment.id,
-          providerReference: activeOrderPayment.provider_reference,
-          merchantReference: activeOrderPayment.merchant_reference,
-          status: activeOrderPayment.status,
-          amountTzs: activeOrderPayment.amount_tzs,
-          ussdPrompt: activeOrderPayment.ussd_push_initiated
-            ? `USSD push prompt sent to ${activeOrderPayment.phone_number}. Enter PIN on your phone.`
-            : null,
-          message:
-            activeOrderPayment.status === 'SUCCESS'
-              ? 'Order payment has already been completed.'
-              : 'An active payment attempt is already pending for this order.',
-        });
+        if (activeOrderPayment.status === 'SUCCESS') {
+          console.log(`[create-payment] Order ${orderId} already completed with payment ${activeOrderPayment.id}.`);
+          return response(200, {
+            success: true,
+            paymentId: activeOrderPayment.id,
+            providerReference: activeOrderPayment.provider_reference,
+            merchantReference: activeOrderPayment.merchant_reference,
+            status: 'SUCCESS',
+            amountTzs: activeOrderPayment.amount_tzs,
+            message: 'Order payment has already been completed.',
+          });
+        }
+
+        // Handle stuck pending payments
+        const paymentAgeMs = Date.now() - new Date(activeOrderPayment.created_at || activeOrderPayment.updated_at || 0).getTime();
+        const TEN_MINUTES_MS = 10 * 60 * 1000;
+
+        if (paymentAgeMs > TEN_MINUTES_MS) {
+          console.log(`[create-payment] Found stuck pending payment ${activeOrderPayment.id} (age: ${Math.round(paymentAgeMs / 1000)}s). Querying gateway status...`);
+          try {
+            const gateway = PaymentGatewayFactory.getGateway(String(activeOrderPayment.provider || 'clickpesa').toLowerCase() as any);
+            const providerStatus = await gateway.queryStatus(
+              activeOrderPayment.provider_reference || '',
+              activeOrderPayment.merchant_reference || ''
+            );
+
+            if (providerStatus.status === 'PAID' && providerStatus.amountTzs === Number(activeOrderPayment.amount_tzs)) {
+              console.log(`[create-payment] Stuck pending payment ${activeOrderPayment.id} was actually PAID at gateway. Confirming payment.`);
+              await adminClient.rpc('confirm_payment_webhook_rpc', {
+                p_merchant_reference: activeOrderPayment.merchant_reference,
+                p_gateway_reference: providerStatus.gatewayReference || activeOrderPayment.provider_reference,
+                p_provider: String(activeOrderPayment.provider || 'clickpesa').toLowerCase(),
+                p_collected_amount: providerStatus.amountTzs,
+                p_event_id: `stuck_recovery_${activeOrderPayment.id}`,
+                p_raw_payload: {
+                  source: 'create-payment-stuck-recovery',
+                  providerStatus: providerStatus.rawResponse,
+                },
+              });
+
+              return response(200, {
+                success: true,
+                paymentId: activeOrderPayment.id,
+                providerReference: activeOrderPayment.provider_reference,
+                merchantReference: activeOrderPayment.merchant_reference,
+                status: 'SUCCESS',
+                amountTzs: activeOrderPayment.amount_tzs,
+                message: 'Order payment has already been completed.',
+              });
+            } else {
+              console.log(`[create-payment] Stuck pending payment ${activeOrderPayment.id} gateway status is ${providerStatus.status}. Marking EXPIRED and allowing new payment.`);
+              await adminClient
+                .from('payments')
+                .update({
+                  status: 'EXPIRED',
+                  failure_reason: 'Payment expired after 10 minutes without gateway confirmation.',
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', activeOrderPayment.id)
+                .eq('status', 'PENDING');
+              // Expired! Allow new payment creation to proceed.
+            }
+          } catch (err) {
+            console.warn(`[create-payment] Error querying gateway for stuck payment ${activeOrderPayment.id}:`, err);
+            await adminClient
+              .from('payments')
+              .update({
+                status: 'EXPIRED',
+                failure_reason: 'Payment expired after 10 minutes (gateway unreachable).',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', activeOrderPayment.id)
+              .eq('status', 'PENDING');
+            console.log(`[create-payment] Marked stuck payment ${activeOrderPayment.id} as EXPIRED due to gateway query failure. Allowing new payment.`);
+          }
+        } else {
+          // Fresh pending payment (under 10 minutes): return existing active attempt
+          console.log(`[create-payment] Active pending payment ${activeOrderPayment.id} is fresh (${Math.round(paymentAgeMs / 1000)}s old). Reusing it.`);
+          return response(200, {
+            success: true,
+            paymentId: activeOrderPayment.id,
+            providerReference: activeOrderPayment.provider_reference,
+            merchantReference: activeOrderPayment.merchant_reference,
+            status: activeOrderPayment.status,
+            amountTzs: activeOrderPayment.amount_tzs,
+            ussdPrompt: activeOrderPayment.ussd_push_initiated
+              ? `USSD push prompt sent to ${activeOrderPayment.phone_number}. Enter PIN on your phone.`
+              : null,
+            message: 'An active payment attempt is already pending for this order.',
+          });
+        }
       }
     }
 
