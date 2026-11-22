@@ -65,7 +65,8 @@ export const TCRA_WALLET_CONFIGS: Record<MobileMoneyMethodCode, WalletConfig> = 
     shortName: 'CRDB',
     prefixes: [],
     ussdFallbackCode: '*150*03#',
-    isUssdConfirmed: true,
+    isUssdConfirmed: false,
+    notes: 'Verify with bank/gateway before launch',
   },
   NMB: {
     methodCode: 'NMB',
@@ -74,7 +75,8 @@ export const TCRA_WALLET_CONFIGS: Record<MobileMoneyMethodCode, WalletConfig> = 
     shortName: 'NMB',
     prefixes: [],
     ussdFallbackCode: '*150*66#',
-    isUssdConfirmed: true,
+    isUssdConfirmed: false,
+    notes: 'Verify with bank/gateway before launch',
   },
 };
 

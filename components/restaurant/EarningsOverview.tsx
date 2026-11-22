@@ -41,6 +41,11 @@ export interface EarningsRecord {
   orderNumber: string;
   createdAt: string;
   grossAmountTzs: number;
+  foodTotalTzs?: number;
+  deliveryFeeTzs?: number;
+  commissionBps?: number;
+  commissionReason?: string;
+  freeMonthEndDate?: string;
   platformFeeTzs: number;
   refundTzs?: number;
   netPayoutTzs: number;
@@ -498,21 +503,44 @@ export const EarningsOverview: React.FC<EarningsOverviewProps> = ({
 
                 <View style={styles.txAmountsGrid}>
                   <View>
-                    <Text style={styles.txAmtLabel}>Gross</Text>
-                    <Text style={styles.txAmtVal}>{formatTzs(tx.grossAmountTzs)}</Text>
+                    <Text style={styles.txAmtLabel}>{language === 'sw' ? 'Chakula' : 'Food Total'}</Text>
+                    <Text style={styles.txAmtVal}>{formatTzs(tx.foodTotalTzs ?? (tx.grossAmountTzs - (tx.deliveryFeeTzs || 0)))}</Text>
                   </View>
                   <View>
-                    <Text style={styles.txAmtLabel}>Platform Fee</Text>
-                    <Text style={[styles.txAmtVal, { color: colors.textMuted }]}>-{formatTzs(tx.platformFeeTzs)}</Text>
+                    <Text style={styles.txAmtLabel}>
+                      {tx.commissionReason === 'NEW_RESTAURANT_FREE_MONTH'
+                        ? '0% — welcome month'
+                        : `Commission (${typeof tx.commissionBps === 'number' ? (tx.commissionBps / 100).toFixed(0) : '0'}%)`}
+                    </Text>
+                    <Text style={[styles.txAmtVal, { color: colors.textMuted }]}>
+                      {tx.commissionReason === 'NEW_RESTAURANT_FREE_MONTH'
+                        ? 'TZS 0'
+                        : `-${formatTzs(tx.platformFeeTzs)}`}
+                    </Text>
+                    {tx.commissionReason === 'NEW_RESTAURANT_FREE_MONTH' && tx.freeMonthEndDate ? (
+                      <Text style={{ fontSize: 10, color: colors.success }}>
+                        {language === 'sw' ? 'Hadi: ' : 'Until: '}{tx.freeMonthEndDate}
+                      </Text>
+                    ) : null}
                   </View>
+                  {(tx.deliveryFeeTzs || 0) > 0 && (
+                    <View>
+                      <Text style={styles.txAmtLabel}>
+                        {language === 'sw' ? 'Ada ya usafirishaji (unalipwa wewe)' : 'Delivery fee (paid to you)'}
+                      </Text>
+                      <Text style={[styles.txAmtVal, { color: colors.primary, fontWeight: '600' }]}>
+                        +{formatTzs(tx.deliveryFeeTzs || 0)}
+                      </Text>
+                    </View>
+                  )}
                   {(tx.refundTzs || 0) > 0 && (
                     <View>
-                      <Text style={styles.txAmtLabel}>Refund</Text>
+                      <Text style={styles.txAmtLabel}>{language === 'sw' ? 'Marejesho' : 'Refund'}</Text>
                       <Text style={[styles.txAmtVal, { color: colors.danger }]}>-{formatTzs(tx.refundTzs || 0)}</Text>
                     </View>
                   )}
                   <View>
-                    <Text style={styles.txAmtLabel}>Restaurant Net</Text>
+                    <Text style={styles.txAmtLabel}>{language === 'sw' ? 'Kiasi cha kupokea' : 'Net to Receive'}</Text>
                     <Text style={[styles.txAmtVal, { color: colors.success, fontWeight: '700' }]}>{formatTzs(tx.netPayoutTzs)}</Text>
                   </View>
                 </View>

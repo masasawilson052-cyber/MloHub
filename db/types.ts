@@ -231,6 +231,8 @@ export interface RestaurantEntity {
   isVerified: boolean;
   isPublished?: boolean;
   isActive?: boolean;
+  launchedAt?: string;
+  newRestaurantFreeDays?: number;
   verificationStatus: RestaurantVerificationStatus;
   launchStatus?: 'SETUP_REQUIRED' | 'SETUP_IN_PROGRESS' | 'READY_FOR_REVIEW' | 'GO_LIVE_REVIEW' | 'CORRECTIONS_REQUIRED' | 'APPROVED_FOR_LAUNCH' | 'PUBLISHED' | 'SUSPENDED';
   payoutPhoneNumber?: string;

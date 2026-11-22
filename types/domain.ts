@@ -37,6 +37,8 @@ export interface Restaurant {
   isVerified: boolean;
   isPublished?: boolean;
   isActive?: boolean;
+  launchedAt?: string;
+  newRestaurantFreeDays?: number;
   verificationStatus: VerificationStatus;
   launchStatus?: RestaurantLaunchStatus;
   tinNumber?: string;
@@ -1036,6 +1038,7 @@ export interface OrderFinancialSnapshot {
   restaurantNetPayableTzs: string;
   commissionPolicyId?: string;
   commissionBasisPointsSnapshot: number;
+  commissionReason?: string;
   currency: 'TZS';
   createdAt: string;
 }

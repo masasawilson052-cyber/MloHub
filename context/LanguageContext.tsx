@@ -461,6 +461,39 @@ export interface Translations {
   paymentPhoneInvalid: string;
   paymentWalletSuggested: string;
   paymentSecurityPinNotice: string;
+
+  // Fee Breakdown Component
+  feeBreakdownFoodSubtotal: string;
+  feeBreakdownDeliveryFee: string;
+  feeBreakdownDeliveryFeePaidToYou: string;
+  feeBreakdownServiceFee: string;
+  feeBreakdownDiscount: string;
+  feeBreakdownTotal: string;
+  feeBreakdownServiceFeeTooltipTitle: string;
+  feeBreakdownServiceFeeTooltipEn: string;
+  feeBreakdownServiceFeeTooltipSw: string;
+
+  // Order Confirmation & WhatsApp
+  orderConfirmedTitle: string;
+  orderConfirmedSubtitle: string;
+  orderNumberLabel: string;
+  orderRestaurantLabel: string;
+  orderItemsLabel: string;
+  orderTotalPaidLabel: string;
+  orderEstimatedTimeLabel: string;
+  orderTrackButton: string;
+  orderShareWhatsAppButton: string;
+  orderNextStepLabel: string;
+  orderNextStepDesc: string;
+
+  // Restaurant Earnings & Welcome Month
+  earningsWelcomeMonthBadge: string;
+  earningsWelcomeMonthEnds: string;
+  earningsFoodTotal: string;
+  earningsCommissionRate: string;
+  earningsCommissionAmount: string;
+  earningsDeliveryShare: string;
+  earningsNetToReceive: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -922,6 +955,39 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     paymentPhoneInvalid: 'Please enter a valid 10-digit Tanzanian number (e.g. 0754 123 456).',
     paymentWalletSuggested: 'Suggested from phone prefix: {wallet}',
     paymentSecurityPinNotice: 'Security Notice: MloHub will never ask for or store your mobile-money PIN. Enter your PIN exclusively on your telecom pop-up or official USSD prompt.',
+
+    // Fee Breakdown Component
+    feeBreakdownFoodSubtotal: 'Food subtotal',
+    feeBreakdownDeliveryFee: 'Delivery fee',
+    feeBreakdownDeliveryFeePaidToYou: 'Delivery fee (paid to you)',
+    feeBreakdownServiceFee: 'Service fee',
+    feeBreakdownDiscount: 'Discount',
+    feeBreakdownTotal: 'Total',
+    feeBreakdownServiceFeeTooltipTitle: 'Platform Service Fee',
+    feeBreakdownServiceFeeTooltipEn: 'Helps keep MloHub running: payments, support and safety.',
+    feeBreakdownServiceFeeTooltipSw: 'Husaidia kuendesha MloHub: malipo, huduma na usalama.',
+
+    // Order Confirmation & WhatsApp
+    orderConfirmedTitle: 'Order Confirmed!',
+    orderConfirmedSubtitle: 'Your order was placed successfully and is being prepared.',
+    orderNumberLabel: 'Order Number',
+    orderRestaurantLabel: 'Restaurant',
+    orderItemsLabel: 'Items',
+    orderTotalPaidLabel: 'Total Paid',
+    orderEstimatedTimeLabel: 'Estimated Time',
+    orderTrackButton: 'Track Order',
+    orderShareWhatsAppButton: 'Share on WhatsApp',
+    orderNextStepLabel: 'Next Step',
+    orderNextStepDesc: 'The kitchen is preparing your dishes. You will receive real-time updates.',
+
+    // Restaurant Earnings & Welcome Month
+    earningsWelcomeMonthBadge: '0% — welcome month',
+    earningsWelcomeMonthEnds: 'Free window ends:',
+    earningsFoodTotal: 'Food Total',
+    earningsCommissionRate: 'Commission Rate',
+    earningsCommissionAmount: 'Platform Commission',
+    earningsDeliveryShare: 'Delivery fee (paid to you)',
+    earningsNetToReceive: 'Net to Receive',
   },
   sw: {
     // Tabs
@@ -1381,6 +1447,39 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     paymentPhoneInvalid: 'Tafadhali weka namba sahihi ya Tanzania ya tarakimu 10 (mfano: 0754 123 456).',
     paymentWalletSuggested: 'Imependekezwa kutokana na mtandao: {wallet}',
     paymentSecurityPinNotice: 'Usalama wa Mteja: MloHub haitawahi kukuomba au kuhifadhi PIN yako ya simu. Weka PIN yako pekee kwenye ujumbe rasmi wa mtandao wako wa simu.',
+
+    // Fee Breakdown Component
+    feeBreakdownFoodSubtotal: 'Jumla ya chakula',
+    feeBreakdownDeliveryFee: 'Ada ya usafirishaji',
+    feeBreakdownDeliveryFeePaidToYou: 'Ada ya usafirishaji (unalipwa wewe)',
+    feeBreakdownServiceFee: 'Ada ya huduma',
+    feeBreakdownDiscount: 'Punguzo',
+    feeBreakdownTotal: 'Jumla',
+    feeBreakdownServiceFeeTooltipTitle: 'Ada ya Huduma ya Mfumo',
+    feeBreakdownServiceFeeTooltipEn: 'Helps keep MloHub running: payments, support and safety.',
+    feeBreakdownServiceFeeTooltipSw: 'Husaidia kuendesha MloHub: malipo, huduma na usalama.',
+
+    // Order Confirmation & WhatsApp
+    orderConfirmedTitle: 'Oda Imethibitishwa!',
+    orderConfirmedSubtitle: 'Oda yako imetumwa na kupokelewa na jikoni tayari kwa kupikwa.',
+    orderNumberLabel: 'Namba ya Oda',
+    orderRestaurantLabel: 'Mgahawa',
+    orderItemsLabel: 'Vyakula',
+    orderTotalPaidLabel: 'Kiasi Kilicholipwa',
+    orderEstimatedTimeLabel: 'Muda Unaokadiriwa',
+    orderTrackButton: 'Fuatilia Oda',
+    orderShareWhatsAppButton: 'Shiriki kwenye WhatsApp',
+    orderNextStepLabel: 'Hatua Inayofuata',
+    orderNextStepDesc: 'Jiko linatayarisha chakula chako. Utapokea taarifa ya kila hatua.',
+
+    // Restaurant Earnings & Welcome Month
+    earningsWelcomeMonthBadge: '0% — mwezi wa ukaribisho',
+    earningsWelcomeMonthEnds: 'Kipindi cha bure kinamalizika:',
+    earningsFoodTotal: 'Jumla ya Chakula',
+    earningsCommissionRate: 'Kiwango cha Kamisheni',
+    earningsCommissionAmount: 'Kamisheni ya Mfumo',
+    earningsDeliveryShare: 'Ada ya usafirishaji (unalipwa wewe)',
+    earningsNetToReceive: 'Kiasi cha Kupokea',
   },
 };
 

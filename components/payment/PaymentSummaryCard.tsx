@@ -4,6 +4,7 @@ import { ThemeColors } from '../../theme/palettes';
 import { Spacing } from '../../theme/spacing';
 import { Radii } from '../../theme/radius';
 import { useLanguage } from '../../context/LanguageContext';
+import { FeeBreakdown } from '../checkout/FeeBreakdown';
 
 export interface PaymentSummaryCardProps {
   colors: ThemeColors;
@@ -40,31 +41,15 @@ export const PaymentSummaryCard: React.FC<PaymentSummaryCardProps> = ({
         </View>
       </View>
 
-      <View style={styles.divider} />
-
-      <View style={styles.priceRow}>
-        <Text style={styles.priceLabel}>{t('checkoutFoodSubtotal')}:</Text>
-        <Text style={styles.priceVal}>TZS {subtotal.toLocaleString()}</Text>
-      </View>
-
-      {!isReservation && currentDelivery > 0 && (
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>{t('checkoutEstimatedDelivery')}:</Text>
-          <Text style={styles.priceVal}>TZS {currentDelivery.toLocaleString()}</Text>
-        </View>
-      )}
-
-      {!isReservation && currentServiceFee > 0 && (
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>{t('checkoutPlatformServiceFee')}:</Text>
-          <Text style={styles.priceVal}>TZS {currentServiceFee.toLocaleString()}</Text>
-        </View>
-      )}
-
-      <View style={[styles.priceRow, styles.totalRow]}>
-        <Text style={styles.totalLabel}>{t('paymentTotalPayable')}</Text>
-        <Text style={styles.totalVal}>TZS {totalBill.toLocaleString()}</Text>
-      </View>
+      <FeeBreakdown
+        foodSubtotalTzs={subtotal}
+        deliveryFeeTzs={isReservation ? 0 : currentDelivery}
+        serviceFeeTzs={isReservation ? 0 : currentServiceFee}
+        totalTzs={totalBill}
+        fulfillmentType={isReservation ? 'Reservation' : 'Delivery'}
+        hideDeliveryFee={isReservation}
+        compact={true}
+      />
     </View>
   );
 };

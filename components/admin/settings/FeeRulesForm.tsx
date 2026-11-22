@@ -2,10 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TextInput,
   TouchableOpacity,
-  Modal,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -23,6 +21,8 @@ import {
 import { ThemeColors, lightColors } from '../../../theme/palettes';
 import { FeeRulesFields } from './FeeRulesFields';
 import { FeeRulesExample } from './FeeRulesExample';
+import { createFeeRulesStyles } from './feeRulesStyles';
+import { FeeRulesConfirmModal } from './FeeRulesConfirmModal';
 
 let colors: ThemeColors = lightColors;
 
@@ -33,7 +33,7 @@ interface FeeRulesFormProps {
 export const FeeRulesForm: React.FC<FeeRulesFormProps> = ({ onSaved }) => {
   const { colors: _tc } = useTheme();
   colors = _tc;
-  const styles = createStyles(colors);
+  const styles = createFeeRulesStyles(colors);
   const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
@@ -321,196 +321,14 @@ export const FeeRulesForm: React.FC<FeeRulesFormProps> = ({ onSaved }) => {
         <Text style={styles.saveBtnText}>{t('feeRulesSaveBtn')}</Text>
       </TouchableOpacity>
 
-      <Modal visible={showConfirmModal} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.modalHeaderRow}>
-              <Ionicons name="warning-outline" size={24} color={colors.warning} />
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                {t('feeRulesConfirmTitle')}
-              </Text>
-            </View>
-            <Text style={[styles.modalDesc, { color: colors.textSecondary }]}>
-              {t('feeRulesConfirmDesc')}
-            </Text>
-            <View style={[styles.confirmAuditBox, { backgroundColor: colors.surfaceInteractive }]}>
-              <Text style={[styles.auditReasonPrompt, { color: colors.textMuted }]}>Audit Reason:</Text>
-              <Text style={[styles.auditReasonVal, { color: colors.textPrimary }]}>"{changeReason}"</Text>
-            </View>
-
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={[styles.modalCancelBtn, { borderColor: colors.border }]}
-                onPress={() => setShowConfirmModal(false)}
-                disabled={isSaving}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.textSecondary }]}>
-                  {t('feeRulesConfirmCancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalConfirmBtn, { backgroundColor: colors.primary }]}
-                onPress={handleConfirmSave}
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color={colors.onPrimary} />
-                ) : (
-                  <Text style={styles.modalConfirmText}>{t('feeRulesConfirmSubmit')}</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <FeeRulesConfirmModal
+        visible={showConfirmModal}
+        colors={colors}
+        changeReason={changeReason}
+        isSaving={isSaving}
+        onCancel={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmSave}
+      />
     </View>
   );
 };
-
-const createStyles = (colors: ThemeColors) =>
-  StyleSheet.create({
-    loadingArea: {
-      padding: 30,
-      alignItems: 'center',
-    },
-    sectionCard: {
-      borderWidth: 1,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 20,
-    },
-    cardHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      marginBottom: 4,
-    },
-    cardTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    cardNotice: {
-      fontSize: 13,
-      lineHeight: 18,
-      marginBottom: 12,
-    },
-    errorBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      backgroundColor: colors.dangerSoft,
-      borderWidth: 1,
-      borderColor: colors.danger,
-      padding: 10,
-      borderRadius: 8,
-      marginBottom: 12,
-    },
-    errorText: {
-      fontSize: 12.5,
-      fontWeight: '600',
-      flex: 1,
-    },
-    fieldLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      marginBottom: 4,
-    },
-    reasonBlock: {
-      marginTop: 10,
-      marginBottom: 14,
-    },
-    reasonInput: {
-      borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 14,
-      minHeight: 44,
-    },
-    saveBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 12,
-      borderRadius: 8,
-      marginTop: 4,
-    },
-    saveBtnText: {
-      color: colors.onPrimary,
-      fontSize: 14,
-      fontWeight: '700',
-    },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-    },
-    modalBox: {
-      width: '100%',
-      maxWidth: 480,
-      borderWidth: 1,
-      borderRadius: 14,
-      padding: 20,
-    },
-    modalHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 8,
-    },
-    modalTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-    },
-    modalDesc: {
-      fontSize: 13,
-      lineHeight: 19,
-      marginBottom: 14,
-    },
-    confirmAuditBox: {
-      padding: 12,
-      borderRadius: 8,
-      marginBottom: 18,
-    },
-    auditReasonPrompt: {
-      fontSize: 11,
-      textTransform: 'uppercase',
-      fontWeight: '700',
-      marginBottom: 2,
-    },
-    auditReasonVal: {
-      fontSize: 13,
-      fontStyle: 'italic',
-      fontWeight: '600',
-    },
-    modalBtnRow: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: 12,
-    },
-    modalCancelBtn: {
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-      borderWidth: 1,
-    },
-    modalCancelText: {
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    modalConfirmBtn: {
-      paddingVertical: 10,
-      paddingHorizontal: 18,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      minWidth: 100,
-    },
-    modalConfirmText: {
-      color: colors.onPrimary,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-  });

@@ -47,6 +47,7 @@ import {
   RestaurantLaunchReadiness,
   VerificationDocumentType,
   RestaurantVerificationDocument,
+  OrderFinancialSnapshot,
 } from '../../types/domain';
 import { runtimeConfig } from '../../lib/runtimeConfig';
 import { isPartnerOnlyApp } from '../../lib/appVariant';
@@ -75,6 +76,7 @@ import {
   PayoutsRepository,
   RefundsRepository,
   DisputesRepository,
+  FinancialLedgerRepository,
 } from '../../repositories';
 import { PlatformAnnouncementBanner } from '../../components/announcements/PlatformAnnouncementBanner';
 
@@ -838,6 +840,8 @@ function mapDomainRestaurantToEntity(rest: any): RestaurantEntity {
     isVerified: rest.isVerified ?? false,
     isPublished: rest.isPublished ?? false,
     isActive: rest.isActive ?? true,
+    launchedAt: rest.launchedAt || rest.launched_at,
+    newRestaurantFreeDays: rest.newRestaurantFreeDays || rest.new_restaurant_free_days || 30,
     verificationStatus: rest.verificationStatus || 'PENDING_VERIFICATION',
     launchStatus: rest.launchStatus || 'SETUP_REQUIRED',
     phone: rest.phone || rest.payoutPhoneNumber || rest.ownerPhone || '',
@@ -875,6 +879,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   const [domainOrders, setDomainOrders] = useState<Order[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [orderSnapshots, setOrderSnapshots] = useState<OrderFinancialSnapshot[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [customMealInvitations, setCustomMealInvitations] = useState<any[]>([]);
@@ -982,6 +987,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         fetchedDestinations,
         fetchedRefunds,
         fetchedDisputes,
+        fetchedSnapshots,
       ] = await Promise.all([
         RestaurantRepository.getById(activeRestaurant.id).catch(() => null),
         BranchRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
@@ -999,6 +1005,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
         PayoutsRepository.listDestinations(activeRestaurant.id).catch(() => []),
         RefundsRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
         DisputesRepository.listByRestaurant(activeRestaurant.id).catch(() => []),
+        FinancialLedgerRepository.getRestaurantOrderSnapshots(activeRestaurant.id).catch(() => []),
       ]);
 
       if (fetchedRest) {
@@ -1023,6 +1030,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       setPayoutDestinations(fetchedDestinations);
       setRefundRequests(fetchedRefunds);
       setFinancialDisputes(fetchedDisputes);
+      setOrderSnapshots(fetchedSnapshots || []);
 
       if (selectedBranchId || fetchedBranches.length > 0) {
         const branchToQuery = selectedBranchId || fetchedBranches[0].id;
@@ -1351,15 +1359,38 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
   // 12. Financial Transactions strictly from public.payments (no completed order fallback)
   const earningsTransactions: EarningsRecord[] = useMemo(() => {
     const results: EarningsRecord[] = [];
+    const snapshotsMap = new Map<string, OrderFinancialSnapshot>();
+    orderSnapshots.forEach((s) => {
+      snapshotsMap.set(s.orderId, s);
+      if (s.paymentId) snapshotsMap.set(s.paymentId, s);
+    });
+
+    const freeMonthEnd = activeRestaurant?.launchedAt
+      ? new Date(new Date(activeRestaurant.launchedAt).getTime() + (activeRestaurant.newRestaurantFreeDays || 30) * 24 * 60 * 60 * 1000).toLocaleDateString()
+      : undefined;
+
     payments.map((p) => {
       if (!p.duplicateOfPaymentId) {
+        const snap = (p.orderId ? snapshotsMap.get(p.orderId) : null) || snapshotsMap.get(p.id);
+        const foodTotal = snap ? Number(snap.grossFoodSalesTzs) : undefined;
+        const deliveryFee = snap ? Number(snap.restaurantDeliveryFeeTzs) : undefined;
+        const commBps = snap ? snap.commissionBasisPointsSnapshot : undefined;
+        const commReason = snap ? snap.commissionReason : undefined;
+        const platformFee = snap ? Number(snap.platformCommissionTzs) : (p.platformCommissionTzs || 0);
+        const netPayout = snap ? Number(snap.restaurantNetPayableTzs) : (p.netRestaurantPayoutTzs || (p.amountTzs - platformFee));
+
         results.push({
           orderId: p.orderId || p.id,
           orderNumber: p.orderId ? `MLO-${p.orderId.slice(-4)}` : p.id.slice(0, 8),
           createdAt: p.createdAt,
           grossAmountTzs: p.amountTzs || 0,
-          platformFeeTzs: p.platformCommissionTzs || 0,
-          netPayoutTzs: p.netRestaurantPayoutTzs || (p.amountTzs - (p.platformCommissionTzs || 0)),
+          foodTotalTzs: foodTotal,
+          deliveryFeeTzs: deliveryFee,
+          commissionBps: commBps,
+          commissionReason: commReason,
+          freeMonthEndDate: freeMonthEnd,
+          platformFeeTzs: platformFee,
+          netPayoutTzs: netPayout,
           paymentStatus: p.status,
           paymentProvider: p.provider || 'Mobile Money',
         });
@@ -1367,7 +1398,7 @@ function RestaurantPortalContent({ initialRestaurant }: { initialRestaurant: Res
       return null;
     });
     return results;
-  }, [payments]);
+  }, [payments, orderSnapshots, activeRestaurant?.launchedAt, activeRestaurant?.newRestaurantFreeDays]);
 
   // 13. Discovery Analytics Data
   const discoveryAnalytics: DiscoveryAnalyticsData = useMemo(() => {

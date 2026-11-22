@@ -279,6 +279,11 @@ export const IncomingOrdersPanel: React.FC<IncomingOrdersPanelProps> = ({
                 <View>
                   <Text style={styles.totalLabel}>Total Bill</Text>
                   <Text style={styles.totalVal}>{formatTzs(order.totalTzs)}</Text>
+                  {order.fulfillmentType === 'Delivery' && typeof order.deliveryFeeTzs === 'number' && order.deliveryFeeTzs > 0 ? (
+                    <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>
+                      {language === 'sw' ? 'Ada ya usafirishaji (unalipwa wewe)' : 'Delivery fee (paid to you)'}: {formatTzs(order.deliveryFeeTzs)}
+                    </Text>
+                  ) : null}
                 </View>
 
                 <View style={styles.actionsRow}>

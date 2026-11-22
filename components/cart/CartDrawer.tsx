@@ -18,6 +18,7 @@ import { Typography } from '../../theme/typography';
 import { Button } from '../ui/Button';
 import { PriceText } from '../ui/PriceText';
 import { EmptyState } from '../ui/EmptyState';
+import { FeeBreakdown } from '../checkout/FeeBreakdown';
 
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage, formatItemCount } from '../../context/LanguageContext';
@@ -213,36 +214,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               {/* Fee Breakdown & Checkout Footer */}
               <View style={styles.footer}>
-                <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>
-                    {t('cartSubtotal')} ({formatItemCount(totalItems, language)})
-                  </Text>
-                  <PriceText amountTzs={subtotalTzs} size="sm" />
-                </View>
-                <View style={styles.feeRow}>
-                  <Text style={[styles.feeLabel, { flex: 1, marginRight: 8 }]}>
-                    {lowestDeliveryFeeTzs != null
-                      ? t('deliveryFromX').replace('{amount}', formatTzs(lowestDeliveryFeeTzs))
-                      : t('deliveryFeeAtCheckout')}
-                  </Text>
-                  {lowestDeliveryFeeTzs != null ? (
-                    <Text style={styles.deliveryFromText}>
-                      {t('fromAmount').replace('{amount}', formatTzs(lowestDeliveryFeeTzs))}
-                    </Text>
-                  ) : (
-                    <Text style={styles.deliveryCalculatedText}>—</Text>
-                  )}
-                </View>
-                <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>
-                    {t('cartServiceFee')}
-                  </Text>
-                  <PriceText amountTzs={serviceFeeTzs} size="sm" />
-                </View>
-                <View style={[styles.feeRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>{t('cartEstimatedTotal')}</Text>
-                  <PriceText amountTzs={estimatedTotalBillTzs} size="lg" color={colors.primaryDark} />
-                </View>
+                <FeeBreakdown
+                  foodSubtotalTzs={subtotalTzs}
+                  deliveryFeePending={true}
+                  deliveryFromFeeTzs={lowestDeliveryFeeTzs}
+                  serviceFeeTzs={serviceFeeTzs}
+                  totalTzs={estimatedTotalBillTzs}
+                  fulfillmentType="Delivery"
+                  compact={true}
+                  containerStyle={{ marginBottom: Spacing.sm }}
+                />
 
                 <Button
                   title={`${t('cartProceedReview')} (${formatItemCount(totalItems, language)})`}

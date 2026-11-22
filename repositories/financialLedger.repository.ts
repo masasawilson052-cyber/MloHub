@@ -220,9 +220,49 @@ export class FinancialLedgerRepository {
       restaurantNetPayableTzs: data.restaurant_net_payable_tzs?.toString() || '0',
       commissionPolicyId: data.commission_policy_id,
       commissionBasisPointsSnapshot: data.commission_basis_points_snapshot,
+      commissionReason: data.commission_reason,
       currency: 'TZS',
       createdAt: data.created_at,
     };
+  }
+
+  public static async getRestaurantOrderSnapshots(restaurantId: string): Promise<OrderFinancialSnapshot[]> {
+    if (!isSupabaseConfigured()) return [];
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_restaurant_order_snapshots', {
+        p_restaurant_id: restaurantId,
+      });
+
+      const records = (!rpcError && rpcData) ? rpcData : (
+        await supabase
+          .from('order_financial_snapshots')
+          .select('*')
+          .eq('restaurant_id', restaurantId)
+      ).data;
+
+      if (!records) return [];
+
+      return records.map((data: any) => ({
+        orderId: data.order_id,
+        restaurantId: data.restaurant_id,
+        paymentId: data.payment_id,
+        grossFoodSalesTzs: data.gross_food_sales_tzs?.toString() || '0',
+        customerServiceFeeTzs: data.customer_service_fee_tzs?.toString() || '0',
+        restaurantDeliveryFeeTzs: data.restaurant_delivery_fee_tzs?.toString() || '0',
+        discountTzs: data.discount_tzs?.toString() || '0',
+        platformCommissionTzs: data.platform_commission_tzs?.toString() || '0',
+        providerFeeTzs: data.provider_fee_tzs?.toString(),
+        restaurantNetPayableTzs: data.restaurant_net_payable_tzs?.toString() || '0',
+        commissionPolicyId: data.commission_policy_id,
+        commissionBasisPointsSnapshot: data.commission_basis_points_snapshot,
+        commissionReason: data.commission_reason,
+        currency: 'TZS',
+        createdAt: data.created_at,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   public static async getPostingBatch(batchId: string): Promise<FinancialPostingBatch | null> {
