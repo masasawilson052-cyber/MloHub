@@ -22,6 +22,8 @@ import { PriceText } from '../ui/PriceText';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeColors } from '../../theme/palettes';
 
+export const CART_BAR_BASE_HEIGHT = 80;
+
 export interface FloatingCartButtonProps {
   showWhenEmpty?: boolean;
   bottomOffset?: number;
@@ -108,33 +110,23 @@ export const FloatingCartButton: React.FC<FloatingCartButtonProps> = ({
 
         <Animated.View style={animatedPulseStyle}>
           <View ref={cartTargetRef} collapsable={false}>
-            <TouchableOpacity
-              style={styles.cartIconAnchor}
-              onPress={() => setIsCartOpen(true)}
-              activeOpacity={0.86}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={
-                isEmpty
-                  ? 'Open empty meal cart'
-                  : `Open meal cart with ${totalItems} items`
-              }
-            >
-              <Ionicons
-                name={isEmpty ? 'cart-outline' : 'cart'}
-                size={23}
-                color={colors.onPrimary}
-              />
-              {isEmpty ? (
+            {isEmpty && (
+              <TouchableOpacity
+                style={styles.cartIconAnchor}
+                onPress={() => setIsCartOpen(true)}
+                activeOpacity={0.86}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Open empty meal cart"
+              >
+                <Ionicons
+                  name="cart-outline"
+                  size={23}
+                  color={colors.onPrimary}
+                />
                 <View style={styles.emptyStatusDot} />
-              ) : (
-                <View style={styles.cartCountBadge}>
-                  <Text style={styles.countText}>
-                    {totalItems > 99 ? '99+' : totalItems}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
           </View>
         </Animated.View>
       </View>
@@ -175,7 +167,7 @@ const createStyles = (colors: ThemeColors, bottomOffset?: number) => {
       borderRadius: Radii.xl,
       paddingVertical: 12,
       paddingHorizontal: Spacing.md,
-      marginRight: Spacing.sm,
+      marginRight: 0,
       minHeight: 52,
       borderWidth: 1,
       borderColor: colors.border,
@@ -185,7 +177,7 @@ const createStyles = (colors: ThemeColors, bottomOffset?: number) => {
       flexDirection: 'row',
       alignItems: 'center',
       flexShrink: 1,
-      marginRight: Spacing.sm,
+      marginRight: 0,
     },
     viewCartText: {
       color: colors.onPrimary,

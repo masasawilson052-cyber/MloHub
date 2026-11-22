@@ -3,6 +3,14 @@ import { Alert } from 'react-native';
 import { OrderService, OrderQuote } from '../services/OrderService';
 import { RealtimeService } from '../services/RealtimeService';
 import { useFeeRules } from '../hooks/useFeeRules';
+import { useAuth } from './AuthContext';
+import { BranchOperationsRepository } from '../repositories/branchOperations.repository';
+import { MenuRepository } from '../repositories/menus.repository';
+import {
+  saveCartToStorage,
+  loadCartFromStorage,
+  clearCartStorage,
+} from '../utils/cartStorage';
 
 import {
   CartAddOutcome,
@@ -52,9 +60,15 @@ export interface CartContextType {
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   getOrderQuote: (diningOption?: 'Delivery' | 'Dine-In' | 'Takeaway', deliveryFeeTzs?: number) => OrderQuote;
-}
 
-const FIXED_DELIVERY_FEE_TZS = 2500;
+  // Resilient Cart & Fulfillment
+  lowestDeliveryFeeTzs: number | null;
+  deliveryPricingMode: 'ROUTE_DISTANCE' | 'FIXED_ZONE';
+  supportsDelivery: boolean;
+  estimatedTotalBillTzs: number;
+  cartUpdatedNotice: string | null;
+  clearCartUpdatedNotice: () => void;
+}
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -65,16 +79,127 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [branchId, setBranchId] = useState<string | null>(null);
   const [branchName, setBranchName] = useState<string | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartUpdatedNotice, setCartUpdatedNotice] = useState<string | null>(null);
+
+  const [deliveryPricingMode, setDeliveryPricingMode] = useState<'ROUTE_DISTANCE' | 'FIXED_ZONE'>('ROUTE_DISTANCE');
+  const [lowestDeliveryFeeTzs, setLowestDeliveryFeeTzs] = useState<number | null>(null);
+  const [supportsDelivery, setSupportsDelivery] = useState(true);
+
   const { feeRules } = useFeeRules();
   const minimumOrderValueTzs = feeRules.minimumOrderValueTzs;
+  const { user } = useAuth();
 
   const itemsRef = useRef<CartItem[]>([]);
   const restaurantIdRef = useRef<string | null>(null);
   const restaurantNameRef = useRef<string | null>(null);
   const branchIdRef = useRef<string | null>(null);
   const branchNameRef = useRef<string | null>(null);
+  const prevUserIdRef = useRef<string | null>(user?.id || null);
 
-  // Sync restaurant and branch metadata with items
+  const clearCartUpdatedNotice = useCallback(() => {
+    setCartUpdatedNotice(null);
+  }, []);
+
+  // Clear cart only on explicit sign-out (when previous user was non-null, now null)
+  useEffect(() => {
+    if (prevUserIdRef.current && !user?.id) {
+      itemsRef.current = [];
+      restaurantIdRef.current = null;
+      restaurantNameRef.current = null;
+      branchIdRef.current = null;
+      branchNameRef.current = null;
+      setItems([]);
+      setRestaurantId(null);
+      setRestaurantName(null);
+      setBranchId(null);
+      setBranchName(null);
+      clearCartStorage();
+    }
+    prevUserIdRef.current = user?.id || null;
+  }, [user?.id]);
+
+  // Hydrate cart from persistent storage on mount & re-check items against current live menu
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const stored = await loadCartFromStorage();
+        if (!stored || !isMounted || stored.items.length === 0) return;
+
+        let liveDishes: any[] = [];
+        try {
+          liveDishes = await MenuRepository.listItems(stored.restaurantId);
+        } catch (mErr) {
+          console.warn('[CartContext] Could not fetch live menu for re-check, retaining cart as stored:', mErr);
+        }
+
+        let hasUpdates = false;
+        const validItems: CartItem[] = [];
+
+        for (const item of stored.items) {
+          const liveItem = liveDishes.find((d) => d.id === item.dishId);
+          if (liveDishes.length > 0) {
+            // Drop dishes that are unavailable, archived, or out of stock
+            if (!liveItem || liveItem.isAvailable === false || liveItem.isArchived === true || liveItem.stockQuantity === 0) {
+              hasUpdates = true;
+              continue;
+            }
+            // Update prices if changed
+            if (liveItem.priceTzs && liveItem.priceTzs !== item.priceTzs) {
+              hasUpdates = true;
+              validItems.push({
+                ...item,
+                priceTzs: liveItem.priceTzs,
+                restaurantId: stored.restaurantId,
+                restaurantName: stored.restaurantName,
+                branchId: stored.branchId || undefined,
+                branchName: stored.branchName || undefined,
+              });
+              continue;
+            }
+          }
+          validItems.push({
+            ...item,
+            restaurantId: stored.restaurantId,
+            restaurantName: stored.restaurantName,
+            branchId: stored.branchId || undefined,
+            branchName: stored.branchName || undefined,
+          });
+        }
+
+        if (!isMounted) return;
+
+        if (validItems.length > 0) {
+          itemsRef.current = validItems;
+          restaurantIdRef.current = stored.restaurantId;
+          restaurantNameRef.current = stored.restaurantName;
+          branchIdRef.current = stored.branchId || null;
+          branchNameRef.current = stored.branchName || null;
+          setItems(validItems);
+          setRestaurantId(stored.restaurantId);
+          setRestaurantName(stored.restaurantName);
+          setBranchId(stored.branchId || null);
+          setBranchName(stored.branchName || null);
+
+          if (hasUpdates) {
+            setCartUpdatedNotice('Some items in your cart were updated to match current menu availability and prices.');
+            saveCartToStorage(stored.restaurantId, stored.restaurantName, stored.branchId, stored.branchName, validItems);
+          }
+        } else if (hasUpdates) {
+          await clearCartStorage();
+          setCartUpdatedNotice('Some items in your cart were updated to match current menu availability and prices.');
+        }
+      } catch (err) {
+        console.warn('[CartContext] Failed to hydrate stored cart:', err);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync restaurant and branch metadata with items & auto-persist
   useEffect(() => {
     itemsRef.current = items;
     if (items.length === 0) {
@@ -86,17 +211,68 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRestaurantName(null);
       setBranchId(null);
       setBranchName(null);
+      clearCartStorage();
     } else {
-      restaurantIdRef.current = items[0].restaurantId;
-      restaurantNameRef.current = items[0].restaurantName;
-      branchIdRef.current = items[0].branchId || null;
-      branchNameRef.current = items[0].branchName || null;
-      setRestaurantId(items[0].restaurantId);
-      setRestaurantName(items[0].restaurantName);
-      setBranchId(items[0].branchId || null);
-      setBranchName(items[0].branchName || null);
+      const restId = items[0].restaurantId;
+      const restName = items[0].restaurantName;
+      const bId = items[0].branchId || null;
+      const bName = items[0].branchName || null;
+      restaurantIdRef.current = restId;
+      restaurantNameRef.current = restName;
+      branchIdRef.current = bId;
+      branchNameRef.current = bName;
+      setRestaurantId(restId);
+      setRestaurantName(restName);
+      setBranchId(bId);
+      setBranchName(bName);
+      saveCartToStorage(restId, restName, bId, bName, items);
     }
   }, [items]);
+
+  // Query branch delivery pricing mode and delivery zones to establish branch delivery capability
+  useEffect(() => {
+    let isMounted = true;
+    const targetBranchId = branchId || (items.length > 0 ? items[0].branchId : null);
+    if (!targetBranchId) {
+      setLowestDeliveryFeeTzs(null);
+      setSupportsDelivery(true);
+      setDeliveryPricingMode('ROUTE_DISTANCE');
+      return;
+    }
+
+    Promise.all([
+      BranchOperationsRepository.getBranchDeliveryPricing(targetBranchId).catch(() => ({
+        pricingMode: 'ROUTE_DISTANCE' as const,
+        baseFeeTzs: 2000,
+        minimumFeeTzs: 2000,
+      })),
+      BranchOperationsRepository.getDeliveryZones(targetBranchId).catch(() => []),
+    ]).then(([pricing, zones]) => {
+      if (!isMounted) return;
+      const mode = pricing.pricingMode || 'ROUTE_DISTANCE';
+      setDeliveryPricingMode(mode);
+
+      const activeZones = (zones || []).filter((z) => z.isActive !== false);
+      const branchSupportsDel = mode === 'ROUTE_DISTANCE' || activeZones.length > 0;
+      setSupportsDelivery(branchSupportsDel);
+
+      if (mode === 'FIXED_ZONE') {
+        if (activeZones.length > 0) {
+          const minZone = Math.min(...activeZones.map((z) => z.feeTzs));
+          setLowestDeliveryFeeTzs(minZone);
+        } else {
+          setLowestDeliveryFeeTzs(null);
+        }
+      } else {
+        const base = pricing.baseFeeTzs;
+        setLowestDeliveryFeeTzs(typeof base === 'number' && base > 0 ? base : null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [branchId, items]);
 
   // Real-time menu price and availability monitoring for cart items
   useEffect(() => {
@@ -281,6 +457,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deliveryFeeTzs = items.length > 0 ? defaultQuote.deliveryFeeTzs : 0;
   const serviceFeeTzs = items.length > 0 ? defaultQuote.serviceFeeTzs : 0;
   const totalBillTzs = items.length > 0 ? defaultQuote.totalTzs : 0;
+  const estimatedTotalBillTzs = items.length > 0
+    ? subtotalTzs + serviceFeeTzs + (lowestDeliveryFeeTzs || 0)
+    : 0;
   const pricingDisclaimer = 'Estimate — final total is revalidated by the restaurant branch.';
 
   return (
@@ -306,6 +485,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isCartOpen,
         setIsCartOpen,
         getOrderQuote,
+        lowestDeliveryFeeTzs,
+        deliveryPricingMode,
+        supportsDelivery,
+        estimatedTotalBillTzs,
+        cartUpdatedNotice,
+        clearCartUpdatedNotice,
       }}
     >
       {children}

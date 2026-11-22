@@ -18,7 +18,7 @@ import {
   PlatformSettingsRepository,
   PlatformOperationalSettings,
 } from '../../repositories/platformSettings.repository';
-import { FeeRulesForm } from './FeeRulesForm';
+import { FeeRulesForm } from './settings/FeeRulesForm';
 
 
 import { ThemeColors, lightColors } from '../../theme/palettes';

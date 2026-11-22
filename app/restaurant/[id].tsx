@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, Linking, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,6 +19,7 @@ import { useCart } from '../../context/CartContext';
 import { useCartInteraction } from '../../hooks/useCartInteraction';
 import { useCustomerLocation } from '../../context/CustomerLocationContext';
 import { CustomerCartHost } from '../../components/cart/CustomerCartHost';
+import { CART_BAR_BASE_HEIGHT } from '../../components/cart/FloatingCartButton';
 import { TrustService } from '../../services/TrustService';
 import { TrustExplanationModal } from '../../components/trust/TrustExplanationModal';
 import { ReportDiscrepancyModal } from '../../components/trust/ReportDiscrepancyModal';
@@ -63,7 +64,11 @@ export default function RestaurantDetailScreen() {
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
 
-  const { items } = useCart();
+  const { items, totalItems } = useCart();
+  const insets = useSafeAreaInsets();
+  const cartBottomPadding = totalItems > 0
+    ? CART_BAR_BASE_HEIGHT + Math.max(insets.bottom, 16) + 24
+    : Math.max(insets.bottom, 16) + 24;
   const { requestAddToCart, isDishAddPending } = useCartInteraction();
 
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
@@ -401,7 +406,7 @@ export default function RestaurantDetailScreen() {
 
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={[styles.scrollContent, isLargeScreen && styles.largeScreenContainer]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: cartBottomPadding }, isLargeScreen && styles.largeScreenContainer]}
         showsVerticalScrollIndicator={false}
         stickyHeaderIndices={[1]}
         onScroll={handleScroll}

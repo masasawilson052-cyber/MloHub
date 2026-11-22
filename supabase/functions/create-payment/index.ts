@@ -465,6 +465,37 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Refuse second payment for an order that already has an active PENDING or SUCCESS payment
+    if (orderId) {
+      const { data: activeOrderPayment } = await adminClient
+        .from('payments')
+        .select('*')
+        .eq('order_id', orderId)
+        .eq('user_id', user.id)
+        .in('status', ['PENDING', 'SUCCESS'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (activeOrderPayment) {
+        return response(200, {
+          success: true,
+          paymentId: activeOrderPayment.id,
+          providerReference: activeOrderPayment.provider_reference,
+          merchantReference: activeOrderPayment.merchant_reference,
+          status: activeOrderPayment.status,
+          amountTzs: activeOrderPayment.amount_tzs,
+          ussdPrompt: activeOrderPayment.ussd_push_initiated
+            ? `USSD push prompt sent to ${activeOrderPayment.phone_number}. Enter PIN on your phone.`
+            : null,
+          message:
+            activeOrderPayment.status === 'SUCCESS'
+              ? 'Order payment has already been completed.'
+              : 'An active payment attempt is already pending for this order.',
+        });
+      }
+    }
+
     // Authoritative platform commission rate from platform_financial_settings
     let commissionRate = 0.10;
     const { data: finSettings } = await adminClient

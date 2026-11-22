@@ -5,6 +5,7 @@ import {
   BranchOperatingHour,
   BranchScheduleOverride,
   BranchDeliveryZone,
+  BranchDeliveryPricing,
   KitchenCapacityBucket,
   RestaurantOperationalAuditLog,
   BranchOperationalStatus,
@@ -310,6 +311,35 @@ export class BranchOperationsRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
+  }
+
+  /**
+   * Retrieves delivery pricing configuration and mode for a branch.
+   * Matches create_order_secure pricing_mode reading logic (default 'ROUTE_DISTANCE').
+   */
+  public static async getBranchDeliveryPricing(
+    branchId: string
+  ): Promise<Partial<BranchDeliveryPricing> & { pricingMode: 'ROUTE_DISTANCE' | 'FIXED_ZONE' }> {
+    if (!isSupabaseConfigured()) {
+      return { pricingMode: 'ROUTE_DISTANCE', baseFeeTzs: 2000, minimumFeeTzs: 2000 };
+    }
+
+    const { data, error } = await supabase
+      .from('branch_delivery_pricing')
+      .select('pricing_mode, base_fee_tzs, minimum_fee_tzs, max_delivery_distance_meters')
+      .eq('branch_id', branchId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { pricingMode: 'ROUTE_DISTANCE', baseFeeTzs: 2000, minimumFeeTzs: 2000 };
+    }
+
+    return {
+      pricingMode: (data.pricing_mode as any) || 'ROUTE_DISTANCE',
+      baseFeeTzs: data.base_fee_tzs ?? 2000,
+      minimumFeeTzs: data.minimum_fee_tzs ?? 2000,
+      maxDeliveryDistanceMeters: data.max_delivery_distance_meters ?? 25000,
+    };
   }
 
   /**

@@ -318,6 +318,41 @@ export interface Translations {
   feeRulesReasonRequired: string;
   feeRulesUpdatedSuccess: string;
   feeRulesUpdateError: string;
+  feeRulesConfirmTitle: string;
+  feeRulesConfirmDesc: string;
+  feeRulesConfirmCancel: string;
+  feeRulesConfirmSubmit: string;
+
+  // Cart & Checkout Resilience
+  itemCountSingular: string;
+  itemCountPlural: string;
+  cartUpdatedNotice: string;
+  deliveryFromX: string;
+  deliveryFeeAtCheckout: string;
+  estimatedTotal: string;
+  deliveryMinimumNudge: string;
+  deliveryMinimumDesc: string;
+  backToMenu: string;
+  switchToTakeaway: string;
+  branchRequired: string;
+  deliveryAddressRequired: string;
+  deliveryRangeExceeded: string;
+  phoneRequired: string;
+  orderFailed: string;
+  deliveryMinimumNotMet: string;
+  paymentIncomplete: string;
+  signInToCheckout: string;
+  signInSubtitle: string;
+  tabSignIn: string;
+  tabQuickSignUp: string;
+  emailOrPhoneLabel: string;
+  passwordLabel: string;
+  fullNameLabel: string;
+  phoneLabel: string;
+  signInBtn: string;
+  signUpBtn: string;
+  termsAgree: string;
+  forgotPasswordLink: string;
 }
 
 const TRANSLATIONS: Record<Language, Translations> = {
@@ -636,6 +671,41 @@ const TRANSLATIONS: Record<Language, Translations> = {
     feeRulesReasonRequired: 'Please provide a descriptive reason of at least 4 characters.',
     feeRulesUpdatedSuccess: 'Financial configuration and fee rules updated successfully.',
     feeRulesUpdateError: 'Failed to update platform fee rules.',
+    feeRulesConfirmTitle: 'Confirm Fee Rules Mutation',
+    feeRulesConfirmDesc: 'These changes update platform commission and service fee engine rules immediately for all new orders.',
+    feeRulesConfirmCancel: 'Cancel',
+    feeRulesConfirmSubmit: 'Confirm & Apply Rules',
+
+    // Cart & Checkout Resilience
+    itemCountSingular: '{count} item',
+    itemCountPlural: '{count} items',
+    cartUpdatedNotice: 'Some items in your cart were updated to match current menu availability and prices.',
+    deliveryFromX: 'Delivery: from {amount}, final at checkout',
+    deliveryFeeAtCheckout: 'Delivery fee calculated at checkout',
+    estimatedTotal: 'Estimated Total',
+    deliveryMinimumNudge: 'Add {amount} more for delivery',
+    deliveryMinimumDesc: 'Delivery minimum is {min} • Current: {current}',
+    backToMenu: 'Back to Menu',
+    switchToTakeaway: 'Switch to Takeaway',
+    branchRequired: 'Please select a restaurant branch before checkout.',
+    deliveryAddressRequired: 'Please enter a delivery address for your order.',
+    deliveryRangeExceeded: 'Delivery location is outside the maximum delivery radius for this branch. Please choose Takeaway.',
+    phoneRequired: 'Please enter a contact phone number for mobile money payment.',
+    orderFailed: 'Unable to place order. Please try again.',
+    deliveryMinimumNotMet: 'Minimum order subtotal not met for delivery.',
+    paymentIncomplete: 'Payment was not completed. Your order has been registered as PENDING and you can retry payment anytime.',
+    signInToCheckout: 'Sign In to Complete Order',
+    signInSubtitle: 'Sign in or create an account in seconds. Your cart stays intact.',
+    tabSignIn: 'Sign In',
+    tabQuickSignUp: 'Quick Sign Up',
+    emailOrPhoneLabel: 'Email or Phone',
+    passwordLabel: 'Password',
+    fullNameLabel: 'Full Name',
+    phoneLabel: 'Phone Number',
+    signInBtn: 'Sign In & Continue',
+    signUpBtn: 'Create Account & Continue',
+    termsAgree: 'I agree to the Terms & Privacy Policy',
+    forgotPasswordLink: 'Forgot password?',
   },
   sw: {
     // Tabs
@@ -952,6 +1022,41 @@ const TRANSLATIONS: Record<Language, Translations> = {
     feeRulesReasonRequired: 'Tafadhali toa sababu ya maelezo yenye herufi zisizopungua 4.',
     feeRulesUpdatedSuccess: 'Sheria za ada zimehifadhiwa kikamilifu.',
     feeRulesUpdateError: 'Imeshindwa kusasisha sheria za ada.',
+    feeRulesConfirmTitle: 'Thibitisha Mabadiliko ya Sheria za Ada',
+    feeRulesConfirmDesc: 'Mabadiliko haya yatasasisha kamisheni ya mfumo na ada ya huduma mara moja kwa oda zote mpya.',
+    feeRulesConfirmCancel: 'Ghairi',
+    feeRulesConfirmSubmit: 'Thibitisha & Tumia Sheria',
+
+    // Cart & Checkout Resilience
+    itemCountSingular: 'kitu {count}',
+    itemCountPlural: 'vitu {count}',
+    cartUpdatedNotice: 'Baadhi ya vitu kwenye kikapu chako vimesasishwa kulingana na upatikanaji na bei mpya.',
+    deliveryFromX: 'Uwasilishaji: kuanzia {amount}, jumla kamili wakati wa malipo',
+    deliveryFeeAtCheckout: 'Gharama ya uwasilishaji huhesabiwa wakati wa malipo',
+    estimatedTotal: 'Kadirio la Jumla',
+    deliveryMinimumNudge: 'Ongeza {amount} zaidi ili uletewe',
+    deliveryMinimumDesc: 'Kiwango cha chini cha kuletewa ni {min} • Sasa: {current}',
+    backToMenu: 'Rudi kwenye Menyu',
+    switchToTakeaway: 'Badili iwe ya Kuchukua',
+    branchRequired: 'Tafadhali chagua tawi la mgahawa kabla ya kulipa.',
+    deliveryAddressRequired: 'Tafadhali weka anwani ya kuletewa agizo lako.',
+    deliveryRangeExceeded: 'Eneo la kuletewa liko nje ya eneo la huduma la tawi hili. Tafadhali chagua Kuchukua.',
+    phoneRequired: 'Tafadhali weka namba ya simu kwa ajili ya malipo ya simu.',
+    orderFailed: 'Imeshindwa kuweka agizo. Tafadhali jaribu tena.',
+    deliveryMinimumNotMet: 'Kiwango cha chini cha agizo la kuletewa hakijafikiwa.',
+    paymentIncomplete: 'Malipo hayakukamilika. Agizo lako limesajiliwa kama LINASUBIRI na unaweza kulipia wakati wowote.',
+    signInToCheckout: 'Ingia ili Kukamilisha Agizo',
+    signInSubtitle: 'Ingia au fungua akaunti kwa sekunde chache. Kikapu chako kitabaki salama.',
+    tabSignIn: 'Ingia',
+    tabQuickSignUp: 'Jisajili Haraka',
+    emailOrPhoneLabel: 'Barua pepe au Namba ya Simu',
+    passwordLabel: 'Nenosiri',
+    fullNameLabel: 'Jina Kamili',
+    phoneLabel: 'Namba ya Simu',
+    signInBtn: 'Ingia & Endelea',
+    signUpBtn: 'Fungua Akaunti & Endelea',
+    termsAgree: 'Ninakubali Vigezo na Sera ya Faragha',
+    forgotPasswordLink: 'Umesahau nenosiri?',
   },
 };
 
@@ -1060,6 +1165,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     </LanguageContext.Provider>
   );
 };
+
+export function formatItemCount(count: number, language: Language): string {
+  if (language === 'sw') {
+    return count === 1 ? 'kitu 1' : `vitu ${count}`;
+  }
+  return count === 1 ? '1 item' : `${count} items`;
+}
 
 export const useLanguage = (): LanguageContextType => {
   const context = useContext(LanguageContext);

@@ -20,6 +20,8 @@ import { PriceText } from '../ui/PriceText';
 import { EmptyState } from '../ui/EmptyState';
 
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage, formatItemCount } from '../../context/LanguageContext';
+import { formatTzs } from '../../config/platformFees';
 import { ThemeColors, lightColors } from '../../theme/palettes';
 
 let colors: ThemeColors = lightColors;
@@ -36,6 +38,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onProceedToCheckout,
 }) => {
   const { colors: _tc } = useTheme(); colors = _tc; styles = createStyles(colors);
+  const { t, language } = useLanguage();
   const {
     items,
     restaurantName,
@@ -43,10 +46,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     removeFromCart,
     clearCart,
     subtotalTzs,
-    deliveryFeeTzs,
     serviceFeeTzs,
-    totalBillTzs,
     totalItems,
+    lowestDeliveryFeeTzs,
+    estimatedTotalBillTzs,
+    cartUpdatedNotice,
+    clearCartUpdatedNotice,
   } = useCart();
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
 
@@ -106,6 +111,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             />
           ) : (
             <>
+              {cartUpdatedNotice ? (
+                <View style={styles.noticeBanner}>
+                  <Ionicons name="information-circle-outline" size={18} color={colors.primary} />
+                  <Text style={styles.noticeText}>{cartUpdatedNotice}</Text>
+                  <TouchableOpacity onPress={clearCartUpdatedNotice} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close" size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
               {/* Item List */}
               <ScrollView
                 style={styles.itemList}
@@ -199,24 +214,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Fee Breakdown & Checkout Footer */}
               <View style={styles.footer}>
                 <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Subtotal ({totalItems} items)</Text>
+                  <Text style={styles.feeLabel}>
+                    {language === 'sw' ? 'Jumla ndogo' : 'Subtotal'} ({formatItemCount(totalItems, language)})
+                  </Text>
                   <PriceText amountTzs={subtotalTzs} size="sm" />
                 </View>
                 <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Standard Delivery</Text>
-                  <PriceText amountTzs={deliveryFeeTzs} size="sm" />
+                  <Text style={[styles.feeLabel, { flex: 1, marginRight: 8 }]}>
+                    {lowestDeliveryFeeTzs != null
+                      ? t('deliveryFromX').replace('{amount}', formatTzs(lowestDeliveryFeeTzs))
+                      : t('deliveryFeeAtCheckout')}
+                  </Text>
+                  {lowestDeliveryFeeTzs != null ? (
+                    <Text style={styles.deliveryFromText}>from {formatTzs(lowestDeliveryFeeTzs)}</Text>
+                  ) : (
+                    <Text style={styles.deliveryCalculatedText}>—</Text>
+                  )}
                 </View>
                 <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Platform Service Fee</Text>
+                  <Text style={styles.feeLabel}>
+                    {language === 'sw' ? 'Ada ya Huduma ya Mfumo' : 'Platform Service Fee'}
+                  </Text>
                   <PriceText amountTzs={serviceFeeTzs} size="sm" />
                 </View>
                 <View style={[styles.feeRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>Total Bill</Text>
-                  <PriceText amountTzs={totalBillTzs} size="lg" color={colors.primaryDark} />
+                  <Text style={styles.totalLabel}>{t('estimatedTotal')}</Text>
+                  <PriceText amountTzs={estimatedTotalBillTzs} size="lg" color={colors.primaryDark} />
                 </View>
 
                 <Button
-                  title={`Proceed to Review (${totalItems} ${totalItems === 1 ? 'item' : 'items'})`}
+                  title={`${language === 'sw' ? 'Endelea Kuhakiki' : 'Proceed to Review'} (${formatItemCount(totalItems, language)})`}
                   onPress={() => {
                     onClose();
                     onProceedToCheckout();
@@ -390,6 +417,34 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   checkoutBtn: {
     marginTop: Spacing.xs,
+  },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceInteractive,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    borderRadius: Radii.md,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textPrimary,
+    lineHeight: 16,
+  },
+  deliveryFromText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  deliveryCalculatedText: {
+    fontSize: 13,
+    color: colors.textMuted,
   },
 });
 let styles = createStyles(lightColors);

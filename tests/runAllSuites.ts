@@ -62,6 +62,8 @@ import { runCategoryGridSearchTestSuite } from './categoryGridSearch.test';
 import { runRestaurantDecisionFactsTestSuite } from './restaurantDecisionFacts.test';
 import { runImageUrlSizingTestSuite } from './imageUrlSizing.test';
 import { runMenuScrollTestSuite } from './menuScroll.test';
+import { runFeeRulesTests } from './feeRules.test';
+import { runCheckoutExperienceTestSuite } from './checkoutExperience.test';
 
 
 let passed = 0;
@@ -824,6 +826,12 @@ async function runMasterTestSuite() {
   const menuScrollResults = await runMenuScrollTestSuite();
   passed += menuScrollResults.passed;
   failed += menuScrollResults.failed;
+
+  // Authoritative Fee Rules & Shortfall Suite
+  await runFeeRulesTests();
+
+  // Checkout Resilience, Honest Totals & Smart Fulfillment Suite
+  await runCheckoutExperienceTestSuite();
 
   // Final Results
   console.log('\n================================================================');

@@ -394,6 +394,7 @@ export interface DeliveryQuote {
 
 export interface BranchDeliveryPricing {
   branchId: string;
+  pricingMode?: 'ROUTE_DISTANCE' | 'FIXED_ZONE';
   baseFeeTzs: number;
   includedDistanceMeters: number;
   billingIncrementMeters: number;
