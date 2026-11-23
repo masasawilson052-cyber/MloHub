@@ -88,7 +88,7 @@ export async function runReservationCapacityTestSuite(): Promise<{ passed: numbe
   assert(resRepoSrc.includes('restaurantDecide('), 'ReservationRepository implements restaurantDecide');
   assert(resRepoSrc.includes('transitionAttendance('), 'ReservationRepository implements transitionAttendance');
   assert(resRepoSrc.includes('cancelSecure('), 'ReservationRepository implements cancelSecure');
-  assert(resRepoSrc.includes('create('), 'ReservationRepository preserves backward-compatible create');
+  assert(!resRepoSrc.includes('public static async create('), 'ReservationRepository removes direct table write create');
   assert(resRepoSrc.includes('cancel('), 'ReservationRepository preserves backward-compatible cancel');
   assert(resRepoSrc.includes('updateStatus('), 'ReservationRepository preserves backward-compatible updateStatus');
 

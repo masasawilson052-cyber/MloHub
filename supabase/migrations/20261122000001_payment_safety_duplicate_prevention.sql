@@ -21,7 +21,7 @@ BEGIN;
 -- 1. SCHEMA EXTENSION: duplicate_of_payment_id on public.payments
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.payments
-ADD COLUMN IF NOT EXISTS duplicate_of_payment_id UUID REFERENCES public.payments(id);
+ADD COLUMN IF NOT EXISTS duplicate_of_payment_id VARCHAR(80) REFERENCES public.payments(id);
 
 CREATE INDEX IF NOT EXISTS idx_payments_duplicate_of_payment_id
 ON public.payments(duplicate_of_payment_id)
@@ -32,8 +32,8 @@ WHERE duplicate_of_payment_id IS NOT NULL;
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.payment_review_cases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payment_id UUID REFERENCES public.payments(id) ON DELETE CASCADE,
-  order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
+  payment_id VARCHAR(80) REFERENCES public.payments(id) ON DELETE CASCADE,
+  order_id VARCHAR(80) REFERENCES public.orders(id) ON DELETE SET NULL,
   reason TEXT NOT NULL,
   amount_tzs NUMERIC(12, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'REFUNDED', 'RESOLVED', 'DISMISSED')),

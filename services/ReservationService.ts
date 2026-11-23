@@ -28,45 +28,9 @@ export class ReservationService {
     const requiredDepositAmount = dto.depositOption === 'deposit_50' ? Math.round(fullDepositTotal * 0.5) : fullDepositTotal;
 
     if (isSupabaseConfigured()) {
-      const reservationData: Partial<Reservation> = {
-        customerId: dto.customerId,
-        restaurantId: dto.restaurantId,
-        branchId: dto.branchId,
-        partySize: dto.partySize,
-        reservationDate: dto.reservationDate,
-        reservationTime: dto.reservationTime,
-        status: 'CONFIRMED',
-        customerNote: dto.customerNote,
-        depositOption: dto.depositOption,
-        depositAmountTzs: requiredDepositAmount,
-        isDepositPaid: false,
-      };
-
-      const created = await ReservationRepository.create(reservationData);
-
-      try {
-        await NotificationRepository.createNotification({
-          userId: dto.customerId,
-          type: 'reservation',
-          category: 'ORDER',
-          titleEn: `Table Reserved at ${dto.restaurantName || 'Restaurant'}!`,
-          titleSw: `Meza Imewekwa ${dto.restaurantName || 'Jikoni'}!`,
-          messageEn: `Party of ${dto.partySize} on ${dto.reservationDate} at ${dto.reservationTime}.`,
-          messageSw: `Watu ${dto.partySize} tarehe ${dto.reservationDate} saa ${dto.reservationTime}.`,
-          restaurantId: dto.restaurantId,
-        });
-      } catch (err) {
-        console.warn('Failed to send notification for reservation:', err);
-      }
-
-      RealtimeEventEngine.publish(`reservations:customer:${dto.customerId}`, {
-        eventType: 'STATUS_UPDATED',
-        customerId: dto.customerId,
-        restaurantId: dto.restaurantId,
-        data: { reservation: created },
-      });
-
-      return created;
+      throw new Error(
+        'Direct table insertion is prohibited. Reservations must be booked via ReservationRepository.createSecure RPC.'
+      );
     }
 
     // Mock fallback

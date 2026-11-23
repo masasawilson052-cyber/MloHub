@@ -295,40 +295,6 @@ export class ReservationRepository {
     return data ? this.mapRowToReservation(data) : null;
   }
 
-  public static async create(res: Partial<Reservation>): Promise<Reservation> {
-    if (!isSupabaseConfigured()) {
-      throw new Error('Supabase client is not configured.');
-    }
-
-    const row = {
-      id: res.id || `res_${Date.now()}`,
-      user_id: res.customerId,
-      restaurant_id: res.restaurantId,
-      branch_id: res.branchId,
-      party_size: res.partySize || 2,
-      reservation_date: res.reservationDate || new Date().toISOString().split('T')[0],
-      reservation_time: res.reservationTime || '07:30 PM',
-      status: res.status || 'CONFIRMED',
-      deposit_amount_tzs: res.depositAmountTzs || 0,
-      is_deposit_paid: res.isDepositPaid ?? false,
-      special_requests: res.customerNote,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from('reservations')
-      .insert(row)
-      .select('*, restaurants(name), restaurant_branches(name), restaurant_tables(label)')
-      .single();
-
-    if (error) {
-      console.error('ReservationRepository.create error:', error.message);
-      throw new Error(`Failed to create reservation: ${error.message}`);
-    }
-
-    return this.mapRowToReservation(data);
-  }
-
   public static async cancel(id: string, reason?: string): Promise<boolean> {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase client is not configured.');

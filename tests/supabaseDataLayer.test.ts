@@ -49,7 +49,7 @@ export async function runSupabaseDataLayerTestSuite(): Promise<{ passedCount: nu
   assert(typeof MenuRepository.listItems === 'function', 'MenuRepository.listItems is defined');
   assert(typeof OrderRepository.createOrder === 'function', 'OrderRepository.createOrder is defined');
   assert(typeof OrderRepository.getOrderById === 'function', 'OrderRepository.getOrderById is defined');
-  assert(typeof ReservationRepository.create === 'function', 'ReservationRepository.create is defined');
+  assert(typeof ReservationRepository.createSecure === 'function', 'ReservationRepository.createSecure is defined');
   assert(typeof CustomMealRepository.createRequest === 'function', 'CustomMealRepository.createRequest is defined');
   assert(typeof NotificationRepository.createNotification === 'function', 'NotificationRepository.createNotification is defined');
   assert(typeof ReviewRepository.listForRestaurant === 'function', 'ReviewRepository.listForRestaurant is defined');

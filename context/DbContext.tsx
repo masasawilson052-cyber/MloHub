@@ -550,21 +550,9 @@ export const DbProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       if (!authUser?.id) {
         throw new Error('Authentication required to create a reservation.');
       }
-      const partySize = parseInt(data.guestsCount || '2', 10) || 2;
-      const created = await ReservationRepository.create({
-        customerId: authUser.id,
-        restaurantId: data.restaurantId,
-        partySize,
-        reservationDate: data.reservationDate,
-        reservationTime: data.timeSlot,
-        status: data.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
-        customerNote: data.specialNotes,
-        depositOption: data.depositOption || 'deposit_50',
-        depositAmountTzs: data.depositAmountTzs || 0,
-      });
-      const entity = mapDomainReservationToEntity(created);
-      setCloudReservations((prev) => [entity, ...prev]);
-      return entity;
+      throw new Error(
+        'Direct table insertion is prohibited. Reservations must be booked via ReservationRepository.createSecure RPC.'
+      );
     }
 
     const res = await MloHubDB.reservations.create(data);

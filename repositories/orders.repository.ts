@@ -111,73 +111,8 @@ export class OrderRepository {
       return loadedOrder;
     }
 
-    // Direct insert ONLY when runtimeConfig.allowLocalDataFallbacks is true and Supabase is not configured
-    if (!runtimeConfig.allowLocalDataFallbacks) {
-      throw new Error('Direct table insertion is prohibited in non-fallback environments.');
-    }
-
-    const orderId = order.id || `ord_${Date.now()}`;
-    const orderNumber = order.orderNumber || `MLO-${Date.now().toString().slice(-4)}`;
-
-    const orderRow = {
-      id: orderId,
-      order_number: orderNumber,
-      user_id: order.customerId,
-      restaurant_id: order.restaurantId,
-      branch_id: order.branchId,
-      status: order.status || 'PENDING',
-      payment_status: order.paymentStatus || 'PENDING',
-      subtotal_tzs: order.subtotalTzs || 0,
-      service_fee_tzs: order.serviceFeeTzs ?? computeServiceFeeTzs(order.subtotalTzs || 0, order.fulfillmentType, DEFAULT_FEE_RULES),
-      delivery_fee_tzs: order.deliveryFeeTzs || 0,
-      total_tzs: order.totalTzs || 0,
-      dining_option: order.fulfillmentType || 'Delivery',
-      delivery_address: order.fulfillmentType === 'Delivery' ? order.deliveryAddress?.trim() : null,
-      special_instructions: order.specialInstructions?.trim() || null,
-      estimated_prep_minutes: order.estimatedPrepMinutes || 30,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data: insertedOrder, error: orderError } = await supabase
-      .from('orders')
-      .insert(orderRow)
-      .select()
-      .single();
-
-    if (orderError) {
-      console.error('OrderRepository.createOrder error:', orderError.message);
-      throw new Error(`Failed to create order: ${orderError.message}`);
-    }
-
-    // Insert order items with snapshots
-    const itemRows = items.map((item, idx) => ({
-      id: item.id || `item_ord_${Date.now()}_${idx}`,
-      order_id: orderId,
-      menu_item_id: item.menuItemId,
-      item_name: item.itemNameSnapshot || 'Item',
-      item_name_snapshot: item.itemNameSnapshot || 'Item',
-      unit_price_tzs: item.priceSnapshot || 0,
-      price_snapshot: item.priceSnapshot || 0,
-      quantity: item.quantity || 1,
-      total_price_tzs: item.subtotal || ((item.priceSnapshot || 0) * (item.quantity || 1)),
-      special_notes: item.specialNotes,
-      selected_modifiers: (item as any).selectedModifiers || (item as any).selected_modifiers || null,
-    }));
-
-    const { data: insertedItems, error: itemsError } = await supabase
-      .from('order_items')
-      .insert(itemRows)
-      .select();
-
-    if (itemsError) {
-      console.error('OrderRepository.createOrder items error:', itemsError.message);
-      throw new Error(`Failed to save order line items: ${itemsError.message}`);
-    }
-
-    return this.mapRowToOrder(
-      insertedOrder,
-      (insertedItems || []).map(this.mapRowToOrderItem)
-    );
+    // Direct table insertion is strictly prohibited. Orders must be created via create_order_secure RPC.
+    throw new Error('Direct table insertion is prohibited. Orders must be created via create_order_secure RPC.');
   }
 
   public static async getOrderById(id: string): Promise<Order | null> {
@@ -353,29 +288,6 @@ export class OrderRepository {
     estimatedPrepMinutes?: number
   ): Promise<Order> {
     return this.transitionRestaurantOrder(orderId, status, cancellationReason, estimatedPrepMinutes);
-  }
-
-  public static async updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus): Promise<Order> {
-    if (!isSupabaseConfigured()) {
-      throw new Error('Supabase client is not configured.');
-    }
-
-    const { data, error } = await supabase
-      .from('orders')
-      .update({
-        payment_status: paymentStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
-      .select('*, order_items(*)')
-      .single();
-
-    if (error) {
-      console.error(`OrderRepository.updatePaymentStatus(${orderId}) error:`, error.message);
-      throw new Error(`Failed to update payment status: ${error.message}`);
-    }
-
-    return this.mapRowToOrder(data);
   }
 
   /**
